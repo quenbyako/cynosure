@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package xelaj.agent.v1alpha1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "tg-helper/contrib/agent-proto/pkg/xelaj/admin/v1alpha1;admin";
+
+service AdminService {
+  rpc AddServer(AddServerRequest) returns (AddServerResponse) {}
+
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+}
+
+message AddServerRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string url = 2 [(buf.validate.field).string.uri = true];
+}
+
+message AddServerResponse {}
+
+message AuthorizeRequest {
+  string server_id = 1 [(buf.validate.field).string.uuid = true];
+  string user_id = 2 [(buf.validate.field).string.uuid = true];
+  string account_name = 3 [(buf.validate.field).string.pattern = '^[a-zA-Z0-9_-]{3,32}$'];
+  string account_desc = 4 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 100
+  }];
+}
+
+message AuthorizeResponse {
+  string link = 1 [(buf.validate.field).string.uri = true];
+}

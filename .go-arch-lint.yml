@@ -1,0 +1,179 @@
+version: 3
+
+allow:
+  deepScan: true
+
+excludeFiles:
+  - ".*_test.go"
+  - "openai/*"
+  - "neural/*"
+  - "main.go"
+
+  # contrib should have each goarchlint rule
+  - "contrib/*"
+
+components:
+  aggregates: { in: "internal/domains/aggregates/*" }
+  components:
+    in:
+      - "internal/domains/components"
+      - "internal/domains/components/ids"
+      - "internal/domains/components/tools"
+      - "internal/domains/components/messages"
+      - "internal/domains/components/oauth"
+
+  entities: { in: "internal/domains/entities" }
+  ports: { in: "internal/domains/ports" }
+  services: { in: "internal/domains/services/*" }
+
+  adapters.mocks: { in: "internal/adapters/mocks" }
+  adapters.gemini: { in: "internal/adapters/gemini" }
+  adapters.zep: { in: "internal/adapters/zep" }
+
+  controllers.a2a: { in: "internal/controllers/a2a" }
+  controllers.admin: { in: "internal/controllers/admin" }
+  controllers.oauth: { in: "internal/controllers/oauth" }
+
+  cmds.tghelper: { in: "cmd/tghelper/*" }
+
+  apps.tghelper: { in: "internal/apps/tghelper" }
+
+vendors:
+  uuid: { in: github.com/google/uuid }
+  oauth: { in: golang.org/x/oauth2 }
+  otel:
+    in:
+      - go.opentelemetry.io/otel/trace
+      - go.opentelemetry.io/otel/trace/noop
+      - go.opentelemetry.io/otel/sdk/resource
+      - go.opentelemetry.io/otel/semconv/*
+      - go.opentelemetry.io/otel/sdk/trace
+  cose:
+    in:
+      - github.com/ldclabs/cose/**
+  network.grpc:
+    in:
+      - buf.build/go/protovalidate
+      - contrib/grpcutils
+      - google.golang.org/grpc
+      - google.golang.org/grpc/reflection
+      - go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+
+  debug_tools:
+    in:
+      - github.com/k0kubun/pp/v3
+
+  mockery:
+    in:
+      - github.com/stretchr/testify/mock
+
+  apis.gemini:
+    in:
+      - google.golang.org/genai
+
+  apis.zep:
+    in:
+      - github.com/getzep/zep-go/v2
+      - github.com/getzep/zep-go/v2/client
+      - github.com/getzep/zep-go/v2/option
+
+  apis.a2a:
+    in:
+      - google.golang.org/a2a
+      - google.golang.org/grpc
+      - google.golang.org/protobuf/types/known/structpb
+      - google.golang.org/protobuf/types/known/emptypb
+
+  apis.admin:
+    in:
+      - tg-helper/contrib/agent-proto/pkg/xelaj/agent/v1alpha1
+
+  apis.oauth:
+    in:
+      - tg-helper/contrib/oauth-openapi/v1/go
+
+commonVendors:
+  - uuid
+  - oauth
+  - otel
+  - cose
+  - debug_tools
+
+deps:
+  components: { mayDependOn: [components] }
+
+  entities:
+    mayDependOn:
+      - components
+
+  ports:
+    mayDependOn:
+      - components
+      - entities
+
+  aggregates:
+    mayDependOn:
+      - components
+      - entities
+      - ports
+
+  services:
+    mayDependOn:
+      - components
+      - entities
+      - aggregates
+      - ports
+
+  adapters.gemini:
+    mayDependOn:
+      - components
+      - entities
+      - ports
+    canUse:
+      - apis.gemini
+
+  adapters.zep:
+    mayDependOn:
+      - components
+      - entities
+      - ports
+    canUse:
+      - apis.zep
+
+  adapters.mocks:
+    mayDependOn:
+      - components
+      - entities
+      - ports
+    canUse:
+      - mockery
+
+  controllers.a2a:
+    mayDependOn:
+      - components
+      - services
+    canUse:
+      - apis.a2a
+
+  controllers.admin:
+    mayDependOn:
+      - components
+      - services
+    canUse:
+      - apis.admin
+
+  apps.tghelper:
+    mayDependOn:
+      - components
+      - services
+      - adapters.gemini
+      - adapters.zep
+      - controllers.a2a
+      - controllers.admin
+      - controllers.oauth
+    canUse:
+      - network.grpc
+
+  cmds.tghelper:
+    mayDependOn:
+      - apps.tghelper

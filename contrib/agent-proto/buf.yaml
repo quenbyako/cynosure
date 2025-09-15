@@ -1,0 +1,37 @@
+version: v2
+deps:
+  - buf.build/bufbuild/protovalidate:v0.14.2
+  - buf.build/googleapis/googleapis
+breaking:
+  use:
+    - FILE
+    - PACKAGE
+    - WIRE_JSON
+    - WIRE
+  except:
+    # Allowed to change for now, cause it's an internal api and we are fully
+    # able to rewrite field names in dependent code.
+    #
+    # However, it's a really important breaking change, so we should remove this
+    # exception later, when all team will learn how to write perfect proto
+    # specs.
+    - FIELD_SAME_NAME
+
+    # Allowed to change: for our flow it's descriptive field and not really has
+    # any effect on change.
+    #
+    # This rule validates that http methods won't change, but we are not using
+    # http for now at all.
+    - RPC_SAME_IDEMPOTENCY_LEVEL
+
+    # Instead of deleting, we are marking it as reserved, two checks are enabled
+    # and must not be skipped:
+    # - FIELD_NO_DELETE_UNLESS_NAME_RESERVED
+    # - FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED
+    - FIELD_NO_DELETE
+lint:
+  use:
+    - STANDARD
+    # - COMMENTS
+
+  enum_zero_value_suffix: _UNSPECIFIED

@@ -1,0 +1,16 @@
+all: false
+packages:
+  tg-helper/internal/domains/ports:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      AccountStorage:
+        config:
+          filename: "account_storage.go"
+      StorageRepository:
+        config:
+          filename: "storage_repository.go"
+      ToolManager:
+        config:
+          filename: "tool_manager.go"

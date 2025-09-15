@@ -1,0 +1,277 @@
+openapi: 3.0.0
+info:
+  title: OAuth2 Client Callback API
+  description: |
+    An API endpoint on a client application to handle the redirect from an
+    OAuth2 authorization server. It receives the authorization code and state.
+  version: 0.1.0
+
+paths:
+  /.well-known/agent-card.json:
+    get:
+      operationId: GetAgentCard
+      summary: Agent Card
+      description: |
+        This endpoint provides the agent card information for A2A agents.
+        It is used to display the client information in the agent card format.
+      parameters:
+        - name: Host
+          in: header
+          required: false
+          description: |
+            The hostname of the server where the agent is running.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success. Returns the agent card information.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - protocolVersion
+                  - name
+                  - description
+                  - url
+                  - version
+                  - capabilities
+                  - defaultInputModes
+                  - defaultOutputModes
+                  - skills
+                additionalProperties: false
+                properties:
+                  protocolVersion:
+                    default: 0.3.0
+                    description: The version of the A2A protocol this agent supports.
+                    type: string
+                  name:
+                    description: A human-readable name for the agent.
+                    examples:
+                      - Recipe Agent
+                    type: string
+                  description:
+                    description: |-
+                      A human-readable description of the agent, assisting users and other agents
+                      in understanding its purpose.
+                    examples:
+                      - Agent that helps users with recipes and cooking.
+                    type: string
+                  url:
+                    description: |-
+                      The preferred endpoint URL for interacting with the agent.
+                      This URL MUST support the transport specified by 'preferredTransport'.
+                    examples:
+                      - https://api.example.com/a2a/v1
+                    type: string
+                  preferredTransport:
+                    default: JSONRPC
+                    description: |-
+                      The transport protocol for the preferred endpoint (the main 'url' field).
+                      If not specified, defaults to 'JSONRPC'.
+
+                      IMPORTANT: The transport specified here MUST be available at the main 'url'.
+                      This creates a binding between the main URL and its supported transport protocol.
+                      Clients should prefer this transport and URL combination when both are supported.
+                    type: string
+                    enum:
+                      - JSONRPC
+                      - GRPC
+                      - HTTP+JSON
+                  version:
+                    description:
+                      The agent's own version number. The format is defined by the
+                      provider.
+                    examples:
+                      - 1.0.0
+                    type: string
+                  capabilities:
+                    "$ref": "#/components/schemas/AgentCapabilities"
+                    description: A declaration of optional capabilities supported by the agent.
+                  defaultInputModes:
+                    description: |-
+                      Default set of supported input MIME types for all skills, which can be
+                      overridden on a per-skill basis.
+                    items:
+                      type: string
+                    type: array
+                  defaultOutputModes:
+                    description: |-
+                      Default set of supported output MIME types for all skills, which can be
+                      overridden on a per-skill basis.
+                    items:
+                      type: string
+                    type: array
+                  skills:
+                    description:
+                      The set of skills, or distinct capabilities, that the agent can
+                      perform.
+                    items:
+                      "$ref": "#/components/schemas/AgentSkill"
+                    type: array
+
+        default:
+          description: Unexpected error.
+          content:
+            text/html: {}
+
+  /oauth/callback:
+    get:
+      summary: Handle OAuth2 redirect
+      description: |
+        This endpoint receives the authorization code and state from the OAuth2
+        provider after a user successfully authenticates. The application should
+        validate the state and then use the code to request an access token from
+        the provider's token endpoint.
+      tags:
+        - Authentication
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: The authorization code generated by the authorization server.
+          schema:
+            type: string
+          example: "SplxlOBeZQQYbYS6WxSbIA"
+        - name: state
+          in: query
+          description: |
+            An opaque value used by the client to maintain state between the
+            request and callback. The client should ensure that this value
+            matches the value sent in the original authorization request.
+          schema:
+            type: string
+          example: "xyz.123.abc.456"
+      responses:
+        "200":
+          description: Success.
+          content:
+            text/html: {}
+        "400":
+          description: Bad Request. The 'state' parameter is invalid or missing, or an error was returned from the provider.
+          content:
+            text/html: {}
+        default:
+          description: Unexpected error.
+          content:
+            text/html: {}
+
+components:
+  schemas:
+    AgentCapabilities:
+      description: Defines optional capabilities supported by an agent.
+      properties:
+        extensions:
+          description: A list of protocol extensions supported by the agent.
+          items:
+            "$ref": "#/components/schemas/AgentExtension"
+          type: array
+        pushNotifications:
+          description:
+            Indicates if the agent supports sending push notifications for
+            asynchronous task updates.
+          type: boolean
+        stateTransitionHistory:
+          description:
+            Indicates if the agent provides a history of state transitions
+            for a task.
+          type: boolean
+        streaming:
+          description:
+            Indicates if the agent supports Server-Sent Events (SSE) for
+            streaming responses.
+          type: boolean
+      type: object
+    AgentExtension:
+      description: A declaration of a protocol extension supported by an Agent.
+      examples:
+        - description: Google OAuth 2.0 authentication
+          required: false
+          uri: https://developers.google.com/identity/protocols/oauth2
+      properties:
+        description:
+          description: A human-readable description of how this agent uses the extension.
+          type: string
+        params:
+          additionalProperties: {}
+          description: Optional, extension-specific configuration parameters.
+          type: object
+        required:
+          description: |-
+            If true, the client must understand and comply with the extension's requirements
+            to interact with the agent.
+          type: boolean
+        uri:
+          description: The unique URI identifying the extension.
+          type: string
+      required:
+        - uri
+      type: object
+    AgentSkill:
+      description: Represents a distinct capability or function that an agent can perform.
+      properties:
+        description:
+          description: |-
+            A detailed description of the skill, intended to help clients or users
+            understand its purpose and functionality.
+          type: string
+        examples:
+          description: |-
+            Example prompts or scenarios that this skill can handle. Provides a hint to
+            the client on how to use the skill.
+          examples:
+            - - I need a recipe for bread
+          items:
+            type: string
+          type: array
+        id:
+          description: A unique identifier for the agent's skill.
+          type: string
+        inputModes:
+          description:
+            The set of supported input MIME types for this skill, overriding
+            the agent's defaults.
+          items:
+            type: string
+          type: array
+        name:
+          description: A human-readable name for the skill.
+          type: string
+        outputModes:
+          description:
+            The set of supported output MIME types for this skill, overriding
+            the agent's defaults.
+          items:
+            type: string
+          type: array
+        security:
+          description: |-
+            Security schemes necessary for the agent to leverage this skill.
+            As in the overall AgentCard.security, this list represents a logical OR of security
+            requirement objects. Each object is a set of security schemes that must be used together
+            (a logical AND).
+          examples:
+            - - google:
+                  - oidc
+          items:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+          type: array
+        tags:
+          description: A set of keywords describing the skill's capabilities.
+          examples:
+            - - cooking
+              - customer support
+              - billing
+          items:
+            type: string
+          type: array
+      required:
+        - description
+        - id
+        - name
+        - tags
+      type: object
