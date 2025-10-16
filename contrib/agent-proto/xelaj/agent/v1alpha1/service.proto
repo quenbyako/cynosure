@@ -4,7 +4,7 @@ package xelaj.agent.v1alpha1;
 
 import "buf/validate/validate.proto";
 
-option go_package = "tg-helper/contrib/agent-proto/pkg/xelaj/admin/v1alpha1;admin";
+option go_package = "github.com/quenbyako/cynosure/contrib/agent-proto/pkg/xelaj/admin/v1alpha1;admin";
 
 service AdminService {
   rpc AddServer(AddServerRequest) returns (AddServerResponse) {}

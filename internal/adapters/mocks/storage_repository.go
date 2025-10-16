@@ -6,9 +6,9 @@ package mocks
 
 import (
 	"context"
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/entities"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 	mock "github.com/stretchr/testify/mock"
 )
 

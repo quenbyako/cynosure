@@ -11,9 +11,9 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"golang.org/x/oauth2"
 
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/components/tools"
-	"tg-helper/internal/domains/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
 )
 
 func (h *Handler) RegisterTools(ctx context.Context, account ids.AccountID, name, description string, token *oauth2.Token) error {

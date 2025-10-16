@@ -6,10 +6,10 @@ package mocks
 
 import (
 	"context"
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/components/tools"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
 	mock "github.com/stretchr/testify/mock"
 	"golang.org/x/oauth2"
 )

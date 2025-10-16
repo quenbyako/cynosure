@@ -32,12 +32,12 @@ func withPipelines(ctx context.Context, p pipeline) context.Context {
 	return context.WithValue(ctx, ctxPipelineKey{}, p)
 }
 
-func pipelineFromContext(ctx context.Context) (pipeline, bool) {
+func pipelineFromContext(ctx context.Context) pipeline {
 	if p, ok := ctx.Value(ctxPipelineKey{}).(pipeline); ok {
-		return p, true
+		return p
 	}
 
-	return defaultPipeline(), false
+	return defaultPipeline()
 }
 
 func isPipeline(in *os.File) bool {

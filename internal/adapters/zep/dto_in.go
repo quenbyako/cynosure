@@ -7,7 +7,7 @@ import (
 
 	"github.com/getzep/zep-go/v2"
 
-	"tg-helper/internal/domains/components/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
 )
 
 func MessageFromZepContent(msg *zep.Message) (res messages.Message, err error) {

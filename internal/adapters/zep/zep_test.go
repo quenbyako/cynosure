@@ -7,10 +7,10 @@ import (
 	"github.com/k0kubun/pp/v3"
 	"github.com/stretchr/testify/require"
 
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/components/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
 
-	. "tg-helper/internal/adapters/zep"
+	. "github.com/quenbyako/cynosure/internal/adapters/zep"
 )
 
 func TestMessageFromZepContent(t *testing.T) {

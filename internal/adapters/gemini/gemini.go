@@ -6,26 +6,29 @@ import (
 	"iter"
 	"math/rand/v2"
 
+	"github.com/quenbyako/cynosure/contrib/onelog"
 	"google.golang.org/genai"
 
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/components/tools"
-	"tg-helper/internal/domains/entities"
-	"tg-helper/internal/domains/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
 )
 
 type ClientConfig = genai.ClientConfig
 
 type GeminiModel struct {
 	client *genai.Client
-	model  string
+	log    onelog.Logger
 
 	thinkingConfig *genai.ThinkingConfig
 }
 
-var _ ports.ChatModel = (*GeminiModel)(nil)
+var _ ports.ChatModelFactory = (*GeminiModel)(nil)
 
-func NewGeminiModel(ctx context.Context, model string, cfg *ClientConfig) (*GeminiModel, error) {
+func (g *GeminiModel) ChatModel() ports.ChatModel { return g }
+
+func NewGeminiModel(ctx context.Context, cfg *ClientConfig) (*GeminiModel, error) {
 	client, err := genai.NewClient(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GenAI client: %w", err)
@@ -33,7 +36,6 @@ func NewGeminiModel(ctx context.Context, model string, cfg *ClientConfig) (*Gemi
 
 	return &GeminiModel{
 		client: client,
-		model:  model,
 		/**/
 		thinkingConfig: &genai.ThinkingConfig{
 			IncludeThoughts: true,
@@ -85,7 +87,7 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 		return nil, fmt.Errorf("failed to convert messages: %w", err)
 	}
 
-	s := g.client.Models.GenerateContentStream(ctx, g.model, converted, genConfig)
+	s := g.client.Models.GenerateContentStream(ctx, settings.Model(), converted, genConfig)
 
 	mergeTag := rand.Uint64()
 

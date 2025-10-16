@@ -9,17 +9,19 @@ import (
 	v2client "github.com/getzep/zep-go/v2/client"
 	option "github.com/getzep/zep-go/v2/option"
 
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/entities"
-	"tg-helper/internal/domains/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
 )
 
 type ZepStorage struct {
 	client *v2client.Client
 }
 
-var _ ports.StorageRepository = (*ZepStorage)(nil)
+var _ ports.StorageRepositoryFactory = (*ZepStorage)(nil)
+
+func (z *ZepStorage) StorageRepository() ports.StorageRepository { return z }
 
 type NewZepStorageOpt = option.RequestOption
 

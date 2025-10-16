@@ -896,7 +896,7 @@ import (
 
 "golang.org/x/oauth2"
 
-"tg-helper/internal/domains/components"
+"tg-helper/internal/domains/cynosure/components"
 
 )
 
@@ -997,7 +997,7 @@ Go
 
      "golang.org/x/oauth2"
 
-     "tg-helper/internal/domains/components"
+     "tg-helper/internal/domains/cynosure/components"
     )
 
     // OnboardingService отвечает за сложный, фоновый процесс добавления

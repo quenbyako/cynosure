@@ -9,8 +9,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/mcp/types"
 
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/components/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
 )
 
 // ExecuteTool implements ports.ToolManager.

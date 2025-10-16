@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	cache "tg-helper/contrib/sf-cache"
+	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
 
 	"github.com/k0kubun/pp/v3"
 	"github.com/mark3labs/mcp-go/client"
@@ -17,8 +17,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"golang.org/x/oauth2"
 
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
 type Handler struct {
@@ -28,7 +28,9 @@ type Handler struct {
 	accounts ports.AccountStorage
 }
 
-var _ ports.ToolManager = (*Handler)(nil)
+var _ ports.ToolManagerFactory = (*Handler)(nil)
+
+func (h *Handler) ToolManager() ports.ToolManager { return h }
 
 func NewHandler(auth ports.OAuthHandler, servers ports.ServerStorage, accounts ports.AccountStorage) *Handler {
 	constructor := func(ctx context.Context, account ids.AccountID) (*asyncClient, error) {
@@ -104,7 +106,7 @@ func newAsyncClient(ctx context.Context, u *url.URL, opts ...sse.ConnectOpt) (*a
 
 	capabilities, err := c.Initialize(ctx, mcp.InitializeParams{
 		ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
-		ClientInfo:      mcp.Implementation{Name: "tg-helper"},
+		ClientInfo:      mcp.Implementation{Name: "cynosure"},
 	})
 	if err != nil {
 		clientCancel()

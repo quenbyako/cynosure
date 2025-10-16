@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/genai"
 
-	"tg-helper/internal/domains/components/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
 )
 
 func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer string, mergeTag uint64) (res []messages.Message, thoughtsLeft string, err error) {

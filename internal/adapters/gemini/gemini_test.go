@@ -6,14 +6,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
 
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/ports/testsuite"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
 
-	. "tg-helper/internal/adapters/gemini"
+	. "github.com/quenbyako/cynosure/internal/adapters/gemini"
 )
 
 func TestGeminiChatModel(t *testing.T) {
-	gem, err := NewGeminiModel(t.Context(), "gemini-2.5-flash", &genai.ClientConfig{
+	gem, err := NewGeminiModel(t.Context(), &genai.ClientConfig{
 		APIKey: "<REDACTED>",
 	})
 	require.NoError(t, err, "Failed to create GenAI client")

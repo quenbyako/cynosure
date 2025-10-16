@@ -1,6 +1,6 @@
 all: false
 packages:
-  tg-helper/internal/domains/ports:
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports:
     config:
       pkgname: "mocks"
       dir: ./internal/adapters/mocks

@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"tg-helper/internal/domains/entities"
-	"tg-helper/internal/domains/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
 type tokenRefresher struct {

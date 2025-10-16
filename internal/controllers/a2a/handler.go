@@ -14,11 +14,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"tg-helper/internal/domains/components"
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/components/tools"
-	"tg-helper/internal/domains/services/chat"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
 type Handler struct {
@@ -104,14 +103,14 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 		must(ids.NewUserID(userID)),
 		threadID,
 		msg,
-		chat.WithToolChoice(components.ToolChoiceAllowed),
+		// chat.WithToolChoice(tools.ToolChoiceAllowed),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	parts := make([]*a2a.Part, 0, len(content))
-	for _, msg := range content {
+	parts := make([]*a2a.Part, 0) // len(content))
+	for msg, _ := range content {
 		switch m := msg.(type) {
 		case messages.MessageAssistant:
 			parts = append(parts, &a2a.Part{
@@ -209,9 +208,27 @@ func (h *Handler) SendStreamingMessage(req *a2a.SendMessageRequest, srv grpc.Ser
 		chat.WithToolChoice(tools.ToolChoiceAllowed),
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	for msg, err := range content {
+		if err != nil {
+			return fmt.Errorf("generating response: %w", err)
+		}
+
+		msg, err := messagesTo(msg)
+		if err != nil {
+			return fmt.Errorf("converting message: %w", err)
+		}
+
+		if err := srv.Send(&a2a.StreamResponse{
+			Payload: &a2a.StreamResponse_Msg{Msg: msg},
+		}); err != nil {
+			return fmt.Errorf("sending message to stream: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // TaskSubscription implements a2a.A2AServiceServer.

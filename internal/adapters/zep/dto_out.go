@@ -7,8 +7,8 @@ import (
 	"github.com/getzep/zep-go/v2"
 	"github.com/k0kubun/pp/v3"
 
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
 )
 
 func chatHistoryEvents(messages []entities.ChatHistoryEvent) (res []*zep.Message, err error) {

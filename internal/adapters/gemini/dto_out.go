@@ -5,8 +5,8 @@ import (
 
 	"google.golang.org/genai"
 
-	"tg-helper/internal/domains/components/messages"
-	"tg-helper/internal/domains/components/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
 )
 
 func messagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err error) {

@@ -7,11 +7,11 @@ import (
 
 	"google.golang.org/grpc"
 
-	admin "tg-helper/contrib/agent-proto/pkg/xelaj/agent/v1alpha1"
+	admin "github.com/quenbyako/cynosure/contrib/agent-proto/pkg/xelaj/agent/v1alpha1"
 
-	"tg-helper/internal/domains/components/ids"
-	"tg-helper/internal/domains/services/accounts"
-	"tg-helper/internal/domains/services/servers"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 )
 
 type Handler struct {

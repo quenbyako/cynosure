@@ -3,35 +3,30 @@ package oauth
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"strings"
 
-	httpapi "tg-helper/contrib/oauth-openapi/v1/go"
+	httpapi "github.com/quenbyako/cynosure/contrib/oauth-openapi/v1/go"
 
-	"tg-helper/internal/domains/services/accounts"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
 
 type Handler struct {
 	srv *accounts.Service
-
-	grpcServer *url.URL
 }
 
 var _ httpapi.Handler = (*Handler)(nil)
 
-func NewHandler(srv *accounts.Service, grpcServer *url.URL) (http.Handler, error) {
+func NewHandler(srv *accounts.Service) http.Handler {
 	h := &Handler{
-		srv:        srv,
-		grpcServer: grpcServer,
+		srv: srv,
 	}
 
 	inner, err := httpapi.NewServer(h)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return inner, nil
-
+	return inner
 }
 
 // GetAgentCard implements httpapi.Handler.
