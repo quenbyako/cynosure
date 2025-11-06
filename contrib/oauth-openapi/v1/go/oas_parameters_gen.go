@@ -14,7 +14,7 @@ import (
 // GetAgentCardParams is parameters of GetAgentCard operation.
 type GetAgentCardParams struct {
 	// The hostname of the server where the agent is running.
-	Host OptString
+	Host OptString `json:",omitempty,omitzero"`
 }
 
 func unpackGetAgentCardParams(packed middleware.Parameters) (params GetAgentCardParams) {
@@ -81,7 +81,7 @@ type OAuthCallbackGetParams struct {
 	// An opaque value used by the client to maintain state between the
 	// request and callback. The client should ensure that this value
 	// matches the value sent in the original authorization request.
-	State OptString
+	State OptString `json:",omitempty,omitzero"`
 }
 
 func unpackOAuthCallbackGetParams(packed middleware.Parameters) (params OAuthCallbackGetParams) {

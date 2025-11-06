@@ -1,0 +1,162 @@
+syntax = "proto3";
+
+package telegram.botapi.v9;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+
+option go_package = "github.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9;botapi";
+
+service WebhookService {
+  rpc SendUpdate (Update) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/update"
+      body: "*"
+    };
+  }
+}
+
+
+
+message Update {
+  int64 update_id = 1 [json_name = "update_id"];
+  oneof update {
+    Message message = 2 [json_name = "message"];
+  }
+}
+
+
+
+message Message {
+  int64 message_id = 1 [json_name = "message_id"];
+  int64 message_thread_id = 2 [json_name = "message_thread_id"];
+  // direct_message_topic
+  optional User from = 4 [json_name = "from"];
+  optional Chat sender_chat = 5 [json_name = "sender_chat"];
+  optional int64 sender_boost_count = 6 [json_name = "sender_boost_count"];
+  optional User sender_business_bot = 7 [json_name = "sender_business_bot"];
+  int64 date = 8 [json_name = "date"];
+  optional string business_connection_id = 9 [json_name = "business_connection_id"];
+  Chat chat = 10 [json_name = "chat"];
+  // forward_origin
+  bool is_topic_message = 12 [json_name = "is_topic_message"];
+  bool is_automatic_forward = 13 [json_name = "is_automatic_forward"];
+  optional Message reply_to_message = 14 [json_name = "reply_to_message"];
+  // external_reply
+  // quote
+  // reply_to_story
+  optional int64 reply_to_checklist_task_id = 18 [json_name = "reply_to_checklist_task_id"];
+  optional User via_bot = 19 [json_name = "via_bot"];
+  optional int64 edit_date = 20 [json_name = "edit_date"];
+  bool has_protected_content = 21 [json_name = "has_protected_content"];
+  bool is_from_online = 22 [json_name = "is_from_online"];
+  bool is_paid_post = 23 [json_name = "is_paid_post"];
+  optional string media_group_id = 24 [json_name = "media_group_id"];
+  optional string author_signature = 25 [json_name = "author_signature"];
+  optional int64 paid_star_count = 26 [json_name = "paid_star_count"];
+  optional string text = 27 [json_name = "text"];
+  // repeated MessageEntity entities = 28 [json_name = "entities"];
+  // optional LinkPreviewOptions link_preview_options           = 29  [json_name = "link_preview_options"];
+  // optional SuggestedPostInfo suggested_post_info             = 30  [json_name = "suggested_post_info"];
+  optional string effect_id                         	       = 32  [json_name = "effect_id"];
+  // optional Animation animation                         	     = 33  [json_name = "animation"];
+  // optional Audio audio                             	         = 34  [json_name = "audio"];
+  // optional Document document                          	     = 35  [json_name = "document"];
+  // optional PaidMediaInfo paid_media                        	 = 36  [json_name = "paid_media"];
+  // repeated PhotoSize photo                                   = 37  [json_name = "photo"];
+  // optional Sticker sticker                           	       = 38  [json_name = "sticker"];
+  // optional Story story                             	         = 39  [json_name = "story"];
+  // optional Video video                             	         = 40  [json_name = "video"];
+  // optional VideoNote video_note                        	     = 41  [json_name = "video_note"];
+  // optional Voice voice                             	         = 42  [json_name = "voice"];
+  optional string caption                           	       = 43  [json_name = "caption"];
+  // repeated MessageEntity caption_entities                  	 = 44  [json_name = "caption_entities"];
+  bool show_caption_above_media                              = 45 [json_name = "show_caption_above_media"];
+  bool has_media_spoiler                                     = 46 [json_name = "has_media_spoiler"];
+  // optional Checklist checklist                               = 47 [json_name = "checklist"];
+  // optional Contact contact                                   = 48 [json_name = "contact"];
+  // optional Dice dice                                         = 49 [json_name = "dice"];
+  // optional Game game                                         = 50 [json_name = "game"];
+  // optional Poll poll                                         = 51 [json_name = "poll"];
+  // optional Venue venue                                       = 52 [json_name = "venue"];
+  // optional Location location                                 = 53 [json_name = "location"];
+  repeated User new_chat_members                             = 54 [json_name = "new_chat_members"];
+  optional User left_chat_member                             = 55 [json_name = "left_chat_member"];
+  optional string new_chat_title                             = 56 [json_name = "new_chat_title"];
+  // repeated PhotoSize new_chat_photo                          = 57 [json_name = "new_chat_photo"];
+  bool delete_chat_photo                                     = 58 [json_name = "delete_chat_photo"];
+  bool group_chat_created                                    = 59 [json_name = "group_chat_created"];
+  bool supergroup_chat_created                               = 60 [json_name = "supergroup_chat_created"];
+  bool channel_chat_created                                  = 61 [json_name = "channel_chat_created"];
+  // optional MessageAutoDeleteTimerChanged message_auto_delete_timer_changed = 62 [json_name = "message_auto_delete_timer_changed"];
+  optional int64 migrate_to_chat_id                                        = 63 [json_name = "migrate_to_chat_id"];
+  optional int64 migrate_from_chat_id                                      = 64 [json_name = "migrate_from_chat_id"];
+  // optional MaybeInaccessibleMessage pinned_message                         = 65 [json_name = "pinned_message"];
+  // optional Invoice invoice                                                 = 66 [json_name = "invoice"];
+  // optional SuccessfulPayment successful_payment                            = 67 [json_name = "successful_payment"];
+  // optional RefundedPayment refunded_payment                                = 68 [json_name = "refunded_payment"];
+  // optional UsersShared users_shared                                        = 69 [json_name = "users_shared"];
+  // optional ChatShared chat_shared                                          = 70 [json_name = "chat_shared"];
+  // optional GiftInfo gift                                                   = 71 [json_name = "gift"];
+  // optional UniqueGiftInfo unique_gift                                      = 72 [json_name = "unique_gift"];
+  optional string connected_website                                        = 73 [json_name = "connected_website"];
+  // optional WriteAccessAllowed write_access_allowed                         = 74 [json_name = "write_access_allowed"];
+  // optional PassportData passport_data                                      = 75 [json_name = "passport_data"];
+  // optional ProximityAlertTriggered proximity_alert_triggered               = 76 [json_name = "proximity_alert_triggered"];
+  // optional ChatBoostAdded boost_added                                      = 77 [json_name = "boost_added"];
+  // optional ChatBackground chat_background_set                              = 78 [json_name = "chat_background_set"];
+  // optional ChecklistTasksDone checklist_tasks_done                         = 79 [json_name = "checklist_tasks_done"];
+  // optional ChecklistTasksAdded checklist_tasks_added                       = 80 [json_name = "checklist_tasks_added"];
+  // optional DirectMessagePriceChanged direct_message_price_changed          = 81 [json_name = "direct_message_price_changed"];
+  // optional ForumTopicCreated forum_topic_created                           = 82 [json_name = "forum_topic_created"];
+  // optional ForumTopicEdited forum_topic_edited                             = 83 [json_name = "forum_topic_edited"];
+  // optional ForumTopicClosed forum_topic_closed                             = 84 [json_name = "forum_topic_closed"];
+  // optional ForumTopicReopened forum_topic_reopened                         = 85 [json_name = "forum_topic_reopened"];
+  // optional GeneralForumTopicHidden general_forum_topic_hidden              = 86 [json_name = "general_forum_topic_hidden"];
+  // optional GeneralForumTopicUnhidden general_forum_topic_unhidden          = 87 [json_name = "general_forum_topic_unhidden"];
+  // optional GiveawayCreated giveaway_created                                = 88 [json_name = "giveaway_created"];
+  // optional Giveaway giveaway                                               = 89 [json_name = "giveaway"];
+  // optional GiveawayWinners giveaway_winners                                = 90 [json_name = "giveaway_winners"];
+  // optional GiveawayCompleted giveaway_completed                            = 91 [json_name = "giveaway_completed"];
+  // optional PaidMessagePriceChanged paid_message_price_changed              = 92 [json_name = "paid_message_price_changed"];
+  // optional SuggestedPostApproved suggested_post_approved                   = 93 [json_name = "suggested_post_approved"];
+  // optional SuggestedPostApprovalFailed suggested_post_approval_failed      = 94 [json_name = "suggested_post_approval_failed"];
+  // optional SuggestedPostDeclined suggested_post_declined                   = 95 [json_name = "suggested_post_declined"];
+  // optional SuggestedPostPaid suggested_post_paid                           = 96 [json_name = "suggested_post_paid"];
+  // optional SuggestedPostRefunded suggested_post_refunded                   = 97 [json_name = "suggested_post_refunded"];
+  // optional VideoChatScheduled video_chat_scheduled                         = 98 [json_name = "video_chat_scheduled"];
+  // optional VideoChatStarted video_chat_started                             = 99 [json_name = "video_chat_started"];
+  // optional VideoChatEnded video_chat_ended                                 = 100 [json_name = "video_chat_ended"];
+  // optional VideoChatParticipantsInvited video_chat_participants_invited    = 101 [json_name = "video_chat_participants_invited"];
+  // optional WebAppData web_app_data                                         = 102 [json_name = "web_app_data"];
+  // optional InlineKeyboardMarkup reply_markup                               = 103 [json_name = "reply_markup"];
+}
+
+message User {
+  int64 id = 1 [json_name = "id"];
+  bool is_bot = 2 [json_name = "is_bot"];
+  string first_name = 3 [json_name = "first_name"];
+  optional string last_name = 4 [json_name = "last_name"];
+  optional string username = 5 [json_name = "username"];
+  optional string language_code = 6 [json_name = "language_code"];
+  bool is_premium = 7 [json_name = "is_premium"];
+  bool added_to_attachment_menu = 8 [json_name = "added_to_attachment_menu"];
+  bool can_join_groups = 9 [json_name = "can_join_groups"];
+  bool can_read_all_group_messages = 10 [json_name = "can_read_all_group_messages"];
+  bool supports_inline_queries = 11 [json_name = "supports_inline_queries"];
+  bool can_connect_to_business = 12 [json_name = "can_connect_to_business"];
+  bool has_main_web_app = 13 [json_name = "has_main_web_app"];
+}
+
+message Chat {
+  int64 id = 1 [json_name = "id"];
+  string type = 2 [json_name = "type"];
+  optional string title = 3 [json_name = "title"];
+  optional string username = 4 [json_name = "username"];
+  optional string first_name = 5 [json_name = "first_name"];
+  optional string last_name = 6 [json_name = "last_name"];
+  bool is_forum = 7 [json_name = "is_forum"];
+  bool is_direct_message = 8 [json_name = "is_direct_message"];
+}

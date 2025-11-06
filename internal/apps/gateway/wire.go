@@ -15,6 +15,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		ports.WirePorts,
 
 		telegramAdapter,
+		a2aAdapter,
 
 		mainUsecase,
 

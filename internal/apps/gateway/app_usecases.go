@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/wire"
 
+	"github.com/quenbyako/cynosure/internal/domains/gateway/ports"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/usecases"
 )
 
@@ -15,6 +16,8 @@ var (
 func newUsecase(
 	ctx context.Context,
 	p *appParams,
+	messenger ports.Messenger,
+	a2a ports.Agent,
 ) (*usecases.Usecase, error) {
-	return &usecases.Usecase{}, nil
+	return usecases.NewUsecase(messenger, a2a), nil
 }

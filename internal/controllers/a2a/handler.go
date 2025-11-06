@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/k0kubun/pp/v3"
@@ -23,14 +22,17 @@ import (
 type Handler struct {
 	a2a.UnsafeA2AServiceServer
 
+	anonymousUser ids.UserID
+
 	srv *chat.Service
 }
 
 var _ a2a.A2AServiceServer = (*Handler)(nil)
 
-func Register(srv *chat.Service) func(server grpc.ServiceRegistrar) {
+func Register(srv *chat.Service, anonUser ids.UserID) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
-		srv: srv,
+		anonymousUser: anonUser,
+		srv:           srv,
 	}
 
 	return func(server grpc.ServiceRegistrar) {
@@ -89,28 +91,25 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 		return nil, fmt.Errorf("creating user message: %w", err)
 	}
 
-	var userID uuid.UUID
-	var threadID string
-	contextParts := strings.SplitN(req.GetRequest().GetContextId(), "/", 2)
-	if len(contextParts) == 2 {
-		userID = uuid.MustParse(contextParts[0])
-		threadID = contextParts[1]
-	} else {
-		return nil, errors.New("invalid context ID")
-	}
+	// оказывается, контекст и есть айдишник чата, пользователя мы берем через
+	// авторизацию, иначе он анонимен.
+
+	// Пока заглушка
+	userID := h.anonymousUser
+	threadID := req.GetRequest().GetContextId()
 
 	content, err := h.srv.GenerateResponse(ctx,
-		must(ids.NewUserID(userID)),
+		userID,
 		threadID,
 		msg,
-		// chat.WithToolChoice(tools.ToolChoiceAllowed),
+		chat.WithToolChoice(tools.ToolChoiceForbidden),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	parts := make([]*a2a.Part, 0) // len(content))
-	for msg, _ := range content {
+	for msg := range content {
 		switch m := msg.(type) {
 		case messages.MessageAssistant:
 			parts = append(parts, &a2a.Part{
@@ -191,15 +190,12 @@ func (h *Handler) SendStreamingMessage(req *a2a.SendMessageRequest, srv grpc.Ser
 		return fmt.Errorf("creating user message: %w", err)
 	}
 
-	var userID uuid.UUID
-	var threadID string
-	contextParts := strings.SplitN(req.GetRequest().GetContextId(), "/", 2)
-	if len(contextParts) == 2 {
-		userID = uuid.MustParse(contextParts[0])
-		threadID = contextParts[1]
-	} else {
-		return errors.New("invalid context ID")
-	}
+	// оказывается, контекст и есть айдишник чата, пользователя мы берем через
+	// авторизацию, иначе он анонимен.
+
+	// Пока заглушка
+	userID := uuid.MustParse("ff06b500-0000-0000-0000-000000000001")
+	threadID := req.GetRequest().GetContextId()
 
 	content, err := h.srv.GenerateResponse(srv.Context(),
 		must(ids.NewUserID(userID)),

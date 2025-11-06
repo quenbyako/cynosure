@@ -3,98 +3,98 @@ package tgbot
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
-	"sync"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/k0kubun/pp/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components/ids"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/entities"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/usecases"
 )
 
-type Client struct {
-	bot  *tgbotapi.BotAPI
-	chat *usecases.Usecase
+type Handler struct {
+	botapi.UnsafeWebhookServiceServer
 
-	wg sync.WaitGroup
+	srv *usecases.Usecase
 }
 
-func New() *Client {
-	bot, err := tgbotapi.NewBotAPI("MyAwesomeBotToken")
-	if err != nil {
-		panic(err)
-	}
-	bot.Debug = true
+var _ botapi.WebhookServiceServer = (*Handler)(nil)
 
-	return &Client{
-		bot: bot,
-	}
-}
-
-func (c *Client) Close() error {
-	c.bot.StopReceivingUpdates()
-	c.wg.Wait()
-	return nil
-}
-
-func (c *Client) Run(ctx context.Context) error {
-	c.wg.Add(1)
-	defer c.wg.Done()
-
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	for upd := range c.bot.GetUpdatesChan(u) {
-		c.process(ctx, &upd)
+func NewHandler(srv *usecases.Usecase) http.Handler {
+	h := &Handler{
+		srv: srv,
 	}
 
-	return nil
+	mux := runtime.NewServeMux()
+
+	// NOTE: context is unused here.
+	if err := botapi.RegisterWebhookServiceHandlerServer(context.TODO(), mux, h); err != nil {
+		panic(fmt.Sprintf("unreachable: %v", err))
+	}
+
+	return mux
+
 }
 
-func (c *Client) process(ctx context.Context, upd *tgbotapi.Update) {
-	switch {
-	case upd.Message != nil:
-		c.processMessage(ctx, upd.Message)
+func (h *Handler) SendUpdate(ctx context.Context, update *botapi.Update) (*emptypb.Empty, error) {
+	pp.Println("Received update:", update.String())
+
+	updateID := update.GetUpdateId()
+	switch upd := update.GetUpdate().(type) {
+	case *botapi.Update_Message:
+		if res, err := h.processMessage(ctx, updateID, upd.Message); err != nil {
+			pp.Println("OOPS!:", err.Error())
+			return nil, err
+		} else {
+			return res, nil
+		}
 	default:
-		fmt.Println("warn: unhandled update")
+		pp.Println("WARNING! unknown event type!")
+		return &emptypb.Empty{}, nil
 	}
+
 }
 
-func (c *Client) processMessage(ctx context.Context, msg *tgbotapi.Message) {
-	if msg.Text == "" {
-		return // Игнорируем пустые сообщения
-	}
-
-	// Отправляем "typing..."
-	_, _ = c.bot.Send(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping))
-
-	channelID, err := ids.NewChannelID("telegram", strconv.FormatInt(msg.Chat.ID, 10))
+func (h *Handler) processMessage(ctx context.Context, _ int64, msg *botapi.Message) (*emptypb.Empty, error) {
+	channelID, err := ids.NewChannelID("telegram", strconv.FormatInt(msg.GetChat().GetId(), 10))
 	if err != nil {
-		panic(err)
+		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("invalid channel id: %v", err).Error())
 	}
 
-	msgID, err := ids.NewMessageID(channelID, strconv.Itoa(msg.MessageID))
+	messageID, err := ids.NewMessageID(channelID, strconv.Itoa(int(msg.GetMessageId())))
 	if err != nil {
-		panic(err)
-	}
-	authorID, err := ids.NewUserID("telegram", strconv.FormatInt(msg.From.ID, 10))
-	if err != nil {
-		panic(err)
+		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("making message id: %w", err).Error())
 	}
 
-	text, err := components.NewMessageText(msg.Text)
+	userID, err := ids.NewUserID("telegram", strconv.FormatInt(msg.GetFrom().GetId(), 10))
 	if err != nil {
-		panic(err)
+		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("making user id: %w", err).Error())
 	}
 
-	message, err := entities.NewMessage(msgID, authorID, entities.WithText(text))
-	if err != nil {
-		panic(err)
+	var messageOptions []entities.NewMessageOption
+	if msg.GetText() != "" {
+		text, err := components.NewMessageText(msg.GetText())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Errorf("invalid message text: %v", err).Error())
+		}
+		messageOptions = append(messageOptions, entities.WithText(text))
 	}
 
-	if err := c.chat.ReceiveNewMessageEvent(ctx, message); err != nil {
-		panic(err)
+	message, err := entities.NewMessage(messageID, userID, messageOptions...)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("making message entity: %w", err).Error())
 	}
+
+	if err := h.srv.ReceiveNewMessageEvent(ctx, message); err != nil {
+		return nil, status.Error(codes.Internal, fmt.Errorf("processing new message: %w", err).Error())
+	}
+
+	return &emptypb.Empty{}, nil
 }

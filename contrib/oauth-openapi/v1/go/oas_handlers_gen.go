@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/go-faster/errors"
-
 	ht "github.com/ogen-go/ogen/http"
 	"github.com/ogen-go/ogen/middleware"
 	"github.com/ogen-go/ogen/ogenerrors"
@@ -54,6 +53,8 @@ func (s *Server) handleGetAgentCardRequest(args [0]string, argsEscaped bool, w h
 		return
 	}
 
+	var rawBody []byte
+
 	var response GetAgentCardRes
 	if m := s.cfg.Middleware; m != nil {
 		mreq := middleware.Request{
@@ -62,6 +63,7 @@ func (s *Server) handleGetAgentCardRequest(args [0]string, argsEscaped bool, w h
 			OperationSummary: "Agent Card",
 			OperationID:      "GetAgentCard",
 			Body:             nil,
+			RawBody:          rawBody,
 			Params: middleware.Parameters{
 				{
 					Name: "Host",
@@ -138,6 +140,8 @@ func (s *Server) handleOAuthCallbackGetRequest(args [0]string, argsEscaped bool,
 		return
 	}
 
+	var rawBody []byte
+
 	var response OAuthCallbackGetRes
 	if m := s.cfg.Middleware; m != nil {
 		mreq := middleware.Request{
@@ -146,6 +150,7 @@ func (s *Server) handleOAuthCallbackGetRequest(args [0]string, argsEscaped bool,
 			OperationSummary: "Handle OAuth2 redirect",
 			OperationID:      "",
 			Body:             nil,
+			RawBody:          rawBody,
 			Params: middleware.Parameters{
 				{
 					Name: "code",

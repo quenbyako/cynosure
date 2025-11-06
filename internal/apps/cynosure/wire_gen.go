@@ -15,7 +15,6 @@ import (
 // Injectors from wire.go:
 
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
-	cynosureLogger := newLogCallbacks(config)
 	zepStorage := newZepStorage(ctx, config)
 	storageRepository := ports.NewStorageRepository(zepStorage)
 	geminiModel, err := newGeminiModel(ctx, config)
@@ -31,7 +30,8 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	primitiveHandler := primitive.NewHandler(oAuthHandler, serverStorage, accountStorage)
 	toolManager := ports.NewToolManager(primitiveHandler)
 	modelSettingsStorage := ports.NewModelSettingsStorage(file)
-	service := newChatUsecase(config, cynosureLogger, storageRepository, chatModel, toolManager, serverStorage, accountStorage, modelSettingsStorage)
+	cynosureLogger := newLogCallbacks(config)
+	service := newChatUsecase(config, storageRepository, chatModel, toolManager, serverStorage, accountStorage, modelSettingsStorage, cynosureLogger)
 	accountsService := newAccountsUsecase(config, serverStorage, oAuthHandler, toolManager)
 	serversService := newServersUsecase(config, serverStorage, oAuthHandler)
 	app, err := newApp(config, service, accountsService, serversService)

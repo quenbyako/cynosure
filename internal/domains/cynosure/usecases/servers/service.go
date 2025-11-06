@@ -11,7 +11,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/services/servers"
+const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 
 type Service struct {
 	oauth   ports.OAuthHandler

@@ -65,6 +65,6 @@ func newGeminiModel(ctx context.Context, p *appParams) (*gemini.GeminiModel, err
 func newOAuthHandler(p *appParams) *oauthClient.Handler {
 	return oauthClient.New(
 		p.oauthScopes,
-		oauthClient.WithTracerProvider(p.trace),
+		oauthClient.WithTracerProvider(p.observability),
 	)
 }

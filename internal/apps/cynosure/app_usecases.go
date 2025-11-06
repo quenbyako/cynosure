@@ -47,7 +47,7 @@ func newAccountsUsecase(
 	tool ports.ToolManager,
 ) *accounts.Service {
 	return accounts.New(storage, oauth, tool,
-		accounts.WithTracerProvider(p.trace),
+		accounts.WithTracerProvider(p.observability),
 	)
 }
 
@@ -57,6 +57,6 @@ func newServersUsecase(
 	oauth ports.OAuthHandler,
 ) *servers.Service {
 	return servers.New(storage, oauth, p.oauthCallback,
-		servers.WithTracerProvider(p.trace),
+		servers.WithTracerProvider(p.observability),
 	)
 }

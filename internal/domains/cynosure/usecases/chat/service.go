@@ -3,7 +3,11 @@ package chat
 import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
+
+const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 
 type Service struct {
 	storage  ports.StorageRepository
@@ -15,7 +19,8 @@ type Service struct {
 
 	defaultModel ids.ModelConfigID
 
-	log LogCallbacks
+	log   LogCallbacks
+	trace trace.Tracer
 }
 
 func New(
@@ -60,6 +65,7 @@ func New(
 
 		defaultModel: defaultModel,
 
-		log: log,
+		log:   log,
+		trace: noop.NewTracerProvider().Tracer(pkgName),
 	}
 }

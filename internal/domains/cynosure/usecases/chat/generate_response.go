@@ -26,6 +26,9 @@ func WithToolChoice(toolChoice tools.ToolChoice) GenerateResponseOpt {
 }
 
 func (s *Service) GenerateResponse(ctx context.Context, user ids.UserID, threadID string, msg messages.MessageUser, opts ...GenerateResponseOpt) (iter.Seq2[messages.Message, error], error) {
+	ctx, span := s.trace.Start(ctx, "Service.GenerateResponse")
+	defer span.End()
+
 	p := generateResponseParams{
 		toolChoice: tools.ToolChoiceForbidden,
 		model:      s.defaultModel,
