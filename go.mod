@@ -26,10 +26,10 @@ require (
 	github.com/nikolalohinski/gonja v1.5.3
 	github.com/ogen-go/ogen v1.16.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/quenbyako/core v0.0.0-20251106194733-d0a6efa36158
-	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20251106193204-40e83f466d34
-	github.com/quenbyako/core/contrib/params/http v0.0.0-20251106193204-40e83f466d34
-	github.com/quenbyako/core/contrib/runtime v0.0.0-20251106193204-40e83f466d34
+	github.com/quenbyako/core v0.0.0-20251029203621-b219435e002c
+	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20251106194733-d0a6efa36158
+	github.com/quenbyako/core/contrib/params/http v0.0.0-20251106194733-d0a6efa36158
+	github.com/quenbyako/core/contrib/runtime v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-00010101000000-000000000000
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f
 	github.com/stretchr/testify v1.11.1
