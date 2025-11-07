@@ -8,8 +8,6 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/k0kubun/pp/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9"
@@ -21,14 +19,16 @@ import (
 
 type Handler struct {
 	botapi.UnsafeWebhookServiceServer
+	log LogCallbacks
 
 	srv *usecases.Usecase
 }
 
 var _ botapi.WebhookServiceServer = (*Handler)(nil)
 
-func NewHandler(srv *usecases.Usecase) http.Handler {
+func NewHandler(logs LogCallbacks, srv *usecases.Usecase) http.Handler {
 	h := &Handler{
+		log: logs,
 		srv: srv,
 	}
 
@@ -49,6 +49,7 @@ func (h *Handler) SendUpdate(ctx context.Context, update *botapi.Update) (*empty
 	updateID := update.GetUpdateId()
 	switch upd := update.GetUpdate().(type) {
 	case *botapi.Update_Message:
+		pp.Println("Processing message")
 		if res, err := h.processMessage(ctx, updateID, upd.Message); err != nil {
 			pp.Println("OOPS!:", err.Error())
 			return nil, err
@@ -65,35 +66,47 @@ func (h *Handler) SendUpdate(ctx context.Context, update *botapi.Update) (*empty
 func (h *Handler) processMessage(ctx context.Context, _ int64, msg *botapi.Message) (*emptypb.Empty, error) {
 	channelID, err := ids.NewChannelID("telegram", strconv.FormatInt(msg.GetChat().GetId(), 10))
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("invalid channel id: %v", err).Error())
+		h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("making channel id: %w", err))
+
+		return &emptypb.Empty{}, nil
 	}
 
 	messageID, err := ids.NewMessageID(channelID, strconv.Itoa(int(msg.GetMessageId())))
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("making message id: %w", err).Error())
+		h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("making message id: %w", err))
+
+		return &emptypb.Empty{}, nil
 	}
 
 	userID, err := ids.NewUserID("telegram", strconv.FormatInt(msg.GetFrom().GetId(), 10))
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("making user id: %w", err).Error())
+		h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("making user id: %w", err))
+
+		return &emptypb.Empty{}, nil
 	}
 
 	var messageOptions []entities.NewMessageOption
 	if msg.GetText() != "" {
 		text, err := components.NewMessageText(msg.GetText())
 		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, fmt.Errorf("invalid message text: %v", err).Error())
+			h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("making message text: %w", err))
+
+			return &emptypb.Empty{}, nil
 		}
 		messageOptions = append(messageOptions, entities.WithText(text))
 	}
 
 	message, err := entities.NewMessage(messageID, userID, messageOptions...)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("making message entity: %w", err).Error())
+		h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("making message entity: %w", err))
+		return &emptypb.Empty{}, nil
 	}
 
+	pp.Println("going to process!")
+
 	if err := h.srv.ReceiveNewMessageEvent(ctx, message); err != nil {
-		return nil, status.Error(codes.Internal, fmt.Errorf("processing new message: %w", err).Error())
+		h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("processing new message: %w", err))
+		return &emptypb.Empty{}, nil
 	}
 
 	return &emptypb.Empty{}, nil

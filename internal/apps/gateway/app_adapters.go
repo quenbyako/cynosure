@@ -38,7 +38,9 @@ func newTelegramAdapter(ctx context.Context, p *appParams) (*telegram.Messenger,
 }
 
 func newA2AAdapter(ctx context.Context, p *appParams) (*a2a.Client, error) {
-	grpcClient, err := grpc.NewClient(p.a2aClient.Host, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	grpcClient, err := grpc.NewClient(p.a2aClient.Host,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("creating grpc client for a2a: %w", err)
 	}

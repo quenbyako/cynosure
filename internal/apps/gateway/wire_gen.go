@@ -14,6 +14,7 @@ import (
 // Injectors from wire.go:
 
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
+	gatewayLogger := newLogCallbacks(config)
 	messenger, err := newTelegramAdapter(ctx, config)
 	if err != nil {
 		return nil, err
@@ -28,7 +29,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app, err := newApp(config, usecase)
+	app, err := newApp(config, gatewayLogger, usecase)
 	if err != nil {
 		return nil, err
 	}

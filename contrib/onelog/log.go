@@ -283,7 +283,7 @@ func (e *event) Dur(key string, d time.Duration) Event           { panic("unimpl
 func (e *event) Durs(key string, d []time.Duration) Event        { panic("unimplemented") }
 func (e *event) EmbedObject(obj LogObjectMarshaler) Event        { panic("unimplemented") }
 func (e *event) Enabled() bool                                   { panic("unimplemented") }
-func (e *event) Err(err error) Event                             { panic("unimplemented") }
+func (e *event) Err(err error) Event                             { return e.AnErr("error", err) }
 func (e *event) Errs(key string, errs []error) Event             { panic("unimplemented") }
 func (e *event) Fields(fields any) Event                         { panic("unimplemented") }
 func (e *event) Float32(key string, f float32) Event             { panic("unimplemented") }

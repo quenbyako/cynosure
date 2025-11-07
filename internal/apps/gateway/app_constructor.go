@@ -84,9 +84,10 @@ func NewApp(ctx context.Context, opts ...AppOpts) *App {
 
 func newApp(
 	p *appParams,
+	log tgbot.LogCallbacks,
 	usecase *usecases.Usecase,
 ) (*App, error) {
-	p.webhookRegistar(tgbot.NewHandler(usecase))
+	p.webhookRegistar(tgbot.NewHandler(log, usecase))
 
 	return &App{
 		log: onelog.Wrap(p.observability),
