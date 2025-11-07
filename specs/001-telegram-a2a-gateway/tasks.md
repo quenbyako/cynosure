@@ -38,15 +38,15 @@
 
 ### Critical Bug Fixes
 
-- [ ] T004 Fix concurrency bug in `internal/domains/gateway/usecases/usecase.go:52` - replace `wg.Go()` with proper goroutine + context handling
-- [ ] T005 Fix channel closure in `internal/domains/gateway/usecases/usecase.go` - add `defer close(textChan)` after goroutine completes
-- [ ] T006 Fix A2A response parsing in `internal/adapters/a2a/client.go:89` - replace `.String()` with proper Part.Text extraction
-- [ ] T007 Add `extractTextFromA2AMessage` helper function in `internal/adapters/a2a/client.go` to parse protobuf Part messages
+- [X] T004 Fix concurrency bug in `internal/domains/gateway/usecases/usecase.go:52` - replace `wg.Go()` with proper goroutine + context handling
+- [X] T005 Fix channel closure in `internal/domains/gateway/usecases/usecase.go` - add `defer close(textChan)` after goroutine completes
+- [X] T006 Fix A2A response parsing in `internal/adapters/a2a/client.go:89` - replace `.String()` with proper Part.Text extraction
+- [X] T007 Add `extractTextFromA2AMessage` helper function in `internal/adapters/a2a/client.go` to parse protobuf Part messages
 
 ### Infrastructure Improvements
 
-- [ ] T008 [P] Add structured logging interface in `internal/controllers/tgbot/logs.go` with `ProcessMessageStart`, `ProcessMessageSuccess`, `ProcessMessageIssue` methods
-- [ ] T009 [P] Create error categorization helper in `internal/domains/gateway/usecases/errors.go` with `userFriendlyError()` function
+- [X] T008 [P] Add structured logging interface in `internal/controllers/tgbot/logs.go` with `ProcessMessageStart`, `ProcessMessageSuccess`, `ProcessMessageIssue` methods
+- [X] T009 [P] Create error categorization helper in `internal/domains/gateway/usecases/errors.go` with `userFriendlyError()` function
 
 **Checkpoint**: Foundation ready - all critical bugs fixed, user story implementation can now begin
 

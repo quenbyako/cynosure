@@ -13,6 +13,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/gateway/ports"
 )
 
+// TODO: add a DTO for Telegram types. For example, maximum message length is
+// not standardized here and not correlated to business logic at all.
 type Messenger struct {
 	api *tgbotapi.BotAPI
 
@@ -62,11 +64,57 @@ func NewMessenger(apiToken string, opts ...NewMessengerOption) (*Messenger, erro
 	}, nil
 }
 
-func (m *Messenger) SendMessage(_ context.Context, channelID ids.ChannelID, text chan components.MessageText) error {
+// SendMessage sends an initial message and returns the message ID for future appends
+func (m *Messenger) SendMessage(ctx context.Context, channelID ids.ChannelID, text components.MessageText) (ids.MessageID, error) {
 	if !channelID.Valid() {
-		return fmt.Errorf("invalid channel id")
+		return ids.MessageID{}, fmt.Errorf("invalid channel id")
 	}
 
+	if provider := channelID.ProviderID(); provider != "telegram" {
+		return ids.MessageID{}, fmt.Errorf("unsupported provider %q, expected %q", provider, "telegram")
+	}
+
+	chatID, err := strconv.ParseInt(channelID.ChannelID(), 10, 64)
+	if err != nil {
+		return ids.MessageID{}, err
+	}
+
+	content := strings.TrimSpace(text.Text())
+	if content == "" {
+		return ids.MessageID{}, fmt.Errorf("cannot send empty message")
+	}
+
+	// Truncate if too long (Telegram limit is 4096)
+	const maxMessageLength = 4080
+	if len(content) > maxMessageLength {
+		content = content[:maxMessageLength] + "...[truncated]"
+	}
+
+	msg := tgbotapi.NewMessage(chatID, content)
+	sent, err := m.api.Send(msg)
+	if err != nil {
+		return ids.MessageID{}, fmt.Errorf("send message: %w", err)
+	}
+
+	// Create message ID from Telegram message ID
+	messageID, err := ids.NewMessageID(
+		channelID,
+		fmt.Sprintf("%d", sent.MessageID),
+	)
+	if err != nil {
+		return ids.MessageID{}, fmt.Errorf("create message id: %w", err)
+	}
+
+	return messageID, nil
+}
+
+// UpdateMessage updates text in an existing message by editing it
+func (m *Messenger) UpdateMessage(ctx context.Context, messageID ids.MessageID, text components.MessageText) error {
+	if !messageID.Valid() {
+		return fmt.Errorf("invalid message id")
+	}
+
+	channelID := messageID.ChannelID()
 	if provider := channelID.ProviderID(); provider != "telegram" {
 		return fmt.Errorf("unsupported provider %q, expected %q", provider, "telegram")
 	}
@@ -76,18 +124,33 @@ func (m *Messenger) SendMessage(_ context.Context, channelID ids.ChannelID, text
 		return err
 	}
 
-	var message string
-	for data := range text {
-		message += data.Text()
+	tgMessageID, err := strconv.Atoi(messageID.String())
+	if err != nil {
+		return fmt.Errorf("invalid telegram message id: %w", err)
 	}
 
-	if message = strings.TrimSpace(message); message == "" {
-		return fmt.Errorf("can't send empty message")
+	content := strings.TrimSpace(text.Text())
+	if content == "" {
+		return nil // Nothing to append
 	}
 
-	_, err = m.api.Send(tgbotapi.NewMessage(chatID, message))
+	// Truncate if too long (Telegram limit is 4096)
+	const maxMessageLength = 4080
+	if len(content) > maxMessageLength {
+		content = content[:maxMessageLength] + "...[truncated]"
+	}
 
-	return err
+	edit := tgbotapi.NewEditMessageText(chatID, tgMessageID, content)
+	_, err = m.api.Send(edit)
+	if err != nil {
+		// Ignore "message is not modified" errors
+		if strings.Contains(err.Error(), "message is not modified") {
+			return nil
+		}
+		return fmt.Errorf("edit message: %w", err)
+	}
+
+	return nil
 }
 
 func (m *Messenger) NotifyProcessingStarted(ctx context.Context, channelID ids.ChannelID) error {

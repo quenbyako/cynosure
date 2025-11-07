@@ -80,7 +80,14 @@ func (c *Client) SendMessage(ctx context.Context, chat ids.MessageID, text compo
 				break
 			}
 
-			msg, err := components.NewMessageText(resp.GetMsg().String())
+			// T006: Extract text from protobuf Part messages properly
+			text, err := extractTextFromA2AMessage(resp.GetMsg())
+			if err != nil {
+				yield(components.MessageText{}, fmt.Errorf("extracting text from a2a message: %w", err))
+				break
+			}
+
+			msg, err := components.NewMessageText(text)
 			if err != nil {
 				yield(components.MessageText{}, fmt.Errorf("invalid message text from a2a: %w", err))
 				break
@@ -93,4 +100,34 @@ func (c *Client) SendMessage(ctx context.Context, chat ids.MessageID, text compo
 		}
 
 	}, nil
+}
+
+// T007: Helper function to extract text from A2A protobuf Part messages
+func extractTextFromA2AMessage(msg *a2a.Message) (string, error) {
+	if msg == nil {
+		return "", fmt.Errorf("message is nil")
+	}
+
+	var result string
+	for _, part := range msg.GetContent() {
+		switch p := part.GetPart().(type) {
+		case *a2a.Part_Text:
+			result += p.Text
+		case *a2a.Part_File:
+			// Skip file parts for text extraction
+			continue
+		case *a2a.Part_Data:
+			// Skip data parts for text extraction
+			continue
+		default:
+			// Unknown part type, skip
+			continue
+		}
+	}
+
+	if result == "" {
+		return "", fmt.Errorf("no text content found in message")
+	}
+
+	return result, nil
 }

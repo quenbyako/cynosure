@@ -4,3 +4,32 @@ plz-out
 .plzconfig.local
 
 *.env
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage.out
+*.coverprofile
+
+# Temporary files
+*.tmp
+*.log
