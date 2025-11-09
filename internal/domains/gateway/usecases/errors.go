@@ -9,7 +9,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// T009: Error categorization helper for user-friendly error messages
+// userFriendlyError converts technical errors into user-friendly messages with emojis.
+// This function categorizes common failure scenarios and provides helpful guidance to users.
+// Used by the gateway usecase to communicate errors clearly to end users via Telegram.
+//
+// Error categories handled:
+// - Context deadline exceeded: Agent timeout
+// - codes.Unavailable: Service temporarily down
+// - codes.ResourceExhausted: Service overloaded
+// - codes.Unauthenticated/PermissionDenied: Access issues
+// - codes.InvalidArgument: Bad input format
+// - Default: Generic error with details
 func userFriendlyError(err error) string {
 	if err == nil {
 		return ""

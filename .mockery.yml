@@ -14,3 +14,11 @@ packages:
       ToolManager:
         config:
           filename: "tool_manager.go"
+  github.com/quenbyako/cynosure/internal/domains/gateway/ports:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Messenger:
+        config:
+          filename: "messenger.go"

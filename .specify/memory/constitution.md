@@ -5,9 +5,9 @@ Modified principles: N/A (initial set)
 Added sections: Core Principles, Additional DDD Constraints & Language, Development Workflow & Complexity Governance, Governance
 Removed sections: None
 Templates requiring updates:
-  .specify/templates/plan-template.md
-  .specify/templates/spec-template.md
-  .specify/templates/tasks-template.md
+   .specify/templates/plan-template.md
+   .specify/templates/spec-template.md
+   .specify/templates/tasks-template.md
 Deferred TODOs: None
 -->
 
@@ -86,6 +86,60 @@ Absence of tests or observability artifacts BLOCKS merge. Complexity
 justification table REQUIRED for any added abstraction beyond principles.
 Rationale: Ensures reliability, accelerates refactoring, and supports production
 diagnostics.
+
+For Golang projects, format of tests should be table-driven whenever it is
+possible. If a test case requires complex setup or multiple steps, helper functions should be used to encapsulate that logic and keep the test cases clean.
+
+Format of table-driven tests SHOULD be as follows:
+
+```go
+import "github.com/stretchr/testify/require"
+
+func TestSomeFeature(t *testing.T) {
+    for _, tt := range []struct {
+        name       string
+        someParam  someType
+        otgerParam int
+        wantErr    require.ErrorAssertionFunc
+    }{{
+        name:       "SomeTestCase",
+        someParam:  someValue,
+        otgerParam: 42,
+    }, {
+        name:       "FailureCase",
+        someParam:  someValue,
+        otgerParam: 1234,
+        wantErr:    require.Error,
+    }} {
+        tt.wantErr = noErrAsDefault(tt.wantErr)
+
+        t.Run(tt.name, func(t *testing.T) {
+            text := tt.text
+            err := s.adapter.UpdateMessage(t.Context(), tt.msgID, text)
+            if tt.wantErr(t, err); err != nil {
+                return
+            }
+        })
+    }
+}
+
+func noErrAsDefault(f require.ErrorAssertionFunc) require.ErrorAssertionFunc {
+    if f != nil {
+        return f
+    }
+
+    return require.NoError
+}
+```
+
+#### Testing port implementations
+
+For each port interface defined in a domain, there MUST be a corresponding
+test suite in `ports/testsuite` that can be embedded into adapter tests to verify compliance with the contract. This ensures that any adapter
+implementing the port can be validated against the expected.
+
+Each test suite MUST provide options to configure necessary parameters
+(e.g., valid IDs, timeouts) to allow reuse across different adapter tests, as well as helper functions for common setup tasks. Test suite SHOULD provide setup functions to provide adapters ability to mock external dependencies if needed.
 
 ## Additional DDD Constraints & Language
 

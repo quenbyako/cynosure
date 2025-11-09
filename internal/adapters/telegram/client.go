@@ -3,10 +3,11 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9"
 
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components/ids"
@@ -17,8 +18,6 @@ import (
 // not standardized here and not correlated to business logic at all.
 type Messenger struct {
 	api *tgbotapi.BotAPI
-
-	user tgbotapi.User
 }
 
 var _ ports.MessengerFactory = (*Messenger)(nil)
@@ -29,38 +28,47 @@ type NewMessengerOption func(*newMessengerParams)
 
 type newMessengerParams struct {
 	webhookParams *tgbotapi.WebhookConfig
+	endpoint      string
+	client        http.RoundTripper
 }
 
 func WithWebhook(webhookParams tgbotapi.WebhookConfig) NewMessengerOption {
 	return func(p *newMessengerParams) { p.webhookParams = &webhookParams }
 }
 
-func NewMessenger(apiToken string, opts ...NewMessengerOption) (*Messenger, error) {
+func WithRoundTripper(rt http.RoundTripper) NewMessengerOption {
+	return func(p *newMessengerParams) { p.client = rt }
+}
+
+func WithEndpoint(endpoint string) NewMessengerOption {
+	return func(p *newMessengerParams) { p.endpoint = endpoint }
+}
+
+func NewMessenger(ctx context.Context, apiToken string, opts ...NewMessengerOption) (*Messenger, error) {
 	p := newMessengerParams{
 		webhookParams: nil,
+		endpoint:      tgbotapi.APIEndpoint,
+		client:        http.DefaultTransport,
 	}
 	for _, opt := range opts {
 		opt(&p)
 	}
 
-	api, err := tgbotapi.NewBotAPI(apiToken)
+	api, err := tgbotapi.NewBotAPIWithClient(ctx, apiToken, p.endpoint, &http.Client{
+		Transport: p.client,
+	})
 	if err != nil {
-		return nil, err
-	}
-	user, err := api.GetMe()
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating a client: %w", err)
 	}
 
 	if p.webhookParams != nil {
-		if _, err := api.Request(p.webhookParams); err != nil {
-			return nil, fmt.Errorf("failed to set webhook: %w", err)
+		if _, err := api.Request(ctx, p.webhookParams); err != nil {
+			return nil, fmt.Errorf("setting webhook: %w", err)
 		}
 	}
 
 	return &Messenger{
-		api:  api,
-		user: user,
+		api: api,
 	}, nil
 }
 
@@ -91,7 +99,7 @@ func (m *Messenger) SendMessage(ctx context.Context, channelID ids.ChannelID, te
 	}
 
 	msg := tgbotapi.NewMessage(chatID, content)
-	sent, err := m.api.Send(msg)
+	sent, err := m.api.Send(ctx, msg)
 	if err != nil {
 		return ids.MessageID{}, fmt.Errorf("send message: %w", err)
 	}
@@ -124,7 +132,7 @@ func (m *Messenger) UpdateMessage(ctx context.Context, messageID ids.MessageID, 
 		return err
 	}
 
-	tgMessageID, err := strconv.Atoi(messageID.String())
+	tgMessageID, err := strconv.Atoi(messageID.MessageID())
 	if err != nil {
 		return fmt.Errorf("invalid telegram message id: %w", err)
 	}
@@ -141,7 +149,7 @@ func (m *Messenger) UpdateMessage(ctx context.Context, messageID ids.MessageID, 
 	}
 
 	edit := tgbotapi.NewEditMessageText(chatID, tgMessageID, content)
-	_, err = m.api.Send(edit)
+	_, err = m.api.Send(ctx, edit)
 	if err != nil {
 		// Ignore "message is not modified" errors
 		if strings.Contains(err.Error(), "message is not modified") {
@@ -163,7 +171,7 @@ func (m *Messenger) NotifyProcessingStarted(ctx context.Context, channelID ids.C
 		return err
 	}
 
-	_, err = m.api.Request(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
+	_, err = m.api.Request(ctx, tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
 	return err
 
 }

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package telegram.botapi.v9;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+import "message.proto";
+
+
+option go_package = "github.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9;botapi";
+
+service TelegramService {
+  rpc SendMessage (SendMessageRequest) returns (Message) {
+    option (google.api.http) = {
+      post: "/v9/{bot_token=bot*}/sendMessage"
+      body: "*"
+    };
+  }
+}
+
+message SendMessageRequest {
+  string bot_token = 1 [(buf.validate.field).string = {min_len: 1}];
+  int64 chat_id = 2;
+  string text = 3 [(buf.validate.field).string = {min_len: 1}];
+}

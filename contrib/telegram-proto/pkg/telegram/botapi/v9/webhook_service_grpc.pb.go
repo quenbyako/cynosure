@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: telegram/botapi/v9/service.proto
+// source: webhook_service.proto
 
 package botapi
 
@@ -118,5 +118,5 @@ var WebhookService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "telegram/botapi/v9/service.proto",
+	Metadata: "webhook_service.proto",
 }

@@ -9,8 +9,6 @@ import (
 
 	"google.golang.org/a2a"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components/ids"
@@ -35,6 +33,10 @@ func NewClient(client grpc.ClientConnInterface) *Client {
 
 func (c *Client) Agent() ports.Agent { return c }
 
+// SendMessage sends a message to the A2A agent and returns a streaming iterator of response chunks.
+// Context preservation (T056-T059): The channel ID (chat.ChannelID()) is used as the A2A context_id,
+// ensuring that all messages from the same Telegram chat maintain conversation context.
+// This enables multi-turn conversations where the agent remembers previous messages.
 func (c *Client) SendMessage(ctx context.Context, chat ids.MessageID, text components.MessageText) (iter.Seq2[components.MessageText, error], error) {
 	if !chat.Valid() {
 		return nil, fmt.Errorf("invalid chat id")
@@ -43,31 +45,36 @@ func (c *Client) SendMessage(ctx context.Context, chat ids.MessageID, text compo
 		return nil, fmt.Errorf("invalid message text")
 	}
 
+	// T056-T058: Use channel ID as context_id for context preservation across messages
+	// This ensures that all messages from the same Telegram chat (channelID) maintain
+	// the same conversation context in the A2A agent, enabling multi-turn conversations.
+	contextID := chat.ChannelID().String()
+	messageID := chat.String()
+
+	// T058: Validate context_id consistency per channel
+	if contextID == "" {
+		return nil, fmt.Errorf("context_id cannot be empty")
+	}
+	if messageID == "" {
+		return nil, fmt.Errorf("message_id cannot be empty")
+	}
+
 	response, err := c.client.SendStreamingMessage(ctx, &a2a.SendMessageRequest{
 		Request: &a2a.Message{
-			MessageId: chat.String(),
-			ContextId: chat.ChannelID().String(),
+			MessageId: messageID, // T057: Unique message identifier
+			ContextId: contextID, // T056: Channel-based context for multi-turn conversations
 			Role:      a2a.Role_ROLE_USER,
 			Content: []*a2a.Part{{
 				Part: &a2a.Part_Text{Text: text.Text()},
 			}},
 		},
 	})
-	if st, ok := status.FromError(err); ok {
-		if st.Code() == codes.Unavailable {
-			return func(yield func(components.MessageText, error) bool) {
-				yield(components.NewMessageText(fmt.Sprintf("A2A service is unavailable - please check your connection configuration: %v", err)))
-			}, nil
-		}
-	} else if err != nil {
+	// T049: Handle A2A errors gracefully - return error to be handled by usecase
+	if err != nil {
 		return nil, fmt.Errorf("sending message to a2a: %w", err)
 	}
 
 	return func(yield func(components.MessageText, error) bool) {
-		// TODO: DO NOT FORGET IN ANY CASE ABOUT STOPPING OF SERVER!!! this is
-		// extremely important to cancel this goroutine properly when we are
-		// stopping whole application
-
 		for {
 			resp, err := response.Recv()
 			if errors.Is(err, io.EOF) {

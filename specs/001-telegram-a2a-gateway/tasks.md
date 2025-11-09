@@ -60,15 +60,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Update `internal/domains/gateway/usecases/usecase.go:ReceiveNewMessageEvent` to use context cancellation pattern with `defer cancel()`
-- [ ] T011 [US1] Update goroutine in `internal/domains/gateway/usecases/usecase.go` to properly handle context cancellation with `select` statement
-- [ ] T012 [US1] Ensure `NotifyProcessingStarted` is called before forwarding message to A2A in `usecase.go`
-- [ ] T013 [US1] Update A2A client iterator in `internal/adapters/a2a/client.go` to properly parse Part.Text fields from protobuf
-- [ ] T014 [US1] Add error handling in `internal/adapters/a2a/client.go` iterator for io.EOF and streaming errors
-- [ ] T015 [US1] Update `internal/adapters/telegram/client.go:SendMessage` to consume channel until closed (basic version, no streaming yet)
-- [ ] T016 [US1] Add validation in `internal/adapters/telegram/client.go` for channelID provider (must be "telegram")
-- [ ] T017 [US1] Replace debug prints (`pp.Println`) in `internal/controllers/tgbot/controller.go` with structured logging calls
-- [ ] T018 [US1] Add logging callbacks instantiation in `internal/apps/gateway/app_constructor.go` with observability integration
+- [X] T010 [US1] Update `internal/domains/gateway/usecases/usecase.go:ReceiveNewMessageEvent` to use context cancellation pattern with `defer cancel()`
+- [X] T011 [US1] Update goroutine in `internal/domains/gateway/usecases/usecase.go` to properly handle context cancellation with `select` statement
+- [X] T012 [US1] Ensure `NotifyProcessingStarted` is called before forwarding message to A2A in `usecase.go`
+- [X] T013 [US1] Update A2A client iterator in `internal/adapters/a2a/client.go` to properly parse Part.Text fields from protobuf
+- [X] T014 [US1] Add error handling in `internal/adapters/a2a/client.go` iterator for io.EOF and streaming errors
+- [X] T015 [US1] Update `internal/adapters/telegram/client.go:SendMessage` to consume channel until closed (basic version, no streaming yet)
+- [X] T016 [US1] Add validation in `internal/adapters/telegram/client.go` for channelID provider (must be "telegram")
+- [X] T017 [US1] Replace debug prints (`pp.Println`) in `internal/controllers/tgbot/controller.go` with structured logging calls
+- [X] T018 [US1] Add logging callbacks instantiation in `internal/apps/gateway/app_constructor.go` with observability integration
 
 ### Contract Tests for User Story 1
 
@@ -96,14 +96,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Rewrite `internal/adapters/telegram/client.go:SendMessage` to implement time-based batching with `time.Ticker`
-- [ ] T028 [US2] Add initial message send logic in `SendMessage` - send first chunk immediately as new message
-- [ ] T029 [US2] Implement streaming update loop in `SendMessage` with 3-second ticker for periodic edits
-- [ ] T030 [US2] Add `editMessage` helper function in `internal/adapters/telegram/client.go` to handle message editing
-- [ ] T031 [US2] Handle "message is not modified" errors gracefully in `editMessage` (ignore these errors)
-- [ ] T032 [US2] Add final update logic when text channel closes in `SendMessage`
-- [ ] T033 [US2] Add message length validation in `SendMessage` - truncate at 4090 chars with "...[truncated]" indicator
-- [ ] T034 [US2] Implement context cancellation handling in streaming loop with `select` statement
+- [X] T027 [US2] Rewrite `internal/adapters/telegram/client.go:SendMessage` to implement time-based batching with `time.Ticker`
+- [X] T028 [US2] Add initial message send logic in `SendMessage` - send first chunk immediately as new message
+- [X] T029 [US2] Implement streaming update loop in `SendMessage` with 3-second ticker for periodic edits
+- [X] T030 [US2] Add `editMessage` helper function in `internal/adapters/telegram/client.go` to handle message editing
+- [X] T031 [US2] Handle "message is not modified" errors gracefully in `editMessage` (ignore these errors)
+- [X] T032 [US2] Add final update logic when text channel closes in `SendMessage`
+- [X] T033 [US2] Add message length validation in `SendMessage` - truncate at 4090 chars with "...[truncated]" indicator
+- [X] T034 [US2] Implement context cancellation handling in streaming loop with `select` statement
 
 ### Contract Tests for User Story 2
 
@@ -129,15 +129,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] Implement `userFriendlyError` function in `internal/domains/gateway/usecases/errors.go` with error categorization
-- [ ] T042 [US3] Add error case for `context.DeadlineExceeded` returning "⏱ The agent is taking too long to respond..."
-- [ ] T043 [US3] Add error case for `codes.Unavailable` returning "🔌 The agent service is temporarily unavailable..."
-- [ ] T044 [US3] Add default error case returning "❌ An unexpected error occurred..."
-- [ ] T045 [US3] Update `internal/domains/gateway/usecases/usecase.go` to call `userFriendlyError` on A2A errors
-- [ ] T046 [US3] Send error notifications to users via `client.SendMessage` with friendly error text
-- [ ] T047 [US3] Update goroutine error handling in `usecase.go` to send errors to user instead of logging silently
-- [ ] T048 [US3] Add error logging in `internal/controllers/tgbot/controller.go` using `ProcessMessageIssue` callback
-- [ ] T049 [US3] Handle A2A unavailable errors gracefully in `internal/adapters/a2a/client.go` with status code checking
+- [X] T041 [US3] Implement `userFriendlyError` function in `internal/domains/gateway/usecases/errors.go` with error categorization
+- [X] T042 [US3] Add error case for `context.DeadlineExceeded` returning "⏱ The agent is taking too long to respond..."
+- [X] T043 [US3] Add error case for `codes.Unavailable` returning "🔌 The agent service is temporarily unavailable..."
+- [X] T044 [US3] Add default error case returning "❌ An unexpected error occurred..."
+- [X] T045 [US3] Update `internal/domains/gateway/usecases/usecase.go` to call `userFriendlyError` on A2A errors
+- [X] T046 [US3] Send error notifications to users via `client.SendMessage` with friendly error text
+- [X] T047 [US3] Update goroutine error handling in `usecase.go` to send errors to user instead of logging silently
+- [X] T048 [US3] Add error logging in `internal/controllers/tgbot/controller.go` using `ProcessMessageIssue` callback
+- [X] T049 [US3] Handle A2A unavailable errors gracefully in `internal/adapters/a2a/client.go` with status code checking
 
 ### Contract Tests for User Story 3
 
@@ -163,20 +163,20 @@
 
 ### Implementation for User Story 4
 
-- [ ] T056 [US4] Verify `internal/adapters/a2a/client.go` uses `chat.ChannelID().String()` as `context_id` in A2A request
-- [ ] T057 [US4] Verify `internal/adapters/a2a/client.go` uses `chat.String()` as `message_id` in A2A request
-- [ ] T058 [US4] Add validation in `internal/adapters/a2a/client.go` to ensure context_id consistency per channel
-- [ ] T059 [US4] Document context preservation behavior in code comments
+- [X] T056 [US4] Verify `internal/adapters/a2a/client.go` uses `chat.ChannelID().String()` as `context_id` in A2A request
+- [X] T057 [US4] Verify `internal/adapters/a2a/client.go` uses `chat.String()` as `message_id` in A2A request
+- [X] T058 [US4] Add validation in `internal/adapters/a2a/client.go` to ensure context_id consistency per channel
+- [X] T059 [US4] Document context preservation behavior in code comments
 
 ### Contract Tests for User Story 4
 
-- [ ] T060 [P] [US4] Add `TestAgentContract_ContextPreservation` test in `tests/contract/agent_contract_test.go` verifying context_id usage
-- [ ] T061 [P] [US4] Add `TestAgentContract_MultipleChannels` test verifying different channels have different contexts
+- [X] T060 [P] [US4] Add `TestAgentContract_ContextPreservation` test in `tests/contract/agent_contract_test.go` verifying context_id usage
+- [X] T061 [P] [US4] Add `TestAgentContract_MultipleChannels` test verifying different channels have different contexts
 
 ### Unit Tests for User Story 4
 
-- [ ] T062 [P] [US4] Add `TestA2AClient_ContextMapping` test in `tests/unit/a2a_client_test.go`
-- [ ] T063 [P] [US4] Add `TestUsecase_ContextIsolation` test in `tests/unit/usecase_test.go`
+- [X] T062 [P] [US4] Add `TestA2AClient_ContextMapping` test in `tests/unit/a2a_client_test.go`
+- [X] T063 [P] [US4] Add `TestUsecase_ContextIsolation` test in `tests/unit/usecase_test.go`
 
 **Checkpoint**: User Story 4 complete - conversations maintain context across messages
 
@@ -188,11 +188,11 @@
 
 ### Code Quality & Documentation
 
-- [ ] T064 [P] Remove all `pp.Println` debug statements replaced with structured logging
-- [ ] T065 [P] Add godoc comments to all public functions in `internal/domains/gateway/`
+- [X] T064 [P] Remove all `pp.Println` debug statements replaced with structured logging
+- [X] T065 [P] Add godoc comments to all public functions in `internal/domains/gateway/`
 - [ ] T066 [P] Update README.md with gateway setup instructions (if exists)
-- [ ] T067 [P] Add inline code comments explaining streaming logic in `telegram/client.go`
-- [ ] T068 [P] Add inline code comments explaining concurrency patterns in `usecase.go`
+- [X] T067 [P] Add inline code comments explaining streaming logic in `telegram/client.go`
+- [X] T068 [P] Add inline code comments explaining concurrency patterns in `usecase.go`
 
 ### Integration Testing
 

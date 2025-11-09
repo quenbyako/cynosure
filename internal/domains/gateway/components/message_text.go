@@ -1,5 +1,7 @@
 package components
 
+import "errors"
+
 type MessageText struct {
 	text string
 
@@ -21,6 +23,13 @@ func NewMessageText(text string) (MessageText, error) {
 
 func (m MessageText) Valid() bool { return m.valid || m.validate() == nil }
 func (m MessageText) validate() error {
+	if m.text == "" {
+		return errors.New("empty text")
+	}
+	if len(m.text) > 8000 {
+		return errors.New("text exceeds maximum length")
+	}
+
 	return nil
 }
 

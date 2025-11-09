@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/k0kubun/pp/v3"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9"
@@ -44,20 +44,16 @@ func NewHandler(logs LogCallbacks, srv *usecases.Usecase) http.Handler {
 }
 
 func (h *Handler) SendUpdate(ctx context.Context, update *botapi.Update) (*emptypb.Empty, error) {
-	pp.Println("Received update:", update.String())
-
 	updateID := update.GetUpdateId()
 	switch upd := update.GetUpdate().(type) {
 	case *botapi.Update_Message:
-		pp.Println("Processing message")
 		if res, err := h.processMessage(ctx, updateID, upd.Message); err != nil {
-			pp.Println("OOPS!:", err.Error())
 			return nil, err
 		} else {
 			return res, nil
 		}
 	default:
-		pp.Println("WARNING! unknown event type!")
+		// Unknown update type, ignore
 		return &emptypb.Empty{}, nil
 	}
 
@@ -102,12 +98,18 @@ func (h *Handler) processMessage(ctx context.Context, _ int64, msg *botapi.Messa
 		return &emptypb.Empty{}, nil
 	}
 
-	pp.Println("going to process!")
+	// T017: Log message processing start with structured logging
+	h.log.ProcessMessageStart(ctx, msg.GetChat().GetId(), msg.GetText())
+	startTime := time.Now()
 
 	if err := h.srv.ReceiveNewMessageEvent(ctx, message); err != nil {
 		h.log.ProcessMessageIssue(ctx, msg.GetChat().GetId(), fmt.Errorf("processing new message: %w", err))
 		return &emptypb.Empty{}, nil
 	}
+
+	// T017: Log successful completion with duration
+	duration := time.Since(startTime)
+	h.log.ProcessMessageSuccess(ctx, msg.GetChat().GetId(), duration.String())
 
 	return &emptypb.Empty{}, nil
 }

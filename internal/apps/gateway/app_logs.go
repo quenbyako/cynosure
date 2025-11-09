@@ -48,6 +48,34 @@ func (l *logger) ProcessMessageIssue(ctx context.Context, channelID int64, err e
 		Msg("Can't consume message for chat")
 }
 
+// T018: Add ProcessMessageStart for structured logging
+func (l *logger) ProcessMessageStart(ctx context.Context, channelID int64, messageText string) {
+	l.log.Info().
+		Str("event_type", eventProcessingMessage).
+		Any("context",
+			map[string]any{
+				"channel_id":   channelID,
+				"message_text": messageText,
+				"status":       "started",
+			},
+		).
+		Msg("Started processing message")
+}
+
+// T018: Add ProcessMessageSuccess for structured logging
+func (l *logger) ProcessMessageSuccess(ctx context.Context, channelID int64, duration string) {
+	l.log.Info().
+		Str("event_type", eventProcessingMessage).
+		Any("context",
+			map[string]any{
+				"channel_id": channelID,
+				"duration":   duration,
+				"status":     "success",
+			},
+		).
+		Msg("Successfully processed message")
+}
+
 func (l *logger) EffectiveEnvironment(env map[string]string) {
 	l.log.Info().
 		Str("event_type", eventEffectiveEnvironment).
