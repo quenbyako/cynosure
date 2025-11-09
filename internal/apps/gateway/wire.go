@@ -14,6 +14,8 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	panic(wire.Build(
 		ports.WirePorts,
 
+		loggerConstructor,
+
 		telegramAdapter,
 		a2aAdapter,
 

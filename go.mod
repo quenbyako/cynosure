@@ -8,6 +8,8 @@ replace github.com/mark3labs/mcp-go => ./contrib/mcp-go
 
 replace github.com/quenbyako/cynosure/contrib/telegram-proto => ./contrib/telegram-proto
 
+replace github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 => ./contrib/telegram-bot-api
+
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1
 	github.com/getkin/kin-openapi v0.133.0
@@ -20,6 +22,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/henvic/httpretty v0.1.4
 	github.com/k0kubun/pp/v3 v3.5.0
 	github.com/ldclabs/cose v1.3.2
 	github.com/mark3labs/mcp-go v0.36.0
@@ -30,6 +33,7 @@ require (
 	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/params/http v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/runtime v0.0.0-20251106194733-d0a6efa36158
+	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-00010101000000-000000000000
 	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-00010101000000-000000000000
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f
 	github.com/stretchr/testify v1.11.1

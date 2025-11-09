@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: telegram/botapi/v9/service.proto
+// source: message.proto
 
 package botapi
 
@@ -11,7 +11,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	_ "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -23,80 +23,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-type Update struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	UpdateId int64                  `protobuf:"varint,1,opt,name=update_id,proto3" json:"update_id,omitempty"`
-	// Types that are valid to be assigned to Update:
-	//
-	//	*Update_Message
-	Update        isUpdate_Update `protobuf_oneof:"update"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Update) Reset() {
-	*x = Update{}
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Update) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Update) ProtoMessage() {}
-
-func (x *Update) ProtoReflect() protoreflect.Message {
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Update.ProtoReflect.Descriptor instead.
-func (*Update) Descriptor() ([]byte, []int) {
-	return file_telegram_botapi_v9_service_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Update) GetUpdateId() int64 {
-	if x != nil {
-		return x.UpdateId
-	}
-	return 0
-}
-
-func (x *Update) GetUpdate() isUpdate_Update {
-	if x != nil {
-		return x.Update
-	}
-	return nil
-}
-
-func (x *Update) GetMessage() *Message {
-	if x != nil {
-		if x, ok := x.Update.(*Update_Message); ok {
-			return x.Message
-		}
-	}
-	return nil
-}
-
-type isUpdate_Update interface {
-	isUpdate_Update()
-}
-
-type Update_Message struct {
-	Message *Message `protobuf:"bytes,2,opt,name=message,proto3,oneof"`
-}
-
-func (*Update_Message) isUpdate_Update() {}
 
 type Message struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -178,7 +104,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[1]
+	mi := &file_message_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -190,7 +116,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[1]
+	mi := &file_message_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -203,7 +129,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_telegram_botapi_v9_service_proto_rawDescGZIP(), []int{1}
+	return file_message_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Message) GetMessageId() int64 {
@@ -479,7 +405,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[2]
+	mi := &file_message_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -491,7 +417,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[2]
+	mi := &file_message_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -504,7 +430,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_telegram_botapi_v9_service_proto_rawDescGZIP(), []int{2}
+	return file_message_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *User) GetId() int64 {
@@ -614,7 +540,7 @@ type Chat struct {
 
 func (x *Chat) Reset() {
 	*x = Chat{}
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[3]
+	mi := &file_message_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -626,7 +552,7 @@ func (x *Chat) String() string {
 func (*Chat) ProtoMessage() {}
 
 func (x *Chat) ProtoReflect() protoreflect.Message {
-	mi := &file_telegram_botapi_v9_service_proto_msgTypes[3]
+	mi := &file_message_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -639,7 +565,7 @@ func (x *Chat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chat.ProtoReflect.Descriptor instead.
 func (*Chat) Descriptor() ([]byte, []int) {
-	return file_telegram_botapi_v9_service_proto_rawDescGZIP(), []int{3}
+	return file_message_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Chat) GetId() int64 {
@@ -698,15 +624,11 @@ func (x *Chat) GetIsDirectMessage() bool {
 	return false
 }
 
-var File_telegram_botapi_v9_service_proto protoreflect.FileDescriptor
+var File_message_proto protoreflect.FileDescriptor
 
-const file_telegram_botapi_v9_service_proto_rawDesc = "" +
+const file_message_proto_rawDesc = "" +
 	"\n" +
-	" telegram/botapi/v9/service.proto\x12\x12telegram.botapi.v9\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\"i\n" +
-	"\x06Update\x12\x1c\n" +
-	"\tupdate_id\x18\x01 \x01(\x03R\tupdate_id\x127\n" +
-	"\amessage\x18\x02 \x01(\v2\x1b.telegram.botapi.v9.MessageH\x00R\amessageB\b\n" +
-	"\x06update\"\x9c\x11\n" +
+	"\rmessage.proto\x12\x12telegram.botapi.v9\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\"\x9c\x11\n" +
 	"\aMessage\x12\x1e\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\x03R\n" +
@@ -810,76 +732,65 @@ const file_telegram_botapi_v9_service_proto_rawDesc = "" +
 	"\t_usernameB\r\n" +
 	"\v_first_nameB\f\n" +
 	"\n" +
-	"_last_name2f\n" +
-	"\x0eWebhookService\x12T\n" +
-	"\n" +
-	"SendUpdate\x12\x1a.telegram.botapi.v9.Update\x1a\x16.google.protobuf.Empty\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\"\a/updateBTZRgithub.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9;botapib\x06proto3"
+	"_last_nameBTZRgithub.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9;botapib\x06proto3"
 
 var (
-	file_telegram_botapi_v9_service_proto_rawDescOnce sync.Once
-	file_telegram_botapi_v9_service_proto_rawDescData []byte
+	file_message_proto_rawDescOnce sync.Once
+	file_message_proto_rawDescData []byte
 )
 
-func file_telegram_botapi_v9_service_proto_rawDescGZIP() []byte {
-	file_telegram_botapi_v9_service_proto_rawDescOnce.Do(func() {
-		file_telegram_botapi_v9_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_telegram_botapi_v9_service_proto_rawDesc), len(file_telegram_botapi_v9_service_proto_rawDesc)))
+func file_message_proto_rawDescGZIP() []byte {
+	file_message_proto_rawDescOnce.Do(func() {
+		file_message_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_message_proto_rawDesc), len(file_message_proto_rawDesc)))
 	})
-	return file_telegram_botapi_v9_service_proto_rawDescData
+	return file_message_proto_rawDescData
 }
 
-var file_telegram_botapi_v9_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_telegram_botapi_v9_service_proto_goTypes = []any{
-	(*Update)(nil),        // 0: telegram.botapi.v9.Update
-	(*Message)(nil),       // 1: telegram.botapi.v9.Message
-	(*User)(nil),          // 2: telegram.botapi.v9.User
-	(*Chat)(nil),          // 3: telegram.botapi.v9.Chat
-	(*emptypb.Empty)(nil), // 4: google.protobuf.Empty
+var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_message_proto_goTypes = []any{
+	(*Message)(nil), // 0: telegram.botapi.v9.Message
+	(*User)(nil),    // 1: telegram.botapi.v9.User
+	(*Chat)(nil),    // 2: telegram.botapi.v9.Chat
 }
-var file_telegram_botapi_v9_service_proto_depIdxs = []int32{
-	1,  // 0: telegram.botapi.v9.Update.message:type_name -> telegram.botapi.v9.Message
-	2,  // 1: telegram.botapi.v9.Message.from:type_name -> telegram.botapi.v9.User
-	3,  // 2: telegram.botapi.v9.Message.sender_chat:type_name -> telegram.botapi.v9.Chat
-	2,  // 3: telegram.botapi.v9.Message.sender_business_bot:type_name -> telegram.botapi.v9.User
-	3,  // 4: telegram.botapi.v9.Message.chat:type_name -> telegram.botapi.v9.Chat
-	1,  // 5: telegram.botapi.v9.Message.reply_to_message:type_name -> telegram.botapi.v9.Message
-	2,  // 6: telegram.botapi.v9.Message.via_bot:type_name -> telegram.botapi.v9.User
-	2,  // 7: telegram.botapi.v9.Message.new_chat_members:type_name -> telegram.botapi.v9.User
-	2,  // 8: telegram.botapi.v9.Message.left_chat_member:type_name -> telegram.botapi.v9.User
-	0,  // 9: telegram.botapi.v9.WebhookService.SendUpdate:input_type -> telegram.botapi.v9.Update
-	4,  // 10: telegram.botapi.v9.WebhookService.SendUpdate:output_type -> google.protobuf.Empty
-	10, // [10:11] is the sub-list for method output_type
-	9,  // [9:10] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+var file_message_proto_depIdxs = []int32{
+	1, // 0: telegram.botapi.v9.Message.from:type_name -> telegram.botapi.v9.User
+	2, // 1: telegram.botapi.v9.Message.sender_chat:type_name -> telegram.botapi.v9.Chat
+	1, // 2: telegram.botapi.v9.Message.sender_business_bot:type_name -> telegram.botapi.v9.User
+	2, // 3: telegram.botapi.v9.Message.chat:type_name -> telegram.botapi.v9.Chat
+	0, // 4: telegram.botapi.v9.Message.reply_to_message:type_name -> telegram.botapi.v9.Message
+	1, // 5: telegram.botapi.v9.Message.via_bot:type_name -> telegram.botapi.v9.User
+	1, // 6: telegram.botapi.v9.Message.new_chat_members:type_name -> telegram.botapi.v9.User
+	1, // 7: telegram.botapi.v9.Message.left_chat_member:type_name -> telegram.botapi.v9.User
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
-func init() { file_telegram_botapi_v9_service_proto_init() }
-func file_telegram_botapi_v9_service_proto_init() {
-	if File_telegram_botapi_v9_service_proto != nil {
+func init() { file_message_proto_init() }
+func file_message_proto_init() {
+	if File_message_proto != nil {
 		return
 	}
-	file_telegram_botapi_v9_service_proto_msgTypes[0].OneofWrappers = []any{
-		(*Update_Message)(nil),
-	}
-	file_telegram_botapi_v9_service_proto_msgTypes[1].OneofWrappers = []any{}
-	file_telegram_botapi_v9_service_proto_msgTypes[2].OneofWrappers = []any{}
-	file_telegram_botapi_v9_service_proto_msgTypes[3].OneofWrappers = []any{}
+	file_message_proto_msgTypes[0].OneofWrappers = []any{}
+	file_message_proto_msgTypes[1].OneofWrappers = []any{}
+	file_message_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_telegram_botapi_v9_service_proto_rawDesc), len(file_telegram_botapi_v9_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_message_proto_rawDesc), len(file_message_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   3,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   0,
 		},
-		GoTypes:           file_telegram_botapi_v9_service_proto_goTypes,
-		DependencyIndexes: file_telegram_botapi_v9_service_proto_depIdxs,
-		MessageInfos:      file_telegram_botapi_v9_service_proto_msgTypes,
+		GoTypes:           file_message_proto_goTypes,
+		DependencyIndexes: file_message_proto_depIdxs,
+		MessageInfos:      file_message_proto_msgTypes,
 	}.Build()
-	File_telegram_botapi_v9_service_proto = out.File
-	file_telegram_botapi_v9_service_proto_goTypes = nil
-	file_telegram_botapi_v9_service_proto_depIdxs = nil
+	File_message_proto = out.File
+	file_message_proto_goTypes = nil
+	file_message_proto_depIdxs = nil
 }

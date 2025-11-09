@@ -1,5 +1,7 @@
 package ids
 
+import "errors"
+
 type ChannelID struct {
 	providerID string
 	channelID  string // either chat or channel
@@ -23,6 +25,13 @@ func NewChannelID(providerID, channelID string) (ChannelID, error) {
 
 func (m ChannelID) Valid() bool { return m.valid || m.validate() == nil }
 func (m ChannelID) validate() error {
+	if m.providerID == "" {
+		return errors.New("empty provider ID")
+	}
+	if m.channelID == "" {
+		return errors.New("empty channel ID")
+	}
+
 	return nil
 }
 

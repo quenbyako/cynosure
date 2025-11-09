@@ -1,21 +1,24 @@
 version: v2
+inputs:
+  - directory: telegram/botapi/v9
+
 plugins:
   - local: protoc-gen-go
-    out: pkg
+    out: pkg/telegram/botapi/v9
     opt:
       - paths=source_relative
   - local: protoc-gen-go-grpc
-    out: pkg
+    out: pkg/telegram/botapi/v9
     opt:
       - paths=source_relative
   - local: protoc-gen-doc
-    out: ./doc/proto
+    out: doc/proto/telegram/botapi/v9
     opt:
       - markdown
       - docs.md
       - source_relative
   - local: protoc-gen-grpc-gateway
-    out: pkg
+    out: pkg/telegram/botapi/v9
     opt:
       - paths=source_relative
       - generate_unbound_methods=true

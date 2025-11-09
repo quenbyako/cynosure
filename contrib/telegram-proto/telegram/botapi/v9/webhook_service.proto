@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package telegram.botapi.v9;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+import "message.proto";
+
+option go_package = "github.com/quenbyako/cynosure/contrib/telegram-proto/pkg/telegram/botapi/v9;botapi";
+
+service WebhookService {
+  rpc SendUpdate (Update) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/"
+      body: "*"
+    };
+  }
+}
+
+
+
+message Update {
+  int64 update_id = 1 [json_name = "update_id"];
+  oneof update {
+    Message message = 2 [json_name = "message"];
+  }
+}
+
+

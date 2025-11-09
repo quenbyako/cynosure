@@ -3,11 +3,18 @@
 
 ## Table of Contents
 
-- [telegram/botapi/v9/service.proto](#telegram_botapi_v9_service-proto)
+- [message.proto](#message-proto)
     - [Chat](#telegram-botapi-v9-Chat)
     - [Message](#telegram-botapi-v9-Message)
-    - [Update](#telegram-botapi-v9-Update)
     - [User](#telegram-botapi-v9-User)
+  
+- [api_service.proto](#api_service-proto)
+    - [SendMessageRequest](#telegram-botapi-v9-SendMessageRequest)
+  
+    - [TelegramService](#telegram-botapi-v9-TelegramService)
+  
+- [webhook_service.proto](#webhook_service-proto)
+    - [Update](#telegram-botapi-v9-Update)
   
     - [WebhookService](#telegram-botapi-v9-WebhookService)
   
@@ -15,10 +22,10 @@
 
 
 
-<a name="telegram_botapi_v9_service-proto"></a>
+<a name="message-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
-## telegram/botapi/v9/service.proto
+## message.proto
 
 
 
@@ -96,22 +103,6 @@ optional WriteAccessAllowed write_access_allowed = 74 [json_name = &#34;write_ac
 
 
 
-<a name="telegram-botapi-v9-Update"></a>
-
-### Update
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| update_id | [int64](#int64) |  |  |
-| message | [Message](#telegram-botapi-v9-Message) |  |  |
-
-
-
-
-
-
 <a name="telegram-botapi-v9-User"></a>
 
 ### User
@@ -133,6 +124,81 @@ optional WriteAccessAllowed write_access_allowed = 74 [json_name = &#34;write_ac
 | supports_inline_queries | [bool](#bool) |  |  |
 | can_connect_to_business | [bool](#bool) |  |  |
 | has_main_web_app | [bool](#bool) |  |  |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+ 
+
+
+
+<a name="api_service-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## api_service.proto
+
+
+
+<a name="telegram-botapi-v9-SendMessageRequest"></a>
+
+### SendMessageRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| bot_token | [string](#string) |  |  |
+| chat_id | [int64](#int64) |  |  |
+| text | [string](#string) |  |  |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="telegram-botapi-v9-TelegramService"></a>
+
+### TelegramService
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| SendMessage | [SendMessageRequest](#telegram-botapi-v9-SendMessageRequest) | [Message](#telegram-botapi-v9-Message) |  |
+
+ 
+
+
+
+<a name="webhook_service-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## webhook_service.proto
+
+
+
+<a name="telegram-botapi-v9-Update"></a>
+
+### Update
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| update_id | [int64](#int64) |  |  |
+| message | [Message](#telegram-botapi-v9-Message) |  |  |
 
 
 
