@@ -33,3 +33,5 @@ coverage.out
 # Temporary files
 *.tmp
 *.log
+
+dist/

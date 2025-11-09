@@ -1,0 +1,55 @@
+# Docker ignore file to reduce build context size and improve build speed
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Documentation
+*.md
+docs/
+specs/
+.specify/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+*_test.go
+testdata/
+test/
+tests/
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+cynosure
+
+# Go
+vendor/
+
+# Environment files (never include in image)
+*.env
+secrets.env
+.env.*
+
+# CI/CD
+.github/workflows/
+
+# Temporary files
+tmp/
+temp/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
