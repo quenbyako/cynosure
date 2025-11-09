@@ -15,8 +15,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/gateway/ports"
 )
 
-// RunMessengerTests runs tests for the given adapter. These tests are predefined
-// and recommended to be used for ANY adapter implementation.
+// RunMessengerTests runs tests for the given adapter. These tests are
+// predefined and recommended to be used for ANY adapter implementation.
 //
 // After constructing test function, just run it through `run(t)` call,
 // everything else will be handled for you. Calling this function through
@@ -59,12 +59,14 @@ func WithTimeout(timeout time.Duration) MessengerSuiteOption {
 }
 
 func WithChannel(provider, channel string) MessengerSuiteOption {
-	return func(s *MessengerTestSuite) { must(ids.NewChannelID(provider, channel)) }
+	return func(s *MessengerTestSuite) {
+		s.channel = must(ids.NewChannelID(provider, channel))
+	}
 }
 
-// ============================================================================
+// =========================================================================
 // Test Helpers & Mocks
-// ============================================================================
+// =========================================================================
 
 func (s *MessengerTestSuite) invalidChannel() ids.ChannelID {
 	return ids.ChannelID{} // empty/invalid
@@ -92,9 +94,9 @@ func (s *MessengerTestSuite) longText() components.MessageText {
 	return must(components.NewMessageText(strings.Repeat("B", 5000)))
 }
 
-// ============================================================================
+// =========================================================================
 // Category 1: Basic Functionality Tests
-// ============================================================================
+// =========================================================================
 
 // TestSendMessage - P0 Critical
 func (s *MessengerTestSuite) TestSendMessage(t *testing.T) {
@@ -138,7 +140,9 @@ func (s *MessengerTestSuite) TestSendMessage(t *testing.T) {
 	}, {
 		name:      "SpecialCharacters",
 		channelID: s.channel,
-		text:      must(components.NewMessageText("Special chars: <>&\"'`*_[]()~#+-=|{}.!")),
+		text: must(components.NewMessageText(
+			"Special chars: <>&\"'`*_[]()~#+-=|{}.!",
+		)),
 	}, {
 		name:      "Newlines",
 		channelID: s.channel,
@@ -155,7 +159,7 @@ func (s *MessengerTestSuite) TestSendMessage(t *testing.T) {
 		},
 		wantErr: requireErrorIs(context.DeadlineExceeded),
 	}} {
-		tt.wantErr = noErrAsDefault(tt.wantErr)
+		tt.wantErr = noErrIfNil(tt.wantErr)
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
 			if tt.contextMiddleware != nil {
@@ -169,7 +173,10 @@ func (s *MessengerTestSuite) TestSendMessage(t *testing.T) {
 
 			require.NoError(t, err)
 			require.True(t, messageID.Valid())
-			require.Equal(t, tt.channelID.String(), messageID.ChannelID().String())
+			require.Equal(t,
+				tt.channelID.String(),
+				messageID.ChannelID().String(),
+			)
 		})
 	}
 }
@@ -191,7 +198,7 @@ func (s *MessengerTestSuite) TestUpdateMessage(t *testing.T) {
 		text:    must(components.NewMessageText("Some text")),
 		wantErr: require.Error,
 	}} {
-		tt.wantErr = noErrAsDefault(tt.wantErr)
+		tt.wantErr = noErrIfNil(tt.wantErr)
 
 		t.Run(tt.name, func(t *testing.T) {
 			text := tt.text
@@ -231,9 +238,9 @@ func (s *MessengerTestSuite) TestNotifyProcessingStarted(t *testing.T) {
 	}
 }
 
-// ============================================================================
+// =========================================================================
 // Category 3: Provider Validation Tests
-// ============================================================================
+// =========================================================================
 
 // TestSendMessage_Providers
 func (s *MessengerTestSuite) TestSendMessage_Providers(t *testing.T) {
@@ -254,26 +261,36 @@ func (s *MessengerTestSuite) TestSendMessage_Providers(t *testing.T) {
 		// providers
 		wantErr: require.Error,
 	}} {
-		tt.wantErr = noErrAsDefault(tt.wantErr)
+		tt.wantErr = noErrIfNil(tt.wantErr)
 
 		t.Run(tt.name, func(t *testing.T) {
-			messageID, err := s.adapter.SendMessage(t.Context(), tt.channel, s.shortText())
+			messageID, err := s.adapter.SendMessage(
+				t.Context(),
+				tt.channel,
+				s.shortText(),
+			)
 			if tt.wantErr(t, err); err != nil {
 				return
 			}
 
-			require.Equal(t, tt.channel.ProviderID(), messageID.ChannelID().ProviderID())
-			require.Equal(t, tt.channel.ChannelID(), messageID.ChannelID().ChannelID())
+			require.Equal(t,
+				tt.channel.ProviderID(),
+				messageID.ChannelID().ProviderID(),
+			)
+			require.Equal(t,
+				tt.channel.ChannelID(),
+				messageID.ChannelID().ChannelID(),
+			)
 		})
 	}
 }
 
-// ============================================================================
+// =========================================================================
 // Helper Functions
-// ============================================================================
+// =========================================================================
 
 func requireErrorIs[T error](err T) require.ErrorAssertionFunc {
-	return func(t require.TestingT, actual error, msgAndArgs ...interface{}) {
+	return func(t require.TestingT, actual error, msgAndArgs ...any) {
 		if t, ok := t.(interface{ Helper() }); ok {
 			t.Helper()
 		}
@@ -282,7 +299,7 @@ func requireErrorIs[T error](err T) require.ErrorAssertionFunc {
 	}
 }
 
-func noErrAsDefault(f require.ErrorAssertionFunc) require.ErrorAssertionFunc {
+func noErrIfNil(f require.ErrorAssertionFunc) require.ErrorAssertionFunc {
 	if f != nil {
 		return f
 	}

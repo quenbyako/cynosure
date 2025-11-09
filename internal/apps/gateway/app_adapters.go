@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/wire"
+	tgbotapi "github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -32,9 +32,13 @@ func newTelegramAdapter(ctx context.Context, p *appParams) (*telegram.Messenger,
 		return nil, fmt.Errorf("getting token for telegram: %w", err)
 	}
 
-	return telegram.NewMessenger(string(token), telegram.WithWebhook(tgbotapi.WebhookConfig{
-		URL: p.webhookAddr,
-	}))
+	return telegram.NewMessenger(
+		ctx,
+		string(token),
+		telegram.WithWebhook(tgbotapi.WebhookConfig{
+			URL: p.webhookAddr,
+		}),
+	)
 }
 
 func newA2AAdapter(ctx context.Context, p *appParams) (*a2a.Client, error) {

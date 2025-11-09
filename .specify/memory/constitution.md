@@ -111,7 +111,7 @@ func TestSomeFeature(t *testing.T) {
         otgerParam: 1234,
         wantErr:    require.Error,
     }} {
-        tt.wantErr = noErrAsDefault(tt.wantErr)
+        tt.wantErr = noErrIfNil(tt.wantErr)
 
         t.Run(tt.name, func(t *testing.T) {
             text := tt.text
@@ -123,7 +123,7 @@ func TestSomeFeature(t *testing.T) {
     }
 }
 
-func noErrAsDefault(f require.ErrorAssertionFunc) require.ErrorAssertionFunc {
+func noErrIfNil(f require.ErrorAssertionFunc) require.ErrorAssertionFunc {
     if f != nil {
         return f
     }
@@ -140,6 +140,13 @@ implementing the port can be validated against the expected.
 
 Each test suite MUST provide options to configure necessary parameters
 (e.g., valid IDs, timeouts) to allow reuse across different adapter tests, as well as helper functions for common setup tasks. Test suite SHOULD provide setup functions to provide adapters ability to mock external dependencies if needed.
+
+#### Test structure
+
+Each test MUST be placed near the feature implementation, or definition. For
+example, port contract tests MUST be in the same package as the port definition,
+adapter- or controller-specific tests MUST be in the same package as the adapter
+or controller implementation.
 
 ## Additional DDD Constraints & Language
 

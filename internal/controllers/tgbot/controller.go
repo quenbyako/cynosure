@@ -98,7 +98,6 @@ func (h *Handler) processMessage(ctx context.Context, _ int64, msg *botapi.Messa
 		return &emptypb.Empty{}, nil
 	}
 
-	// T017: Log message processing start with structured logging
 	h.log.ProcessMessageStart(ctx, msg.GetChat().GetId(), msg.GetText())
 	startTime := time.Now()
 
@@ -107,7 +106,6 @@ func (h *Handler) processMessage(ctx context.Context, _ int64, msg *botapi.Messa
 		return &emptypb.Empty{}, nil
 	}
 
-	// T017: Log successful completion with duration
 	duration := time.Since(startTime)
 	h.log.ProcessMessageSuccess(ctx, msg.GetChat().GetId(), duration.String())
 

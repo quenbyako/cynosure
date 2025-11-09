@@ -2,8 +2,12 @@ package usecases
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components/ids"
@@ -11,15 +15,16 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/gateway/ports"
 )
 
-// Usecase orchestrates the message flow between Telegram messenger and A2A agent.
-// It implements streaming response handling with time-based batching for optimal UX.
+// Usecase orchestrates the message flow between Telegram messenger and A2A
+// agent. It implements streaming response handling with time-based batching for
+// optimal UX.
 type Usecase struct {
 	client ports.Messenger
 	a2a    ports.Agent
 }
 
-// NewUsecase creates a new gateway usecase with the provided messenger client and A2A agent.
-// Both parameters are required and will panic if nil.
+// NewUsecase creates a new gateway usecase with the provided messenger client
+// and A2A agent. Both parameters are required and will panic if nil.
 func NewUsecase(
 	client ports.Messenger,
 	a2a ports.Agent,
@@ -37,14 +42,15 @@ func NewUsecase(
 	}
 }
 
-// ReceiveNewMessageEvent processes an incoming message from a messenger platform.
-// It forwards the message to the A2A agent and streams the response back to the user
-// with time-based batching (updates every 3 seconds) to avoid excessive API calls.
-// Error handling: Sends user-friendly error messages for common failures (timeout, unavailable, etc.)
+// ReceiveNewMessageEvent processes an incoming message from a messenger
+// platform. It forwards the message to the A2A agent and streams the response
+// back to the user with time-based batching (updates every 3 seconds) to avoid
+// excessive API calls. Error handling: Sends user-friendly error messages for
+// common failures (timeout, unavailable, etc.)
 func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Message) error {
 	text, ok := msg.Text()
 	if !ok {
-		return nil // Игнорируем сообщения без текста
+		return nil // ignoring non-text messages
 	}
 
 	if err := u.client.NotifyProcessingStarted(ctx, msg.ID().ChannelID()); err != nil {
@@ -53,7 +59,6 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 
 	resp, err := u.a2a.SendMessage(ctx, msg.ID(), text)
 	if err != nil {
-		// T045-T046: Send user-friendly error message to user
 		friendlyMsg := userFriendlyError(err)
 		if friendlyText, textErr := components.NewMessageText(friendlyMsg); textErr == nil {
 			_, _ = u.client.SendMessage(ctx, msg.ID().ChannelID(), friendlyText)
@@ -61,10 +66,10 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 		return fmt.Errorf("failed to process message via a2a: %w", err)
 	}
 
-	// Streaming Response Handling with Time-Based Batching (T067-T068)
+	// Streaming Response Handling with Time-Based Batching
 	//
-	// This implementation accumulates text chunks from the A2A agent and sends updates
-	// to Telegram with intelligent throttling to avoid:
+	// This implementation accumulates text chunks from the A2A agent and sends
+	// updates to Telegram with intelligent throttling to avoid:
 	// - Excessive Telegram API calls (rate limiting)
 	// - Poor UX with constant "message edited" notifications
 	// - Unnecessary network overhead
@@ -74,17 +79,11 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 	// 2. Batch subsequent updates every 3 seconds
 	// 3. Send final update when stream completes
 	// 4. Handle errors gracefully with user notifications
-	//
-	// Concurrency Pattern (T068):
-	// - Single goroutine per message (no explicit goroutines in this method)
-	// - Context cancellation propagates to A2A client and Telegram adapter
-	// - No channel usage (synchronous iterator pattern from A2A adapter)
 
 	var sentMessageID ids.MessageID
 	var accumulated string
 	lastUpdateTime := time.Now()
 
-	// Time-based batching: update message every 3 seconds (T027-T034)
 	const updateInterval = 3 * time.Second
 
 	// Track if we need to send a final update
@@ -93,7 +92,6 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 	// Consume streaming response with batched updates
 	for part, err := range resp {
 		if err != nil {
-			// T047: Send user-friendly error to user instead of just returning
 			friendlyMsg := userFriendlyError(err)
 			if friendlyText, textErr := components.NewMessageText(friendlyMsg); textErr == nil {
 				if sentMessageID.Valid() {
@@ -126,7 +124,7 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 			continue
 		}
 
-		// Check if enough time has passed for an update (T029, T034)
+		// Check if enough time has passed for an update
 		now := time.Now()
 		if now.Sub(lastUpdateTime) >= updateInterval {
 			fullText, err := components.NewMessageText(accumulated)
@@ -140,7 +138,6 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 			needsFinalUpdate = false
 		}
 
-		// Check for context cancellation (T034)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -149,7 +146,6 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 		}
 	}
 
-	// Send final update if there's accumulated text since last update (T032)
 	if needsFinalUpdate && sentMessageID.Valid() {
 		fullText, err := components.NewMessageText(accumulated)
 		if err != nil {
@@ -161,4 +157,51 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 	}
 
 	return nil
+}
+
+// TODO: STRICTLY NECESSARY to move this part into localization package later
+//
+// userFriendlyError converts technical errors into user-friendly messages with emojis.
+// This function categorizes common failure scenarios and provides helpful guidance to users.
+// Used by the gateway usecase to communicate errors clearly to end users via Telegram.
+//
+// Error categories handled:
+// - Context deadline exceeded: Agent timeout
+// - codes.Unavailable: Service temporarily down
+// - codes.ResourceExhausted: Service overloaded
+// - codes.Unauthenticated/PermissionDenied: Access issues
+// - codes.InvalidArgument: Bad input format
+// - Default: Generic error with details
+func userFriendlyError(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	// Check for context deadline exceeded
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "⏱ The agent is taking too long to respond. Please try again later."
+	}
+
+	// Check for gRPC status errors
+	if st, ok := status.FromError(err); ok {
+		switch st.Code() {
+		case codes.Unavailable:
+			return "🔌 The agent service is temporarily unavailable. Please try again in a few moments."
+		case codes.DeadlineExceeded:
+			return "⏱ The agent is taking too long to respond. Please try again later."
+		case codes.Canceled:
+			return "🚫 The request was canceled. Please try again."
+		case codes.ResourceExhausted:
+			return "⚠️ The service is currently overloaded. Please try again in a few moments."
+		case codes.Unauthenticated:
+			return "🔐 Authentication failed. Please check your credentials."
+		case codes.PermissionDenied:
+			return "🚫 You don't have permission to perform this action."
+		case codes.InvalidArgument:
+			return "❌ Invalid message format. Please check your input."
+		}
+	}
+
+	// Default error message
+	return fmt.Sprintf("❌ An unexpected error occurred: %v", err)
 }

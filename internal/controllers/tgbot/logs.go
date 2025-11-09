@@ -4,7 +4,6 @@ import (
 	"context"
 )
 
-// T008: Enhanced structured logging interface for message processing observability
 type LogCallbacks interface {
 	ProcessMessageStart(ctx context.Context, channelID int64, messageText string)
 	ProcessMessageSuccess(ctx context.Context, channelID int64, duration string)
