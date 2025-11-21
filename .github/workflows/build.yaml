@@ -1,0 +1,56 @@
+﻿name: Build Go Application
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+on: [push]
+jobs:
+  build:
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout to the commit
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+
+      - name: Restore cached dependencies
+        id: cache-dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ hashFiles('**/go.sum') }}
+      - name: Download dependencies
+        if: steps.cache-dependencies.outputs.cache-hit != 'true'
+        run: go mod download
+      - name: Generate code
+        run: go generate ./...
+      - name: Build binary
+        run: go build -o ./dist/cynosure-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/cynosure
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+
+      - name: Save Dependencies
+        id: cache-dependencies-save
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ steps.cache-dependencies.outputs.cache-primary-key }}
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: cynosure-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ./dist/cynosure-${{ matrix.goos }}-${{ matrix.goarch }}

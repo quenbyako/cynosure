@@ -2,6 +2,12 @@ module github.com/quenbyako/cynosure
 
 go 1.25.1
 
+tool (
+	github.com/google/wire/cmd/wire
+	github.com/ogen-go/ogen/cmd/ogen
+	golang.org/x/tools/cmd/stringer
+)
+
 replace google.golang.org/a2a => ./contrib/a2aproto/a2a/v1
 
 replace github.com/mark3labs/mcp-go => ./contrib/mcp-go
@@ -15,7 +21,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/getzep/zep-go/v2 v2.22.0
 	github.com/go-faster/errors v0.7.1
-	github.com/go-faster/jx v1.1.0
+	github.com/go-faster/jx v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
@@ -28,27 +34,27 @@ require (
 	github.com/nikolalohinski/gonja v1.5.3
 	github.com/ogen-go/ogen v1.16.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/quenbyako/core v0.0.0-20251029203621-b219435e002c
+	github.com/quenbyako/core v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/params/http v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/runtime v0.0.0-20251106194733-d0a6efa36158
-	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-00010101000000-000000000000
-	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-00010101000000-000000000000
+	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-20251109183352-3bbd4df2b5f5
+	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-20251109183352-3bbd4df2b5f5
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel/trace v1.38.0
-	golang.org/x/oauth2 v0.32.0
+	golang.org/x/oauth2 v0.33.0
 	google.golang.org/a2a v0.0.0-00010101000000-000000000000
-	google.golang.org/genai v1.32.0
-	google.golang.org/grpc v1.76.0
+	google.golang.org/genai v1.36.0
+	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	buf.build/go/protovalidate v1.0.0 // indirect
-	cel.dev/expr v0.24.0 // indirect
+	buf.build/go/protovalidate v1.0.1 // indirect
+	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
@@ -70,17 +76,18 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-openapi/jsonpointer v0.22.1 // indirect
-	github.com/go-openapi/swag/jsonname v0.25.1 // indirect
+	github.com/go-openapi/jsonpointer v0.22.3 // indirect
+	github.com/go-openapi/swag/jsonname v0.25.3 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
+	github.com/google/subcommands v1.2.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/gowebpki/jcs v1.0.1 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -91,7 +98,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/hashicorp/vault/api v1.22.0 // indirect
-	github.com/hashicorp/vault/api/auth/cert v0.0.0-20251105230221-af5b9c4058ea // indirect
+	github.com/hashicorp/vault/api/auth/cert v0.0.0-20251120210323-6d2152c84e70 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -113,10 +120,10 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.2 // indirect
+	github.com/prometheus/common v0.67.3 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
-	github.com/prometheus/procfs v0.19.1 // indirect
-	github.com/quenbyako/core/contrib/secrets v0.0.0-20251029203621-b219435e002c // indirect
+	github.com/prometheus/procfs v0.19.2 // indirect
+	github.com/quenbyako/core/contrib/secrets v0.0.0-20251106194733-d0a6efa36158 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
@@ -143,17 +150,18 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
+	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
-	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/net v0.46.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6 // indirect
+	golang.org/x/mod v0.30.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251103181224-f26f9409b101 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251103181224-f26f9409b101 // indirect
+	golang.org/x/tools v0.39.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251111163417-95abcf5c77ba // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

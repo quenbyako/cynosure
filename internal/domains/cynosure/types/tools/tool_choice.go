@@ -5,7 +5,7 @@ import "github.com/quenbyako/cynosure/internal/domains/cynosure/types"
 // ToolChoice controls how the model calls tools (if any). By default, tools are
 // forbidden.
 //
-//go:generate stringer -type=ToolChoice -linecomment -output=tool_choice_string.gen.go
+//go:generate go tool stringer -type=ToolChoice -linecomment -output=tool_choice_string.gen.go
 type ToolChoice uint8
 
 const (
