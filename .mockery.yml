@@ -8,6 +8,12 @@ packages:
       AccountStorage:
         config:
           filename: "account_storage.go"
+      OAuthHandler:
+        config:
+          filename: "oauth_handler.go"
+      ServerStorage:
+        config:
+          filename: "server_storage.go"
       StorageRepository:
         config:
           filename: "storage_repository.go"

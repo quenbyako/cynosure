@@ -17,6 +17,7 @@ jobs:
     steps:
       - name: Checkout to the commit
         uses: actions/checkout@v5
+
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -30,11 +31,14 @@ jobs:
             ~/.cache/go-build
             ~/go/pkg/mod
           key: go-${{ hashFiles('**/go.sum') }}
+
       - name: Download dependencies
         if: steps.cache-dependencies.outputs.cache-hit != 'true'
         run: go mod download
+
       - name: Generate code
         run: go generate ./...
+
       - name: Build binary
         run: go build -o ./dist/cynosure-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/cynosure
         env:

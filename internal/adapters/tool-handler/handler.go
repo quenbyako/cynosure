@@ -2,19 +2,14 @@ package primitive
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
 
-	"github.com/k0kubun/pp/v3"
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport/sse"
-	"github.com/mark3labs/mcp-go/mcp"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -55,7 +50,7 @@ func NewHandler(auth ports.OAuthHandler, servers ports.ServerStorage, accounts p
 			))
 		}
 
-		return newAsyncClient(ctx, serverInfo.SSELink, sse.WithHTTPClient(httpClient))
+		return newAsyncClient(ctx, serverInfo.SSELink, httpClient)
 	}
 
 	destructor := func(_ ids.AccountID, c *asyncClient) {
@@ -77,55 +72,41 @@ func NewHandler(auth ports.OAuthHandler, servers ports.ServerStorage, accounts p
 }
 
 type asyncClient struct {
-	c      *client.Client
-	cancel context.CancelFunc
-	wg     *sync.WaitGroup
+	session *mcp.ClientSession
+	cancel  context.CancelFunc
 }
 
-func newAsyncClient(ctx context.Context, u *url.URL, opts ...sse.ConnectOpt) (*asyncClient, error) {
+var clientImpl = &mcp.Implementation{
+	Name:    "cynosure",
+	Version: "0.1.0",
+}
+
+func newAsyncClient(ctx context.Context, u *url.URL, httpCLient *http.Client) (*asyncClient, error) {
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	context.AfterFunc(ctx, func() { fmt.Println("PRIMARY CONTEXT IS DONE") })
-	context.AfterFunc(clientCtx, func() { fmt.Println("CLIENT CONTEXT COMPLETED!") })
 
-	transport, err := sse.Connect(clientCtx, u, opts...)
-	if err != nil {
-		clientCancel()
-		return nil, err
-	}
-	c := client.NewClient(transport)
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := c.Run(clientCtx); err != nil && !errors.Is(err, context.Canceled) {
-			panic(err)
-		}
-		pp.Println("i'm finished!")
-	}()
-
-	capabilities, err := c.Initialize(ctx, mcp.InitializeParams{
-		ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
-		ClientInfo:      mcp.Implementation{Name: "cynosure"},
+	client := mcp.NewClient(clientImpl, &mcp.ClientOptions{
+		KeepAlive: 10 * time.Second,
 	})
+
+	session, err := client.Connect(clientCtx, &mcp.SSEClientTransport{
+		Endpoint:   u.String(),
+		HTTPClient: httpCLient,
+	}, nil)
 	if err != nil {
 		clientCancel()
-		return nil, err
+		return nil, fmt.Errorf("connecting to %v: %w", u.String(), err)
 	}
-
-	fmt.Println("Initialized client with capabilities:", capabilities)
 
 	return &asyncClient{
-		c:      c,
-		cancel: clientCancel,
-		wg:     &wg,
+		session: session,
+		cancel:  clientCancel,
 	}, nil
 }
 
-func (ac *asyncClient) Close() error {
-	pp.Println("closing client!")
+func (c *asyncClient) Close() error {
+	err := c.session.Close()
+	// even if we received error, we should cancel context anyway.
+	c.cancel()
 
-	ac.cancel()
-	ac.wg.Wait()
-	return nil
+	return err
 }

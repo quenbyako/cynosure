@@ -10,8 +10,6 @@ tool (
 
 replace google.golang.org/a2a => ./contrib/a2aproto/a2a/v1
 
-replace github.com/mark3labs/mcp-go => ./contrib/mcp-go
-
 replace github.com/quenbyako/cynosure/contrib/telegram-proto => ./contrib/telegram-proto
 
 replace github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 => ./contrib/telegram-bot-api
@@ -24,22 +22,20 @@ require (
 	github.com/go-faster/jx v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
-	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/henvic/httpretty v0.1.4
 	github.com/k0kubun/pp/v3 v3.5.0
 	github.com/ldclabs/cose v1.3.2
-	github.com/mark3labs/mcp-go v0.36.0
+	github.com/modelcontextprotocol/go-sdk v1.1.0
 	github.com/nikolalohinski/gonja v1.5.3
 	github.com/ogen-go/ogen v1.16.0
-	github.com/prometheus/client_golang v1.23.2
 	github.com/quenbyako/core v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/params/http v0.0.0-20251106194733-d0a6efa36158
 	github.com/quenbyako/core/contrib/runtime v0.0.0-20251106194733-d0a6efa36158
-	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-20251109183352-3bbd4df2b5f5
-	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-20251109183352-3bbd4df2b5f5
+	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-20251121003810-1b37d33348ba
+	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-20251121003810-1b37d33348ba
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
@@ -59,9 +55,7 @@ require (
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -80,13 +74,13 @@ require (
 	github.com/go-openapi/swag/jsonname v0.25.3 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/jsonschema-go v0.3.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/subcommands v1.2.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/gowebpki/jcs v1.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -98,12 +92,10 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/hashicorp/vault/api v1.22.0 // indirect
-	github.com/hashicorp/vault/api/auth/cert v0.0.0-20251120210323-6d2152c84e70 // indirect
-	github.com/invopop/jsonschema v0.13.0 // indirect
+	github.com/hashicorp/vault/api/auth/cert v0.0.0-20251121220311-36dacfb951d3 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -119,8 +111,9 @@ require (
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.3 // indirect
+	github.com/prometheus/common v0.67.4 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/quenbyako/core/contrib/secrets v0.0.0-20251106194733-d0a6efa36158 // indirect
@@ -130,14 +123,11 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	github.com/tmaxmax/go-sse v0.11.0 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/woodsbury/decimal128 v1.4.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect

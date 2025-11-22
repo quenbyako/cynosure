@@ -1552,9 +1552,9 @@ The JSON object you output **MUST** contain the following five keys:
 
 5. **`"justification"`**: `(string)` A brief, one-sentence explanation for your confidence score.
 
-* * *
+***
 
-### \## Core Directives
+### ## Core Directives
 
 * **Confidence Scoring is Paramount:** You **MUST** be critical in your scoring.
 
@@ -1572,221 +1572,120 @@ The JSON object you output **MUST** contain the following five keys:
 
 Вот схема ответа:
 
-\`\`\`json
-
+```json
 {
-
-"type": "object",
-
-"properties": {
-
-"use\_cases": {
-
-"type": "array",
-
-"items": {
-
-"type": "string"
-
+    "type": "object",
+    "properties": {
+        "use_cases": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "example_queries": {
+            "type": "array",
+            "description": "list of different examples, related specifically to this tool. List **MUST** contain as most different sentences, leading to this tool, as possible. Including questions, ironic hints, etc.",
+            "items": {
+                "type": "string",
+                "description": "Example of user's prompt, where this tool might be used",
+                "example": [
+                    "What's the weather today?",
+                    "I should buy new shoes",
+                    "oh my fuckin god, our production database were wiped, what to do?"
+                ]
+            }
+        },
+        "confidence": {
+            "type": "object",
+            "properties": {
+                "score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                },
+                "justification": {
+                    "type": "string",
+                    "description": "Brief explaination of how this score was calculated"
+                }
+            },
+            "required": [
+                "score",
+                "justification"
+            ]
+        }
+    },
+    "propertyOrdering": [
+        "use_cases",
+        "example_queries",
+        "confidence_score"
+    ]
 }
-
-},
-
-"example\_queries": {
-
-"type": "array",
-
-"description": "list of different examples, related specifically to this tool. List \*\*MUST\*\* contain as most different sentences, leading to this tool, as possible. Including questions, ironic hints, etc.",
-
-"items": {
-
-"type": "string",
-
-"description": "Example of user's prompt, where this tool might be used",
-
-"example": \[
-
-"What's the weather today?",
-
-"I should buy new shoes",
-
-"oh my fuckin god, our production database were wiped, what to do?"
-
-\]
-
-}
-
-},
-
-"confidence": {
-
-"type": "object",
-
-"properties": {
-
-"score": {
-
-"type": "number",
-
-"minimum": 0,
-
-"maximum": 1
-
-},
-
-"justification": {
-
-"type": "string",
-
-"description": "Brief explaination of how this score was calculated"
-
-}
-
-},
-
-"required": \[
-
-"score",
-
-"justification"
-
-\]
-
-}
-
-},
-
-"propertyOrdering": \[
-
-"use\_cases",
-
-"example\_queries",
-
-"confidence\_score"
-
-\]
-
-}
-
-\`\`\`
+```
 
 Вот входной инструмент:
 
-\`\`\`json
-
-  {
-
-      "name": "todoist\_create\_task",
-
-      "description": "Create a new task in Todoist with optional description, due date, and priority",
-
-      "inputSchema": {
-
-        "type": "object",
-
-        "properties": {
-
-          "content": {
-
-            "type": "string",
-
-            "description": "The content/title of the task"
-
-          },
-
-          "description": {
-
-            "type": "string",
-
-            "description": "Detailed description of the task (optional)"
-
-          },
-
-          "due\_string": {
-
-            "type": "string",
-
-            "description": "Natural language due date like 'tomorrow', 'next Monday', 'Jan 23' (optional)"
-
-          },
-
-          "priority": {
-
-            "type": "number",
-
-            "description": "Task priority from 1 (normal) to 4 (urgent) (optional)",
-
-            "enum": \[
-
-              1,
-
-              2,
-
-              3,
-
-              4
-
-            \]
-
-          }
-
-        },
-
-        "required": \[
-
-          "content"
-
-        \]
-
-      }
-
-\`\`\`
+```json
+{
+    "name": "todoist_create_task",
+    "description": "Create a new task in Todoist with optional description, due date, and priority",
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "content": {
+                "type": "string",
+                "description": "The content/title of the task"
+            },
+            "description": {
+                "type": "string",
+                "description": "Detailed description of the task (optional)"
+            },
+            "due_string": {
+                "type": "string",
+                "description": "Natural language due date like 'tomorrow', 'next Monday', 'Jan 23' (optional)"
+            },
+            "priority": {
+                "type": "number",
+                "description": "Task priority from 1 (normal) to 4 (urgent) (optional)",
+                "enum": [
+                    1,
+                    2,
+                    3,
+                    4
+                ]
+            }
+        },
+        "required": [
+            "content"
+        ]
+    }
+}
+```
 
 Вот ответ аналитика:
 
-\`\`\`json
-
+```json
 {
-
-"confidence": {
-
-"justification": "The tool name and parameter names are highly descriptive, clearly indicating its purpose and the function of each input.",
-
-"score": 0.95
-
-},
-
-"example\_queries": \[
-
-"Create a new task to buy groceries.",
-
-"Add 'prepare presentation slides' to my to-do list for tomorrow with high priority.",
-
-"Schedule a task: 'send follow-up email to client X' with a detailed description 'include project status update and next steps'.",
-
-"I need to remember to 'renew passport' by 'next month', make it priority 4.",
-
-"Log a task to 'research new software tools'."
-
-\],
-
-"use\_cases": \[
-
-"Adding a new personal reminder or chore to a task list.",
-
-"Delegating tasks or scheduling work-related items with specific deadlines and priorities.",
-
-"Quickly noting down ideas or actions that need to be taken later."
-
-\]
-
+    "confidence": {
+        "justification": "The tool name and parameter names are highly descriptive, clearly indicating its purpose and the function of each input.",
+        "score": 0.95
+    },
+    "example_queries": [
+        "Create a new task to buy groceries.",
+        "Add 'prepare presentation slides' to my to-do list for tomorrow with high priority.",
+        "Schedule a task: 'send follow-up email to client X' with a detailed description 'include project status update and next steps'.",
+        "I need to remember to 'renew passport' by 'next month', make it priority 4.",
+        "Log a task to 'research new software tools'."
+    ],
+    "use_cases": [
+        "Adding a new personal reminder or chore to a task list.",
+        "Delegating tasks or scheduling work-related items with specific deadlines and priorities.",
+        "Quickly noting down ideas or actions that need to be taken later."
+    ]
 }
+```
 
-\`\`\`
-
-1\. я беспокоюсь что анализ выглядит довольно скудно.
-
-2\. допустим у нас есть структура, придуманная тобой — что дальше?
+1. я беспокоюсь что анализ выглядит довольно скудно.
+2. допустим у нас есть структура, придуманная тобой — что дальше?
 
 Вы задали два совершенно правильных вопроса, которые логично продолжают наш диалог. Давайте разберем оба.
 

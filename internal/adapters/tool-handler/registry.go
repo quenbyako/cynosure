@@ -1,14 +1,13 @@
 package primitive
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/k0kubun/pp/v3"
-	"github.com/mark3labs/mcp-go/client/transport/sse"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -32,9 +31,9 @@ func (h *Handler) RegisterTools(ctx context.Context, account ids.AccountID, name
 		httpCLient = oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 	}
 
-	c, err := newAsyncClient(ctx, serverInfo.SSELink, sse.WithHTTPClient(httpCLient))
+	c, err := newAsyncClient(ctx, serverInfo.SSELink, httpCLient)
 
-	result, err := c.c.ListTools(ctx, mcp.PaginatedParams{})
+	result, err := c.session.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {
 		return fmt.Errorf("listing tools for account %v: %w", account.ID().String(), err)
 	}
@@ -43,10 +42,16 @@ func (h *Handler) RegisterTools(ctx context.Context, account ids.AccountID, name
 	for i, tool := range result.Tools {
 		fmt.Printf("Found tool for account %v: %v\n", account.ID().String(), tool.Name)
 
-		inputSchema := must(tool.InputSchema.MarshalJSON())
-		outputSchema := tool.RawOutputSchema
-		if len(outputSchema) == 0 || bytes.Equal(outputSchema, []byte("null")) {
-			outputSchema = []byte(`{"type":"string"}`)
+		inputSchema, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			return fmt.Errorf("marshalling input schema for tool %q: %w", tool.Name, err)
+		}
+		outputSchema := []byte(`{"type": "string"}`)
+		if tool.OutputSchema != nil {
+			outputSchema, err = json.Marshal(tool.OutputSchema)
+			if err != nil {
+				return fmt.Errorf("marshalling output schema for tool %q: %w", tool.Name, err)
+			}
 		}
 
 		pp.Println("Tool details:", string(inputSchema), string(outputSchema))
