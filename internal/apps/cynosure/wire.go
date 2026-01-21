@@ -16,7 +16,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 
 		loggerConstructor,
 
-		fileAdapter,
+		sqlAdapter,
 		zepAdapter,
 		geminiAdapter,
 		primitiveAdapter,
@@ -26,6 +26,6 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		accountsUsecase,
 		serversUsecase,
 
-		newApp,
+		connectDependencies,
 	))
 }

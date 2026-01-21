@@ -16,6 +16,15 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
+// TransportType represents the type of MCP transport detected
+type TransportType int
+
+const (
+	TransportUnknown TransportType = iota
+	TransportStreamableHTTP
+	TransportSSE
+)
+
 type Handler struct {
 	clients *cache.Cache[ids.AccountID, *asyncClient]
 
@@ -50,7 +59,7 @@ func NewHandler(auth ports.OAuthHandler, servers ports.ServerStorage, accounts p
 			))
 		}
 
-		return newAsyncClient(ctx, serverInfo.SSELink, httpClient)
+		return newAsyncClient(ctx, serverInfo.SSELink(), httpClient)
 	}
 
 	destructor := func(_ ids.AccountID, c *asyncClient) {

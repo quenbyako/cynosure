@@ -546,7 +546,7 @@ func (f *File) ListAccounts(ctx context.Context, user ids.UserID) ([]ids.Account
 	return accountIDs, nil
 }
 
-func (f *File) AddServer(ctx context.Context, server ids.ServerID, info ports.ServerInfo) error {
+func (f *File) AddServer(ctx context.Context, server entities.ServerConfigReadOnly) error {
 	ctx, span := f.trace.Start(ctx, "FileServerStorage.AddServer")
 	defer span.End()
 
@@ -570,10 +570,10 @@ func (f *File) AddServer(ctx context.Context, server ids.ServerID, info ports.Se
 		return fmt.Errorf("failed to parse token storage file: %w", err)
 	}
 
-	storage.Servers[server.ID().String()] = serverInfo{
-		Link:       info.SSELink.String(),
-		Config:     info.AuthConfig,
-		Expiration: info.ConfigExpiration,
+	storage.Servers[server.ID().ID().String()] = serverInfo{
+		Link:       server.SSELink().String(),
+		Config:     server.AuthConfig(),
+		Expiration: server.ConfigExpiration(),
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -591,7 +591,7 @@ func (f *File) AddServer(ctx context.Context, server ids.ServerID, info ports.Se
 	return nil
 }
 
-func (f *File) GetServerInfo(ctx context.Context, server ids.ServerID) (*ports.ServerInfo, error) {
+func (f *File) GetServerInfo(ctx context.Context, server ids.ServerID) (*entities.ServerConfig, error) {
 	ctx, span := f.trace.Start(ctx, "FileServerStorage.GetServerInfo")
 	defer span.End()
 
@@ -619,14 +619,20 @@ func (f *File) GetServerInfo(ctx context.Context, server ids.ServerID) (*ports.S
 		return nil, ports.ErrNotFound
 	}
 
-	return &ports.ServerInfo{
-		SSELink:          must(url.Parse(cfg.Link)),
-		AuthConfig:       cfg.Config,
-		ConfigExpiration: cfg.Expiration,
-	}, nil
+	info, err := entities.NewServerConfig(
+		server,
+		must(url.Parse(cfg.Link)),
+		entities.WithAuthConfig(cfg.Config),
+		entities.WithExpiration(cfg.Expiration),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating server config: %w", err)
+	}
+
+	return info, nil
 }
 
-func (f *File) ListServers(ctx context.Context, limit uint, token string) (m map[ids.ServerID]ports.ServerInfo, nextToken string, err error) {
+func (f *File) ListServers(ctx context.Context) ([]*entities.ServerConfig, error) {
 	ctx, span := f.trace.Start(ctx, "FileServerStorage.ListServers")
 	defer span.End()
 
@@ -635,34 +641,52 @@ func (f *File) ListServers(ctx context.Context, limit uint, token string) (m map
 
 	data, err := os.ReadFile(f.path)
 	if os.IsNotExist(err) {
-		return nil, "", nil
+		return nil, nil
 
 	} else if err != nil {
-		return nil, "", fmt.Errorf("failed to read token storage file: %w", err)
+		return nil, fmt.Errorf("failed to read token storage file: %w", err)
 	}
 
 	if len(data) == 0 {
-		return nil, "", nil
+		return nil, nil
 	}
 
 	var storage storageSchema
 	if err := yaml.Unmarshal(data, &storage); err != nil {
-		return nil, "", fmt.Errorf("failed to parse token storage file: %w", err)
+		return nil, fmt.Errorf("failed to parse token storage file: %w", err)
 	}
 
-	servers := make(map[ids.ServerID]ports.ServerInfo, len(storage.Servers))
+	servers := make([]*entities.ServerConfig, 0, len(storage.Servers))
 	for name, info := range storage.Servers {
-		servers[must(ids.NewServerIDFromString(name))] = ports.ServerInfo{
-			SSELink:          must(url.Parse(info.Link)),
-			AuthConfig:       info.Config,
-			ConfigExpiration: info.Expiration,
+		id, err := ids.NewServerIDFromString(name)
+		if err != nil {
+			return nil, fmt.Errorf("creating server ID for %q: %w", name, err)
 		}
+		u, err := url.Parse(info.Link)
+		if err != nil {
+			return nil, fmt.Errorf("parsing server URL for %q: %w", name, err)
+		}
+
+		var opts []entities.ServerConfigOption
+		if info.Config != nil {
+			opts = append(opts, entities.WithAuthConfig(info.Config))
+		}
+		if !info.Expiration.IsZero() {
+			opts = append(opts, entities.WithExpiration(info.Expiration))
+		}
+
+		server, err := entities.NewServerConfig(id, u, opts...)
+		if err != nil {
+			return nil, fmt.Errorf("creating server config for %q: %w", name, err)
+		}
+
+		servers = append(servers, server)
 	}
 
-	return servers, "", nil
+	return servers, nil
 }
 
-func (f *File) LookupByURL(ctx context.Context, url *url.URL) (ids.ServerID, ports.ServerInfo, error) {
+func (f *File) LookupByURL(ctx context.Context, u *url.URL) (*entities.ServerConfig, error) {
 	ctx, span := f.trace.Start(ctx, "FileServerStorage.LookupByURL")
 	defer span.End()
 
@@ -671,33 +695,47 @@ func (f *File) LookupByURL(ctx context.Context, url *url.URL) (ids.ServerID, por
 
 	data, err := os.ReadFile(f.path)
 	if os.IsNotExist(err) {
-		return ids.ServerID{}, ports.ServerInfo{}, ports.ErrNotFound
+		return nil, ports.ErrNotFound
 	} else if err != nil {
-		return ids.ServerID{}, ports.ServerInfo{}, fmt.Errorf("failed to read token storage file: %w", err)
+		return nil, fmt.Errorf("failed to read token storage file: %w", err)
 	}
 
 	if len(data) == 0 {
-		return ids.ServerID{}, ports.ServerInfo{}, ports.ErrNotFound
+		return nil, ports.ErrNotFound
 	}
 
 	var storage storageSchema
 	if err := yaml.Unmarshal(data, &storage); err != nil {
-		return ids.ServerID{}, ports.ServerInfo{}, fmt.Errorf("failed to parse token storage file: %w", err)
+		return nil, fmt.Errorf("failed to parse token storage file: %w", err)
 	}
 
-	urlStr := url.String()
+	urlStr := u.String()
 
 	for name, info := range storage.Servers {
 		if info.Link == urlStr {
-			return must(ids.NewServerIDFromString(name)), ports.ServerInfo{
-				SSELink:          must(url.Parse(info.Link)),
-				AuthConfig:       info.Config,
-				ConfigExpiration: info.Expiration,
-			}, nil
+			id, err := ids.NewServerIDFromString(name)
+			if err != nil {
+				return nil, fmt.Errorf("creating server ID for %q: %w", name, err)
+			}
+
+			var opts []entities.ServerConfigOption
+			if info.Config != nil {
+				opts = append(opts, entities.WithAuthConfig(info.Config))
+			}
+			if !info.Expiration.IsZero() {
+				opts = append(opts, entities.WithExpiration(info.Expiration))
+			}
+
+			server, err := entities.NewServerConfig(id, u, opts...)
+			if err != nil {
+				return nil, fmt.Errorf("creating server config for %q: %w", name, err)
+			}
+
+			return server, nil
 		}
 	}
 
-	return ids.ServerID{}, ports.ServerInfo{}, ports.ErrNotFound
+	return nil, ports.ErrNotFound
 }
 
 type storageSchema struct {

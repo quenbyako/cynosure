@@ -7,14 +7,23 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
 type ServerStorage interface {
-	AddServer(ctx context.Context, name ids.ServerID, info ServerInfo) error
-	ListServers(ctx context.Context, limit uint, token string) (m map[ids.ServerID]ServerInfo, nextToken string, err error)
-	GetServerInfo(ctx context.Context, name ids.ServerID) (*ServerInfo, error)
-	LookupByURL(ctx context.Context, url *url.URL) (ids.ServerID, ServerInfo, error)
+	ServerStorageRead
+	ServerStorageWrite
+}
+
+type ServerStorageRead interface {
+	ListServers(ctx context.Context) (m []*entities.ServerConfig, err error)
+	GetServerInfo(ctx context.Context, name ids.ServerID) (*entities.ServerConfig, error)
+	LookupByURL(ctx context.Context, url *url.URL) (*entities.ServerConfig, error)
+}
+
+type ServerStorageWrite interface {
+	AddServer(ctx context.Context, config entities.ServerConfigReadOnly) error
 }
 
 type ServerStorageFactory interface {

@@ -20,7 +20,7 @@ type tokenRefresher struct {
 	storage ports.AccountStorage
 
 	account *entities.Account
-	server  *ports.ServerInfo
+	server  entities.ServerConfigReadOnly
 }
 
 var _ oauth2.TokenSource = (*tokenRefresher)(nil)
@@ -30,7 +30,7 @@ func newRefresher(
 	auth ports.OAuthHandler,
 	storage ports.AccountStorage,
 	account *entities.Account,
-	server *ports.ServerInfo,
+	server entities.ServerConfigReadOnly,
 ) *tokenRefresher {
 	return &tokenRefresher{
 		ctx:     ctx,
@@ -46,7 +46,7 @@ func (t *tokenRefresher) Token() (*oauth2.Token, error) {
 		return nil, errors.New("token expired and refresh token is not set")
 	}
 
-	token, err := t.auth.RefreshToken(t.ctx, t.server.AuthConfig, t.account.Token())
+	token, err := t.auth.RefreshToken(t.ctx, t.server.AuthConfig(), t.account.Token())
 	if err != nil {
 		return nil, fmt.Errorf("refreshing token: %w", err)
 	}

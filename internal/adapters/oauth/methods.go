@@ -133,7 +133,7 @@ func fetchRegisterClient(ctx context.Context, client *http.Client, u *url.URL, b
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, extractOAuthError(body, resp.StatusCode, "registration request failed")
+		return nil, extractOAuthError(body, resp.StatusCode, "registration request failed at "+u.String())
 	}
 
 	var regResponse registerClientResponse

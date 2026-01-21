@@ -12,5 +12,4 @@ var WirePorts = wire.NewSet(
 	NewToolManager,
 	NewChatModel,
 	NewOAuthHandler,
-	NewToolCache,
 )

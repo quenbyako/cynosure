@@ -8,7 +8,6 @@ import (
 	"net/url"
 
 	"github.com/quenbyako/core"
-	"github.com/quenbyako/cynosure/contrib/onelog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -36,7 +35,7 @@ type appParams struct {
 
 	observability core.Metrics
 
-	storagePath   string
+	databaseURL   string
 	oauthScopes   []string
 	oauthCallback *url.URL
 	anonUser      ids.UserID
@@ -88,13 +87,16 @@ func WithDefaultModelConfig(modelID string) AppOpts {
 	return func(p *appParams) { p.defaultModelConfig = modelID }
 }
 
-func NewApp(ctx context.Context, opts ...AppOpts) *App {
+func WithDatabaseURL(url string) AppOpts {
+	return func(p *appParams) { p.databaseURL = url }
+}
+
+func Build(ctx context.Context, opts ...AppOpts) *App {
 	p := appParams{
 		observability: core.NoopMetrics(),
 
-		storagePath:   "./data.yaml",
 		oauthScopes:   []string{"mcp.read", "mcp.write"},
-		oauthCallback: must(url.Parse("http://localhost:8080/oauth/callback")),
+		oauthCallback: must(url.Parse("http://localhost:5002/oauth/callback")),
 		anonUser:      must(ids.NewUserIDFromString("ff06b500-0000-0000-0000-000000000001")),
 	}
 	for _, opt := range opts {
@@ -107,10 +109,10 @@ func NewApp(ctx context.Context, opts ...AppOpts) *App {
 	return must(buildApp(ctx, &p))
 }
 
-func newApp(
+func connectDependencies(
 	p *appParams,
 	chat *chat.Service,
-	accounts *accounts.Service,
+	accounts *accounts.Usecase,
 	servers *servers.Service,
 ) (*App, error) {
 	// grpc controllers
@@ -120,9 +122,7 @@ func newApp(
 	// http controllers
 	p.httpAddr(oauth.NewHandler(accounts))
 
-	return &App{
-		log: onelog.Wrap(p.observability),
-	}, nil
+	return &App{}, nil
 }
 
 func must[T any](v T, err error) T {

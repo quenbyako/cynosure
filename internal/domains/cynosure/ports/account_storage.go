@@ -7,6 +7,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
+// AccountStorage is responsible for storing and retrieving MCP account
+// information. This port IS NOT RELATED to user accounts, those are not exists
+// in current domain.
 type AccountStorage interface {
 	AccountStorageRead
 	AccountStorageWrite

@@ -22,11 +22,15 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithDefaultModelConfig("e0689c78-4fd0-4eca-a907-8e00515bc88d"),
 	}
 
+	if cfg.DatabaseURL != "" {
+		opts = append(opts, cynosure.WithDatabaseURL(cfg.DatabaseURL))
+	}
+
 	if metrics, ok := core.Observability(appCtx); ok {
 		opts = append(opts, cynosure.WithObservability(metrics))
 	}
 
-	_ = cynosure.NewApp(ctx, opts...)
+	_ = cynosure.Build(ctx, opts...)
 
 	jobs := []func(context.Context) error{
 		cfg.Port.Serve,

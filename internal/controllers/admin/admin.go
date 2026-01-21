@@ -18,12 +18,12 @@ type Handler struct {
 	admin.UnsafeAdminServiceServer
 
 	servers  *servers.Service
-	accounts *accounts.Service
+	accounts *accounts.Usecase
 }
 
 var _ admin.AdminServiceServer = (*Handler)(nil)
 
-func Register(accounts *accounts.Service, servers *servers.Service) func(server grpc.ServiceRegistrar) {
+func Register(accounts *accounts.Usecase, servers *servers.Service) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
 		accounts: accounts,
 		servers:  servers,

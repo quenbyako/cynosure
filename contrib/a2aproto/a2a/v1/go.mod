@@ -1,6 +1,6 @@
 module google.golang.org/a2a
 
-go 1.24.5
+go 1.25
 
 require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250721164621-a45f3dfb1074
