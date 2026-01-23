@@ -24,8 +24,7 @@ SELECT
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
 WHERE s.deleted_at IS NULL
-ORDER BY s.id
-LIMIT $1 OFFSET $2;
+ORDER BY s.id;
 
 -- name: GetServerInfo :one
 SELECT

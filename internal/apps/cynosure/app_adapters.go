@@ -48,10 +48,6 @@ var (
 // }
 
 func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
-	if p.databaseURL == "" {
-		return nil, fmt.Errorf("database URL is not configured")
-	}
-
 	return sql.NewAdapter(ctx, p.databaseURL)
 }
 

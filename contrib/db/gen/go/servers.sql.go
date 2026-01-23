@@ -125,13 +125,7 @@ FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
 WHERE s.deleted_at IS NULL
 ORDER BY s.id
-LIMIT $1 OFFSET $2
 `
-
-type ListServersParams struct {
-	Limit  int64
-	Offset int64
-}
 
 type ListServersRow struct {
 	ID           uuid.UUID
@@ -145,8 +139,8 @@ type ListServersRow struct {
 	Scopes       []string
 }
 
-func (q *Queries) ListServers(ctx context.Context, arg ListServersParams) ([]ListServersRow, error) {
-	rows, err := q.db.Query(ctx, listServers, arg.Limit, arg.Offset)
+func (q *Queries) ListServers(ctx context.Context) ([]ListServersRow, error) {
+	rows, err := q.db.Query(ctx, listServers)
 	if err != nil {
 		return nil, err
 	}

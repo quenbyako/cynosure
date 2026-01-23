@@ -22,17 +22,17 @@ func TestAdapter(t *testing.T) {
 	t.Cleanup(func() { adapter.Close() })
 
 	// Create fixturer function that inserts required servers before account tests
-	fixturer := func(seed testsuite.TestAccountSeed) error {
-		_, err := pool.Exec(t.Context(), "INSERT INTO agents.users (id) VALUES ($1) ON CONFLICT DO NOTHING", seed.AccountID.User().ID())
+	fixturer := func(fixture testsuite.SaveAccountFixture) error {
+		_, err := pool.Exec(t.Context(), "INSERT INTO agents.users (id) VALUES ($1) ON CONFLICT DO NOTHING", fixture.AccountID.User().ID())
 		if err != nil {
-			return fmt.Errorf("insterting user: %w", err)
+			return fmt.Errorf("inserting user: %w", err)
 		}
 
 		_, err = pool.Exec(t.Context(), `
 			INSERT INTO agents.mcp_servers (id, url)
 			VALUES ($1, $2)
 			ON CONFLICT DO NOTHING
-		`, seed.AccountID.Server().ID(), "http://test-server")
+		`, fixture.AccountID.Server().ID(), "http://test-server")
 		if err != nil {
 			return fmt.Errorf("inserting server: %w", err)
 		}
@@ -41,7 +41,7 @@ func TestAdapter(t *testing.T) {
 			INSERT INTO agents.oauth_configs (server_id, client_id, client_secret, redirect_url, scopes)
 			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT DO NOTHING
-		`, seed.AccountID.Server().ID(), "client_id", "client_secret", "http://redirect", []string{"mcp.read", "mcp.write"})
+		`, fixture.AccountID.Server().ID(), "client_id", "client_secret", "http://redirect", []string{"mcp.read", "mcp.write"})
 		if err != nil {
 			return fmt.Errorf("inserting oauth config: %w", err)
 		}

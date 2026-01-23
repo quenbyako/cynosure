@@ -37,16 +37,16 @@ func RunAccountStorageTests(a ports.AccountStorage, opts ...AccountStorageTestSu
 type AccountStorageTestSuite struct {
 	adapter ports.AccountStorage
 
-	testSaveAccountSeeder func(TestAccountSeed) error
-	cleanup               func() error
+	saveAccountFixture func(SaveAccountFixture) error
+	cleanup            func() error
 }
 
 var _ suites.AfterTest = (*AccountStorageTestSuite)(nil)
 
 type AccountStorageTestSuiteOption func(*AccountStorageTestSuite)
 
-func WithSaveAccountSeeder(f func(TestAccountSeed) error) AccountStorageTestSuiteOption {
-	return func(s *AccountStorageTestSuite) { s.testSaveAccountSeeder = f }
+func WithSaveAccountSeeder(f func(SaveAccountFixture) error) AccountStorageTestSuiteOption {
+	return func(s *AccountStorageTestSuite) { s.saveAccountFixture = f }
 }
 
 func WithAccountStorageCleanup(f func() error) AccountStorageTestSuiteOption {
@@ -69,7 +69,7 @@ func (s *AccountStorageTestSuite) AfterTest(t *testing.T) {
 	}
 }
 
-type TestAccountSeed struct {
+type SaveAccountFixture struct {
 	AccountID   ids.AccountID
 	Name        string
 	Description string
@@ -79,9 +79,9 @@ type TestAccountSeed struct {
 func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 	fixture := s.buildSaveAccountSeed()
 
-	if s.testSaveAccountSeeder != nil {
-		if err := s.testSaveAccountSeeder(fixture); err != nil {
-			t.Fatalf("failed to seed: %v", err)
+	if s.saveAccountFixture != nil {
+		if err := s.saveAccountFixture(fixture); err != nil {
+			t.Fatalf("failed to setup fixtures: %v", err)
 		}
 	}
 
@@ -115,7 +115,7 @@ func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 	})
 }
 
-func (s *AccountStorageTestSuite) buildSaveAccountSeed() TestAccountSeed {
+func (s *AccountStorageTestSuite) buildSaveAccountSeed() SaveAccountFixture {
 	serverID := ids.RandomServerID()
 	userID := ids.RandomUserID()
 
@@ -130,7 +130,7 @@ func (s *AccountStorageTestSuite) buildSaveAccountSeed() TestAccountSeed {
 		)),
 	}
 
-	return TestAccountSeed{
+	return SaveAccountFixture{
 		AccountID:   account,
 		Name:        "Test Account",
 		Description: "Some description",

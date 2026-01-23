@@ -8,7 +8,7 @@ import (
 )
 
 // AccountStorage is responsible for storing and retrieving MCP account
-// information. This port IS NOT RELATED to user accounts, those are not exists
+// information. This port IS NOT RELATED to user accounts, those do not exist
 // in current domain.
 type AccountStorage interface {
 	AccountStorageRead

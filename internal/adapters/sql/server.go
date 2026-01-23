@@ -38,7 +38,7 @@ func (a *Adapter) AddServer(ctx context.Context, server entities.ServerConfigRea
 
 	// If auth config is provided, insert it as well
 	if server.AuthConfig() == nil {
-		return nil
+		return tx.Commit(ctx)
 	}
 	// Convert scopes array (may be nil)
 	scopes := server.AuthConfig().Scopes
@@ -68,15 +68,12 @@ func (a *Adapter) AddServer(ctx context.Context, server entities.ServerConfigRea
 		return fmt.Errorf("failed to add oauth config: %w", err)
 	}
 
-	return nil
+	return tx.Commit(ctx)
 }
 
 // ListServers implements ServerStorage.
 func (a *Adapter) ListServers(ctx context.Context) ([]*entities.ServerConfig, error) {
-	rows, err := a.q.ListServers(ctx, db.ListServersParams{
-		Limit:  100,
-		Offset: 0,
-	})
+	rows, err := a.q.ListServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}

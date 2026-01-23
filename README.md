@@ -2,6 +2,16 @@
 
 ## Deployment
 
+### Required dependencies
+
+1. **PostgreSQL** database.
+
+   You can use local or remote instance. Make sure to create a dedicated database and user for the application.
+2. **Zep chat storage** (instance or managed).
+
+   The application uses Zep for storing chat history. You can deploy your own instance or use a managed service.
+3. **Gemnini API**, currently it works only with Gemini models.
+
 ### Secrets configuration
 
 The application uses `github.com/quenbyako/core` framework for configuration.

@@ -57,6 +57,9 @@ func (p *appParams) validate() error {
 	if !p.anonUser.Valid() {
 		errs = append(errs, errors.New("missing anonUser"))
 	}
+	if p.databaseURL == "" {
+		errs = append(errs, errors.New("missing database URL"))
+	}
 
 	return errors.Join(errs...)
 }
