@@ -20,18 +20,12 @@ func ModelSettingsFromDB(row db.AgentsModelSetting) (*entities.ModelSettings, er
 		opts = append(opts, entities.WithSystemMessage(row.SystemMessage))
 	}
 
-	if row.Temperature.Valid {
-		// Convert pgtype.Numeric to float32
-		float64Val, _ := row.Temperature.Float64Value()
-		temp := float32(float64Val.Float64)
-		opts = append(opts, entities.WithTemperature(temp))
+	if row.Temperature > 0 {
+		opts = append(opts, entities.WithTemperature(row.Temperature))
 	}
 
-	if row.TopP.Valid {
-		// Convert pgtype.Numeric to float32
-		float64Val, _ := row.TopP.Float64Value()
-		topP := float32(float64Val.Float64)
-		opts = append(opts, entities.WithTopP(topP))
+	if row.TopP > 0 {
+		opts = append(opts, entities.WithTopP(row.TopP))
 	}
 
 	if len(row.StopWords) > 0 {

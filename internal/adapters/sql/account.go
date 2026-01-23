@@ -12,6 +12,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/adapters/sql/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
@@ -42,7 +43,7 @@ func (a *Adapter) GetAccount(ctx context.Context, account ids.AccountID) (*entit
 	row, err := a.q.GetAccount(ctx, account.ID())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("account not found: %w", err)
+			return nil, ports.ErrNotFound
 		}
 		return nil, fmt.Errorf("getting account: %w", err)
 	}
@@ -78,8 +79,8 @@ func (a *Adapter) GetAccountsBatch(ctx context.Context, accounts []ids.AccountID
 
 	result := make([]*entities.Account, len(rows))
 	for i, row := range rows {
-		// Map account
-		acc, err := datatransfer.AccountFromDBWithTools(row, toolsMap[row.ID])
+		// Map account with tools (token already included from LEFT JOIN)
+		acc, err := datatransfer.AccountFromGetAccountsBatchRow(row, toolsMap[row.ID])
 		if err != nil {
 			return nil, fmt.Errorf("mapping account %s: %w", row.ID, err)
 		}
@@ -88,6 +89,7 @@ func (a *Adapter) GetAccountsBatch(ctx context.Context, accounts []ids.AccountID
 
 	return result, nil
 }
+
 
 func (a *Adapter) SaveAccount(ctx context.Context, info entities.AccountReadOnly) error {
 	tx, err := a.pool.Begin(ctx)
@@ -98,19 +100,44 @@ func (a *Adapter) SaveAccount(ctx context.Context, info entities.AccountReadOnly
 
 	q := a.q.WithTx(tx)
 
-	// Determine token UUID (if present)
-	var tokenUUID pgtype.UUID
-
 	err = q.UpsertAccount(ctx, db.UpsertAccountParams{
 		ID:          info.ID().ID(),
 		UserID:      info.ID().User().ID(),   // Use .User() instead of .UserID()
 		Server:      info.ID().Server().ID(), // Use .Server() instead of .ServerID()
 		Name:        info.Name(),
 		Description: info.Description(),
-		Token:       tokenUUID,
 	})
 	if err != nil {
 		return fmt.Errorf("upserting account: %w", err)
+	}
+
+	// Handle OAuth token - always delete old and upsert new (one-to-one relation)
+	if err := q.DeleteAccountToken(ctx, info.ID().ID()); err != nil {
+		return fmt.Errorf("deleting old oauth token: %w", err)
+	}
+
+	if token := info.Token(); token != nil {
+		var tokenType *string
+		if token.TokenType != "" {
+			tokenType = ptr(token.TokenType)
+		}
+		var refreshToken *string
+		if token.RefreshToken != "" {
+			refreshToken = ptr(token.RefreshToken)
+		}
+
+		if err := q.AddOAuthToken(ctx, db.AddOAuthTokenParams{
+			AccountID:    info.ID().ID(),
+			Type:         tokenType,
+			AccessToken:  token.AccessToken,
+			RefreshToken: refreshToken,
+			Expiry: pgtype.Timestamp{
+				Time:  token.Expiry,
+				Valid: !token.Expiry.IsZero(),
+			},
+		}); err != nil {
+			return fmt.Errorf("adding oauth token: %w", err)
+		}
 	}
 
 	// Replace tools (Delete + Insert)
@@ -148,12 +175,15 @@ func (a *Adapter) DeleteAccount(ctx context.Context, account ids.AccountID) erro
 	return nil
 }
 
-// mapAccount fetches tools and maps the account row to a domain entity.
+// mapAccount fetches tools and maps the account row (with embedded token from LEFT JOIN) to a domain entity.
 // This is the adapter-level query orchestration.
-func (a *Adapter) mapAccount(ctx context.Context, row db.AgentsMcpAccount) (*entities.Account, error) {
+func (a *Adapter) mapAccount(ctx context.Context, row db.GetAccountRow) (*entities.Account, error) {
 	toolRows, err := a.q.ListToolsForAccounts(ctx, []uuid.UUID{row.ID})
 	if err != nil {
 		return nil, fmt.Errorf("fetching tools for account: %w", err)
 	}
-	return datatransfer.AccountFromDBWithTools(row, toolRows)
+
+	return datatransfer.AccountFromGetAccountRow(row, toolRows)
 }
+
+func ptr[T any](v T) *T { return &v }

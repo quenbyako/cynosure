@@ -3,9 +3,6 @@ package ports
 import (
 	"context"
 	"net/url"
-	"time"
-
-	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
@@ -31,10 +28,3 @@ type ServerStorageFactory interface {
 }
 
 func NewServerStorage(factory ServerStorageFactory) ServerStorage { return factory.ServerStorage() }
-
-type ServerInfo struct {
-	SSELink    *url.URL
-	AuthConfig *oauth2.Config
-	// If expiration is empty — probably config works indefinitely
-	ConfigExpiration time.Time
-}

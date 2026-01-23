@@ -15,7 +15,6 @@ type AgentsMcpAccount struct {
 	Server      uuid.UUID
 	Name        string
 	Description string
-	Token       pgtype.UUID
 	DeletedAt   pgtype.Timestamp
 }
 
@@ -37,8 +36,8 @@ type AgentsModelSetting struct {
 	ID            uuid.UUID
 	Model         string
 	SystemMessage string
-	Temperature   pgtype.Numeric
-	TopP          pgtype.Numeric
+	Temperature   float32
+	TopP          float32
 	StopWords     []string
 }
 
@@ -54,7 +53,7 @@ type AgentsOauthConfig struct {
 }
 
 type AgentsOauthToken struct {
-	ID           uuid.UUID
+	AccountID    uuid.UUID
 	Type         *string
 	AccessToken  string
 	RefreshToken *string

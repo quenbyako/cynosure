@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
 	// "github.com/quenbyako/cynosure/internal/adapters/file"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"

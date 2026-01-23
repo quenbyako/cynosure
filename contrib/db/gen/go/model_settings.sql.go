@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteModelSettings = `-- name: DeleteModelSettings :exec
@@ -90,8 +89,8 @@ type UpsertModelSettingsParams struct {
 	ID            uuid.UUID
 	Model         string
 	SystemMessage string
-	Temperature   pgtype.Numeric
-	TopP          pgtype.Numeric
+	Temperature   float32
+	TopP          float32
 	StopWords     []string
 }
 

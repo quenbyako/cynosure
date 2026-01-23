@@ -12,6 +12,45 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addOAuthToken = `-- name: AddOAuthToken :exec
+INSERT INTO agents.oauth_tokens (account_id, type, access_token, refresh_token, expiry)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (account_id) DO UPDATE SET
+	type = EXCLUDED.type,
+	access_token = EXCLUDED.access_token,
+	refresh_token = EXCLUDED.refresh_token,
+	expiry = EXCLUDED.expiry
+`
+
+type AddOAuthTokenParams struct {
+	AccountID    uuid.UUID
+	Type         *string
+	AccessToken  string
+	RefreshToken *string
+	Expiry       pgtype.Timestamp
+}
+
+func (q *Queries) AddOAuthToken(ctx context.Context, arg AddOAuthTokenParams) error {
+	_, err := q.db.Exec(ctx, addOAuthToken,
+		arg.AccountID,
+		arg.Type,
+		arg.AccessToken,
+		arg.RefreshToken,
+		arg.Expiry,
+	)
+	return err
+}
+
+const deleteAccountToken = `-- name: DeleteAccountToken :exec
+DELETE FROM agents.oauth_tokens
+WHERE account_id = $1
+`
+
+func (q *Queries) DeleteAccountToken(ctx context.Context, accountID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAccountToken, accountID)
+	return err
+}
+
 const deleteAccountTools = `-- name: DeleteAccountTools :exec
 DELETE FROM agents.mcp_tools
 WHERE account = $1
@@ -23,47 +62,87 @@ func (q *Queries) DeleteAccountTools(ctx context.Context, account uuid.UUID) err
 }
 
 const getAccount = `-- name: GetAccount :one
-SELECT id, user_id, server, name, description, token, deleted_at FROM agents.mcp_accounts
-WHERE id = $1 AND deleted_at IS NULL
+SELECT
+	a.id, a.user_id, a.server, a.name, a.description, a.deleted_at,
+	ot.type, ot.access_token, ot.refresh_token, ot.expiry
+FROM agents.mcp_accounts a
+LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
+WHERE a.id = $1 AND a.deleted_at IS NULL
 `
 
-func (q *Queries) GetAccount(ctx context.Context, id uuid.UUID) (AgentsMcpAccount, error) {
+type GetAccountRow struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Server       uuid.UUID
+	Name         string
+	Description  string
+	DeletedAt    pgtype.Timestamp
+	Type         *string
+	AccessToken  *string
+	RefreshToken *string
+	Expiry       pgtype.Timestamp
+}
+
+func (q *Queries) GetAccount(ctx context.Context, id uuid.UUID) (GetAccountRow, error) {
 	row := q.db.QueryRow(ctx, getAccount, id)
-	var i AgentsMcpAccount
+	var i GetAccountRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Server,
 		&i.Name,
 		&i.Description,
-		&i.Token,
 		&i.DeletedAt,
+		&i.Type,
+		&i.AccessToken,
+		&i.RefreshToken,
+		&i.Expiry,
 	)
 	return i, err
 }
 
 const getAccountsBatch = `-- name: GetAccountsBatch :many
-SELECT id, user_id, server, name, description, token, deleted_at FROM agents.mcp_accounts
-WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL
+SELECT
+	a.id, a.user_id, a.server, a.name, a.description, a.deleted_at,
+	ot.type, ot.access_token, ot.refresh_token, ot.expiry
+FROM agents.mcp_accounts a
+LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
+WHERE a.id = ANY($1::uuid[]) AND a.deleted_at IS NULL
 `
 
-func (q *Queries) GetAccountsBatch(ctx context.Context, ids []uuid.UUID) ([]AgentsMcpAccount, error) {
+type GetAccountsBatchRow struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	Server       uuid.UUID
+	Name         string
+	Description  string
+	DeletedAt    pgtype.Timestamp
+	Type         *string
+	AccessToken  *string
+	RefreshToken *string
+	Expiry       pgtype.Timestamp
+}
+
+func (q *Queries) GetAccountsBatch(ctx context.Context, ids []uuid.UUID) ([]GetAccountsBatchRow, error) {
 	rows, err := q.db.Query(ctx, getAccountsBatch, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AgentsMcpAccount
+	var items []GetAccountsBatchRow
 	for rows.Next() {
-		var i AgentsMcpAccount
+		var i GetAccountsBatchRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.Server,
 			&i.Name,
 			&i.Description,
-			&i.Token,
 			&i.DeletedAt,
+			&i.Type,
+			&i.AccessToken,
+			&i.RefreshToken,
+			&i.Expiry,
 		); err != nil {
 			return nil, err
 		}
@@ -173,14 +252,13 @@ func (q *Queries) SoftDeleteAccount(ctx context.Context, id uuid.UUID) error {
 }
 
 const upsertAccount = `-- name: UpsertAccount :exec
-INSERT INTO agents.mcp_accounts (id, user_id, server, name, description, token, deleted_at)
-VALUES ($1, $2, $3, $4, $5, $6, NULL)
+INSERT INTO agents.mcp_accounts (id, user_id, server, name, description, deleted_at)
+VALUES ($1, $2, $3, $4, $5, NULL)
 ON CONFLICT (id) DO UPDATE
 SET user_id = EXCLUDED.user_id,
     server = EXCLUDED.server,
     name = EXCLUDED.name,
     description = EXCLUDED.description,
-    token = EXCLUDED.token,
     deleted_at = NULL
 `
 
@@ -190,7 +268,6 @@ type UpsertAccountParams struct {
 	Server      uuid.UUID
 	Name        string
 	Description string
-	Token       pgtype.UUID
 }
 
 func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) error {
@@ -200,7 +277,6 @@ func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) er
 		arg.Server,
 		arg.Name,
 		arg.Description,
-		arg.Token,
 	)
 	return err
 }

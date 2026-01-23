@@ -2,7 +2,7 @@
 
 package ports
 
-import "github.com/google/wire"
+import "github.com/goforj/wire"
 
 var WirePorts = wire.NewSet(
 	NewModelSettingsStorage,

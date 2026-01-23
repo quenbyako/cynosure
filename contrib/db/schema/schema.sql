@@ -12,7 +12,6 @@ CREATE TABLE agents.mcp_accounts (
 	server        UUID NOT NULL,
 	name          TEXT NOT NULL,
 	description   TEXT NOT NULL,
-	token         UUID,
 	deleted_at    TIMESTAMP
 );
 
@@ -34,8 +33,8 @@ CREATE TABLE agents.model_settings (
 	id             UUID PRIMARY KEY,
 	model          TEXT NOT NULL,
 	system_message TEXT NOT NULL,
-	temperature    numeric,
-	top_p          numeric,
+	temperature    REAL NOT NULL CHECK (temperature >= 0), -- zero value counts as unset
+	top_p          REAL NOT NULL CHECK (top_p >= 0),       -- zero value counts as unset
 	stop_words     TEXT[]
 );
 
@@ -51,7 +50,7 @@ CREATE TABLE agents.oauth_configs (
 );
 
 CREATE TABLE agents.oauth_tokens (
-	id            UUID PRIMARY KEY,
+	account_id    UUID PRIMARY KEY,
 	type          TEXT,
 	access_token  TEXT NOT NULL,
 	refresh_token TEXT,
@@ -59,7 +58,7 @@ CREATE TABLE agents.oauth_tokens (
 );
 
 ALTER TABLE agents.mcp_accounts ADD CONSTRAINT "account_server" FOREIGN KEY ("server") REFERENCES agents.mcp_servers("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
-ALTER TABLE agents.mcp_accounts ADD CONSTRAINT "account_token" FOREIGN KEY ("token") REFERENCES agents.oauth_tokens("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE agents.oauth_tokens ADD CONSTRAINT "account_token" FOREIGN KEY ("account_id") REFERENCES agents.mcp_accounts("id") ON DELETE CASCADE ON UPDATE RESTRICT;
 ALTER TABLE agents.mcp_accounts ADD CONSTRAINT "user_accounts" FOREIGN KEY ("user_id") REFERENCES agents.users("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE agents.oauth_configs ADD CONSTRAINT "auth_config_server" FOREIGN KEY ("server_id") REFERENCES agents.mcp_servers("id") ON DELETE CASCADE ON UPDATE RESTRICT;
 ALTER TABLE agents.mcp_tools ADD CONSTRAINT "account_tools" FOREIGN KEY ("account") REFERENCES agents.mcp_accounts("id") ON DELETE RESTRICT ON UPDATE RESTRICT;

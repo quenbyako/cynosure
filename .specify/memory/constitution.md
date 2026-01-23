@@ -184,6 +184,8 @@ Datatransfer package **MUST NOT** be imported from any other adapter except the 
 
 To verify, that datatransfer DOES NOT contain business logic, a great litmus test is to check that all functions do not contain `context.Context` (with some rare exceptions like parsing some data or logging), and unit tests are mostly useless, due to no business logic to test.
 
+Each Data transfer function **SHOULD** convert only one structure at a time, and bypass this rule ONLY when each slice item is related somehow to others (e.g. uniqueness check, sorting, etc). Very bad practice is to make a function that converts multiple different structures at once if they are not connected in any way (logic like `ConvertListUsers(users)` is forbidden, but `ConvertListPosts(users, posts)`, if it checks uniqueness is allowed, but not recommended).
+
 ## Development Workflow & Complexity Governance
 
 1. Plan Phase: Constitution Check lists gates: isolation, purity, aggregate

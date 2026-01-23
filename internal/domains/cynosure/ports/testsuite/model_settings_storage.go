@@ -85,8 +85,8 @@ func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 		require.NotNil(t, retrieved)
 		require.Equal(t, model.Model(), retrieved.Model())
 		require.Equal(t, model.SystemMessage(), retrieved.SystemMessage())
-		require.Equal(t, model.Temperature(), retrieved.Temperature())
-		require.Equal(t, model.TopP(), retrieved.TopP())
+		require.Equal(t, asResult(model.Temperature()), asResult(retrieved.Temperature()))
+		require.Equal(t, asResult(model.TopP()), asResult(retrieved.TopP()))
 		require.Equal(t, model.StopWords(), retrieved.StopWords())
 	})
 
@@ -115,4 +115,13 @@ func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 		_, err = s.adapter.GetModel(t.Context(), modelID)
 		require.Error(t, err, "model should not be found after deletion")
 	})
+}
+
+type result[T any] struct {
+	value T
+	ok    bool
+}
+
+func asResult[T any](value T, ok bool) result[T] {
+	return result[T]{value: value, ok: ok}
 }

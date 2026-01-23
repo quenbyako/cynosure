@@ -5,7 +5,7 @@ package cynosure
 import (
 	"context"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )

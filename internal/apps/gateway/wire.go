@@ -5,7 +5,7 @@ package gateway
 import (
 	"context"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/gateway/ports"
 )

@@ -229,11 +229,11 @@ func (f *File) SaveModel(ctx context.Context, model entities.ModelSettingsReadOn
 	}
 
 	var temp *float32
-	if t := model.Temperature(); t >= 0 {
+	if t, ok := model.Temperature(); ok {
 		temp = ptr(t)
 	}
 	var topP *float32
-	if t := model.TopP(); t >= 0 {
+	if t, ok := model.TopP(); ok {
 		topP = ptr(t)
 	}
 

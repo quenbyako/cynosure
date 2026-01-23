@@ -20,8 +20,16 @@ var _ ports.ServerStorage = (*Adapter)(nil)
 
 // AddServer implements ServerStorage.
 func (a *Adapter) AddServer(ctx context.Context, server entities.ServerConfigReadOnly) error {
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	q := a.q.WithTx(tx)
+
 	// Insert the server record
-	if err := a.q.AddServer(ctx, db.AddServerParams{
+	if err := q.AddServer(ctx, db.AddServerParams{
 		ID:  server.ID().ID(),
 		Url: server.SSELink().String(),
 	}); err != nil {
@@ -47,7 +55,7 @@ func (a *Adapter) AddServer(ctx context.Context, server entities.ServerConfigRea
 		}
 	}
 
-	if err := a.q.AddOAuthConfig(ctx, db.AddOAuthConfigParams{
+	if err := q.AddOAuthConfig(ctx, db.AddOAuthConfigParams{
 		ServerID:     server.ID().ID(),
 		ClientID:     server.AuthConfig().ClientID,
 		ClientSecret: server.AuthConfig().ClientSecret,
@@ -75,25 +83,9 @@ func (a *Adapter) ListServers(ctx context.Context) ([]*entities.ServerConfig, er
 
 	servers := make([]*entities.ServerConfig, 0, len(rows))
 	for _, row := range rows {
-		serverID, err := ids.NewServerID(row.ID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid server ID: %w", err)
-		}
-
-		info, err := datatransfer.ServerInfoListFromDB([]db.ListServersRow{row})
+		server, err := datatransfer.ServerInfoListFromDB(row)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert server info: %w", err)
-		}
-
-		serverInfo := info[serverID]
-		opts := []entities.ServerConfigOption{
-			entities.WithAuthConfig(serverInfo.AuthConfig),
-			entities.WithExpiration(serverInfo.ConfigExpiration),
-		}
-
-		server, err := entities.NewServerConfig(serverID, serverInfo.SSELink, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create server config: %w", err)
 		}
 
 		servers = append(servers, server)
@@ -117,17 +109,7 @@ func (a *Adapter) GetServerInfo(ctx context.Context, id ids.ServerID) (*entities
 		return nil, fmt.Errorf("failed to convert server info: %w", err)
 	}
 
-	opts := []entities.ServerConfigOption{
-		entities.WithAuthConfig(info.AuthConfig),
-		entities.WithExpiration(info.ConfigExpiration),
-	}
-
-	server, err := entities.NewServerConfig(id, info.SSELink, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create server config: %w", err)
-	}
-
-	return server, nil
+	return info, nil
 }
 
 // LookupByURL implements ServerStorage.
@@ -138,11 +120,6 @@ func (a *Adapter) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 			return nil, ports.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to lookup server: %w", err)
-	}
-
-	serverID, err := ids.NewServerID(row.ID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid server ID: %w", err)
 	}
 
 	info, err := datatransfer.ServerInfoFromDB(db.GetServerInfoRow{
@@ -160,15 +137,5 @@ func (a *Adapter) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		return nil, fmt.Errorf("failed to convert server info: %w", err)
 	}
 
-	opts := []entities.ServerConfigOption{
-		entities.WithAuthConfig(info.AuthConfig),
-		entities.WithExpiration(info.ConfigExpiration),
-	}
-
-	server, err := entities.NewServerConfig(serverID, info.SSELink, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create server config: %w", err)
-	}
-
-	return server, nil
+	return info, nil
 }

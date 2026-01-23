@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
+
 	"github.com/quenbyako/cynosure/internal/adapters/sql/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
@@ -39,7 +39,7 @@ func (a *Adapter) GetModel(ctx context.Context, model ids.ModelConfigID) (*entit
 	row, err := a.q.GetModelSettings(ctx, model.ID())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("model settings not found: %w", err)
+			return nil, ports.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get model settings: %w", err)
 	}
@@ -49,32 +49,24 @@ func (a *Adapter) GetModel(ctx context.Context, model ids.ModelConfigID) (*entit
 
 // SaveModel implements ModelSettingsStorageWrite.
 func (a *Adapter) SaveModel(ctx context.Context, model entities.ModelSettingsReadOnly) error {
-	var temperature, topP pgtype.Numeric
-
-	temp := model.Temperature()
-	if temp != -1 {
-		temperature.ScanScientific(fmt.Sprintf("%.2f", temp))
-	} else {
-		temperature.Valid = false
-	}
-
-	topPVal := model.TopP()
-	if topPVal != -1 {
-		topP.ScanScientific(fmt.Sprintf("%.2f", topPVal))
-	} else {
-		topP.Valid = false
-	}
-
 	stopWords := model.StopWords()
 	if stopWords == nil {
 		stopWords = []string{}
+	}
+
+	var temp, topP float32
+	if t, ok := model.Temperature(); ok {
+		temp = t
+	}
+	if p, ok := model.TopP(); ok {
+		topP = p
 	}
 
 	if err := a.q.UpsertModelSettings(ctx, db.UpsertModelSettingsParams{
 		ID:            model.ID().ID(),
 		Model:         model.Model(),
 		SystemMessage: model.SystemMessage(),
-		Temperature:   temperature,
+		Temperature:   temp,
 		TopP:          topP,
 		StopWords:     stopWords,
 	}); err != nil {

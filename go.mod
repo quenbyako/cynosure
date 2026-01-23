@@ -5,7 +5,7 @@ go 1.25.1
 toolchain go1.25.6
 
 tool (
-	github.com/google/wire/cmd/wire
+	github.com/goforj/wire/cmd/wire
 	github.com/ogen-go/ogen/cmd/ogen
 	golang.org/x/tools/cmd/stringer
 )
@@ -24,8 +24,8 @@ require (
 	github.com/getzep/zep-go/v2 v2.22.0
 	github.com/go-faster/errors v0.7.1
 	github.com/go-faster/jx v1.2.0
+	github.com/goforj/wire v1.1.0
 	github.com/google/uuid v1.6.0
-	github.com/google/wire v0.7.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.5
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/henvic/httpretty v0.1.4
@@ -85,6 +85,7 @@ require (
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-faster/yaml v0.4.6 // indirect

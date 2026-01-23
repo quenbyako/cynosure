@@ -7,14 +7,15 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/adapters/mocks"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 
 	. "github.com/quenbyako/cynosure/internal/adapters/tool-handler"
@@ -39,10 +40,24 @@ func TestRegisterTools(t *testing.T) {
 	accountID, err := ids.RandomAccountID(userID, serverID)
 	require.NoError(t, err)
 
+	cfg := must(entities.NewServerConfig(
+		serverID,
+		serverURL,
+		entities.WithExpiration(time.Now().Add(72*time.Hour)),
+		entities.WithAuthConfig(&oauth2.Config{
+			ClientID:     "some-client",
+			ClientSecret: "some-secret",
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  "http://auth.url",
+				TokenURL: "http://token.url",
+			},
+			RedirectURL: "http://redirect.url",
+			Scopes:      []string{"scope1", "scope2"},
+		}),
+	))
+
 	// 4. Expectations
-	mockServers.EXPECT().GetServerInfo(ctx, accountID.Server()).Once().Return(&ports.ServerInfo{
-		SSELink: serverURL,
-	}, nil)
+	mockServers.EXPECT().GetServerInfo(ctx, accountID.Server()).Once().Return(cfg, nil)
 	mockAccounts.EXPECT().SaveAccount(ctx, mock.MatchedBy(func(acc entities.AccountReadOnly) bool {
 		tools := acc.Tools()
 		if len(tools) != 1 {

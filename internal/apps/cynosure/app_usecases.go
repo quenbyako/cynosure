@@ -1,7 +1,7 @@
 package cynosure
 
 import (
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"

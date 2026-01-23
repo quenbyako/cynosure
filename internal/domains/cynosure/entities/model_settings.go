@@ -28,12 +28,12 @@ type ModelSettings struct {
 	// Temperature is the temperature for the model, which controls the
 	// randomness of the model.
 	//
-	// if temperature is negative, then it's not set.
+	// if temperature is <= 0 then it's not set.
 	temperature float32
 
 	// TopP is the top p for the model, which controls the diversity of the model.
 	//
-	// If topP is negative, then it's not set.
+	// If topP is <= 0, then it's not set.
 	topP float32
 	// Stop is the stop words for the model, which controls the stopping
 	// condition of the model.
@@ -109,17 +109,17 @@ type ModelSettingsReadOnly interface {
 	ID() ids.ModelConfigID
 	Model() string
 	SystemMessage() string
-	Temperature() float32
-	TopP() float32
+	Temperature() (float32, bool)
+	TopP() (float32, bool)
 	StopWords() []string
 }
 
-func (c *ModelSettings) ID() ids.ModelConfigID { return c.id }
-func (c *ModelSettings) Model() string         { return c.model }
-func (c *ModelSettings) SystemMessage() string { return c.systemMessage }
-func (c *ModelSettings) Temperature() float32  { return c.temperature }
-func (c *ModelSettings) TopP() float32         { return c.topP }
-func (c *ModelSettings) StopWords() []string   { return slices.Clone(c.stopWords) }
+func (c *ModelSettings) ID() ids.ModelConfigID        { return c.id }
+func (c *ModelSettings) Model() string                { return c.model }
+func (c *ModelSettings) SystemMessage() string        { return c.systemMessage }
+func (c *ModelSettings) Temperature() (float32, bool) { return c.temperature, c.temperature > 0 }
+func (c *ModelSettings) TopP() (float32, bool)        { return c.topP, c.topP > 0 }
+func (c *ModelSettings) StopWords() []string          { return slices.Clone(c.stopWords) }
 
 // WRITE
 

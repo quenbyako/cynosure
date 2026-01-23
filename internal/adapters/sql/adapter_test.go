@@ -19,6 +19,7 @@ func TestAdapter(t *testing.T) {
 	adapter, err := NewAdapter(t.Context(), connStr)
 	require.NoError(t, err, "Failed to create SQL adapter")
 	require.NotNil(t, adapter, "Adapter should not be nil")
+	t.Cleanup(func() { adapter.Close() })
 
 	// Create fixturer function that inserts required servers before account tests
 	fixturer := func(seed testsuite.TestAccountSeed) error {

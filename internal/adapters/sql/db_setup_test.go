@@ -25,7 +25,7 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err, "Failed to create connection pool")
 	t.Cleanup(func() { pool.Close() })
 
-	fs.WalkDir(db.Schema, "schema", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(db.Schema, "schema", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -45,6 +45,7 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 
 		return nil
 	})
+	require.NoError(t, err, "Failed to apply database schema")
 
 	return pool
 }
