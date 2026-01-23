@@ -7,8 +7,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/oauth"
 )
 
-func (s *Service) ExchangeToken(ctx context.Context, exchangeToken, stateStr string) error {
-	ctx, span := s.trace.Start(ctx, "Service.ExchangeToken")
+func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr string) error {
+	ctx, span := s.trace.Start(ctx, "Usecase.ExchangeToken")
 	defer span.End()
 
 	if stateStr == "" {
@@ -29,7 +29,7 @@ func (s *Service) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 		return fmt.Errorf("getting server info: %w", err)
 	}
 
-	token, err := s.oauth.Exchange(ctx, server.AuthConfig, exchangeToken, state.Challenge())
+	token, err := s.oauth.Exchange(ctx, server.AuthConfig(), exchangeToken, state.Challenge())
 	if err != nil {
 		return fmt.Errorf("exchanging token: %w", err)
 	}

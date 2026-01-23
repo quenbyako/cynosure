@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 	tgbotapi "github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

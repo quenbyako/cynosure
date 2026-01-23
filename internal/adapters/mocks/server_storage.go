@@ -8,7 +8,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -41,16 +41,16 @@ func (_m *MockServerStorage) EXPECT() *MockServerStorage_Expecter {
 }
 
 // AddServer provides a mock function for the type MockServerStorage
-func (_mock *MockServerStorage) AddServer(ctx context.Context, name ids.ServerID, info ports.ServerInfo) error {
-	ret := _mock.Called(ctx, name, info)
+func (_mock *MockServerStorage) AddServer(ctx context.Context, config entities.ServerConfigReadOnly) error {
+	ret := _mock.Called(ctx, config)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddServer")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.ServerID, ports.ServerInfo) error); ok {
-		r0 = returnFunc(ctx, name, info)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.ServerConfigReadOnly) error); ok {
+		r0 = returnFunc(ctx, config)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -64,30 +64,24 @@ type MockServerStorage_AddServer_Call struct {
 
 // AddServer is a helper method to define mock.On call
 //   - ctx context.Context
-//   - name ids.ServerID
-//   - info ports.ServerInfo
-func (_e *MockServerStorage_Expecter) AddServer(ctx interface{}, name interface{}, info interface{}) *MockServerStorage_AddServer_Call {
-	return &MockServerStorage_AddServer_Call{Call: _e.mock.On("AddServer", ctx, name, info)}
+//   - config entities.ServerConfigReadOnly
+func (_e *MockServerStorage_Expecter) AddServer(ctx interface{}, config interface{}) *MockServerStorage_AddServer_Call {
+	return &MockServerStorage_AddServer_Call{Call: _e.mock.On("AddServer", ctx, config)}
 }
 
-func (_c *MockServerStorage_AddServer_Call) Run(run func(ctx context.Context, name ids.ServerID, info ports.ServerInfo)) *MockServerStorage_AddServer_Call {
+func (_c *MockServerStorage_AddServer_Call) Run(run func(ctx context.Context, config entities.ServerConfigReadOnly)) *MockServerStorage_AddServer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 ids.ServerID
+		var arg1 entities.ServerConfigReadOnly
 		if args[1] != nil {
-			arg1 = args[1].(ids.ServerID)
-		}
-		var arg2 ports.ServerInfo
-		if args[2] != nil {
-			arg2 = args[2].(ports.ServerInfo)
+			arg1 = args[1].(entities.ServerConfigReadOnly)
 		}
 		run(
 			arg0,
 			arg1,
-			arg2,
 		)
 	})
 	return _c
@@ -98,29 +92,29 @@ func (_c *MockServerStorage_AddServer_Call) Return(err error) *MockServerStorage
 	return _c
 }
 
-func (_c *MockServerStorage_AddServer_Call) RunAndReturn(run func(ctx context.Context, name ids.ServerID, info ports.ServerInfo) error) *MockServerStorage_AddServer_Call {
+func (_c *MockServerStorage_AddServer_Call) RunAndReturn(run func(ctx context.Context, config entities.ServerConfigReadOnly) error) *MockServerStorage_AddServer_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetServerInfo provides a mock function for the type MockServerStorage
-func (_mock *MockServerStorage) GetServerInfo(ctx context.Context, name ids.ServerID) (*ports.ServerInfo, error) {
+func (_mock *MockServerStorage) GetServerInfo(ctx context.Context, name ids.ServerID) (*entities.ServerConfig, error) {
 	ret := _mock.Called(ctx, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetServerInfo")
 	}
 
-	var r0 *ports.ServerInfo
+	var r0 *entities.ServerConfig
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.ServerID) (*ports.ServerInfo, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.ServerID) (*entities.ServerConfig, error)); ok {
 		return returnFunc(ctx, name)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.ServerID) *ports.ServerInfo); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.ServerID) *entities.ServerConfig); ok {
 		r0 = returnFunc(ctx, name)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ports.ServerInfo)
+			r0 = ret.Get(0).(*entities.ServerConfig)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, ids.ServerID) error); ok {
@@ -161,48 +155,42 @@ func (_c *MockServerStorage_GetServerInfo_Call) Run(run func(ctx context.Context
 	return _c
 }
 
-func (_c *MockServerStorage_GetServerInfo_Call) Return(serverInfo *ports.ServerInfo, err error) *MockServerStorage_GetServerInfo_Call {
-	_c.Call.Return(serverInfo, err)
+func (_c *MockServerStorage_GetServerInfo_Call) Return(serverConfig *entities.ServerConfig, err error) *MockServerStorage_GetServerInfo_Call {
+	_c.Call.Return(serverConfig, err)
 	return _c
 }
 
-func (_c *MockServerStorage_GetServerInfo_Call) RunAndReturn(run func(ctx context.Context, name ids.ServerID) (*ports.ServerInfo, error)) *MockServerStorage_GetServerInfo_Call {
+func (_c *MockServerStorage_GetServerInfo_Call) RunAndReturn(run func(ctx context.Context, name ids.ServerID) (*entities.ServerConfig, error)) *MockServerStorage_GetServerInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListServers provides a mock function for the type MockServerStorage
-func (_mock *MockServerStorage) ListServers(ctx context.Context, limit uint, token string) (map[ids.ServerID]ports.ServerInfo, string, error) {
-	ret := _mock.Called(ctx, limit, token)
+func (_mock *MockServerStorage) ListServers(ctx context.Context) ([]*entities.ServerConfig, error) {
+	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListServers")
 	}
 
-	var r0 map[ids.ServerID]ports.ServerInfo
-	var r1 string
-	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uint, string) (map[ids.ServerID]ports.ServerInfo, string, error)); ok {
-		return returnFunc(ctx, limit, token)
+	var r0 []*entities.ServerConfig
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entities.ServerConfig, error)); ok {
+		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uint, string) map[ids.ServerID]ports.ServerInfo); ok {
-		r0 = returnFunc(ctx, limit, token)
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entities.ServerConfig); ok {
+		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[ids.ServerID]ports.ServerInfo)
+			r0 = ret.Get(0).([]*entities.ServerConfig)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, uint, string) string); ok {
-		r1 = returnFunc(ctx, limit, token)
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
 	} else {
-		r1 = ret.Get(1).(string)
+		r1 = ret.Error(1)
 	}
-	if returnFunc, ok := ret.Get(2).(func(context.Context, uint, string) error); ok {
-		r2 = returnFunc(ctx, limit, token)
-	} else {
-		r2 = ret.Error(2)
-	}
-	return r0, r1, r2
+	return r0, r1
 }
 
 // MockServerStorage_ListServers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListServers'
@@ -212,75 +200,59 @@ type MockServerStorage_ListServers_Call struct {
 
 // ListServers is a helper method to define mock.On call
 //   - ctx context.Context
-//   - limit uint
-//   - token string
-func (_e *MockServerStorage_Expecter) ListServers(ctx interface{}, limit interface{}, token interface{}) *MockServerStorage_ListServers_Call {
-	return &MockServerStorage_ListServers_Call{Call: _e.mock.On("ListServers", ctx, limit, token)}
+func (_e *MockServerStorage_Expecter) ListServers(ctx interface{}) *MockServerStorage_ListServers_Call {
+	return &MockServerStorage_ListServers_Call{Call: _e.mock.On("ListServers", ctx)}
 }
 
-func (_c *MockServerStorage_ListServers_Call) Run(run func(ctx context.Context, limit uint, token string)) *MockServerStorage_ListServers_Call {
+func (_c *MockServerStorage_ListServers_Call) Run(run func(ctx context.Context)) *MockServerStorage_ListServers_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 uint
-		if args[1] != nil {
-			arg1 = args[1].(uint)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
 		run(
 			arg0,
-			arg1,
-			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockServerStorage_ListServers_Call) Return(m map[ids.ServerID]ports.ServerInfo, nextToken string, err error) *MockServerStorage_ListServers_Call {
-	_c.Call.Return(m, nextToken, err)
+func (_c *MockServerStorage_ListServers_Call) Return(m []*entities.ServerConfig, err error) *MockServerStorage_ListServers_Call {
+	_c.Call.Return(m, err)
 	return _c
 }
 
-func (_c *MockServerStorage_ListServers_Call) RunAndReturn(run func(ctx context.Context, limit uint, token string) (map[ids.ServerID]ports.ServerInfo, string, error)) *MockServerStorage_ListServers_Call {
+func (_c *MockServerStorage_ListServers_Call) RunAndReturn(run func(ctx context.Context) ([]*entities.ServerConfig, error)) *MockServerStorage_ListServers_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // LookupByURL provides a mock function for the type MockServerStorage
-func (_mock *MockServerStorage) LookupByURL(ctx context.Context, url1 *url.URL) (ids.ServerID, ports.ServerInfo, error) {
+func (_mock *MockServerStorage) LookupByURL(ctx context.Context, url1 *url.URL) (*entities.ServerConfig, error) {
 	ret := _mock.Called(ctx, url1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LookupByURL")
 	}
 
-	var r0 ids.ServerID
-	var r1 ports.ServerInfo
-	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL) (ids.ServerID, ports.ServerInfo, error)); ok {
+	var r0 *entities.ServerConfig
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL) (*entities.ServerConfig, error)); ok {
 		return returnFunc(ctx, url1)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL) ids.ServerID); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL) *entities.ServerConfig); ok {
 		r0 = returnFunc(ctx, url1)
 	} else {
-		r0 = ret.Get(0).(ids.ServerID)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entities.ServerConfig)
+		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *url.URL) ports.ServerInfo); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *url.URL) error); ok {
 		r1 = returnFunc(ctx, url1)
 	} else {
-		r1 = ret.Get(1).(ports.ServerInfo)
+		r1 = ret.Error(1)
 	}
-	if returnFunc, ok := ret.Get(2).(func(context.Context, *url.URL) error); ok {
-		r2 = returnFunc(ctx, url1)
-	} else {
-		r2 = ret.Error(2)
-	}
-	return r0, r1, r2
+	return r0, r1
 }
 
 // MockServerStorage_LookupByURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LookupByURL'
@@ -313,12 +285,12 @@ func (_c *MockServerStorage_LookupByURL_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *MockServerStorage_LookupByURL_Call) Return(serverID ids.ServerID, serverInfo ports.ServerInfo, err error) *MockServerStorage_LookupByURL_Call {
-	_c.Call.Return(serverID, serverInfo, err)
+func (_c *MockServerStorage_LookupByURL_Call) Return(serverConfig *entities.ServerConfig, err error) *MockServerStorage_LookupByURL_Call {
+	_c.Call.Return(serverConfig, err)
 	return _c
 }
 
-func (_c *MockServerStorage_LookupByURL_Call) RunAndReturn(run func(ctx context.Context, url1 *url.URL) (ids.ServerID, ports.ServerInfo, error)) *MockServerStorage_LookupByURL_Call {
+func (_c *MockServerStorage_LookupByURL_Call) RunAndReturn(run func(ctx context.Context, url1 *url.URL) (*entities.ServerConfig, error)) *MockServerStorage_LookupByURL_Call {
 	_c.Call.Return(run)
 	return _c
 }

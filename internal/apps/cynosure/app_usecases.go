@@ -1,7 +1,7 @@
 package cynosure
 
 import (
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
@@ -45,7 +45,7 @@ func newAccountsUsecase(
 	storage ports.ServerStorage,
 	oauth ports.OAuthHandler,
 	tool ports.ToolManager,
-) *accounts.Service {
+) *accounts.Usecase {
 	return accounts.New(storage, oauth, tool,
 		accounts.WithTracerProvider(p.observability),
 	)

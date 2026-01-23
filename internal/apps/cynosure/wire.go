@@ -5,7 +5,7 @@ package cynosure
 import (
 	"context"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
@@ -16,7 +16,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 
 		loggerConstructor,
 
-		fileAdapter,
+		sqlAdapter,
 		zepAdapter,
 		geminiAdapter,
 		primitiveAdapter,
@@ -26,6 +26,6 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		accountsUsecase,
 		serversUsecase,
 
-		newApp,
+		connectDependencies,
 	))
 }

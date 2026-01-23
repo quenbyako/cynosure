@@ -21,17 +21,20 @@ func (h *Handler) RegisterTools(ctx context.Context, account ids.AccountID, name
 		return fmt.Errorf("retrieving server info for account %v: %w", account.ID().String(), err)
 	}
 
-	httpCLient := http.DefaultClient
+	httpClient := http.DefaultClient
 	if token != nil {
 		// WARN: рефрешер нормально не работает с флоу сохранения, потому что берет
 		// контекст из аргумента, и сохраняет его невсегда, то есть резон
 		// использовать есть лишь как пример
 		//
 		// к тому же, он не защищён от гонок, так что надо переделать
-		httpCLient = oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+		httpClient = oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 	}
 
-	c, err := newAsyncClient(ctx, serverInfo.SSELink, httpCLient)
+	c, err := newAsyncClient(ctx, serverInfo.SSELink(), httpClient)
+	if err != nil {
+		return fmt.Errorf("creating async client for account %v: %w", account.ID().String(), err)
+	}
 
 	result, err := c.session.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {

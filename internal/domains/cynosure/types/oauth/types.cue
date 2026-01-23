@@ -1,3 +1,6 @@
+// WARN: this file does nothing — it's an experiment for code generation, and
+// that's it.
+
 package oauth
 
 import "github.com/quenbyako/core/cue:schema"

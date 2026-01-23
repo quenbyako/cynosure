@@ -4,22 +4,29 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 
-	"github.com/quenbyako/cynosure/internal/adapters/file"
+	// "github.com/quenbyako/cynosure/internal/adapters/file"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
-	oauthClient "github.com/quenbyako/cynosure/internal/adapters/oauth"
+	"github.com/quenbyako/cynosure/internal/adapters/oauth"
+	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	primitive "github.com/quenbyako/cynosure/internal/adapters/tool-handler"
 	"github.com/quenbyako/cynosure/internal/adapters/zep"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
 var (
-	fileAdapter = wire.NewSet(
-		newFileAdapter,
-		wire.Bind(new(ports.ModelSettingsStorageFactory), new(*file.File)),
-		wire.Bind(new(ports.AccountStorageFactory), new(*file.File)),
-		wire.Bind(new(ports.ServerStorageFactory), new(*file.File)),
+	// fileAdapter = wire.NewSet(
+	// 	newFileAdapter,
+	// 	wire.Bind(new(ports.ModelSettingsStorageFactory), new(*file.File)),
+	// 	wire.Bind(new(ports.AccountStorageFactory), new(*file.File)),
+	// 	wire.Bind(new(ports.ServerStorageFactory), new(*file.File)),
+	// )
+	sqlAdapter = wire.NewSet(
+		newSQLAdapter,
+		wire.Bind(new(ports.ModelSettingsStorageFactory), new(*sql.Adapter)),
+		wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)),
+		wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)),
 	)
 	zepAdapter = wire.NewSet(
 		newZepStorage,
@@ -29,15 +36,19 @@ var (
 		wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)),
 	)
 	oauthAdapter = wire.NewSet(newOAuthHandler,
-		wire.Bind(new(ports.OAuthHandlerFactory), new(*oauthClient.Handler)),
+		wire.Bind(new(ports.OAuthHandlerFactory), new(*oauth.Handler)),
 	)
 	primitiveAdapter = wire.NewSet(primitive.NewHandler,
 		wire.Bind(new(ports.ToolManagerFactory), new(*primitive.Handler)),
 	)
 )
 
-func newFileAdapter(p *appParams) *file.File {
-	return file.New(p.storagePath)
+// func newFileAdapter(p *appParams) *file.File {
+// 	return file.New(p.storagePath)
+// }
+
+func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
+	return sql.NewAdapter(ctx, p.databaseURL)
 }
 
 func newZepStorage(ctx context.Context, p *appParams) *zep.ZepStorage {
@@ -62,9 +73,9 @@ func newGeminiModel(ctx context.Context, p *appParams) (*gemini.GeminiModel, err
 	)
 }
 
-func newOAuthHandler(p *appParams) *oauthClient.Handler {
-	return oauthClient.New(
+func newOAuthHandler(p *appParams) *oauth.Handler {
+	return oauth.New(
 		p.oauthScopes,
-		oauthClient.WithTracerProvider(p.observability),
+		oauth.WithTracerProvider(p.observability),
 	)
 }

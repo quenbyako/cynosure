@@ -7,6 +7,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 )
 
+// StorageRepository is responsible for storing and retrieving chat history
+// threads.
 type StorageRepository interface {
 	CreateThread(ctx context.Context, thread entities.ChatHistoryReadOnly) error
 	GetThread(ctx context.Context, user ids.UserID, threadID string) (*entities.ChatHistory, error)

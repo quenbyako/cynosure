@@ -13,7 +13,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/oauth"
 )
 
-func (s *Service) SetupAuthLink(ctx context.Context, server ids.ServerID, user ids.UserID, accountName, accountDesc string) (*url.URL, error) {
+func (s *Usecase) SetupAuthLink(ctx context.Context, server ids.ServerID, user ids.UserID, accountName, accountDesc string) (*url.URL, error) {
 	ctx, span := s.trace.Start(ctx, "Service.SetupAuthLink")
 	defer span.End()
 
@@ -48,5 +48,5 @@ func (s *Service) SetupAuthLink(ctx context.Context, server ids.ServerID, user i
 		return nil, fmt.Errorf("creating OAuth state: %w", err)
 	}
 
-	return url.Parse(info.AuthConfig.AuthCodeURL(state.State("", s.key), oauth2.S256ChallengeOption(verifierStr)))
+	return url.Parse(info.AuthConfig().AuthCodeURL(state.State("", s.key), oauth2.S256ChallengeOption(verifierStr)))
 }

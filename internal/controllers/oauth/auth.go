@@ -11,12 +11,12 @@ import (
 )
 
 type Handler struct {
-	srv *accounts.Service
+	srv *accounts.Usecase
 }
 
 var _ httpapi.Handler = (*Handler)(nil)
 
-func NewHandler(srv *accounts.Service) http.Handler {
+func NewHandler(srv *accounts.Usecase) http.Handler {
 	h := &Handler{
 		srv: srv,
 	}

@@ -1,14 +1,12 @@
 package main
 
 import (
-	"context"
 	"os"
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/core/contrib/runtime"
 
 	"github.com/quenbyako/cynosure/cmd/cynosure/root"
-	"github.com/quenbyako/cynosure/cmd/cynosure/root/gateway"
 )
 
 //nolint:gochecknoglobals // ldflags doesn't work with constants
@@ -26,17 +24,8 @@ func main() {
 	)
 	defer cancel()
 
-	var cmd func(context.Context, []string) core.ExitCode
-	if len(os.Args) == 1 {
-		cmd = runtime.Run(root.Cmd)
-	} else {
-		switch os.Args[1] {
-		case "gateway":
-			cmd = runtime.Run(gateway.Cmd)
-		default:
-			panic("unknown subcommand" + os.Args[1])
-		}
-	}
+	main := runtime.Run(root.Cmd)
+	exitCode := main(ctx, os.Args[1:])
 
-	os.Exit(int(cmd(ctx, os.Args[1:])))
+	os.Exit(int(exitCode))
 }

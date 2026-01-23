@@ -8,19 +8,19 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[ToolChoiceForbidden-1]
-	_ = x[ToolChoiceAllowed-2]
+	_ = x[ToolChoiceAllowed-1]
+	_ = x[ToolChoiceForbidden-2]
 	_ = x[ToolChoiceForced-3]
 }
 
-const _ToolChoice_name = "forbiddenallowedforced"
+const _ToolChoice_name = "allowedforbiddenforced"
 
-var _ToolChoice_index = [...]uint8{0, 9, 16, 22}
+var _ToolChoice_index = [...]uint8{0, 7, 16, 22}
 
 func (i ToolChoice) String() string {
-	i -= 1
-	if i >= ToolChoice(len(_ToolChoice_index)-1) {
-		return "ToolChoice(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_ToolChoice_index)-1 {
+		return "ToolChoice(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ToolChoice_name[_ToolChoice_index[i]:_ToolChoice_index[i+1]]
+	return _ToolChoice_name[_ToolChoice_index[idx]:_ToolChoice_index[idx+1]]
 }

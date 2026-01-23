@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/google/wire"
+	"github.com/goforj/wire"
 	"github.com/quenbyako/core/contrib/runtime"
 	"github.com/quenbyako/cynosure/contrib/onelog"
 

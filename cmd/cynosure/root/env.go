@@ -20,6 +20,7 @@ type Config struct {
 	Port        grpc.Server    `env:"CYNOSURE_GRPC_ADDR"    default:"grpc://0.0.0.0:5001"`
 	HttpPort    http.Server    `env:"CYNOSURE_HTTP_ADDR"    default:"http://0.0.0.0:5002"`
 	MetricsPort *url.URL       `env:"CYNOSURE_METRICS_ADDR" default:""`
+	DatabaseURL string         `env:"CYNOSURE_DATABASE_URL"`
 	ZepKey      secrets.Secret `env:"CYNOSURE_ZEP_KEY"`
 	GeminiKey   secrets.Secret `env:"CYNOSURE_GEMINI_KEY"`
 	TLSKey      string         `env:"CYNOSURE_TLS_KEY"      default:""`

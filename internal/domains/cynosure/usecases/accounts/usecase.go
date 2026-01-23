@@ -16,7 +16,7 @@ var (
 	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
 )
 
-type Service struct {
+type Usecase struct {
 	oauth   ports.OAuthHandler
 	servers ports.ServerStorage
 	tools   ports.ToolManager
@@ -54,7 +54,7 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-func New(servers ports.ServerStorage, oauth ports.OAuthHandler, tools ports.ToolManager, opts ...NewOption) *Service {
+func New(servers ports.ServerStorage, oauth ports.OAuthHandler, tools ports.ToolManager, opts ...NewOption) *Usecase {
 	p := newParams{
 		clientName:      "test-client",
 		fixedKey:        randomAuthKey(),
@@ -65,7 +65,7 @@ func New(servers ports.ServerStorage, oauth ports.OAuthHandler, tools ports.Tool
 		opt(&p)
 	}
 
-	s := &Service{
+	s := &Usecase{
 		tools:   tools,
 		oauth:   oauth,
 		servers: servers,
@@ -83,7 +83,7 @@ func New(servers ports.ServerStorage, oauth ports.OAuthHandler, tools ports.Tool
 	return s
 }
 
-func (s *Service) validate() error {
+func (s *Usecase) validate() error {
 	switch {
 	case s.tools == nil:
 		return errors.New("tool manager is required")

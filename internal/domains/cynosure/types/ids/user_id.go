@@ -12,6 +12,14 @@ type UserID struct {
 	valid bool
 }
 
+func RandomUserID() UserID {
+	if id, err := NewUserID(uuid.New()); err == nil {
+		return id
+	} else {
+		panic(err)
+	}
+}
+
 func NewUserIDFromString(id string) (UserID, error) {
 	userID, err := uuid.Parse(id)
 	if err != nil {

@@ -1,4 +1,4 @@
-package gateway
+package root
 
 import (
 	"log/slog"

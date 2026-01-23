@@ -10,8 +10,8 @@ type ToolChoice uint8
 
 const (
 	_                   ToolChoice = iota
-	ToolChoiceForbidden            // forbidden
 	ToolChoiceAllowed              // allowed
+	ToolChoiceForbidden            // forbidden
 	ToolChoiceForced               // forced
 )
 
