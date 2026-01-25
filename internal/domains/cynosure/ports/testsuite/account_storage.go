@@ -9,8 +9,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 // RunAccountStorageTests runs tests for the given adapter. These tests are predefined
@@ -73,7 +72,6 @@ type SaveAccountFixture struct {
 	AccountID   ids.AccountID
 	Name        string
 	Description string
-	Tools       []tools.ToolInfo
 }
 
 func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
@@ -89,7 +87,6 @@ func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 		fixture.AccountID,
 		fixture.Name,
 		fixture.Description,
-		fixture.Tools,
 	))
 
 	t.Run("saving_account", func(t *testing.T) {
@@ -104,7 +101,6 @@ func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 		require.Equal(t, account.ID(), got.ID(), "account ID mismatch")
 		require.Equal(t, account.Name(), got.Name(), "account name mismatch")
 		require.Equal(t, account.Description(), got.Description(), "account description mismatch")
-		require.Equal(t, len(account.Tools()), len(got.Tools()), "account tools length mismatch")
 	})
 
 	t.Run("listing_accounts", func(t *testing.T) {
@@ -121,19 +117,9 @@ func (s *AccountStorageTestSuite) buildSaveAccountSeed() SaveAccountFixture {
 
 	account := must(ids.RandomAccountID(userID, serverID))
 
-	tools := []tools.ToolInfo{
-		must(tools.NewToolInfo(
-			"tool-1",
-			"Description for tool 1",
-			[]byte(`{"type": "object", "properties": {}}`),
-			[]byte(`{"type": "string"}`),
-		)),
-	}
-
 	return SaveAccountFixture{
 		AccountID:   account,
 		Name:        "Test Account",
 		Description: "Some description",
-		Tools:       tools,
 	}
 }

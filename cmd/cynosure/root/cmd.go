@@ -17,7 +17,6 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 	opts := []cynosure.AppOpts{
 		cynosure.WithGRPCServer(cfg.Port),
 		cynosure.WithHTTPServer(cfg.HttpPort.Register),
-		cynosure.WithZepKey(cfg.ZepKey),
 		cynosure.WithGeminiKey(cfg.GeminiKey),
 		cynosure.WithDefaultModelConfig("e0689c78-4fd0-4eca-a907-8e00515bc88d"),
 	}

@@ -171,15 +171,21 @@ func TestForget(t *testing.T) {
 
 	unblockSecond := make(chan struct{})
 	secondResult := make(chan struct{})
+	secondStarted := make(chan struct{})
 	go func() {
-		g.Do(t.Context(), func(ctx context.Context) (i int, e error) { <-unblockSecond; return 2, nil })
+		g.Do(t.Context(), func(ctx context.Context) (i int, e error) {
+			close(secondStarted)
+			<-unblockSecond
+			return 2, nil
+		})
 		close(secondResult)
 	}()
+	<-secondStarted // Wait for second call to actually start
 
 	close(unblockFirst)
 	<-firstFinished
 
-	var thirdResult chan int
+	thirdResult := make(chan int, 1)
 	go func() {
 		res, _, _ := g.Do(t.Context(), func(ctx context.Context) (i int, e error) { return 3, nil })
 		thirdResult <- res

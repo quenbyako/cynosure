@@ -9,10 +9,11 @@ import (
 	"github.com/quenbyako/cynosure/contrib/onelog"
 	"google.golang.org/genai"
 
+	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 type ClientConfig = genai.ClientConfig
@@ -25,6 +26,7 @@ type GeminiModel struct {
 }
 
 var _ ports.ChatModelFactory = (*GeminiModel)(nil)
+var _ ports.ToolSemanticIndexFactory = (*GeminiModel)(nil)
 
 func (g *GeminiModel) ChatModel() ports.ChatModel { return g }
 
@@ -46,7 +48,7 @@ func NewGeminiModel(ctx context.Context, cfg *ClientConfig) (*GeminiModel, error
 }
 
 // Stream implements adapters.ChatModel.
-func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, settings entities.ModelSettingsReadOnly, opts ...ports.StreamOption) (iter.Seq2[messages.Message, error], error) {
+func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...ports.StreamOption) (iter.Seq2[messages.Message, error], error) {
 	p := ports.StreamParams(opts...)
 
 	genConfig := &genai.GenerateContentConfig{
@@ -60,7 +62,7 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 		}
 	}
 
-	if t := p.Tools(); len(t) > 0 {
+	if t := p.Toolbox().Tools(); len(t) > 0 {
 		var mode genai.FunctionCallingConfigMode
 		switch toolChoice := p.ToolChoice(); toolChoice {
 		case tools.ToolChoiceAllowed:
@@ -79,10 +81,15 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 			},
 		}
 
-		genConfig.Tools = toolInfoToGenAI(t)
+		toolList := make([]tools.RawToolInfo, 0, len(t))
+		for _, tool := range t {
+			toolList = append(toolList, tool)
+		}
+
+		genConfig.Tools = datatransfer.ToolInfoToGenAI(toolList)
 	}
 
-	converted, err := messagesToGenAIContent(input)
+	converted, err := datatransfer.MessagesToGenAIContent(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert messages: %w", err)
 	}
@@ -105,7 +112,7 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 			}
 
 			var res []messages.Message
-			res, thoughtBuffer, err = MessageFromGenAIContent(msg, thoughtBuffer, mergeTag)
+			res, thoughtBuffer, err = datatransfer.MessageFromGenAIContent(msg, thoughtBuffer, mergeTag)
 			if err != nil {
 				yield(nil, err)
 
@@ -125,9 +132,6 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 	}, nil
 }
 
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
+func ptr[T any](v T) *T {
+	return &v
 }

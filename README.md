@@ -1,5 +1,48 @@
 # Cynosure
 
+> **"Agents little home"** — the platform for creating personal AI agents with zero friction.
+
+## What is Cynosure?
+
+**Cynosure** is a platform for creating personal AI agents with zero friction. Users simply describe their task in Telegram (or any other messenger), and a meta-agent automatically assembles and configures an agent with the necessary tools.
+
+### Problem
+
+Ordinary people want to use AI to automate their tasks, but:
+
+- 🚫 **LangChain** requires programming
+- 🚫 **n8n** has complex UI
+- 🚫 **Gemini Gems** limited by Gemini UI and tools by Google Workspace
+- 🚫 **ChatGPT/Claude/Gemini web** do not support MCP or any other external tools
+
+**Result:** 99% of people cannot create AI agents for their tasks.
+
+### Solution
+
+**Zero friction:**
+
+1. The user writes in Telegram: "I want an agent to manage tasks"
+2. The meta-agent asks clarifying questions
+3. The agent is ready and working ✅
+
+### Features
+
+- 🤖 **Automatic agent creation** — the meta-agent configures everything for you
+- 🔧 **MCP tools** — support for any MCP servers (Todoist, Gmail, Notion, and thousands more)
+- 🧠 **RAG filtering** — smart selection from 1M+ tools
+- 👥 **Agents for others** — create an agent for your grandma or client
+- 💬 **Agent-to-Agent** — agents can communicate with each other
+- 🔐 **OAuth support** — secure authorization in services
+
+---
+
+## 📚 Documentation
+
+**Complete project documentation:** [docs/](docs/)
+
+- **[Product Vision](docs/VISION.md)** - Product vision, architecture, use cases
+- **[Architecture Diagrams](docs/architecture/)** - PlantUML diagrams
+
 ## Deployment
 
 ### Required dependencies
@@ -7,10 +50,11 @@
 1. **PostgreSQL** database.
 
    You can use local or remote instance. Make sure to create a dedicated database and user for the application.
+
 2. **Zep chat storage** (instance or managed).
 
    The application uses Zep for storing chat history. You can deploy your own instance or use a managed service.
-3. **Gemnini API**, currently it works only with Gemini models.
+3. **Gemini API**, currently it works only with Gemini models.
 
 ### Secrets configuration
 

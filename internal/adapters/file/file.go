@@ -19,8 +19,8 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 const pkgName = "internal/adapters/model-settings/file"
@@ -36,9 +36,9 @@ var _ ports.ModelSettingsStorageFactory = (*File)(nil)
 var _ ports.AccountStorageFactory = (*File)(nil)
 var _ ports.ServerStorageFactory = (*File)(nil)
 
-func (f *File) ServerStorage() ports.ServerStorage               { return f }
-func (f *File) AccountStorage() ports.AccountStorage             { return f }
-func (f *File) ModelSettingsStorage() ports.ModelSettingsStorage { return f }
+func (f *File) ServerStorage() ports.ServerStorage       { return f }
+func (f *File) AccountStorage() ports.AccountStorage     { return f }
+func (f *File) ModelSettingsStorage() ports.AgentStorage { return f }
 
 type newParams struct {
 	trace trace.TracerProvider
@@ -65,7 +65,7 @@ func New(path string, opts ...NewOption) *File {
 }
 
 // DeleteModel implements ports.ModelSettingsStorage.
-func (f *File) DeleteModel(ctx context.Context, model ids.ModelConfigID) error {
+func (f *File) DeleteModel(ctx context.Context, model ids.AgentID) error {
 	ctx, span := f.trace.Start(ctx, "File.DeleteModel")
 	defer span.End()
 
@@ -103,7 +103,7 @@ func (f *File) DeleteModel(ctx context.Context, model ids.ModelConfigID) error {
 }
 
 // GetModel implements ports.ModelSettingsStorage.
-func (f *File) GetModel(ctx context.Context, model ids.ModelConfigID) (*entities.ModelSettings, error) {
+func (f *File) GetModel(ctx context.Context, model ids.AgentID) (*entities.Agent, error) {
 	ctx, span := f.trace.Start(ctx, "File.GetModel")
 	defer span.End()
 
@@ -148,7 +148,7 @@ func (f *File) GetModel(ctx context.Context, model ids.ModelConfigID) (*entities
 }
 
 // ListModels implements ports.ModelSettingsStorage.
-func (f *File) ListModels(ctx context.Context, user ids.UserID) ([]*entities.ModelSettings, error) {
+func (f *File) ListModels(ctx context.Context, user ids.UserID) ([]*entities.Agent, error) {
 	ctx, span := f.trace.Start(ctx, "File.ListModels")
 	defer span.End()
 
@@ -172,7 +172,7 @@ func (f *File) ListModels(ctx context.Context, user ids.UserID) ([]*entities.Mod
 		return nil, fmt.Errorf("failed to parse token storage file: %w", err)
 	}
 
-	configs := make([]*entities.ModelSettings, 0, len(storage.Models))
+	configs := make([]*entities.Agent, 0, len(storage.Models))
 	for name, info := range storage.Models {
 		id, err := ids.NewModelConfigIDFromString(name)
 		if err != nil {
@@ -204,7 +204,7 @@ func (f *File) ListModels(ctx context.Context, user ids.UserID) ([]*entities.Mod
 }
 
 // SaveModel implements ports.ModelSettingsStorage.
-func (f *File) SaveModel(ctx context.Context, model entities.ModelSettingsReadOnly) error {
+func (f *File) SaveModel(ctx context.Context, model entities.AgentReadOnly) error {
 	ctx, span := f.trace.Start(ctx, "File.SaveModel")
 	defer span.End()
 
@@ -367,7 +367,7 @@ func (f *File) GetAccount(ctx context.Context, account ids.AccountID) (*entities
 		opts = append(opts, entities.WithAuthToken(token.Token))
 	}
 
-	return entities.NewAccount(account, token.Name, token.Desc, registeredTools, opts...)
+	return entities.NewAccount(account, token.Name, token.Desc, registeredTools, f.opts...)
 }
 
 func (f *File) GetAccountsBatch(ctx context.Context, accounts []ids.AccountID) ([]*entities.Account, error) {
@@ -546,8 +546,8 @@ func (f *File) ListAccounts(ctx context.Context, user ids.UserID) ([]ids.Account
 	return accountIDs, nil
 }
 
-func (f *File) AddServer(ctx context.Context, server entities.ServerConfigReadOnly) error {
-	ctx, span := f.trace.Start(ctx, "FileServerStorage.AddServer")
+func (f *File) SetServer(ctx context.Context, server entities.ServerConfigReadOnly) error {
+	ctx, span := f.trace.Start(ctx, "FileServerStorage.SetServer")
 	defer span.End()
 
 	f.mu.Lock()
@@ -575,6 +575,49 @@ func (f *File) AddServer(ctx context.Context, server entities.ServerConfigReadOn
 		Config:     server.AuthConfig(),
 		Expiration: server.ConfigExpiration(),
 	}
+
+	buf := bytes.NewBuffer(nil)
+	enc := yaml.NewEncoder(buf)
+	enc.SetIndent(2)
+
+	if err := enc.Encode(storage); err != nil {
+		return fmt.Errorf("failed to marshal updated token storage: %w", err)
+	}
+
+	if err := os.WriteFile(f.path, buf.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write updated token storage file: %w", err)
+	}
+
+	return nil
+}
+
+func (f *File) DeleteServer(ctx context.Context, id ids.ServerID) error {
+	ctx, span := f.trace.Start(ctx, "FileServerStorage.DeleteServer")
+	defer span.End()
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	data, err := os.ReadFile(f.path)
+	if errors.Is(err, os.ErrNotExist) {
+		// File doesn't exist - nothing to delete (idempotent)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to read token storage file: %w", err)
+	}
+
+	if len(data) == 0 {
+		// Empty file - nothing to delete (idempotent)
+		return nil
+	}
+
+	var storage storageSchema
+	if err := yaml.Unmarshal(data, &storage); err != nil {
+		return fmt.Errorf("failed to parse token storage file: %w", err)
+	}
+
+	// Delete server entry (idempotent - no error if doesn't exist)
+	delete(storage.Servers, id.ID().String())
 
 	buf := bytes.NewBuffer(nil)
 	enc := yaml.NewEncoder(buf)
@@ -624,6 +667,8 @@ func (f *File) GetServerInfo(ctx context.Context, server ids.ServerID) (*entitie
 		must(url.Parse(cfg.Link)),
 		entities.WithAuthConfig(cfg.Config),
 		entities.WithExpiration(cfg.Expiration),
+		// Protocol is not yet persisted, return default (invalid) value
+		entities.WithProtocol(tools.Protocol(0)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating server config: %w", err)
@@ -674,6 +719,8 @@ func (f *File) ListServers(ctx context.Context) ([]*entities.ServerConfig, error
 		if !info.Expiration.IsZero() {
 			opts = append(opts, entities.WithExpiration(info.Expiration))
 		}
+		// Protocol is not yet persisted, return default (invalid) value
+		opts = append(opts, entities.WithProtocol(tools.Protocol(0)))
 
 		server, err := entities.NewServerConfig(id, u, opts...)
 		if err != nil {

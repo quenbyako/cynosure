@@ -98,6 +98,37 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Any requirement or plan element conflicting with a MUST principle
 - Missing mandated sections or quality gates from constitution
 
+#### E. Domain Model Governance
+
+**CRITICAL CHECK**: Validate domain model change governance:
+
+- **Scan for domain changes**: Search spec.md, plan.md, tasks.md for references to `internal/domains/*`
+- **Check for Domain Change Requests**: Look for `FEATURE_DIR/domain-requests/*.md` files
+- **Verify approval status**: If domain changes exist, confirm domain_expert approval exists
+- **Flag violations**:
+  - ❌ CRITICAL: Domain modifications planned without Domain Change Request
+  - ❌ CRITICAL: Domain Change Request exists but no domain_expert approval
+  - ⚠️  WARNING: Domain changes mentioned in spec but no request filed during planning
+
+**Domain Change Request Format** (for reference):
+
+```markdown
+# Domain Change Request: [Title]
+
+**Requester**: [role]
+**Context**: [bounded context]
+**Type**: [change type]
+**Priority**: [level]
+
+## Business Justification
+## Proposed Changes
+## Affected Components
+## Invariants Preservation
+## Alternative Considered
+```
+
+**Remediation**: If violations found, recommend creating Domain Change Request and invoking domain_expert agent before proceeding.
+
 #### E. Coverage Gaps
 
 - Requirements with zero associated tasks

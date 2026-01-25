@@ -17,6 +17,8 @@ import (
 // SetupTestDB starts a PostgreSQL container, applies schema, and returns a connection pool.
 // Automatically registers cleanup with t.Cleanup().
 func SetupTestDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
 	dsn, teardown, err := setupDockerPostgres(t)
 	require.NoError(t, err, "Failed to start postgres instance")
 	t.Cleanup(teardown)
@@ -35,12 +37,12 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 
 		schema, readErr := fs.ReadFile(db.Schema, path)
 		if readErr != nil {
-			return readErr
+			return fmt.Errorf("reading schema file %s: %w", path, readErr)
 		}
 
 		_, execErr := pool.Exec(t.Context(), string(schema))
 		if execErr != nil {
-			return execErr
+			return fmt.Errorf("executing schema %s: %w", path, execErr)
 		}
 
 		return nil
@@ -62,7 +64,7 @@ func setupDockerPostgres(t *testing.T) (string, func(), error) {
 	dbPassword := "password"
 
 	postgresContainer, err := postgres.Run(ctx,
-		"postgres:16-alpine",
+		"pgvector/pgvector:pg16",
 		postgres.WithDatabase(dbName),
 		postgres.WithUsername(dbUser),
 		postgres.WithPassword(dbPassword),

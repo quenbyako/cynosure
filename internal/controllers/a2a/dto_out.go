@@ -7,7 +7,7 @@ import (
 	"google.golang.org/a2a"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
 func messagesTo(m messages.Message) (res *a2a.Message, err error) {

@@ -4,7 +4,7 @@ import (
 	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
@@ -18,12 +18,14 @@ var (
 
 func newChatUsecase(
 	p *appParams,
-	storage ports.StorageRepository,
+	storage ports.ThreadStorage,
 	model ports.ChatModel,
-	tool ports.ToolManager,
+	tool ports.ToolClient,
+	indexer ports.ToolSemanticIndex,
+	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,
-	models ports.ModelSettingsStorage,
+	models ports.AgentStorage,
 	logger chat.LogCallbacks,
 ) *chat.Service {
 	defaultModelConfig := must(ids.NewModelConfigIDFromString(p.defaultModelConfig))
@@ -32,6 +34,8 @@ func newChatUsecase(
 		storage,
 		model,
 		tool,
+		indexer,
+		toolStorage,
 		server,
 		account,
 		models,
@@ -42,11 +46,22 @@ func newChatUsecase(
 
 func newAccountsUsecase(
 	p *appParams,
-	storage ports.ServerStorage,
+	servers ports.ServerStorage,
 	oauth ports.OAuthHandler,
-	tool ports.ToolManager,
+	accountsPort ports.AccountStorage,
+	tools ports.ToolStorage,
+	index ports.ToolSemanticIndex,
+	toolClient ports.ToolClient,
+	users ports.UserStorage,
 ) *accounts.Usecase {
-	return accounts.New(storage, oauth, tool,
+	return accounts.New(
+		servers,
+		oauth,
+		accountsPort,
+		tools,
+		index,
+		toolClient,
+		users,
 		accounts.WithTracerProvider(p.observability),
 	)
 }

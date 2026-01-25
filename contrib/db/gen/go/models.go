@@ -7,38 +7,84 @@ package db
 import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
-type AgentsMcpAccount struct {
-	ID          uuid.UUID
-	UserID      uuid.UUID
-	Server      uuid.UUID
-	Name        string
-	Description string
-	DeletedAt   pgtype.Timestamp
-}
-
-type AgentsMcpServer struct {
-	ID        uuid.UUID
-	Url       string
-	DeletedAt pgtype.Timestamp
-}
-
-type AgentsMcpTool struct {
-	ID      uuid.UUID
-	Account uuid.UUID
-	Name    string
-	Input   []byte
-	Output  []byte
-}
-
-type AgentsModelSetting struct {
+type AgentsAgentSetting struct {
 	ID            uuid.UUID
 	Model         string
 	SystemMessage string
 	Temperature   float32
 	TopP          float32
 	StopWords     []string
+}
+
+type AgentsMcpAccount struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	ServerID    uuid.UUID
+	DeletedAt   pgtype.Timestamptz
+	Name        string
+	Description string
+	Embedding   *pgvector.Vector
+}
+
+type AgentsMcpServer struct {
+	ID        uuid.UUID
+	DeletedAt pgtype.Timestamptz
+	Url       string
+	Embedding *pgvector.Vector
+}
+
+type AgentsMcpTool struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	DeletedAt pgtype.Timestamptz
+	Name      string
+	Input     []byte
+	Output    []byte
+	Embedding *pgvector.Vector
+}
+
+type AgentsMessage struct {
+	ThreadID  string
+	Position  int64
+	CreatedAt pgtype.Timestamptz
+	MsgType   string
+	MergeTag  int64
+}
+
+type AgentsMessagesAssistant struct {
+	ThreadID  string
+	Position  int64
+	Text      string
+	Reasoning string
+	AgentID   uuid.UUID
+}
+
+type AgentsMessagesToolRequest struct {
+	ThreadID   string
+	Position   int64
+	ToolID     pgtype.UUID
+	ToolName   string
+	ToolCallID string
+	Reasoning  string
+	Arguments  []byte
+}
+
+type AgentsMessagesToolResult struct {
+	ThreadID        string
+	Position        int64
+	RequestPosition int64
+	ToolCallID      string
+	IsError         bool
+	Content         []byte
+}
+
+type AgentsMessagesUser struct {
+	ThreadID string
+	Position int64
+	Content  string
 }
 
 type AgentsOauthConfig struct {
@@ -49,7 +95,7 @@ type AgentsOauthConfig struct {
 	Scopes       []string
 	AuthUrl      string
 	TokenUrl     string
-	Expiration   pgtype.Timestamp
+	Expiration   pgtype.Timestamptz
 }
 
 type AgentsOauthToken struct {
@@ -57,7 +103,14 @@ type AgentsOauthToken struct {
 	Type         *string
 	AccessToken  string
 	RefreshToken *string
-	Expiry       pgtype.Timestamp
+	Expiry       pgtype.Timestamptz
+}
+
+type AgentsThread struct {
+	ID             string
+	UserID         uuid.UUID
+	CreatedAt      pgtype.Timestamptz
+	LastMessagePos int64
 }
 
 type AgentsUser struct {

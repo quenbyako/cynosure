@@ -10,6 +10,23 @@ var (
 	ErrToolsNotCached = errors.New("tools were not cached")
 
 	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
+
+	// ErrAuthRequired indicates that authentication is required but was not
+	// provided. Use case should prompt user to authenticate or provide OAuth
+	// token.
+	ErrAuthRequired = errors.New("authentication required")
+
+	// ErrServerUnreachable indicates that all connection protocols failed.
+	// Use case should inform user that server is offline or unreachable.
+	ErrServerUnreachable = errors.New("server unreachable")
+
+	// ErrInvalidCredentials indicates that provided OAuth token was rejected.
+	// Use case should prompt user to re-authenticate.
+	ErrInvalidCredentials = errors.New("invalid credentials")
+
+	// ErrProtocolNotSupported indicates that server doesn't support any known
+	// protocols.
+	ErrProtocolNotSupported = errors.New("protocol not supported")
 )
 
 type RequiresAuthError struct {

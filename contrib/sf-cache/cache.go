@@ -10,16 +10,21 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
+type ConstructorFunc[K comparable, V any] func(context.Context, K) (V, error)
+type DestructorFunc[K comparable, V any] func(K, V)
+
 type Cache[K comparable, V any] struct {
 	closed atomic.Bool
 
-	constructor func(context.Context, K) (V, error)
+	constructor ConstructorFunc[K, V]
 	lru         *expirable.LRU[K, *singleflight[K, V]]
+	mu          sync.Mutex // Protects LRU operations
+	maxAttempts int
 }
 
 func New[K comparable, V any](
-	constructor func(context.Context, K) (V, error),
-	destructor func(K, V),
+	constructor ConstructorFunc[K, V],
+	destructor DestructorFunc[K, V],
 	maxSize uint,
 	ttl time.Duration,
 ) *Cache[K, V] {
@@ -32,11 +37,14 @@ func New[K comparable, V any](
 		lru: expirable.NewLRU(int(maxSize), func(_ K, conn *singleflight[K, V]) {
 			conn.destruct(destructor)
 		}, ttl),
+		mu:          sync.Mutex{},
+		maxAttempts: 3,
 	}
 }
 
 var (
-	ErrClosed = errors.New("closed")
+	ErrClosed     = errors.New("closed")
+	ErrDestructed = errors.New("entry was evicted from cache")
 )
 
 func (h *Cache[K, V]) Close() error {
@@ -44,7 +52,9 @@ func (h *Cache[K, V]) Close() error {
 		return ErrClosed
 	}
 
+	h.mu.Lock()
 	h.lru.Resize(0)
+	h.mu.Unlock()
 
 	return nil
 }
@@ -55,19 +65,32 @@ func (h *Cache[K, V]) Get(ctx context.Context, k K) (V, error) {
 		return zero, ErrClosed
 	}
 
-	// TODO: VERY VERY IMPORTANT: method is not thread-safe. We have to rewrite
-	// it differently, for test — meh, but ok
-	conn, ok := h.lru.Get(k)
-	if !ok {
-		h.lru.Add(k, &singleflight[K, V]{k: k, constructor: h.constructor})
+	// Retry loop to handle race between Get and LRU eviction
+	for range h.maxAttempts {
+		// Thread-safe LRU access: lock during Get+Add to prevent race conditions
+		h.mu.Lock()
+		conn, ok := h.lru.Get(k)
+		if !ok {
+			// Create new singleflight entry for this key
+			conn = &singleflight[K, V]{k: k, constructor: h.constructor}
+			h.lru.Add(k, conn)
+		}
+		h.mu.Unlock()
+
+		// retrieve() handles its own synchronization
+		v, err := conn.retrieve(ctx)
+
+		// If entry was evicted between Get and retrieve, retry
+		if errors.Is(err, ErrDestructed) {
+			continue
+		}
+
+		return v, err
 	}
 
-	conn, ok = h.lru.Get(k)
-	if !ok {
-		panic("unreachable")
-	}
-
-	return conn.retrieve(ctx)
+	// If we still get ErrDestructed after retries, something is wrong
+	var zero V
+	return zero, errors.New("cache entry repeatedly evicted, possible cache thrashing")
 }
 
 type singleflight[K comparable, V any] struct {
@@ -95,17 +118,25 @@ func (d *singleflight[K, V]) destruct(f func(K, V)) {
 
 func (d *singleflight[K, V]) retrieve(ctx context.Context) (v V, err error) {
 	d.mu.RLock()
-	defer d.mu.RUnlock()
 
 	if d.destructed.Load() {
-		panic("destructed")
+		d.mu.RUnlock()
+		// Entry was evicted from cache, return error instead of panicking
+		return v, ErrDestructed
 	}
 
 	res, err, _ := d.group.Do(ctx, func(ctx context.Context) (V, error) { return d.constructor(ctx, d.k) })
+	d.mu.RUnlock()
+
+	// If constructor failed, forget the result so next attempt creates a fresh client.
+	// This is critical for HTTP clients: a failed connection should be retried, not cached.
+	// We call Forget() AFTER RUnlock because Do() has already completed and all waiting
+	// goroutines have received their results.
 	if err != nil {
-		d.group.Forget() // Forget the group if it failed
-		return v, err
+		d.mu.Lock()
+		d.group.Forget()
+		d.mu.Unlock()
 	}
 
-	return res, nil
+	return res, err
 }

@@ -1,24 +1,30 @@
 package gemini_test
 
 import (
+	_ "embed"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 
 	. "github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 )
+
+//go:embed .gemini.secret
+var apiKey string
 
 func TestGeminiChatModel(t *testing.T) {
 	gem, err := NewGeminiModel(t.Context(), &genai.ClientConfig{
-		APIKey: "<REDACTED>",
+		APIKey: apiKey,
 	})
 	require.NoError(t, err, "Failed to create GenAI client")
 
 	testsuite.RunChatModelTests(gem)(t)
+	testsuite.RunToolSemanticIndexTests(gem)(t)
 }
 
 func TestMessageFromGenAIContent(t *testing.T) {
@@ -45,7 +51,7 @@ func TestMessageFromGenAIContent(t *testing.T) {
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _, err := MessageFromGenAIContent(tt.msgs, "", 0)
+			got, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", 0)
 			require.NoError(t, err, "expected no error")
 			require.Equal(t, tt.want, got, "unexpected message")
 		})

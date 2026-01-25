@@ -12,8 +12,8 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
 // RunAdapterTests runs tests for the given adapter. These tests are predefined

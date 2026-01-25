@@ -104,7 +104,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 6. Execute implementation following the task plan:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
-   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
+   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
@@ -124,7 +124,55 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Suggest next steps if implementation cannot proceed
    - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
-9. Completion validation:
+9. **Domain Model Changes Governance**:
+
+   **CRITICAL**: If any task requires changes to domain model (`internal/domains/*`):
+
+   a. **DO NOT modify domain files directly**
+
+   b. **CREATE a Domain Change Request** in `FEATURE_DIR/domain-requests/[request-name].md`:
+
+   ```markdown
+   # Domain Change Request: [Title]
+
+   **Requester**: [adapter-expert | application-expert | implementation-agent]
+   **Context**: [cynosure | gateway | ...]
+   **Type**: [new-entity | modify-entity | new-aggregate | modify-port | new-usecase]
+   **Priority**: [critical | high | normal | low]
+
+   ## Business Justification
+
+   [Why is this change needed from a business perspective?]
+
+   ## Proposed Changes
+
+   [Detailed description of domain model changes]
+
+   ## Affected Components
+
+   - Entities: [list]
+   - Aggregates: [list]
+   - Ports: [list]
+   - Usecases: [list]
+
+   ## Invariants Preservation
+
+   [How existing invariants are preserved or why changes are safe]
+
+   ## Alternative Considered
+
+   [What alternatives were evaluated and why rejected]
+   ```
+
+   c. **Invoke domain_expert agent** via `runSubagent` tool with the request
+
+   d. **Wait for approval decision** document
+
+   e. **Only after approval**: Implement the changes as specified
+
+   **Rationale**: Domain model is the core of business logic and requires special governance to maintain integrity and prevent infrastructure leakage. See `.github/agents/domain_expert.agent.md` for full governance rules.
+
+10. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements

@@ -12,7 +12,7 @@ import (
 )
 
 const deleteModelSettings = `-- name: DeleteModelSettings :exec
-DELETE FROM agents.model_settings
+DELETE FROM agents.agent_settings
 WHERE id = $1
 `
 
@@ -23,13 +23,13 @@ func (q *Queries) DeleteModelSettings(ctx context.Context, id uuid.UUID) error {
 
 const getModelSettings = `-- name: GetModelSettings :one
 SELECT id, model, system_message, temperature, top_p, stop_words
-FROM agents.model_settings
+FROM agents.agent_settings
 WHERE id = $1
 `
 
-func (q *Queries) GetModelSettings(ctx context.Context, id uuid.UUID) (AgentsModelSetting, error) {
+func (q *Queries) GetModelSettings(ctx context.Context, id uuid.UUID) (AgentsAgentSetting, error) {
 	row := q.db.QueryRow(ctx, getModelSettings, id)
-	var i AgentsModelSetting
+	var i AgentsAgentSetting
 	err := row.Scan(
 		&i.ID,
 		&i.Model,
@@ -43,19 +43,19 @@ func (q *Queries) GetModelSettings(ctx context.Context, id uuid.UUID) (AgentsMod
 
 const listModelSettings = `-- name: ListModelSettings :many
 SELECT id, model, system_message, temperature, top_p, stop_words
-FROM agents.model_settings
+FROM agents.agent_settings
 ORDER BY model
 `
 
-func (q *Queries) ListModelSettings(ctx context.Context) ([]AgentsModelSetting, error) {
+func (q *Queries) ListModelSettings(ctx context.Context) ([]AgentsAgentSetting, error) {
 	rows, err := q.db.Query(ctx, listModelSettings)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AgentsModelSetting
+	var items []AgentsAgentSetting
 	for rows.Next() {
-		var i AgentsModelSetting
+		var i AgentsAgentSetting
 		if err := rows.Scan(
 			&i.ID,
 			&i.Model,
@@ -75,7 +75,7 @@ func (q *Queries) ListModelSettings(ctx context.Context) ([]AgentsModelSetting, 
 }
 
 const upsertModelSettings = `-- name: UpsertModelSettings :exec
-INSERT INTO agents.model_settings (id, model, system_message, temperature, top_p, stop_words)
+INSERT INTO agents.agent_settings (id, model, system_message, temperature, top_p, stop_words)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (id) DO UPDATE SET
 	model = EXCLUDED.model,

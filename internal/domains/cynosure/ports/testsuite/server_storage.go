@@ -12,7 +12,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 // RunServerStorageTests runs tests for the given adapter. These tests are predefined
@@ -82,7 +82,7 @@ func (s *ServerStorageTestSuite) TestSaveServer(t *testing.T) {
 	server := must(entities.NewServerConfig(serverID, link, opts...))
 
 	t.Run("saving_server", func(t *testing.T) {
-		err := s.adapter.AddServer(t.Context(), server)
+		err := s.adapter.SetServer(t.Context(), server)
 		require.NoError(t, err, "failed to save server")
 	})
 

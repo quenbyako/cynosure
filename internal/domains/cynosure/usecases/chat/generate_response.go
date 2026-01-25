@@ -9,23 +9,23 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 type GenerateResponseOpt func(*generateResponseParams)
 
 type generateResponseParams struct {
 	toolChoice tools.ToolChoice
-	model      ids.ModelConfigID
+	model      ids.AgentID
 }
 
 func WithToolChoice(toolChoice tools.ToolChoice) GenerateResponseOpt {
 	return func(params *generateResponseParams) { params.toolChoice = toolChoice }
 }
 
-func (s *Service) GenerateResponse(ctx context.Context, user ids.UserID, threadID string, msg messages.MessageUser, opts ...GenerateResponseOpt) (iter.Seq2[messages.Message, error], error) {
+func (s *Service) GenerateResponse(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser, opts ...GenerateResponseOpt) (iter.Seq2[messages.Message, error], error) {
 	ctx, span := s.trace.Start(ctx, "Service.GenerateResponse")
 	defer span.End()
 
@@ -37,119 +37,185 @@ func (s *Service) GenerateResponse(ctx context.Context, user ids.UserID, threadI
 		opt(&p)
 	}
 
-	modelConfig, err := s.models.GetModel(ctx, p.model)
+	modelConfig, err := s.models.GetAgent(ctx, p.model)
 	if err != nil {
 		return nil, fmt.Errorf("getting model: %w", err)
 	}
 
-	c, err := s.getOrCreateChat(ctx, user, threadID, msg)
+	c, err := s.loadOrCreateChat(ctx, threadID, msg)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.runConversationLoop(ctx, c, modelConfig, p.toolChoice), nil
+	return s.agentLoop(ctx, c, modelConfig, p.toolChoice), nil
 }
 
-// getOrCreateChat загружает существующий чат или создает новый, добавляя в него первое сообщение.
-func (s *Service) getOrCreateChat(ctx context.Context, user ids.UserID, threadID string, initialMsg messages.MessageUser) (*chat.Chat, error) {
-	c, err := chat.New(ctx, s.storage, s.tools, s.accounts, user, threadID)
+// loadOrCreateChat retrieves an existing chat session by its thread ID or
+// creates a new one if it doesn't exist. It then appends the incoming user
+// message to the chat history.
+func (s *Service) loadOrCreateChat(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser) (*chat.Chat, error) {
+	c, err := chat.New(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID)
 	if errors.Is(err, ports.ErrNotFound) {
-		if c, err = chat.CreateChatAggregate(ctx, s.storage, s.tools, s.accounts, user, threadID, nil); err != nil {
+		c, err = chat.CreateChatAggregate(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID, nil)
+		if err != nil {
 			return nil, fmt.Errorf("creating chat: %w", err)
 		}
 	} else if err != nil {
 		return nil, fmt.Errorf("loading chat: %w", err)
 	}
 
-	if err = c.AddMessage(ctx, initialMsg); err != nil {
+	if err = c.AcceptUserMessage(ctx, msg); err != nil {
 		return nil, fmt.Errorf("adding user message: %w", err)
 	}
 
 	return c, nil
 }
 
-func (s *Service) runConversationLoop(ctx context.Context, c *chat.Chat, config entities.ModelSettingsReadOnly, toolChoice tools.ToolChoice) iter.Seq2[messages.Message, error] {
+func (s *Service) agentLoop(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) iter.Seq2[messages.Message, error] {
 	return func(yield func(messages.Message, error) bool) {
-		const maxTurns = 10
-		for i := 0; i < maxTurns; i++ {
-			toolRequests, continueLoop, err := s.processModelStream(ctx, c, config, toolChoice, yield)
-			if err != nil {
-				yield(nil, err)
-				return
-			}
-			if !continueLoop {
-				return // Завершаем, если не было вызовов инструментов
-			}
-
-			if len(toolRequests) > 0 {
-				s.log.ToolCalled(ctx, c.ThreadID(), "some_user", toolRequests)
-			}
-
-			if err := s.executeToolCalls(ctx, c, toolRequests, yield); err != nil {
-				yield(nil, err)
+		for turn := range s.agentLoopTurns {
+			toolRequests, shouldContinue := s.askModel(ctx, c, config, toolChoice, yield)
+			if !shouldContinue {
 				return
 			}
 
-			if i == maxTurns-1 {
-				s.log.MaxTurnsReached(ctx, c.ThreadID(), "some user id, i didn't pass it here yet")
+			if len(toolRequests) == 0 {
+				return
+			}
+
+			s.log.ToolCalled(ctx, c.ThreadID(), toolRequests)
+
+			if !s.executeTools(ctx, c, toolRequests, yield) {
+				return
+			}
+
+			if turn == s.agentLoopTurns-1 {
+				s.log.MaxTurnsReached(ctx, c.ThreadID())
 			}
 		}
 	}
 }
 
-// processModelStream обрабатывает поток сообщений от модели.
-func (s *Service) processModelStream(ctx context.Context, c *chat.Chat, config entities.ModelSettingsReadOnly, toolChoice tools.ToolChoice, yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool, error) {
-	var streamOpts []ports.StreamOption
-	if toolChoice != tools.ToolChoiceForbidden {
-		streamOpts = append(streamOpts, ports.WithStreamTools(c.RelevantTools()))
-	}
-
-	msgsStream, err := s.model.Stream(ctx, c.Messages(), config, streamOpts...)
+func (s *Service) askModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice, yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool) {
+	stream, err := s.callModel(ctx, c, config, toolChoice)
 	if err != nil {
-		return nil, false, fmt.Errorf("starting model stream: %w", err)
+		return nil, s.handleModelError(ctx, c, err, yield)
 	}
 
-	var toolRequests []messages.MessageToolRequest
-	mergedStream := messages.MergeMessagesStreaming(msgsStream)
-
-	for msg, err := range mergedStream {
-		if err != nil {
-			return nil, false, fmt.Errorf("streaming messages: %w", err)
-		}
-		if err := c.AddMessage(ctx, msg); err != nil {
-			return nil, false, fmt.Errorf("adding model message: %w", err)
-		}
-		if !yield(msg, nil) {
-			return nil, false, nil // Итерация прервана потребителем
-		}
-		if toolReq, ok := msg.(messages.MessageToolRequest); ok {
-			toolRequests = append(toolRequests, toolReq)
-		}
-	}
-
-	return toolRequests, len(toolRequests) > 0, nil
+	return s.streamModelMessages(ctx, c, stream, yield)
 }
 
-// executeToolCalls выполняет вызовы инструментов и передает результаты.
-func (s *Service) executeToolCalls(ctx context.Context, c *chat.Chat, toolRequests []messages.MessageToolRequest, yield func(messages.Message, error) bool) error {
-	for _, toolReq := range toolRequests {
-		call, err := c.DecodeToolCall(toolReq.ToolName(), toolReq.Arguments())
+func (s *Service) callModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) (iter.Seq2[messages.Message, error], error) {
+	var opts []ports.StreamOption
+	if toolChoice != tools.ToolChoiceForbidden {
+		opts = append(opts, ports.WithStreamToolbox(c.RelevantTools()))
+	}
+	return s.model.Stream(ctx, c.Messages(), config, opts...)
+}
+
+func (s *Service) handleModelError(ctx context.Context, c *chat.Chat, err error, yield func(messages.Message, error) bool) bool {
+	errorMsg, msgErr := messages.NewMessageAssistant(
+		fmt.Sprintf("I apologize, but I encountered a technical error while processing your request: %v", err),
+	)
+	if msgErr != nil {
+		yield(nil, fmt.Errorf("creating error message: %w", msgErr))
+		return false
+	}
+
+	if acceptErr := c.AcceptAssistantMessage(ctx, errorMsg); acceptErr != nil {
+		yield(nil, fmt.Errorf("saving error message: %w", acceptErr))
+		return false
+	}
+
+	yield(errorMsg, err)
+	return false
+}
+
+func (s *Service) streamModelMessages(ctx context.Context, c *chat.Chat, stream iter.Seq2[messages.Message, error], yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool) {
+	var toolRequests []messages.MessageToolRequest
+
+	for msg, err := range messages.MergeMessagesStreaming(stream) {
 		if err != nil {
-			return fmt.Errorf("decoding tool call: %w", err)
+			yield(nil, fmt.Errorf("streaming messages: %w", err))
+			return nil, false
 		}
 
-		toolResultMsg, err := s.tools.ExecuteTool(ctx, call)
-		if err != nil {
-			return fmt.Errorf("executing tool: %w", err)
-		}
-
-		if err := c.AddMessage(ctx, toolResultMsg); err != nil {
-			return fmt.Errorf("adding tool result message: %w", err)
-		}
-
-		if !yield(toolResultMsg, nil) {
-			return nil // Итерация прервана потребителем
+		if !s.saveAndYieldMessage(ctx, c, msg, &toolRequests, yield) {
+			return nil, false
 		}
 	}
-	return nil
+
+	return toolRequests, true
+}
+
+func (s *Service) saveAndYieldMessage(ctx context.Context, c *chat.Chat, msg messages.Message, toolRequests *[]messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
+	var err error
+	switch v := msg.(type) {
+	case messages.MessageAssistant:
+		err = c.AcceptAssistantMessage(ctx, v)
+	case messages.MessageToolRequest:
+		err = c.AcceptToolRequest(ctx, v)
+		*toolRequests = append(*toolRequests, v)
+	default:
+		err = fmt.Errorf("unexpected message type: %T", msg)
+	}
+
+	if err != nil {
+		yield(nil, fmt.Errorf("saving message: %w", err))
+		return false
+	}
+
+	return yield(msg, nil)
+}
+
+func (s *Service) executeTools(ctx context.Context, c *chat.Chat, toolRequests []messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
+	for _, req := range toolRequests {
+		if !s.executeTool(ctx, c, req, yield) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Service) executeTool(ctx context.Context, c *chat.Chat, req messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
+	toolID, cleanArgs, err := c.RelevantTools().ConvertRequest(req.ToolName(), req.Arguments())
+	if err != nil {
+		return yieldToolError(ctx, c, req, fmt.Sprintf("Failed to resolve tool: %v", err), yield)
+	}
+
+	tool, err := s.toolStorage.GetTool(ctx, toolID.Account(), toolID)
+	if err != nil {
+		return yieldToolError(ctx, c, req, fmt.Sprintf("Tool not found: %v", err), yield)
+	}
+
+	result, err := s.tools.ExecuteTool(ctx, *tool, cleanArgs)
+	if err != nil {
+		return yieldToolError(ctx, c, req, fmt.Sprintf("Execution failed: %v", err), yield)
+	}
+
+	if err := c.AcceptToolResult(ctx, result); err != nil {
+		yield(nil, fmt.Errorf("saving tool result: %w", err))
+		return false
+	}
+
+	return yield(result, nil)
+}
+
+func yieldToolError(ctx context.Context, c *chat.Chat, req messages.MessageToolRequest, errMsg string, yield func(messages.Message, error) bool) bool {
+	toolErr, err := messages.NewMessageToolError(
+		[]byte(fmt.Sprintf("Failed to call tool: %q", errMsg)),
+		req.ToolName(),
+		req.ToolCallID(),
+	)
+	if err != nil {
+		yield(nil, fmt.Errorf("building tool error object: %w", err))
+		return false
+	}
+
+	if err = c.AcceptToolResult(ctx, toolErr); err != nil {
+		yield(nil, fmt.Errorf("saving tool error: %w", err))
+		return false
+	}
+
+	return yield(toolErr, nil)
 }

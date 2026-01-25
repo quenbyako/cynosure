@@ -93,6 +93,52 @@ Every task MUST strictly follow this format:
 - ❌ WRONG: `- [ ] [US1] Create User model` (missing Task ID)
 - ❌ WRONG: `- [ ] T001 [US1] Create model` (missing file path)
 
+## Domain Model Changes
+
+**CRITICAL**: When generating tasks that involve domain model (`internal/domains/*`):
+
+1. **Identify domain-affecting tasks** during task generation
+2. **Create special task section** "Phase: Domain Approval" BEFORE implementation phases
+3. **Format domain approval tasks** as:
+   ```
+   - [ ] T0XX Create Domain Change Request for [feature] in FEATURE_DIR/domain-requests/
+   - [ ] T0YY Submit domain request to domain_expert agent for review
+   - [ ] T0ZZ Wait for domain approval and incorporate feedback
+   ```
+4. **Mark dependent tasks** with `[BLOCKED: Domain approval required]` in description
+5. **Do NOT generate implementation tasks** for domain changes until approved
+
+**Domain Change Request Structure** (to be created during task execution):
+
+```markdown
+# Domain Change Request: [Title]
+
+**Requester**: task-executor
+**Context**: [bounded context name]
+**Type**: [new-entity | modify-entity | new-aggregate | modify-port | new-usecase]
+**Priority**: [from user story priority]
+
+## Business Justification
+[From spec.md user story]
+
+## Proposed Changes
+[Technical details]
+
+## Affected Components
+- Entities: [list]
+- Aggregates: [list]
+- Ports: [list]
+- Usecases: [list]
+
+## Invariants Preservation
+[Analysis]
+
+## Alternative Considered
+[If applicable]
+```
+
+**Use domain_expert agent** (via runSubagent tool) to validate changes before proceeding.
+
 ### Task Organization
 
 1. **From User Stories (spec.md)** - PRIMARY ORGANIZATION:

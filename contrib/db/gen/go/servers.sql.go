@@ -10,11 +10,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const addOAuthConfig = `-- name: AddOAuthConfig :exec
 INSERT INTO agents.oauth_configs (server_id, client_id, client_secret, redirect_url, auth_url, token_url, expiration, scopes)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES (
+    $1::UUID,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8
+)
 ON CONFLICT (server_id) DO UPDATE SET
 	client_id = EXCLUDED.client_id,
 	client_secret = EXCLUDED.client_secret,
@@ -32,10 +42,12 @@ type AddOAuthConfigParams struct {
 	RedirectUrl  string
 	AuthUrl      string
 	TokenUrl     string
-	Expiration   pgtype.Timestamp
+	Expiration   pgtype.Timestamptz
 	Scopes       []string
 }
 
+// AddOAuthConfig configures OAuth parameters for a server.
+// Often managed by admin or system configuration, not end-users.
 func (q *Queries) AddOAuthConfig(ctx context.Context, arg AddOAuthConfigParams) error {
 	_, err := q.db.Exec(ctx, addOAuthConfig,
 		arg.ServerID,
@@ -51,29 +63,37 @@ func (q *Queries) AddOAuthConfig(ctx context.Context, arg AddOAuthConfigParams) 
 }
 
 const addServer = `-- name: AddServer :exec
-INSERT INTO agents.mcp_servers (id, url)
-VALUES ($1, $2)
+INSERT INTO agents.mcp_servers (id, url, deleted_at, embedding)
+VALUES ($1::UUID, $2, NULL, $3)
 ON CONFLICT (id) DO UPDATE SET
 	url = EXCLUDED.url,
+	embedding = EXCLUDED.embedding,
 	deleted_at = NULL
 `
 
 type AddServerParams struct {
-	ID  uuid.UUID
-	Url string
+	ID        uuid.UUID
+	Url       string
+	Embedding *pgvector.Vector
 }
 
+// AddServer registers a new MCP server endpoint or updates an existing one.
+// Does NOT config OAuth - use AddOAuthConfig for that.
+// RESETs deleted_at to NULL if server was previously soft-deleted.
 func (q *Queries) AddServer(ctx context.Context, arg AddServerParams) error {
-	_, err := q.db.Exec(ctx, addServer, arg.ID, arg.Url)
+	_, err := q.db.Exec(ctx, addServer, arg.ID, arg.Url, arg.Embedding)
 	return err
 }
 
 const deleteServer = `-- name: DeleteServer :exec
 UPDATE agents.mcp_servers
 SET deleted_at = NOW()
-WHERE id = $1
+WHERE id = $1::UUID
 `
 
+// DeleteServer soft-deletes a server definition.
+// Existing user accounts connected to this server will remain but may become orphaned
+// unless handled by app logic.
 func (q *Queries) DeleteServer(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteServer, id)
 	return err
@@ -81,22 +101,24 @@ func (q *Queries) DeleteServer(ctx context.Context, id uuid.UUID) error {
 
 const getServerInfo = `-- name: GetServerInfo :one
 SELECT
-	s.id, s.url,
+	s.id, s.url, s.deleted_at, s.embedding,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
-WHERE s.id = $1 AND s.deleted_at IS NULL
+WHERE s.id = $1::UUID AND s.deleted_at IS NULL
 `
 
 type GetServerInfoRow struct {
 	ID           uuid.UUID
 	Url          string
+	DeletedAt    pgtype.Timestamptz
+	Embedding    *pgvector.Vector
 	ClientID     *string
 	ClientSecret *string
 	RedirectUrl  *string
 	AuthUrl      *string
 	TokenUrl     *string
-	Expiration   pgtype.Timestamp
+	Expiration   pgtype.Timestamptz
 	Scopes       []string
 }
 
@@ -106,6 +128,8 @@ func (q *Queries) GetServerInfo(ctx context.Context, id uuid.UUID) (GetServerInf
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
+		&i.DeletedAt,
+		&i.Embedding,
 		&i.ClientID,
 		&i.ClientSecret,
 		&i.RedirectUrl,
@@ -119,7 +143,7 @@ func (q *Queries) GetServerInfo(ctx context.Context, id uuid.UUID) (GetServerInf
 
 const listServers = `-- name: ListServers :many
 SELECT
-	s.id, s.url,
+	s.id, s.url, s.deleted_at, s.embedding,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -130,15 +154,21 @@ ORDER BY s.id
 type ListServersRow struct {
 	ID           uuid.UUID
 	Url          string
+	DeletedAt    pgtype.Timestamptz
+	Embedding    *pgvector.Vector
 	ClientID     *string
 	ClientSecret *string
 	RedirectUrl  *string
 	AuthUrl      *string
 	TokenUrl     *string
-	Expiration   pgtype.Timestamp
+	Expiration   pgtype.Timestamptz
 	Scopes       []string
 }
 
+// ListServers retrieves all available MCP servers with their OAuth configurations.
+// Used to display the catalog of available integrations to the user.
+//
+// Returns: Flattened list of servers + oauth details.
 func (q *Queries) ListServers(ctx context.Context) ([]ListServersRow, error) {
 	rows, err := q.db.Query(ctx, listServers)
 	if err != nil {
@@ -151,6 +181,8 @@ func (q *Queries) ListServers(ctx context.Context) ([]ListServersRow, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
+			&i.DeletedAt,
+			&i.Embedding,
 			&i.ClientID,
 			&i.ClientSecret,
 			&i.RedirectUrl,
@@ -171,7 +203,7 @@ func (q *Queries) ListServers(ctx context.Context) ([]ListServersRow, error) {
 
 const lookupByURL = `-- name: LookupByURL :one
 SELECT
-	s.id, s.url,
+	s.id, s.url, s.deleted_at, s.embedding,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -181,21 +213,31 @@ WHERE s.url = $1 AND s.deleted_at IS NULL
 type LookupByURLRow struct {
 	ID           uuid.UUID
 	Url          string
+	DeletedAt    pgtype.Timestamptz
+	Embedding    *pgvector.Vector
 	ClientID     *string
 	ClientSecret *string
 	RedirectUrl  *string
 	AuthUrl      *string
 	TokenUrl     *string
-	Expiration   pgtype.Timestamp
+	Expiration   pgtype.Timestamptz
 	Scopes       []string
 }
 
+// LookupByURL finds a server by its base URL.
+// Key Use Case: Preventing duplicate server entries when user pastes a URL.
+//
+// Parameters:
+//
+//	url: url (exact match)
 func (q *Queries) LookupByURL(ctx context.Context, url string) (LookupByURLRow, error) {
 	row := q.db.QueryRow(ctx, lookupByURL, url)
 	var i LookupByURLRow
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
+		&i.DeletedAt,
+		&i.Embedding,
 		&i.ClientID,
 		&i.ClientSecret,
 		&i.RedirectUrl,

@@ -8,7 +8,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 func (s *Service) AddServer(ctx context.Context, id ids.ServerID, u *url.URL) error {
@@ -45,5 +45,5 @@ func (s *Service) AddServer(ctx context.Context, id ids.ServerID, u *url.URL) er
 		return fmt.Errorf("creating server config: %w", err)
 	}
 
-	return s.servers.AddServer(ctx, server)
+	return s.servers.SetServer(ctx, server)
 }

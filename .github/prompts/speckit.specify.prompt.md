@@ -29,27 +29,27 @@ Given that feature description, do this:
      - "Fix payment processing timeout bug" → "fix-payment-timeout"
 
 2. **Check for existing branches before creating new one**:
-   
+
    a. First, fetch all remote branches to ensure we have the latest information:
       ```bash
       git fetch --all --prune
       ```
-   
+
    b. Find the highest feature number across all sources for the short-name:
       - Remote branches: `git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-<short-name>$'`
       - Local branches: `git branch | grep -E '^[* ]*[0-9]+-<short-name>$'`
       - Specs directories: Check for directories matching `specs/[0-9]+-<short-name>`
-   
+
    c. Determine the next available number:
       - Extract all numbers from all three sources
       - Find the highest number N
       - Use N+1 for the new branch number
-   
+
    d. Run the script `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` with the calculated number and short-name:
       - Pass `--number N+1` and `--short-name "your-short-name"` along with the feature description
       - Bash example: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" --json --number 5 --short-name "user-auth" "Add user authentication"`
       - PowerShell example: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" -Json -Number 5 -ShortName "user-auth" "Add user authentication"`
-   
+
    **IMPORTANT**:
    - Check all three sources (remote branches, local branches, specs directories) to find the highest number
    - Only match branches/directories with the exact short-name pattern
@@ -89,26 +89,69 @@ Given that feature description, do this:
 
 5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
-6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+6. **Domain Model Impact Assessment**: After writing the spec, assess if it requires domain changes:
+
+   a. **Check if feature affects** `internal/domains/*`:
+      - New business entities or aggregates
+      - Changes to existing domain logic
+      - New domain ports or use cases
+
+   b. **If domain changes required**:
+      - Add a section to spec.md: "## Domain Model Impact"
+      - List anticipated domain changes at high level
+      - Note: "Detailed Domain Change Request will be created during planning phase"
+      - Mark as requiring domain_expert approval
+
+   c. **Domain Change Request Format** (reference for planning phase):
+      ```markdown
+      # Domain Change Request: [Title]
+
+      **Requester**: [role]
+      **Context**: [cynosure | gateway | ...]
+      **Type**: [new-entity | modify-entity | new-aggregate | modify-port | new-usecase]
+      **Priority**: [critical | high | normal | low]
+
+      ## Business Justification
+      [Why needed]
+
+      ## Proposed Changes
+      [Details]
+
+      ## Affected Components
+      - Entities: [list]
+      - Aggregates: [list]
+      - Ports: [list]
+      - Usecases: [list]
+
+      ## Invariants Preservation
+      [Analysis]
+
+      ## Alternative Considered
+      [Options]
+      ```
+
+      **Note**: domain_expert agent will review all domain changes before implementation.
+
+7. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
 
    a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
 
       ```markdown
       # Specification Quality Checklist: [FEATURE NAME]
-      
+
       **Purpose**: Validate specification completeness and quality before proceeding to planning
       **Created**: [DATE]
       **Feature**: [Link to spec.md]
-      
+
       ## Content Quality
-      
+
       - [ ] No implementation details (languages, frameworks, APIs)
       - [ ] Focused on user value and business needs
       - [ ] Written for non-technical stakeholders
       - [ ] All mandatory sections completed
-      
+
       ## Requirement Completeness
-      
+
       - [ ] No [NEEDS CLARIFICATION] markers remain
       - [ ] Requirements are testable and unambiguous
       - [ ] Success criteria are measurable
@@ -117,16 +160,16 @@ Given that feature description, do this:
       - [ ] Edge cases are identified
       - [ ] Scope is clearly bounded
       - [ ] Dependencies and assumptions identified
-      
+
       ## Feature Readiness
-      
+
       - [ ] All functional requirements have clear acceptance criteria
       - [ ] User scenarios cover primary flows
       - [ ] Feature meets measurable outcomes defined in Success Criteria
       - [ ] No implementation details leak into specification
-      
+
       ## Notes
-      
+
       - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
       ```
 
@@ -151,20 +194,20 @@ Given that feature description, do this:
 
            ```markdown
            ## Question [N]: [Topic]
-           
+
            **Context**: [Quote relevant spec section]
-           
+
            **What we need to know**: [Specific question from NEEDS CLARIFICATION marker]
-           
+
            **Suggested Answers**:
-           
+
            | Option | Answer | Implications |
            |--------|--------|--------------|
            | A      | [First suggested answer] | [What this means for the feature] |
            | B      | [Second suggested answer] | [What this means for the feature] |
            | C      | [Third suggested answer] | [What this means for the feature] |
            | Custom | Provide your own answer | [Explain how to provide custom input] |
-           
+
            **Your choice**: _[Wait for user response]_
            ```
 
@@ -181,7 +224,7 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+8. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 

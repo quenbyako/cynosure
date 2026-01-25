@@ -10,11 +10,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const addOAuthToken = `-- name: AddOAuthToken :exec
 INSERT INTO agents.oauth_tokens (account_id, type, access_token, refresh_token, expiry)
-VALUES ($1, $2, $3, $4, $5)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+)
 ON CONFLICT (account_id) DO UPDATE SET
 	type = EXCLUDED.type,
 	access_token = EXCLUDED.access_token,
@@ -27,9 +34,11 @@ type AddOAuthTokenParams struct {
 	Type         *string
 	AccessToken  string
 	RefreshToken *string
-	Expiry       pgtype.Timestamp
+	Expiry       pgtype.Timestamptz
 }
 
+// AddOAuthToken saves or updates OAuth credentials for an account.
+// Called after successful OAuth flow completions.
 func (q *Queries) AddOAuthToken(ctx context.Context, arg AddOAuthTokenParams) error {
 	_, err := q.db.Exec(ctx, addOAuthToken,
 		arg.AccountID,
@@ -46,24 +55,28 @@ DELETE FROM agents.oauth_tokens
 WHERE account_id = $1
 `
 
+// DeleteAccountToken removes the OAuth token.
+// Used when revoking access or signing out of a specific integration.
+// NOTE: Hard delete is intentional for security tokens.
 func (q *Queries) DeleteAccountToken(ctx context.Context, accountID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAccountToken, accountID)
 	return err
 }
 
-const deleteAccountTools = `-- name: DeleteAccountTools :exec
-DELETE FROM agents.mcp_tools
-WHERE account = $1
+const deleteTool = `-- name: DeleteTool :exec
+UPDATE agents.mcp_tools
+SET deleted_at = NOW()
+WHERE id = $1
 `
 
-func (q *Queries) DeleteAccountTools(ctx context.Context, account uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteAccountTools, account)
+func (q *Queries) DeleteTool(ctx context.Context, toolID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTool, toolID)
 	return err
 }
 
 const getAccount = `-- name: GetAccount :one
 SELECT
-	a.id, a.user_id, a.server, a.name, a.description, a.deleted_at,
+	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,
 	ot.type, ot.access_token, ot.refresh_token, ot.expiry
 FROM agents.mcp_accounts a
 LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
@@ -73,26 +86,32 @@ WHERE a.id = $1 AND a.deleted_at IS NULL
 type GetAccountRow struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID
-	Server       uuid.UUID
+	ServerID     uuid.UUID
 	Name         string
 	Description  string
-	DeletedAt    pgtype.Timestamp
+	DeletedAt    pgtype.Timestamptz
+	Embedding    *pgvector.Vector
 	Type         *string
 	AccessToken  *string
 	RefreshToken *string
-	Expiry       pgtype.Timestamp
+	Expiry       pgtype.Timestamptz
 }
 
-func (q *Queries) GetAccount(ctx context.Context, id uuid.UUID) (GetAccountRow, error) {
-	row := q.db.QueryRow(ctx, getAccount, id)
+// GetAccount retrieves a single MCP account by ID, including its OAuth token if present.
+// The deleted_at filter ensures soft-deleted accounts are excluded.
+//
+// Returns: Account details and associated OAuth token info (null if no token).
+func (q *Queries) GetAccount(ctx context.Context, accountID uuid.UUID) (GetAccountRow, error) {
+	row := q.db.QueryRow(ctx, getAccount, accountID)
 	var i GetAccountRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Server,
+		&i.ServerID,
 		&i.Name,
 		&i.Description,
 		&i.DeletedAt,
+		&i.Embedding,
 		&i.Type,
 		&i.AccessToken,
 		&i.RefreshToken,
@@ -103,7 +122,7 @@ func (q *Queries) GetAccount(ctx context.Context, id uuid.UUID) (GetAccountRow, 
 
 const getAccountsBatch = `-- name: GetAccountsBatch :many
 SELECT
-	a.id, a.user_id, a.server, a.name, a.description, a.deleted_at,
+	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,
 	ot.type, ot.access_token, ot.refresh_token, ot.expiry
 FROM agents.mcp_accounts a
 LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
@@ -113,18 +132,23 @@ WHERE a.id = ANY($1::uuid[]) AND a.deleted_at IS NULL
 type GetAccountsBatchRow struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID
-	Server       uuid.UUID
+	ServerID     uuid.UUID
 	Name         string
 	Description  string
-	DeletedAt    pgtype.Timestamp
+	DeletedAt    pgtype.Timestamptz
+	Embedding    *pgvector.Vector
 	Type         *string
 	AccessToken  *string
 	RefreshToken *string
-	Expiry       pgtype.Timestamp
+	Expiry       pgtype.Timestamptz
 }
 
-func (q *Queries) GetAccountsBatch(ctx context.Context, ids []uuid.UUID) ([]GetAccountsBatchRow, error) {
-	rows, err := q.db.Query(ctx, getAccountsBatch, ids)
+// GetAccountsBatch retrieves multiple accounts by ID in a single query.
+// Efficiently handles N+1 loading for users with multiple accounts.
+//
+// Returns: List of accounts matched by IDs.
+func (q *Queries) GetAccountsBatch(ctx context.Context, accountIds []uuid.UUID) ([]GetAccountsBatchRow, error) {
+	rows, err := q.db.Query(ctx, getAccountsBatch, accountIds)
 	if err != nil {
 		return nil, err
 	}
@@ -135,10 +159,11 @@ func (q *Queries) GetAccountsBatch(ctx context.Context, ids []uuid.UUID) ([]GetA
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.Server,
+			&i.ServerID,
 			&i.Name,
 			&i.Description,
 			&i.DeletedAt,
+			&i.Embedding,
 			&i.Type,
 			&i.AccessToken,
 			&i.RefreshToken,
@@ -154,41 +179,104 @@ func (q *Queries) GetAccountsBatch(ctx context.Context, ids []uuid.UUID) ([]GetA
 	return items, nil
 }
 
+const getTool = `-- name: GetTool :one
+SELECT id, account_id, name, input, output, embedding, deleted_at
+FROM agents.mcp_tools
+WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL
+`
+
+type GetToolParams struct {
+	ToolID    uuid.UUID
+	AccountID uuid.UUID
+}
+
+type GetToolRow struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	Name      string
+	Input     []byte
+	Output    []byte
+	Embedding *pgvector.Vector
+	DeletedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetTool(ctx context.Context, arg GetToolParams) (GetToolRow, error) {
+	row := q.db.QueryRow(ctx, getTool, arg.ToolID, arg.AccountID)
+	var i GetToolRow
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Name,
+		&i.Input,
+		&i.Output,
+		&i.Embedding,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const insertAccountTool = `-- name: InsertAccountTool :exec
-INSERT INTO agents.mcp_tools (id, account, name, input, output)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO agents.mcp_tools (id, account_id, name, input, output, deleted_at, embedding)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    NULL,
+    $6
+)
+ON CONFLICT (id) DO UPDATE
+SET account_id = EXCLUDED.account_id,
+    name = EXCLUDED.name,
+    input = EXCLUDED.input,
+    output = EXCLUDED.output,
+    embedding = EXCLUDED.embedding,
+    deleted_at = NULL
 `
 
 type InsertAccountToolParams struct {
-	ID      uuid.UUID
-	Account uuid.UUID
-	Name    string
-	Input   []byte
-	Output  []byte
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	Name      string
+	Input     []byte
+	Output    []byte
+	Embedding *pgvector.Vector
 }
 
+// InsertAccountTool adds a discovered tool to the account's catalog.
+// Used during tool discovery/sync proces.
+// RESETs deleted_at to NULL if tool existed previously.
 func (q *Queries) InsertAccountTool(ctx context.Context, arg InsertAccountToolParams) error {
 	_, err := q.db.Exec(ctx, insertAccountTool,
 		arg.ID,
-		arg.Account,
+		arg.AccountID,
 		arg.Name,
 		arg.Input,
 		arg.Output,
+		arg.Embedding,
 	)
 	return err
 }
 
 const listAccountIDs = `-- name: ListAccountIDs :many
-SELECT id, server, user_id FROM agents.mcp_accounts
-WHERE user_id = $1 AND deleted_at IS NULL
+
+SELECT id, server_id
+FROM agents.mcp_accounts
+WHERE user_id = $1::UUID AND deleted_at IS NULL
 `
 
 type ListAccountIDsRow struct {
-	ID     uuid.UUID
-	Server uuid.UUID
-	UserID uuid.UUID
+	ID       uuid.UUID
+	ServerID uuid.UUID
 }
 
+// REMINDER: After modifying this file, regenerate Go code:
+//
+//	cd contrib/db && go generate ./...
+//
+// ListAccountIDs retrieves all account IDs for a user.
+// Returns only non-deleted accounts.
 func (q *Queries) ListAccountIDs(ctx context.Context, userID uuid.UUID) ([]ListAccountIDsRow, error) {
 	rows, err := q.db.Query(ctx, listAccountIDs, userID)
 	if err != nil {
@@ -198,7 +286,7 @@ func (q *Queries) ListAccountIDs(ctx context.Context, userID uuid.UUID) ([]ListA
 	var items []ListAccountIDsRow
 	for rows.Next() {
 		var i ListAccountIDsRow
-		if err := rows.Scan(&i.ID, &i.Server, &i.UserID); err != nil {
+		if err := rows.Scan(&i.ID, &i.ServerID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -210,25 +298,102 @@ func (q *Queries) ListAccountIDs(ctx context.Context, userID uuid.UUID) ([]ListA
 }
 
 const listToolsForAccounts = `-- name: ListToolsForAccounts :many
-SELECT id, account, name, input, output FROM agents.mcp_tools
-WHERE account = ANY($1::uuid[])
+SELECT id, account_id, name, input, output, embedding, deleted_at
+FROM agents.mcp_tools
+WHERE account_id = ANY($1::uuid[]) AND deleted_at IS NULL
 `
 
-func (q *Queries) ListToolsForAccounts(ctx context.Context, accounts []uuid.UUID) ([]AgentsMcpTool, error) {
-	rows, err := q.db.Query(ctx, listToolsForAccounts, accounts)
+type ListToolsForAccountsRow struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	Name      string
+	Input     []byte
+	Output    []byte
+	Embedding *pgvector.Vector
+	DeletedAt pgtype.Timestamptz
+}
+
+// ListToolsForAccounts retrieves all active tools for a given set of accounts.
+// Used to load available tools into the agent's context window or toolbox.
+//
+// Returns: All non-deleted tools belonging to valid accounts.
+func (q *Queries) ListToolsForAccounts(ctx context.Context, accountIds []uuid.UUID) ([]ListToolsForAccountsRow, error) {
+	rows, err := q.db.Query(ctx, listToolsForAccounts, accountIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AgentsMcpTool
+	var items []ListToolsForAccountsRow
 	for rows.Next() {
-		var i AgentsMcpTool
+		var i ListToolsForAccountsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Account,
+			&i.AccountID,
 			&i.Name,
 			&i.Input,
 			&i.Output,
+			&i.Embedding,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchToolsByEmbedding = `-- name: SearchToolsByEmbedding :many
+SELECT id, account_id, name, input, output, embedding, deleted_at,
+       1 - (embedding <=> $1::vector) AS similarity
+FROM agents.mcp_tools
+WHERE deleted_at IS NULL
+  AND account_id = ANY($2::uuid[])
+ORDER BY embedding <=> $1::vector
+LIMIT $3
+`
+
+type SearchToolsByEmbeddingParams struct {
+	QueryEmbedding *pgvector.Vector
+	AccountIds     []uuid.UUID
+	LimitCount     int64
+}
+
+type SearchToolsByEmbeddingRow struct {
+	ID         uuid.UUID
+	AccountID  uuid.UUID
+	Name       string
+	Input      []byte
+	Output     []byte
+	Embedding  *pgvector.Vector
+	DeletedAt  pgtype.Timestamptz
+	Similarity float64
+}
+
+// SearchToolsByEmbedding finds relevant tools using semantic similarity.
+// Core component of RAG: helps the agent pick the right tool for the job.
+//
+// Returns: Tools ordered by similarity (closest first).
+func (q *Queries) SearchToolsByEmbedding(ctx context.Context, arg SearchToolsByEmbeddingParams) ([]SearchToolsByEmbeddingRow, error) {
+	rows, err := q.db.Query(ctx, searchToolsByEmbedding, arg.QueryEmbedding, arg.AccountIds, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchToolsByEmbeddingRow
+	for rows.Next() {
+		var i SearchToolsByEmbeddingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Name,
+			&i.Input,
+			&i.Output,
+			&i.Embedding,
+			&i.DeletedAt,
+			&i.Similarity,
 		); err != nil {
 			return nil, err
 		}
@@ -241,42 +406,83 @@ func (q *Queries) ListToolsForAccounts(ctx context.Context, accounts []uuid.UUID
 }
 
 const softDeleteAccount = `-- name: SoftDeleteAccount :exec
-UPDATE agents.mcp_accounts
+WITH deleted_account AS (
+    UPDATE agents.mcp_accounts
+    SET deleted_at = NOW()
+    WHERE id = $1::UUID
+    RETURNING id
+)
+UPDATE agents.mcp_tools
 SET deleted_at = NOW()
-WHERE id = $1
+WHERE account_id IN (SELECT id FROM deleted_account)
+  AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteAccount(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteAccount, id)
+// SoftDeleteAccount marks an account and all its tools as deleted without removing data.
+// Cascades soft-delete to associated tools automatically.
+func (q *Queries) SoftDeleteAccount(ctx context.Context, accountID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteAccount, accountID)
+	return err
+}
+
+const updateToolEmbedding = `-- name: UpdateToolEmbedding :exec
+UPDATE agents.mcp_tools
+SET embedding = $1
+WHERE id = $2
+`
+
+type UpdateToolEmbeddingParams struct {
+	Embedding *pgvector.Vector
+	ToolID    uuid.UUID
+}
+
+// UpdateToolEmbedding updates the vector embedding for a specific tool.
+// Called asynchronously after tool discovery to enable semantic search.
+func (q *Queries) UpdateToolEmbedding(ctx context.Context, arg UpdateToolEmbeddingParams) error {
+	_, err := q.db.Exec(ctx, updateToolEmbedding, arg.Embedding, arg.ToolID)
 	return err
 }
 
 const upsertAccount = `-- name: UpsertAccount :exec
-INSERT INTO agents.mcp_accounts (id, user_id, server, name, description, deleted_at)
-VALUES ($1, $2, $3, $4, $5, NULL)
+INSERT INTO agents.mcp_accounts (id, user_id, server_id, name, description, deleted_at, embedding)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    NULL,
+    $6
+)
 ON CONFLICT (id) DO UPDATE
 SET user_id = EXCLUDED.user_id,
-    server = EXCLUDED.server,
+    server_id = EXCLUDED.server_id,
     name = EXCLUDED.name,
     description = EXCLUDED.description,
+    embedding = EXCLUDED.embedding,
     deleted_at = NULL
 `
 
 type UpsertAccountParams struct {
 	ID          uuid.UUID
 	UserID      uuid.UUID
-	Server      uuid.UUID
+	ServerID    uuid.UUID
 	Name        string
 	Description string
+	Embedding   *pgvector.Vector
 }
 
+// UpsertAccount creates or updates an MCP account.
+// Used when a user manually adds a server or updates settings.
+// RESETs deleted_at to NULL if the account was previously soft-deleted.
 func (q *Queries) UpsertAccount(ctx context.Context, arg UpsertAccountParams) error {
 	_, err := q.db.Exec(ctx, upsertAccount,
 		arg.ID,
 		arg.UserID,
-		arg.Server,
+		arg.ServerID,
 		arg.Name,
 		arg.Description,
+		arg.Embedding,
 	)
 	return err
 }

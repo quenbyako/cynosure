@@ -1,59 +1,161 @@
--- name: ListAccountIDs :many
-SELECT id, server, user_id FROM agents.mcp_accounts
-WHERE user_id = $1 AND deleted_at IS NULL;
+-- REMINDER: After modifying this file, regenerate Go code:
+--   cd contrib/db && go generate ./...
 
+-- ListAccountIDs retrieves all account IDs for a user.
+-- Returns only non-deleted accounts.
+--
+-- name: ListAccountIDs :many
+SELECT id, server_id
+FROM agents.mcp_accounts
+WHERE user_id = sqlc.arg('user_id')::UUID AND deleted_at IS NULL;
+
+-- GetAccount retrieves a single MCP account by ID, including its OAuth token if present.
+-- The deleted_at filter ensures soft-deleted accounts are excluded.
+--
+-- Returns: Account details and associated OAuth token info (null if no token).
 -- name: GetAccount :one
 SELECT
-	a.id, a.user_id, a.server, a.name, a.description, a.deleted_at,
+	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,
 	ot.type, ot.access_token, ot.refresh_token, ot.expiry
 FROM agents.mcp_accounts a
 LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
-WHERE a.id = $1 AND a.deleted_at IS NULL;
+WHERE a.id = sqlc.arg('account_id') AND a.deleted_at IS NULL;
 
+-- GetAccountsBatch retrieves multiple accounts by ID in a single query.
+-- Efficiently handles N+1 loading for users with multiple accounts.
+--
+-- Returns: List of accounts matched by IDs.
 -- name: GetAccountsBatch :many
 SELECT
-	a.id, a.user_id, a.server, a.name, a.description, a.deleted_at,
+	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,
 	ot.type, ot.access_token, ot.refresh_token, ot.expiry
 FROM agents.mcp_accounts a
 LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
-WHERE a.id = ANY(@ids::uuid[]) AND a.deleted_at IS NULL;
+WHERE a.id = ANY(sqlc.arg('account_ids')::uuid[]) AND a.deleted_at IS NULL;
 
+-- UpsertAccount creates or updates an MCP account.
+-- Used when a user manually adds a server or updates settings.
+-- RESETs deleted_at to NULL if the account was previously soft-deleted.
+--
 -- name: UpsertAccount :exec
-INSERT INTO agents.mcp_accounts (id, user_id, server, name, description, deleted_at)
-VALUES ($1, $2, $3, $4, $5, NULL)
+INSERT INTO agents.mcp_accounts (id, user_id, server_id, name, description, deleted_at, embedding)
+VALUES (
+    sqlc.arg('id'),
+    sqlc.arg('user_id'),
+    sqlc.arg('server_id'),
+    sqlc.arg('name'),
+    sqlc.arg('description'),
+    NULL,
+    sqlc.arg('embedding')
+)
 ON CONFLICT (id) DO UPDATE
 SET user_id = EXCLUDED.user_id,
-    server = EXCLUDED.server,
+    server_id = EXCLUDED.server_id,
     name = EXCLUDED.name,
     description = EXCLUDED.description,
+    embedding = EXCLUDED.embedding,
     deleted_at = NULL;
 
+-- AddOAuthToken saves or updates OAuth credentials for an account.
+-- Called after successful OAuth flow completions.
+--
 -- name: AddOAuthToken :exec
 INSERT INTO agents.oauth_tokens (account_id, type, access_token, refresh_token, expiry)
-VALUES ($1, $2, $3, $4, $5)
+VALUES (
+    sqlc.arg('account_id'),
+    sqlc.arg('type'),
+    sqlc.arg('access_token'),
+    sqlc.arg('refresh_token'),
+    sqlc.arg('expiry')
+)
 ON CONFLICT (account_id) DO UPDATE SET
 	type = EXCLUDED.type,
 	access_token = EXCLUDED.access_token,
 	refresh_token = EXCLUDED.refresh_token,
 	expiry = EXCLUDED.expiry;
 
+-- SoftDeleteAccount marks an account and all its tools as deleted without removing data.
+-- Cascades soft-delete to associated tools automatically.
+--
 -- name: SoftDeleteAccount :exec
-UPDATE agents.mcp_accounts
+WITH deleted_account AS (
+    UPDATE agents.mcp_accounts
+    SET deleted_at = NOW()
+    WHERE id = sqlc.arg('account_id')::UUID
+    RETURNING id
+)
+UPDATE agents.mcp_tools
 SET deleted_at = NOW()
-WHERE id = $1;
+WHERE account_id IN (SELECT id FROM deleted_account)
+  AND deleted_at IS NULL;
 
--- name: DeleteAccountTools :exec
-DELETE FROM agents.mcp_tools
-WHERE account = $1;
-
+-- InsertAccountTool adds a discovered tool to the account's catalog.
+-- Used during tool discovery/sync proces.
+-- RESETs deleted_at to NULL if tool existed previously.
+--
 -- name: InsertAccountTool :exec
-INSERT INTO agents.mcp_tools (id, account, name, input, output)
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO agents.mcp_tools (id, account_id, name, input, output, deleted_at, embedding)
+VALUES (
+    sqlc.arg('id'),
+    sqlc.arg('account_id'),
+    sqlc.arg('name'),
+    sqlc.arg('input'),
+    sqlc.arg('output'),
+    NULL,
+    sqlc.arg('embedding')
+)
+ON CONFLICT (id) DO UPDATE
+SET account_id = EXCLUDED.account_id,
+    name = EXCLUDED.name,
+    input = EXCLUDED.input,
+    output = EXCLUDED.output,
+    embedding = EXCLUDED.embedding,
+    deleted_at = NULL;
 
+-- ListToolsForAccounts retrieves all active tools for a given set of accounts.
+-- Used to load available tools into the agent's context window or toolbox.
+--
+-- Returns: All non-deleted tools belonging to valid accounts.
 -- name: ListToolsForAccounts :many
-SELECT * FROM agents.mcp_tools
-WHERE account = ANY(@accounts::uuid[]);
+SELECT id, account_id, name, input, output, embedding, deleted_at
+FROM agents.mcp_tools
+WHERE account_id = ANY(sqlc.arg('account_ids')::uuid[]) AND deleted_at IS NULL;
 
+-- DeleteAccountToken removes the OAuth token.
+-- Used when revoking access or signing out of a specific integration.
+-- NOTE: Hard delete is intentional for security tokens.
+--
 -- name: DeleteAccountToken :exec
 DELETE FROM agents.oauth_tokens
-WHERE account_id = $1;
+WHERE account_id = sqlc.arg('account_id');
+
+-- UpdateToolEmbedding updates the vector embedding for a specific tool.
+-- Called asynchronously after tool discovery to enable semantic search.
+--
+-- name: UpdateToolEmbedding :exec
+UPDATE agents.mcp_tools
+SET embedding = sqlc.arg('embedding')
+WHERE id = sqlc.arg('tool_id');
+
+-- SearchToolsByEmbedding finds relevant tools using semantic similarity.
+-- Core component of RAG: helps the agent pick the right tool for the job.
+--
+-- Returns: Tools ordered by similarity (closest first).
+-- name: SearchToolsByEmbedding :many
+SELECT id, account_id, name, input, output, embedding, deleted_at,
+       1 - (embedding <=> sqlc.arg('query_embedding')::vector) AS similarity
+FROM agents.mcp_tools
+WHERE deleted_at IS NULL
+  AND account_id = ANY(sqlc.arg('account_ids')::uuid[])
+ORDER BY embedding <=> sqlc.arg('query_embedding')::vector
+LIMIT sqlc.arg('limit_count');
+
+-- name: GetTool :one
+SELECT id, account_id, name, input, output, embedding, deleted_at
+FROM agents.mcp_tools
+WHERE id = sqlc.arg('tool_id') AND account_id = sqlc.arg('account_id') AND deleted_at IS NULL;
+
+-- name: DeleteTool :exec
+UPDATE agents.mcp_tools
+SET deleted_at = NOW()
+WHERE id = sqlc.arg('tool_id');

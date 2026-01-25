@@ -292,3 +292,15 @@ Sample items:
 - Correct: Validation of requirement quality
 - Wrong: "Does it do X?"
 - Correct: "Is X clearly specified?"
+
+## Domain Model Governance Check
+
+If the feature involves `internal/domains/*` changes, include these quality checks:
+
+- [ ] CHK_DOMAIN_001 - Are domain model changes identified in the specification?
+- [ ] CHK_DOMAIN_002 - Is a Domain Change Request planned for domain modifications?
+- [ ] CHK_DOMAIN_003 - Are domain entity relationships clearly documented?
+- [ ] CHK_DOMAIN_004 - Are business invariants explicitly stated?
+- [ ] CHK_DOMAIN_005 - Is the bounded context clearly identified?
+
+**Note**: Domain model changes require formal approval via domain_expert agent. See `.github/agents/domain_expert.agent.md` for complete governance process.
