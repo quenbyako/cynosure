@@ -3,7 +3,7 @@ package entities
 import (
 	"fmt"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 type UserAccount struct {

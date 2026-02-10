@@ -8,13 +8,45 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// OAuthHandler manages OAuth 2.0 flows for MCP server authentication.
+// Supports dynamic client registration, token exchange, and refresh operations.
 type OAuthHandler interface {
-	// RegisterClient регистрирует динамический клиент в случае, если сервер
-	// поддерживает такой способ.
+	// RegisterClient performs dynamic client registration (RFC 7591) if server
+	// supports it. Returns OAuth config and optional client credentials
+	// expiration.
+	//
+	// See next test suites to find how it works:
+	//
+	//  - [TestRegisterClient] — dynamic client registration with various
+	//     servers
+	//
+	// Throws:
+	//
+	//  - [ErrServerUnreachable] if registration endpoint is unavailable.
 	RegisterClient(ctx context.Context, u *url.URL, clientName string, redirect *url.URL) (cfg *oauth2.Config, expiresAt time.Time, err error)
-	// RefreshToken обновляет токен доступа
+
+	// RefreshToken obtains a new access token using refresh token. Implements
+	// standard OAuth 2.0 refresh flow.
+	//
+	// See next test suites to find how it works:
+	//
+	//  - [TestRefreshToken] — refreshing OAuth tokens
+	//
+	// Throws:
+	//
+	//  - [ErrInvalidCredentials] if refresh token is invalid or expired.
 	RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error)
-	// Exchange обменивает код авторизации на токен доступа
+
+	// Exchange exchanges authorization code for access token. Supports PKCE
+	// flow via verifier parameter. Standard OAuth 2.0 authorization code flow.
+	//
+	// See next test suites to find how it works:
+	//
+	//  - [TestExchange] — exchanging authorization code with PKCE support
+	//
+	// Throws:
+	//
+	//  - [ErrInvalidCredentials] if authorization code is invalid.
 	Exchange(ctx context.Context, config *oauth2.Config, code string, verifier []byte) (*oauth2.Token, error)
 }
 

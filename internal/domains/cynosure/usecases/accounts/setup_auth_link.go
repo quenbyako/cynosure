@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/oauth"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
 
 func (s *Usecase) SetupAuthLink(ctx context.Context, server ids.ServerID, user ids.UserID, accountName, accountDesc string) (*url.URL, error) {
@@ -22,7 +22,15 @@ func (s *Usecase) SetupAuthLink(ctx context.Context, server ids.ServerID, user i
 		return nil, fmt.Errorf("getting server info: %w", err)
 	}
 
-	if info.AuthConfig == nil {
+	exists, err := s.users.HasUser(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("checking user existence: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("user %q does not exist", user.ID())
+	}
+
+	if info.AuthConfig() == nil {
 		return nil, ErrAuthUnsupported
 	}
 

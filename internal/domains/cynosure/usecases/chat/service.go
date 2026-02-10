@@ -1,36 +1,42 @@
 package chat
 
 import (
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 
 type Service struct {
-	storage  ports.StorageRepository
-	model    ports.ChatModel
-	tools    ports.ToolManager
-	servers  ports.ServerStorage
-	accounts ports.AccountStorage
-	models   ports.ModelSettingsStorage
+	storage     ports.ThreadStorage
+	model       ports.ChatModel
+	tools       ports.ToolClient
+	indexer     ports.ToolSemanticIndex
+	toolStorage ports.ToolStorage
+	servers     ports.ServerStorage
+	accounts    ports.AccountStorage
+	models      ports.AgentStorage
 
-	defaultModel ids.ModelConfigID
+	defaultModel   ids.AgentID
+	agentLoopTurns uint8
 
 	log   LogCallbacks
 	trace trace.Tracer
 }
 
 func New(
-	storage ports.StorageRepository,
+	storage ports.ThreadStorage,
 	model ports.ChatModel,
-	tool ports.ToolManager,
+	tool ports.ToolClient,
+	indexer ports.ToolSemanticIndex,
+	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,
-	models ports.ModelSettingsStorage,
-	defaultModel ids.ModelConfigID,
+	models ports.AgentStorage,
+	defaultModel ids.AgentID,
 	log LogCallbacks,
 ) *Service {
 	if storage == nil {
@@ -41,6 +47,12 @@ func New(
 	}
 	if tool == nil {
 		panic("tool manager is required")
+	}
+	if indexer == nil {
+		panic("indexer is required")
+	}
+	if toolStorage == nil {
+		panic("tool storage is required")
 	}
 	if server == nil {
 		panic("server storage is required")
@@ -56,14 +68,17 @@ func New(
 	}
 
 	return &Service{
-		storage:  storage,
-		model:    model,
-		tools:    tool,
-		servers:  server,
-		accounts: account,
-		models:   models,
+		storage:     storage,
+		model:       model,
+		tools:       tool,
+		indexer:     indexer,
+		toolStorage: toolStorage,
+		servers:     server,
+		accounts:    account,
+		models:      models,
 
-		defaultModel: defaultModel,
+		agentLoopTurns: 10,
+		defaultModel:   defaultModel,
 
 		log:   log,
 		trace: noop.NewTracerProvider().Tracer(pkgName),

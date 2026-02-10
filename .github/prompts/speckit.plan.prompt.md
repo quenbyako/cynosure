@@ -75,6 +75,46 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 **Output**: data-model.md, /contracts/*, quickstart.md, agent-specific file
 
+## Domain Model Changes
+
+**CRITICAL**: If planning involves changes to domain model (`internal/domains/*`):
+
+1. **Document domain changes separately** in `FEATURE_DIR/domain-requests/`
+2. **Use the Domain Change Request format** (see structure below)
+3. **Do NOT include domain model changes in plan.md** until approved by domain_expert
+4. **Mark domain-dependent tasks** in planning documents as "BLOCKED: Awaiting domain approval"
+
+**Domain Change Request Format**:
+
+```markdown
+# Domain Change Request: [Title]
+
+**Requester**: [adapter-expert | application-expert | planner]
+**Context**: [cynosure | gateway | ...]
+**Type**: [new-entity | modify-entity | new-aggregate | modify-port | new-usecase]
+**Priority**: [critical | high | normal | low]
+
+## Business Justification
+[Why needed from business perspective]
+
+## Proposed Changes
+[Detailed domain model changes]
+
+## Affected Components
+- Entities: [list]
+- Aggregates: [list]
+- Ports: [list]
+- Usecases: [list]
+
+## Invariants Preservation
+[How invariants preserved]
+
+## Alternative Considered
+[Evaluated alternatives]
+```
+
+**Invoke domain_expert agent** to review before finalizing plan.
+
 ## Key rules
 
 - Use absolute paths

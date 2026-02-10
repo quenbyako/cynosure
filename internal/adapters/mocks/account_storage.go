@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	mock "github.com/stretchr/testify/mock"
 )
 

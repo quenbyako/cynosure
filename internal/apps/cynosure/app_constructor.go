@@ -15,7 +15,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/controllers/a2a"
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
 	"github.com/quenbyako/cynosure/internal/controllers/oauth"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
@@ -27,7 +27,6 @@ type SecretGetter interface {
 
 type appParams struct {
 	geminiKey          SecretGetter
-	zepKey             SecretGetter
 	defaultModelConfig string
 
 	grpcAddr grpc.ServiceRegistrar
@@ -43,9 +42,6 @@ type appParams struct {
 
 func (p *appParams) validate() error {
 	var errs []error
-	if p.zepKey == nil {
-		errs = append(errs, errors.New("missing zepKey"))
-	}
 	if p.geminiKey == nil {
 		errs = append(errs, errors.New("missing geminiKey"))
 	}
@@ -72,10 +68,6 @@ func WithGRPCServer(port grpc.ServiceRegistrar) AppOpts {
 
 func WithHTTPServer(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.httpAddr = registrar }
-}
-
-func WithZepKey(key SecretGetter) AppOpts {
-	return func(p *appParams) { p.zepKey = key }
 }
 
 func WithGeminiKey(key SecretGetter) AppOpts {

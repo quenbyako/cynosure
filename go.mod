@@ -26,22 +26,22 @@ require (
 	github.com/go-faster/jx v1.2.0
 	github.com/goforj/wire v1.1.0
 	github.com/google/uuid v1.6.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.5
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/henvic/httpretty v0.1.4
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/k0kubun/pp/v3 v3.5.0
+	github.com/k0kubun/pp/v3 v3.5.1
 	github.com/ldclabs/cose v1.3.2
 	github.com/modelcontextprotocol/go-sdk v1.2.0
 	github.com/nikolalohinski/gonja v1.5.3
 	github.com/ogen-go/ogen v1.18.0
-	github.com/quenbyako/core v0.0.0-20251226001240-218072ab2426
-	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20251226001240-218072ab2426
-	github.com/quenbyako/core/contrib/params/http v0.0.0-20251226001240-218072ab2426
-	github.com/quenbyako/core/contrib/runtime v0.0.0-20251226001240-218072ab2426
-	github.com/quenbyako/cynosure/contrib/db v0.0.0-00010101000000-000000000000
-	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-20251122223022-f6f543db2124
-	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-20251122223022-f6f543db2124
+	github.com/quenbyako/core v0.0.0-20260129141310-c57d2d24d777
+	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20260129141310-c57d2d24d777
+	github.com/quenbyako/core/contrib/params/http v0.0.0-20260129141310-c57d2d24d777
+	github.com/quenbyako/core/contrib/runtime v0.0.0-20260129141310-c57d2d24d777
+	github.com/quenbyako/cynosure/contrib/db v0.0.0-20260123154430-a8dedad00d24
+	github.com/quenbyako/cynosure/contrib/telegram-bot-api/v9 v9.0.0-20260123154430-a8dedad00d24
+	github.com/quenbyako/cynosure/contrib/telegram-proto v0.0.0-20260123154430-a8dedad00d24
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.40.0
@@ -50,7 +50,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0
 	golang.org/x/oauth2 v0.34.0
 	google.golang.org/a2a v0.0.0-00010101000000-000000000000
-	google.golang.org/genai v1.43.0
+	google.golang.org/genai v1.44.0
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
@@ -85,7 +85,7 @@ require (
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-faster/yaml v0.4.6 // indirect
@@ -95,7 +95,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.4 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.4 // indirect
-	github.com/google/cel-go v0.26.1 // indirect
+	github.com/google/cel-go v0.27.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -115,7 +115,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/hashicorp/vault/api v1.22.0 // indirect
-	github.com/hashicorp/vault/api/auth/cert v0.0.0-20260121172124-87ce6ca10b8c // indirect
+	github.com/hashicorp/vault/api/auth/cert v0.0.0-20260201203035-9750b87e1cc7 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
@@ -148,6 +148,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/pgvector/pgvector-go v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
@@ -156,10 +157,10 @@ require (
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
-	github.com/quenbyako/core/contrib/secrets v0.0.0-20251226001240-218072ab2426 // indirect
+	github.com/quenbyako/core/contrib/secrets v0.0.0-20260129141310-c57d2d24d777 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
-	github.com/shirou/gopsutil/v4 v4.25.12 // indirect
+	github.com/shirou/gopsutil/v4 v4.26.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
@@ -195,7 +196,7 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260120221211-b8f7ae30c516 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120221211-b8f7ae30c516 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

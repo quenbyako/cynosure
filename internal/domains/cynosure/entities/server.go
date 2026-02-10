@@ -8,7 +8,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 type ServerConfig struct {
@@ -19,6 +20,10 @@ type ServerConfig struct {
 	// indefinitely. usually it's temporary when client creates
 	// pseudo-application through oauth process.
 	configExpiration time.Time
+
+	// default protocol is a type of protocol that vas detected on server.
+	// Value MAY be empty (invalid)
+	protocol tools.Protocol
 
 	pendingEvents[ServerConfigEvent]
 	_valid bool
@@ -36,6 +41,10 @@ func WithExpiration(expiration time.Time) ServerConfigOption {
 func WithAuthConfig(cfg *oauth2.Config) ServerConfigOption {
 	// cloning to avoid external modifications after setting
 	return func(c *ServerConfig) { c.authConfig = cloneConfig(cfg) }
+}
+
+func WithProtocol(protocol tools.Protocol) ServerConfigOption {
+	return func(c *ServerConfig) { c.protocol = protocol }
 }
 
 func NewServerConfig(id ids.ServerID, link *url.URL, opts ...ServerConfigOption) (*ServerConfig, error) {
@@ -65,7 +74,6 @@ func (c *ServerConfig) Validate() error {
 	if c.sseLink == nil {
 		return fmt.Errorf("SSE link is nil")
 	}
-
 	if err := c.validateConfig(c.authConfig); err != nil {
 		return err
 	}
@@ -101,6 +109,8 @@ type ServerConfigReadOnly interface {
 	SSELink() *url.URL
 	AuthConfig() *oauth2.Config
 	ConfigExpiration() time.Time
+	Protocol() (tools.Protocol, bool)
+	PreferredProtocol() tools.Protocol
 }
 
 func (c *ServerConfig) ID() ids.ServerID { return c.id }
@@ -117,6 +127,21 @@ func (c *ServerConfig) SSELink() *url.URL {
 func (c *ServerConfig) AuthConfig() *oauth2.Config { return cloneConfig(c.authConfig) }
 
 func (c *ServerConfig) ConfigExpiration() time.Time { return c.configExpiration }
+
+func (c *ServerConfig) Protocol() (tools.Protocol, bool) {
+	return c.protocol, c.protocol.Valid()
+}
+
+// PreferredProtocol returns the protocol that should be tried first for new connections.
+// Business Logic:
+//   - If no detection history exists, return HTTP (universal fallback)
+//   - If detection history exists, return the known working protocol
+func (c *ServerConfig) PreferredProtocol() tools.Protocol {
+	if !c.protocol.Valid() {
+		return tools.ProtocolHTTP // Default for new servers
+	}
+	return c.protocol // Known working protocol
+}
 
 // WRITE
 
@@ -135,11 +160,41 @@ func (c *ServerConfig) UpdateOAuthConfig(cfg *oauth2.Config) error {
 	return nil
 }
 
+// UpdateSupportedProtocols updates the list of protocols the server supports.
+// The order matters: first element is the preferred protocol.
+// Valid values: "streamable", "sse"
+func (c *ServerConfig) SetProtocol(protocol tools.Protocol) bool {
+	if !protocol.Valid() {
+		return false
+	}
+
+	previous := c.protocol
+	c.protocol = protocol
+
+	c.pendingEvents = append(c.pendingEvents, ServerConfigEventProtocolUpdated{
+		previous: previous,
+		value:    c.protocol,
+	})
+
+	return true
+}
+
+func (c *ServerConfig) UnsetProcotocol() {
+	previous := c.protocol
+	c.protocol = tools.Protocol(0) // setting invalid as it's expected to be optional
+
+	c.pendingEvents = append(c.pendingEvents, ServerConfigEventProtocolUpdated{
+		previous: previous,
+		value:    c.protocol,
+	})
+}
+
 // EVENTS
 
 type ServerConfigEvent interface{ undo(c *ServerConfig) }
 
 var _ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
+var _ ServerConfigEvent = ServerConfigEventProtocolUpdated{}
 
 type ServerConfigEventOauthConfigUpdated struct {
 	previous *oauth2.Config
@@ -150,6 +205,17 @@ func (e ServerConfigEventOauthConfigUpdated) Value() *oauth2.Config { return e.v
 
 func (e ServerConfigEventOauthConfigUpdated) undo(c *ServerConfig) {
 	c.authConfig = e.previous
+}
+
+type ServerConfigEventProtocolUpdated struct {
+	previous tools.Protocol
+	value    tools.Protocol
+}
+
+func (e ServerConfigEventProtocolUpdated) Value() tools.Protocol { return e.value }
+
+func (e ServerConfigEventProtocolUpdated) undo(c *ServerConfig) {
+	c.protocol = e.previous
 }
 
 func cloneConfig(cfg *oauth2.Config) *oauth2.Config {

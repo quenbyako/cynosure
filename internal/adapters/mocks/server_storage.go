@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -40,44 +40,44 @@ func (_m *MockServerStorage) EXPECT() *MockServerStorage_Expecter {
 	return &MockServerStorage_Expecter{mock: &_m.Mock}
 }
 
-// AddServer provides a mock function for the type MockServerStorage
-func (_mock *MockServerStorage) AddServer(ctx context.Context, config entities.ServerConfigReadOnly) error {
-	ret := _mock.Called(ctx, config)
+// DeleteServer provides a mock function for the type MockServerStorage
+func (_mock *MockServerStorage) DeleteServer(ctx context.Context, id ids.ServerID) error {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
-		panic("no return value specified for AddServer")
+		panic("no return value specified for DeleteServer")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.ServerConfigReadOnly) error); ok {
-		r0 = returnFunc(ctx, config)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.ServerID) error); ok {
+		r0 = returnFunc(ctx, id)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockServerStorage_AddServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddServer'
-type MockServerStorage_AddServer_Call struct {
+// MockServerStorage_DeleteServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteServer'
+type MockServerStorage_DeleteServer_Call struct {
 	*mock.Call
 }
 
-// AddServer is a helper method to define mock.On call
+// DeleteServer is a helper method to define mock.On call
 //   - ctx context.Context
-//   - config entities.ServerConfigReadOnly
-func (_e *MockServerStorage_Expecter) AddServer(ctx interface{}, config interface{}) *MockServerStorage_AddServer_Call {
-	return &MockServerStorage_AddServer_Call{Call: _e.mock.On("AddServer", ctx, config)}
+//   - id ids.ServerID
+func (_e *MockServerStorage_Expecter) DeleteServer(ctx interface{}, id interface{}) *MockServerStorage_DeleteServer_Call {
+	return &MockServerStorage_DeleteServer_Call{Call: _e.mock.On("DeleteServer", ctx, id)}
 }
 
-func (_c *MockServerStorage_AddServer_Call) Run(run func(ctx context.Context, config entities.ServerConfigReadOnly)) *MockServerStorage_AddServer_Call {
+func (_c *MockServerStorage_DeleteServer_Call) Run(run func(ctx context.Context, id ids.ServerID)) *MockServerStorage_DeleteServer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 entities.ServerConfigReadOnly
+		var arg1 ids.ServerID
 		if args[1] != nil {
-			arg1 = args[1].(entities.ServerConfigReadOnly)
+			arg1 = args[1].(ids.ServerID)
 		}
 		run(
 			arg0,
@@ -87,12 +87,12 @@ func (_c *MockServerStorage_AddServer_Call) Run(run func(ctx context.Context, co
 	return _c
 }
 
-func (_c *MockServerStorage_AddServer_Call) Return(err error) *MockServerStorage_AddServer_Call {
+func (_c *MockServerStorage_DeleteServer_Call) Return(err error) *MockServerStorage_DeleteServer_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockServerStorage_AddServer_Call) RunAndReturn(run func(ctx context.Context, config entities.ServerConfigReadOnly) error) *MockServerStorage_AddServer_Call {
+func (_c *MockServerStorage_DeleteServer_Call) RunAndReturn(run func(ctx context.Context, id ids.ServerID) error) *MockServerStorage_DeleteServer_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -291,6 +291,63 @@ func (_c *MockServerStorage_LookupByURL_Call) Return(serverConfig *entities.Serv
 }
 
 func (_c *MockServerStorage_LookupByURL_Call) RunAndReturn(run func(ctx context.Context, url1 *url.URL) (*entities.ServerConfig, error)) *MockServerStorage_LookupByURL_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetServer provides a mock function for the type MockServerStorage
+func (_mock *MockServerStorage) SetServer(ctx context.Context, config entities.ServerConfigReadOnly) error {
+	ret := _mock.Called(ctx, config)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetServer")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.ServerConfigReadOnly) error); ok {
+		r0 = returnFunc(ctx, config)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockServerStorage_SetServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetServer'
+type MockServerStorage_SetServer_Call struct {
+	*mock.Call
+}
+
+// SetServer is a helper method to define mock.On call
+//   - ctx context.Context
+//   - config entities.ServerConfigReadOnly
+func (_e *MockServerStorage_Expecter) SetServer(ctx interface{}, config interface{}) *MockServerStorage_SetServer_Call {
+	return &MockServerStorage_SetServer_Call{Call: _e.mock.On("SetServer", ctx, config)}
+}
+
+func (_c *MockServerStorage_SetServer_Call) Run(run func(ctx context.Context, config entities.ServerConfigReadOnly)) *MockServerStorage_SetServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entities.ServerConfigReadOnly
+		if args[1] != nil {
+			arg1 = args[1].(entities.ServerConfigReadOnly)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockServerStorage_SetServer_Call) Return(err error) *MockServerStorage_SetServer_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockServerStorage_SetServer_Call) RunAndReturn(run func(ctx context.Context, config entities.ServerConfigReadOnly) error) *MockServerStorage_SetServer_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -5,11 +5,14 @@ package ports
 import "github.com/goforj/wire"
 
 var WirePorts = wire.NewSet(
-	NewModelSettingsStorage,
+	NewAgentStorage,
 	NewAccountStorage,
 	NewServerStorage,
-	NewStorageRepository,
-	NewToolManager,
+	NewThreadStorage,
 	NewChatModel,
 	NewOAuthHandler,
+	NewToolClient,
+	NewToolStorage,
+	NewToolSemanticIndex,
+	NewUserStorage,
 )

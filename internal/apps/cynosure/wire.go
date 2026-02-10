@@ -17,9 +17,8 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		loggerConstructor,
 
 		sqlAdapter,
-		zepAdapter,
 		geminiAdapter,
-		primitiveAdapter,
+		mcpAdapter,
 		oauthAdapter,
 
 		chatUsecase,

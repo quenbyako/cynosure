@@ -164,6 +164,17 @@ Execution steps:
    - If any Outstanding or Deferred remain, recommend whether to proceed to `/speckit.plan` or run `/speckit.clarify` again later post-plan.
    - Suggested next command.
 
+## Domain Model Considerations
+
+If clarification reveals need for domain model changes (`internal/domains/*`):
+
+- **Do NOT resolve domain model questions directly in spec**
+- **Add note to spec**: "Domain model changes required - will need Domain Change Request during planning"
+- **Flag for planning phase**: Domain model changes require domain_expert approval via formal request
+- **Reference**: Domain Change Request format available in `.github/agents/domain_expert.agent.md`
+
+This ensures domain model integrity is maintained through proper governance process.
+
 Behavior rules:
 
 - If no meaningful ambiguities found (or all potential questions would be low-impact), respond: "No critical ambiguities detected worth formal clarification." and suggest proceeding.

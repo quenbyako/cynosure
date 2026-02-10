@@ -8,18 +8,30 @@ packages:
       AccountStorage:
         config:
           filename: "account_storage.go"
+      AgentStorage:
+        config:
+          filename: "agent_storage.go"
+      ChatModel:
+        config:
+          filename: "chat_model.go"
       OAuthHandler:
         config:
           filename: "oauth_handler.go"
       ServerStorage:
         config:
           filename: "server_storage.go"
-      StorageRepository:
+      ThreadStorage:
         config:
-          filename: "storage_repository.go"
-      ToolManager:
+          filename: "thread_storage.go"
+      ToolClient:
         config:
-          filename: "tool_manager.go"
+          filename: "tool_client.go"
+      ToolSemanticIndex:
+        config:
+          filename: "tool_semantic_index.go"
+      ToolStorage:
+        config:
+          filename: "tool_storage.go"
   github.com/quenbyako/cynosure/internal/domains/gateway/ports:
     config:
       pkgname: "mocks"

@@ -23,7 +23,11 @@ func TestAdapter(t *testing.T) {
 
 	// Create fixturer function that inserts required servers before account tests
 	fixturer := func(fixture testsuite.SaveAccountFixture) error {
-		_, err := pool.Exec(t.Context(), "INSERT INTO agents.users (id) VALUES ($1) ON CONFLICT DO NOTHING", fixture.AccountID.User().ID())
+		_, err := pool.Exec(
+			t.Context(),
+			"INSERT INTO agents.users (id) VALUES ($1) ON CONFLICT DO NOTHING",
+			fixture.AccountID.User().ID(),
+		)
 		if err != nil {
 			return fmt.Errorf("inserting user: %w", err)
 		}
@@ -38,10 +42,18 @@ func TestAdapter(t *testing.T) {
 		}
 
 		_, err = pool.Exec(t.Context(), `
-			INSERT INTO agents.oauth_configs (server_id, client_id, client_secret, redirect_url, scopes)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO agents.oauth_configs (server_id, client_id, client_secret, redirect_url, auth_url, token_url, scopes)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT DO NOTHING
-		`, fixture.AccountID.Server().ID(), "client_id", "client_secret", "http://redirect", []string{"mcp.read", "mcp.write"})
+		`,
+			fixture.AccountID.Server().ID(),
+			"client_id",
+			"client_secret",
+			"http://redirect",
+			"http://auth",
+			"http://token",
+			[]string{"mcp.read", "mcp.write"},
+		)
 		if err != nil {
 			return fmt.Errorf("inserting oauth config: %w", err)
 		}

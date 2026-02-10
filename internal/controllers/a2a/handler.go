@@ -6,16 +6,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/k0kubun/pp/v3"
 	"google.golang.org/a2a"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
@@ -91,15 +90,12 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 		return nil, fmt.Errorf("creating user message: %w", err)
 	}
 
-	// оказывается, контекст и есть айдишник чата, пользователя мы берем через
-	// авторизацию, иначе он анонимен.
-
-	// Пока заглушка
-	userID := h.anonymousUser
-	threadID := req.GetRequest().GetContextId()
+	threadID, err := ids.NewThreadIDFromString(req.GetRequest().GetContextId())
+	if err != nil {
+		return nil, fmt.Errorf("parsing thread id: %w", err)
+	}
 
 	content, err := h.srv.GenerateResponse(ctx,
-		userID,
 		threadID,
 		msg,
 		chat.WithToolChoice(tools.ToolChoiceForbidden),
@@ -190,21 +186,18 @@ func (h *Handler) SendStreamingMessage(req *a2a.SendMessageRequest, srv grpc.Ser
 		return fmt.Errorf("creating user message: %w", err)
 	}
 
-	// оказывается, контекст и есть айдишник чата, пользователя мы берем через
-	// авторизацию, иначе он анонимен.
-
-	// Пока заглушка
-	userID := uuid.MustParse("ff06b500-0000-0000-0000-000000000001")
-	threadID := req.GetRequest().GetContextId()
+	threadID, err := ids.NewThreadIDFromString(req.GetRequest().GetContextId())
+	if err != nil {
+		return fmt.Errorf("parsing thread id: %w", err)
+	}
 
 	content, err := h.srv.GenerateResponse(srv.Context(),
-		must(ids.NewUserID(userID)),
 		threadID,
 		msg,
 		chat.WithToolChoice(tools.ToolChoiceAllowed),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("generating response: %w", err)
 	}
 
 	for msg, err := range content {

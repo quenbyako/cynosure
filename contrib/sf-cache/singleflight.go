@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 )
 
 // errGoexit indicates the runtime.Goexit was called in
@@ -62,10 +63,8 @@ type call[T any] struct {
 	val T
 	err error
 
-	// These fields are read and written with the singleflight
-	// mutex held before the WaitGroup is done, and are read but
-	// not written after the WaitGroup is done.
-	dups int
+	// dups is atomically incremented and read to track duplicate callers
+	dups atomic.Int32
 }
 
 // group represents a class of work and forms a namespace in
@@ -90,24 +89,30 @@ func NewGroup() *group[any] {
 func (g *group[T]) Do(ctx context.Context, fn func(ctx context.Context) (T, error)) (v T, err error, shared bool) {
 	g.mu.Lock()
 	if g.c != nil {
-		g.c.dups++
+		c := g.c // Capture call under lock
 		g.mu.Unlock()
-		g.c.wg.Wait()
+		c.dups.Add(1)
+		c.wg.Wait()
 
-		if e, ok := g.c.err.(*panicError); ok {
+		// After Wait(), c.val and c.err are safe to read without lock
+		if e, ok := c.err.(*panicError); ok {
 			panic(e)
-		} else if g.c.err == errGoexit {
+		} else if c.err == errGoexit {
 			runtime.Goexit()
 		}
-		return g.c.val, g.c.err, true
+		return c.val, c.err, true
 	}
 
-	g.c = &call[T]{}
-	g.c.wg.Add(1)
+	c := &call[T]{}
+	c.wg.Add(1)
+	g.c = c
 	g.mu.Unlock()
 
-	g.doCall(ctx, fn)
-	return g.c.val, g.c.err, g.c.dups > 0
+	g.doCall(ctx, c, fn)
+
+	// After doCall returns, the waitgroup is done and values are stable
+	// c is a local variable, safe to read even if g.c was cleared by Forget()
+	return c.val, c.err, c.dups.Load() > 0
 }
 
 func (g *group[T]) Get() (v T, err error, ok bool) {
@@ -130,7 +135,8 @@ func (g *group[T]) Forget() {
 }
 
 // doCall handles the single call for a key.
-func (g *group[T]) doCall(ctx context.Context, fn func(ctx context.Context) (T, error)) {
+// Takes c as parameter to avoid issues with Forget() clearing g.c.
+func (g *group[T]) doCall(ctx context.Context, c *call[T], fn func(ctx context.Context) (T, error)) {
 	normalReturn := false
 	recovered := false
 
@@ -139,16 +145,14 @@ func (g *group[T]) doCall(ctx context.Context, fn func(ctx context.Context) (T, 
 	defer func() {
 		// the given function invoked runtime.Goexit
 		if !normalReturn && !recovered {
-			g.c.err = errGoexit
+			c.err = errGoexit
 		}
 
-		g.mu.Lock()
-		defer g.mu.Unlock()
-		g.c.wg.Done()
+		c.wg.Done()
 
-		if e, ok := g.c.err.(*panicError); ok {
+		if e, ok := c.err.(*panicError); ok {
 			panic(e)
-		} else if g.c.err == errGoexit {
+		} else if c.err == errGoexit {
 			// Already in the process of goexit, no need to call again
 		}
 	}()
@@ -164,12 +168,12 @@ func (g *group[T]) doCall(ctx context.Context, fn func(ctx context.Context) (T, 
 				// the time we know that, the part of the stack trace relevant to the
 				// panic has been discarded.
 				if r := recover(); r != nil {
-					g.c.err = newPanicError(r)
+					c.err = newPanicError(r)
 				}
 			}
 		}()
 
-		g.c.val, g.c.err = fn(ctx)
+		c.val, c.err = fn(ctx)
 		normalReturn = true
 	}()
 

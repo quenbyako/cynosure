@@ -8,15 +8,17 @@ package cynosure
 
 import (
 	"context"
-	"github.com/quenbyako/cynosure/internal/adapters/tool-handler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
 // Injectors from wire.go:
 
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
-	zepStorage := newZepStorage(ctx, config)
-	storageRepository := ports.NewStorageRepository(zepStorage)
+	adapter, err := newSQLAdapter(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	threadStorage := ports.NewThreadStorage(adapter)
 	geminiModel, err := newGeminiModel(ctx, config)
 	if err != nil {
 		return nil, err
@@ -24,18 +26,17 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	chatModel := ports.NewChatModel(geminiModel)
 	handler := newOAuthHandler(config)
 	oAuthHandler := ports.NewOAuthHandler(handler)
-	adapter, err := newSQLAdapter(ctx, config)
-	if err != nil {
-		return nil, err
-	}
 	serverStorage := ports.NewServerStorage(adapter)
 	accountStorage := ports.NewAccountStorage(adapter)
-	primitiveHandler := primitive.NewHandler(oAuthHandler, serverStorage, accountStorage)
-	toolManager := ports.NewToolManager(primitiveHandler)
-	modelSettingsStorage := ports.NewModelSettingsStorage(adapter)
+	mcpHandler := newMCPHandler(config, oAuthHandler, serverStorage, accountStorage)
+	toolClient := ports.NewToolClient(mcpHandler)
+	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
+	toolStorage := ports.NewToolStorage(adapter)
+	agentStorage := ports.NewAgentStorage(adapter)
 	cynosureLogger := newLogCallbacks(config)
-	service := newChatUsecase(config, storageRepository, chatModel, toolManager, serverStorage, accountStorage, modelSettingsStorage, cynosureLogger)
-	usecase := newAccountsUsecase(config, serverStorage, oAuthHandler, toolManager)
+	service := newChatUsecase(config, threadStorage, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, cynosureLogger)
+	userStorage := ports.NewUserStorage(adapter)
+	usecase := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, userStorage)
 	serversService := newServersUsecase(config, serverStorage, oAuthHandler)
 	app, err := connectDependencies(config, service, usecase, serversService)
 	if err != nil {

@@ -8,7 +8,8 @@ import (
 	"github.com/quenbyako/core/contrib/runtime"
 	"github.com/quenbyako/cynosure/contrib/onelog"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
@@ -40,25 +41,23 @@ func newLogCallbacks(p *appParams) *logger {
 	return &logger{log: onelog.Wrap(p.observability)}
 }
 
-func (l *logger) MaxTurnsReached(ctx context.Context, threadID, userID string) {
+func (l *logger) MaxTurnsReached(ctx context.Context, threadID ids.ThreadID) {
 	l.log.Warn().
 		Str("event_type", eventMaxTurnsReached).
 		Any("context",
 			map[string]any{
-				"thread_id": threadID,
-				"user_id":   userID,
+				"thread_id": threadID.String(),
 			},
 		).
 		Msg("Model reached max turns with tool calls, consider adjusting settings")
 }
 
-func (l *logger) ToolCalled(ctx context.Context, threadID, userID string, toolRequests []messages.MessageToolRequest) {
+func (l *logger) ToolCalled(ctx context.Context, threadID ids.ThreadID, toolRequests []messages.MessageToolRequest) {
 	l.log.Info().
 		Str("event_type", eventToolCalled).
 		Any("context",
 			map[string]any{
-				"thread_id":  threadID,
-				"user_id":    userID,
+				"thread_id":  threadID.String(),
 				"tool_names": toolRequests,
 			},
 		).

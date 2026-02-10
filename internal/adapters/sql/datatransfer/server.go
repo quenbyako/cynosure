@@ -2,6 +2,7 @@ package datatransfer
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -9,25 +10,34 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 // ServerInfoFromDB converts database row to ServerConfig entity.
 // This is pure type conversion - NO database queries.
 func ServerInfoFromDB(row db.GetServerInfoRow) (*entities.ServerConfig, error) {
+	// Parse ID
 	id, err := ids.NewServerID(row.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid server id: %w", err)
 	}
 
 	// Parse URL
 	sseLink, err := url.Parse(row.Url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid sse url: %w", err)
 	}
 
 	// Build OAuth2 config from database row
-	authConfig, err := buildOAuthConfig(row.ClientID, row.ClientSecret, row.RedirectUrl, row.AuthUrl, row.TokenUrl, row.Scopes)
+	authConfig, err := buildOAuthConfig(
+		row.ClientID,
+		row.ClientSecret,
+		row.RedirectUrl,
+		row.AuthUrl,
+		row.TokenUrl,
+		row.Scopes,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +53,16 @@ func ServerInfoFromDB(row db.GetServerInfoRow) (*entities.ServerConfig, error) {
 		entities.WithExpiration(configExpiration),
 	}
 
-	return entities.NewServerConfig(id, sseLink, opts...)
+	// Protocol is not yet persisted, return default (invalid) value
+	// which corresponds to "unknown" state
+	opts = append(opts, entities.WithProtocol(tools.Protocol(0)))
+
+	cfg, err := entities.NewServerConfig(id, sseLink, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("new server config: %w", err)
+	}
+
+	return cfg, nil
 }
 
 // ServerInfoListFromDB converts ListServersRow to ServerConfig entity.
@@ -51,17 +70,24 @@ func ServerInfoFromDB(row db.GetServerInfoRow) (*entities.ServerConfig, error) {
 func ServerInfoListFromDB(row db.ListServersRow) (*entities.ServerConfig, error) {
 	serverID, err := ids.NewServerID(row.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid server id: %w", err)
 	}
 
 	// Parse URL
 	sseLink, err := url.Parse(row.Url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid sse url: %w", err)
 	}
 
 	// Build OAuth2 config from database row
-	authConfig, err := buildOAuthConfig(row.ClientID, row.ClientSecret, row.RedirectUrl, row.AuthUrl, row.TokenUrl, row.Scopes)
+	authConfig, err := buildOAuthConfig(
+		row.ClientID,
+		row.ClientSecret,
+		row.RedirectUrl,
+		row.AuthUrl,
+		row.TokenUrl,
+		row.Scopes,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -77,32 +103,40 @@ func ServerInfoListFromDB(row db.ListServersRow) (*entities.ServerConfig, error)
 		entities.WithExpiration(configExpiration),
 	}
 
-	return entities.NewServerConfig(serverID, sseLink, opts...)
+	// Protocol is not yet persisted, return default (invalid) value
+	// which corresponds to "unknown" state
+	opts = append(opts, entities.WithProtocol(tools.Protocol(0)))
+
+	cfg, err := entities.NewServerConfig(serverID, sseLink, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("new server config: %w", err)
+	}
+
+	return cfg, nil
 }
 
 // buildOAuthConfig builds OAuth2 config from database row fields.
-func buildOAuthConfig(clientID, clientSecret, redirectUrl, authUrl, tokenUrl *string, scopes []string) (*oauth2.Config, error) {
+func buildOAuthConfig(
+	clientID, clientSecret, redirectUrl, authUrl, tokenUrl *string,
+	scopes []string,
+) (*oauth2.Config, error) {
 	if clientID == nil || *clientID == "" {
-		return nil, nil // OAuth is optional
+		//nolint:nilnil // OAuth is optional, returning nil config is intended
+		return nil, nil
 	}
 
-	if clientSecret == nil || *clientSecret == "" {
-		return nil, errors.New("invalid oauth config: client secret is empty")
-	}
-	if redirectUrl == nil || *redirectUrl == "" {
-		return nil, errors.New("invalid oauth config: redirect URL is empty")
-	}
 	if authUrl == nil || *authUrl == "" {
 		return nil, errors.New("invalid oauth config: auth URL is empty")
 	}
+
 	if tokenUrl == nil || *tokenUrl == "" {
 		return nil, errors.New("invalid oauth config: token URL is empty")
 	}
 
 	return &oauth2.Config{
 		ClientID:     *clientID,
-		ClientSecret: *clientSecret,
-		RedirectURL:  *redirectUrl,
+		ClientSecret: deref(clientSecret),
+		RedirectURL:  deref(redirectUrl),
 		Scopes:       scopes,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  *authUrl,

@@ -9,7 +9,7 @@ import (
 
 	admin "github.com/quenbyako/cynosure/contrib/agent-proto/pkg/xelaj/agent/v1alpha1"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 )

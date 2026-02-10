@@ -2,12 +2,10 @@ package entities
 
 import (
 	"fmt"
-	"slices"
-
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/types/tools"
 
 	"golang.org/x/oauth2"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 // Account represents an OAuth2 account with associated MCP server. It holds
@@ -18,10 +16,11 @@ type Account struct {
 	name        string
 	description string
 	token       *oauth2.Token
-	tools       []tools.ToolInfo
+
+	// meta fields
 
 	pendingEvents[AccountEvent]
-	valid bool
+	_valid bool
 }
 
 var _ EventsReader[AccountEvent] = (*Account)(nil)
@@ -33,13 +32,15 @@ func WithAuthToken(token *oauth2.Token) NewAccountOption {
 	return func(c *Account) { c.token = token }
 }
 
-func NewAccount(id ids.AccountID, name, description string, tools []tools.ToolInfo, opts ...NewAccountOption) (*Account, error) {
+func NewAccount(id ids.AccountID, name, description string, opts ...NewAccountOption) (*Account, error) {
 	c := &Account{
 		id:          id,
 		name:        name,
 		description: description,
 		token:       nil,
-		tools:       tools,
+
+		pendingEvents: pendingEvents[AccountEvent]{},
+		_valid:        false,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -48,41 +49,20 @@ func NewAccount(id ids.AccountID, name, description string, tools []tools.ToolIn
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
-	c.valid = true
+	c._valid = true
 
 	return c, nil
 }
 
 // VALIDATION
 
-func (c *Account) Valid() bool { return c != nil && (c.valid || c.validate() == nil) }
+func (c *Account) Valid() bool { return c != nil && (c._valid || c.validate() == nil) }
 func (c *Account) validate() error {
 	if c.name == "" {
 		return fmt.Errorf("name is required")
 	}
 	if c.description == "" {
 		return fmt.Errorf("description is required")
-	}
-
-	if err := c.validateTools(c.tools); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (*Account) validateTools(tools []tools.ToolInfo) error {
-	seen := make(map[string]struct{}, len(tools))
-	for i, t := range tools {
-		if !t.Valid() {
-			return fmt.Errorf("invalid tool %d: %w", i, t.Validate())
-		}
-
-		if _, ok := seen[t.Name()]; ok {
-			return fmt.Errorf("duplicated tool name: %q", t.Name())
-		}
-
-		seen[t.Name()] = struct{}{}
 	}
 
 	return nil
@@ -95,29 +75,14 @@ type AccountReadOnly interface {
 	Token() *oauth2.Token
 	Name() string
 	Description() string
-	Tools() []tools.ToolInfo
 }
 
-func (c *Account) ID() ids.AccountID       { return c.id }
-func (c *Account) Token() *oauth2.Token    { return c.token }
-func (c *Account) Name() string            { return c.name }
-func (c *Account) Description() string     { return c.description }
-func (c *Account) Tools() []tools.ToolInfo { return slices.Clone(c.tools) }
+func (c *Account) ID() ids.AccountID    { return c.id }
+func (c *Account) Token() *oauth2.Token { return c.token }
+func (c *Account) Name() string         { return c.name }
+func (c *Account) Description() string  { return c.description }
 
 // WRITE
-
-func (c *Account) SetTools(tools []tools.ToolInfo) error {
-	if err := c.validateTools(tools); err != nil {
-		return err
-	}
-
-	c.tools = tools
-	c.pendingEvents = append(c.pendingEvents, AccountEventToolsSetted{
-		tools: tools,
-	})
-
-	return nil
-}
 
 func (c *Account) UpdateToken(token *oauth2.Token) error {
 	if token == nil {
@@ -141,19 +106,10 @@ func (c *Account) UpdateToken(token *oauth2.Token) error {
 
 // EVENTS
 
+// [AccountEventTokenUpdated]
 type AccountEvent interface {
 	_AccountEvent()
 }
-
-var _ AccountEvent = AccountEventToolsSetted{}
-
-type AccountEventToolsSetted struct {
-	tools []tools.ToolInfo
-}
-
-func (e AccountEventToolsSetted) _AccountEvent() {}
-
-func (e AccountEventToolsSetted) Tools() []tools.ToolInfo { return e.tools }
 
 type AccountEventTokenUpdated struct {
 	token *oauth2.Token

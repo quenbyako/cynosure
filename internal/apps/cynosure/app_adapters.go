@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"github.com/goforj/wire"
+	"golang.org/x/oauth2"
 
 	// "github.com/quenbyako/cynosure/internal/adapters/file"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
-	primitive "github.com/quenbyako/cynosure/internal/adapters/tool-handler"
-	"github.com/quenbyako/cynosure/internal/adapters/zep"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 var (
@@ -24,22 +26,22 @@ var (
 	// )
 	sqlAdapter = wire.NewSet(
 		newSQLAdapter,
-		wire.Bind(new(ports.ModelSettingsStorageFactory), new(*sql.Adapter)),
+		wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)),
 		wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)),
 		wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)),
-	)
-	zepAdapter = wire.NewSet(
-		newZepStorage,
-		wire.Bind(new(ports.StorageRepositoryFactory), new(*zep.ZepStorage)),
+		wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)),
+		wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)),
+		wire.Bind(new(ports.UserStorageFactory), new(*sql.Adapter)),
 	)
 	geminiAdapter = wire.NewSet(newGeminiModel,
 		wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)),
+		wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)),
 	)
 	oauthAdapter = wire.NewSet(newOAuthHandler,
 		wire.Bind(new(ports.OAuthHandlerFactory), new(*oauth.Handler)),
 	)
-	primitiveAdapter = wire.NewSet(primitive.NewHandler,
-		wire.Bind(new(ports.ToolManagerFactory), new(*primitive.Handler)),
+	mcpAdapter = wire.NewSet(newMCPHandler,
+		wire.Bind(new(ports.ToolClientFactory), new(*mcp.Handler)),
 	)
 )
 
@@ -51,12 +53,52 @@ func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
 	return sql.NewAdapter(ctx, p.databaseURL)
 }
 
-func newZepStorage(ctx context.Context, p *appParams) *zep.ZepStorage {
-	apiKey := must(p.zepKey.Get(ctx))
+func newMCPHandler(
+	p *appParams,
+	oauth ports.OAuthHandler,
+	servers ports.ServerStorage,
+	accounts ports.AccountStorage,
+) *mcp.Handler {
+	// Create refresh token callback - для обновления токена нужен oauth2.Config
+	refresher := func(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
+		// FIXME: это временное решение, пока не реализуем правильное хранение config
+		return nil, fmt.Errorf("token refresh not implemented yet")
+	}
 
-	return must(zep.NewZepStorage(
-		zep.WithAPIKey(string(apiKey)),
-	))
+	// Create save token callback
+	saveToken := func(ctx context.Context, accountID ids.AccountID, token *oauth2.Token) error {
+		account, err := accounts.GetAccount(ctx, accountID)
+		if err != nil {
+			return fmt.Errorf("getting account: %w", err)
+		}
+
+		if err := account.UpdateToken(token); err != nil {
+			return fmt.Errorf("updating token: %w", err)
+		}
+
+		if err := accounts.SaveAccount(ctx, account); err != nil {
+			return fmt.Errorf("saving account: %w", err)
+		}
+
+		return nil
+	}
+
+	// Create account token callback
+	accountToken := func(ctx context.Context, accountID ids.AccountID) (entities.ServerConfigReadOnly, *oauth2.Token, error) {
+		account, err := accounts.GetAccount(ctx, accountID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("getting account: %w", err)
+		}
+
+		server, err := servers.GetServerInfo(ctx, accountID.Server())
+		if err != nil {
+			return nil, nil, fmt.Errorf("getting server info: %w", err)
+		}
+
+		return server, account.Token(), nil
+	}
+
+	return mcp.NewHandler(refresher, saveToken, accountToken)
 }
 
 func newGeminiModel(ctx context.Context, p *appParams) (*gemini.GeminiModel, error) {
