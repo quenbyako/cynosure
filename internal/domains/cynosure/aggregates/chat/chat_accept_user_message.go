@@ -28,7 +28,7 @@ func (c *Chat) AcceptUserMessage(ctx context.Context, message messages.MessageUs
 	}
 	c.toolbox = toolbox
 
-	if err := c.storage.SaveThread(ctx, c.thread); err != nil {
+	if err := c.storage.UpdateThread(ctx, c.thread); err != nil {
 		c.thread.Reset() // Rollback: remove message (tools map stays in memory but is harmless/stale)
 		return fmt.Errorf("saving thread after user message: %w", err)
 	}

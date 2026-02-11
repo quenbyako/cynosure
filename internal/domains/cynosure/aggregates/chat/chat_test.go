@@ -104,7 +104,7 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 	require.NoError(f.t, err)
 
 	f.threadStorage.EXPECT().GetThread(mock.Anything, f.threadID).Return(thread, nil)
-	f.threadStorage.EXPECT().SaveThread(mock.Anything, mock.Anything).Return(nil)
+	f.threadStorage.EXPECT().UpdateThread(mock.Anything, mock.Anything).Return(nil)
 
 	c, err := chat.New(ctx, f.threadStorage, f.indexer, f.toolStorage, f.accountStorage, f.agentStorage, f.threadID)
 	require.NoError(f.t, err)

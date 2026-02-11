@@ -59,10 +59,18 @@ func newMCPHandler(
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
 ) *mcp.Handler {
-	// Create refresh token callback - для обновления токена нужен oauth2.Config
-	refresher := func(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
-		// FIXME: это временное решение, пока не реализуем правильное хранение config
-		return nil, fmt.Errorf("token refresh not implemented yet")
+	refresher := func(ctx context.Context, server entities.ServerConfigReadOnly, token *oauth2.Token) (*oauth2.Token, error) {
+		cfg := server.AuthConfig()
+		if cfg == nil {
+			return nil, fmt.Errorf("server %v has no OAuth config", server.ID())
+		}
+
+		newToken, err := cfg.TokenSource(ctx, token).Token()
+		if err != nil {
+			return nil, fmt.Errorf("refreshing token via oauth2: %w", err)
+		}
+
+		return newToken, nil
 	}
 
 	// Create save token callback
@@ -101,7 +109,7 @@ func newMCPHandler(
 	return mcp.NewHandler(refresher, saveToken, accountToken)
 }
 
-func newGeminiModel(ctx context.Context, p *appParams) (*gemini.GeminiModel, error) {
+func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) (*gemini.GeminiModel, error) {
 	geminiKey, err := p.geminiKey.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
@@ -112,6 +120,7 @@ func newGeminiModel(ctx context.Context, p *appParams) (*gemini.GeminiModel, err
 		&gemini.ClientConfig{
 			APIKey: string(geminiKey),
 		},
+		gemini.WithLogCallbacks(log),
 	)
 }
 

@@ -66,11 +66,13 @@ func (m MessageUser) Extra() map[string]json.RawMessage { return m.extra }
 func (m MessageUser) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
 	changed, err := formatContent(m.content, vs, formatType)
 	if err != nil {
-		return nil, fmt.Errorf("format user message content: %w", err)
+		return MessageUser{}, fmt.Errorf("format user message content: %w", err)
 	}
 
-	return &MessageUser{
-		content: changed,
-		extra:   maps.Clone(m.extra),
+	return MessageUser{
+		mergeTag: m.mergeTag,
+		content:  changed,
+		extra:    maps.Clone(m.extra),
+		valid:    true,
 	}, nil
 }

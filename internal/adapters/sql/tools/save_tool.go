@@ -17,12 +17,13 @@ func (t *Tools) SaveTool(ctx context.Context, tool entities.ToolReadOnly) error 
 	toolID := tool.ID()
 
 	err := t.q.InsertAccountTool(ctx, db.InsertAccountToolParams{
-		ID:        toolID.ID(),
-		AccountID: toolID.Account().ID(),
-		Name:      tool.Name(),
-		Input:     tool.ParamsSchema(),
-		Output:    tool.ResponseSchema(),
-		Embedding: &embedVec,
+		ID:          toolID.ID(),
+		AccountID:   toolID.Account().ID(),
+		Name:        tool.Name(),
+		Description: tool.Desc(),
+		Input:       tool.ParamsSchema(),
+		Output:      tool.ResponseSchema(),
+		Embedding:   &embedVec,
 	})
 	if err != nil {
 		return fmt.Errorf("upsert tool: %w", err)

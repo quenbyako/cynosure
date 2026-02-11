@@ -34,7 +34,7 @@ func (t *Tools) GetTool(
 }
 
 func mapTool(account ids.AccountID, row db.GetToolRow) (*entities.Tool, error) {
-	id, err := ids.NewToolID(account, row.ID)
+	id, err := ids.NewToolID(account, row.ID, ids.WithSlug(row.Name))
 	if err != nil {
 		return nil, fmt.Errorf("invalid tool id: %w", err)
 	}
@@ -58,7 +58,7 @@ func mapTool(account ids.AccountID, row db.GetToolRow) (*entities.Tool, error) {
 		// ... arguments
 		id,
 		row.Name,
-		"", // Description is not stored in mcp_tools table?
+		row.Description,
 		json.RawMessage(row.Input),
 		json.RawMessage(row.Output),
 		entities.WithEmbedding(embedding),

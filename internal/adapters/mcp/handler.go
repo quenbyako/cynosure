@@ -21,7 +21,7 @@ import (
 type (
 	AccountTokenFunc func(context.Context, ids.AccountID) (entities.ServerConfigReadOnly, *oauth2.Token, error)
 	ServerInfoFunc   func(context.Context, ids.ServerID) (entities.ServerConfigReadOnly, error)
-	RefreshTokenFunc func(context.Context, *oauth2.Token) (*oauth2.Token, error)
+	RefreshTokenFunc func(context.Context, entities.ServerConfigReadOnly, *oauth2.Token) (*oauth2.Token, error)
 	SaveTokenFunc    func(context.Context, ids.AccountID, *oauth2.Token) error
 )
 

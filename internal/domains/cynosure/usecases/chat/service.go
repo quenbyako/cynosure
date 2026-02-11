@@ -10,7 +10,7 @@ import (
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 
-type Service struct {
+type Usecase struct {
 	storage     ports.ThreadStorage
 	model       ports.ChatModel
 	tools       ports.ToolClient
@@ -38,7 +38,7 @@ func New(
 	models ports.AgentStorage,
 	defaultModel ids.AgentID,
 	log LogCallbacks,
-) *Service {
+) *Usecase {
 	if storage == nil {
 		panic("storage repository is required")
 	}
@@ -67,7 +67,7 @@ func New(
 		panic("default model is required")
 	}
 
-	return &Service{
+	return &Usecase{
 		storage:     storage,
 		model:       model,
 		tools:       tool,

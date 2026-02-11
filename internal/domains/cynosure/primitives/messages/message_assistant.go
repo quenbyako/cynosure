@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -14,6 +15,11 @@ type MessageAssistant struct {
 	text        string
 	agentID     ids.AgentID
 	attachments []ChatContent
+
+	// TODO: выпилить нахуй отсюда, это очень временное решение, просто чтоб
+	// попробовать. сюда запихивается thought sig от gemini, и не сохраняется в
+	// базу (и ни в коем случае не должен!)
+	protocolMetadata []byte
 
 	// Indicates that struct correctly initialized
 	valid bool
@@ -37,6 +43,10 @@ func WithMessageAssistantReasoning(reasoning string) NewMessageAssistantOpt {
 
 func WithMessageAssistantAgentID(agentID ids.AgentID) NewMessageAssistantOpt {
 	return func(m *MessageAssistant) { m.agentID = agentID }
+}
+
+func WithMessageAssistantProtocolMetadata(metadata []byte) NewMessageAssistantOpt {
+	return func(m *MessageAssistant) { m.protocolMetadata = metadata }
 }
 
 // NewMessageAssistant creates a new assistant message with reasoning, text, and
@@ -69,19 +79,25 @@ func (am MessageAssistant) Validate() error {
 	}
 }
 
-func (am MessageAssistant) MergeTag() uint64     { return am.mergeTag }
-func (am MessageAssistant) Reasoning() string    { return am.reasoning }
-func (am MessageAssistant) Text() string         { return am.text }
-func (am MessageAssistant) AgentID() ids.AgentID { return am.agentID }
+func (am MessageAssistant) MergeTag() uint64         { return am.mergeTag }
+func (am MessageAssistant) Reasoning() string        { return am.reasoning }
+func (am MessageAssistant) Text() string             { return am.text }
+func (am MessageAssistant) AgentID() ids.AgentID     { return am.agentID }
+func (am MessageAssistant) ProtocolMetadata() []byte { return bytes.Clone(am.protocolMetadata) }
 func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
 	changedText, err := formatContent(am.text, vs, formatType)
 	if err != nil {
 		return nil, fmt.Errorf("format assistant message text: %w", err)
 	}
 
+	// TODO: NewMessageAssistant, not just copy-paste. it might be invalid!
 	return MessageAssistant{
-		reasoning:   am.reasoning,
-		text:        changedText,
-		attachments: am.attachments,
+		mergeTag:         am.mergeTag,
+		reasoning:        am.reasoning,
+		text:             changedText,
+		agentID:          am.agentID,
+		attachments:      am.attachments,
+		protocolMetadata: am.protocolMetadata,
+		valid:            true,
 	}, nil
 }

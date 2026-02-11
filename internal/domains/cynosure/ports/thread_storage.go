@@ -32,16 +32,16 @@ type ThreadStorage interface {
 	//  - [ErrNotFound] if thread doesn't exist.
 	GetThread(ctx context.Context, threadID ids.ThreadID) (*entities.Thread, error)
 
-	// SaveThread persists pending messages from thread's event stream.
+	// UpdateThread persists pending messages from thread's event stream.
 	// Implements Optimistic Concurrency Control - fails if thread was modified
 	// concurrently (detects conflicts via last_message_pos). Does not validate
 	// message content or tool arguments - validation happens in domain layer.
 	//
 	// See next test suites to find how it works:
 	//
-	//  - [TestSaveThread] — persisting messages with OCC conflict detection
+	//  - [TestUpdateThread] — persisting messages with OCC conflict detection
 	//  - [TestConcurrentModification] — verifying OCC prevents data loss
-	SaveThread(ctx context.Context, thread entities.ThreadReadOnly) error
+	UpdateThread(ctx context.Context, thread entities.ThreadReadOnly) error
 }
 
 type ThreadStorageFactory interface {

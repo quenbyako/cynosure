@@ -24,6 +24,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		chatUsecase,
 		accountsUsecase,
 		serversUsecase,
+		usersUsecase,
 
 		connectDependencies,
 	))

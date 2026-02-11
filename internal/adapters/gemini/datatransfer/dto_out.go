@@ -1,6 +1,7 @@
 package datatransfer
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"google.golang.org/genai"
@@ -55,21 +56,29 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 				args[k] = v
 			}
 
-			lastContent.Parts = append(lastContent.Parts, genai.NewPartFromFunctionCall(m.ToolName(), args))
-
-		case messages.MessageToolResponse:
-			if len(res) == 0 {
-				return nil, fmt.Errorf("tool response message %v is orphaned, no assistant message found", i)
+			part := genai.NewPartFromFunctionCall(m.ToolName(), args)
+			if sig := m.ProtocolMetadata(); sig != nil {
+				var thoughtSig struct {
+					Sig []byte `json:"gemini_thought_signature"`
+				}
+				if err := json.Unmarshal(sig, &thoughtSig); err == nil {
+					part.ThoughtSignature = thoughtSig.Sig
+				}
 			}
 
-			lastContent := res[len(res)-1]
-			if lastContent.Role != genai.RoleModel {
-				// it's okay, if model has not anything to say
-				// we just add empty content
-				res = append(res, &genai.Content{
-					Role: genai.RoleModel,
-				})
+			lastContent.Parts = append(lastContent.Parts, part)
+
+		case messages.MessageToolResponse:
+			var lastContent *genai.Content
+			if len(res) > 0 {
 				lastContent = res[len(res)-1]
+			}
+
+			if lastContent == nil || lastContent.Role != genai.RoleUser {
+				lastContent = &genai.Content{
+					Role: genai.RoleUser,
+				}
+				res = append(res, lastContent)
 			}
 
 			lastContent.Parts = append(lastContent.Parts, genai.NewPartFromFunctionResponse(m.ToolName(), map[string]any{
@@ -77,18 +86,16 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 			}))
 
 		case messages.MessageToolError:
-			if len(res) == 0 {
-				return nil, fmt.Errorf("tool error message %v is orphaned, no assistant message found", i)
+			var lastContent *genai.Content
+			if len(res) > 0 {
+				lastContent = res[len(res)-1]
 			}
 
-			lastContent := res[len(res)-1]
-			if lastContent.Role != genai.RoleModel {
-				// it's okay, if model has not anything to say
-				// we just add empty content
-				res = append(res, &genai.Content{
-					Role: genai.RoleModel,
-				})
-				lastContent = res[len(res)-1]
+			if lastContent == nil || lastContent.Role != genai.RoleUser {
+				lastContent = &genai.Content{
+					Role: genai.RoleUser,
+				}
+				res = append(res, lastContent)
 			}
 
 			lastContent.Parts = append(lastContent.Parts, genai.NewPartFromFunctionResponse(m.ToolName(), map[string]any{

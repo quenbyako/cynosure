@@ -43,7 +43,7 @@ type ToolClient interface {
 	//  - [ErrServerUnreachable] if server connection fails.
 	//  - [ErrInvalidCredentials] if tool execution requires auth and token is
 	//    invalid.
-	ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage) (messages.MessageTool, error)
+	ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
 }
 
 // ToolClientFactory creates [ToolClient] instances.

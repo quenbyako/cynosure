@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -18,8 +19,13 @@ type MessageToolRequest struct {
 	toolCallID string
 	arguments  map[string]json.RawMessage
 
+	// TODO: выпилить нахуй отсюда, это очень временное решение, просто чтоб
+	// попробовать. сюда запихивается thought sig от gemini, и не сохраняется в
+	// базу (и ни в коем случае не должен!)
+	protocolMetadata []byte
+
 	// Indicates that struct correctly initialized
-	valid bool
+	_valid bool
 }
 
 func (tm MessageToolRequest) _Message() {}
@@ -32,6 +38,10 @@ func WithMessageToolRequestMergeTag(mergeTag uint64) NewMessageToolRequestOpt {
 
 func WithMessageToolRequestReasoning(reasoning string) NewMessageToolRequestOpt {
 	return func(m *MessageToolRequest) { m.reasoning = reasoning }
+}
+
+func WithMessageToolRequestProtocolMetadata(metadata []byte) NewMessageToolRequestOpt {
+	return func(m *MessageToolRequest) { m.protocolMetadata = metadata }
 }
 
 func NewMessageToolRequest(arguments map[string]json.RawMessage, toolName, toolCallID string, opts ...NewMessageToolRequestOpt) (MessageToolRequest, error) {
@@ -47,12 +57,12 @@ func NewMessageToolRequest(arguments map[string]json.RawMessage, toolName, toolC
 	if err := m.Validate(); err != nil {
 		return MessageToolRequest{}, err
 	}
-	m.valid = true
+	m._valid = true
 
 	return m, nil
 }
 
-func (tm MessageToolRequest) Valid() bool { return tm.valid || tm.Validate() == nil }
+func (tm MessageToolRequest) Valid() bool { return tm._valid || tm.Validate() == nil }
 func (tm MessageToolRequest) Validate() error {
 	encodedArgs, err := json.Marshal(tm.arguments)
 	if err != nil {
@@ -79,3 +89,4 @@ func (tm MessageToolRequest) MergeTag() uint64                      { return tm.
 func (tm MessageToolRequest) ToolName() string                      { return tm.toolName }
 func (tm MessageToolRequest) ToolCallID() string                    { return tm.toolCallID }
 func (tm MessageToolRequest) Arguments() map[string]json.RawMessage { return tm.arguments }
+func (tm MessageToolRequest) ProtocolMetadata() []byte              { return bytes.Clone(tm.protocolMetadata) }

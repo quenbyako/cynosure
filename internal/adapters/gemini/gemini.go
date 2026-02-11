@@ -6,7 +6,6 @@ import (
 	"iter"
 	"math/rand/v2"
 
-	"github.com/quenbyako/cynosure/contrib/onelog"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
@@ -20,7 +19,7 @@ type ClientConfig = genai.ClientConfig
 
 type GeminiModel struct {
 	client *genai.Client
-	log    onelog.Logger
+	log    LogCallbacks
 
 	thinkingConfig *genai.ThinkingConfig
 }
@@ -30,21 +29,33 @@ var _ ports.ToolSemanticIndexFactory = (*GeminiModel)(nil)
 
 func (g *GeminiModel) ChatModel() ports.ChatModel { return g }
 
-func NewGeminiModel(ctx context.Context, cfg *ClientConfig) (*GeminiModel, error) {
+type GeminiModelOption func(*GeminiModel)
+
+func WithLogCallbacks(log LogCallbacks) GeminiModelOption {
+	return func(g *GeminiModel) { g.log = log }
+}
+
+func NewGeminiModel(ctx context.Context, cfg *ClientConfig, opts ...GeminiModelOption) (*GeminiModel, error) {
 	client, err := genai.NewClient(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GenAI client: %w", err)
 	}
 
-	return &GeminiModel{
+	m := GeminiModel{
 		client: client,
+		log:    NoOpLogCallbacks{},
 		/**/
 		thinkingConfig: &genai.ThinkingConfig{
 			IncludeThoughts: true,
 			ThinkingBudget:  ptr[int32](32),
 		},
 		/**/
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(&m)
+	}
+
+	return &m, nil
 }
 
 // Stream implements adapters.ChatModel.
@@ -62,7 +73,8 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 		}
 	}
 
-	if t := p.Toolbox().Tools(); len(t) > 0 {
+	toolList := p.Toolbox().List()
+	if len(toolList) > 0 {
 		var mode genai.FunctionCallingConfigMode
 		switch toolChoice := p.ToolChoice(); toolChoice {
 		case tools.ToolChoiceAllowed:
@@ -81,13 +93,9 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 			},
 		}
 
-		toolList := make([]tools.RawToolInfo, 0, len(t))
-		for _, tool := range t {
-			toolList = append(toolList, tool)
-		}
-
 		genConfig.Tools = datatransfer.ToolInfoToGenAI(toolList)
 	}
+	g.log.GeminiStreamStarted(ctx, settings.Model(), len(toolList))
 
 	converted, err := datatransfer.MessagesToGenAIContent(input)
 	if err != nil {
@@ -100,38 +108,58 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 
 	return func(yield func(messages.Message, error) bool) {
 		var thoughtBuffer string
+		var metadataBuffer []byte
 
-		s(func(msg *genai.GenerateContentResponse, err error) bool {
+		mapper := func(msg *genai.GenerateContentResponse, err error) (res []messages.Message, _ error) {
 			if err != nil {
-				// Check if the error is due to context cancellation, which is expected when the loop breaks.
-				if ctx.Err() != nil {
-					return false
-				}
-
-				return yield(nil, fmt.Errorf("failed to generate content: %w", err))
+				return nil, err
 			}
 
-			var res []messages.Message
-			res, thoughtBuffer, err = datatransfer.MessageFromGenAIContent(msg, thoughtBuffer, mergeTag)
+			res, thoughtBuffer, metadataBuffer, err = datatransfer.MessageFromGenAIContent(msg, thoughtBuffer, metadataBuffer, mergeTag, settings.ID())
 			if err != nil {
-				yield(nil, err)
-
-				return false // no matter what — stop iteration on error
+				return nil, fmt.Errorf("failed to convert message from Gemini: %w", err)
 			}
 
-			for _, m := range res {
-				// pp.Println(m) // Debugging output, can be removed later
+			return res, nil
+		}
 
-				if !yield(m, nil) {
-					return false // stop iteration if yield returns false
-				}
-			}
-
-			return true
-		})
+		IterExtract(SafeMap(s, mapper))(yield)
 	}, nil
 }
 
-func ptr[T any](v T) *T {
-	return &v
+// SafeMap wraps an iterator with a mapper function and ensures that yield
+// is never called again after it returns false, or after an error occurs.
+func SafeMap[K1, V1, K2 any](seq iter.Seq2[K1, V1], mapper func(K1, V1) (K2, error)) iter.Seq2[K2, error] {
+	return func(yield func(K2, error) bool) {
+		seq(func(k1 K1, v1 V1) bool {
+			k2, err := mapper(k1, v1)
+			if err != nil {
+				yield(k2, err)
+				return false
+			}
+
+			return yield(k2, err)
+		})
+	}
 }
+
+// IterExtract flattens an iterator of slices into an iterator of elements.
+func IterExtract[K1 any](seq iter.Seq2[[]K1, error]) iter.Seq2[K1, error] {
+	return func(yield func(K1, error) bool) {
+		seq(func(k1 []K1, err error) bool {
+			if err != nil {
+				yield(*new(K1), err)
+				return false
+			}
+
+			for _, item := range k1 {
+				if !yield(item, nil) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

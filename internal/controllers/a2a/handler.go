@@ -23,12 +23,12 @@ type Handler struct {
 
 	anonymousUser ids.UserID
 
-	srv *chat.Service
+	srv *chat.Usecase
 }
 
 var _ a2a.A2AServiceServer = (*Handler)(nil)
 
-func Register(srv *chat.Service, anonUser ids.UserID) func(server grpc.ServiceRegistrar) {
+func Register(srv *chat.Usecase, anonUser ids.UserID) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
 		anonymousUser: anonUser,
 		srv:           srv,

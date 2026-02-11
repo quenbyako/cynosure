@@ -10,6 +10,7 @@ import (
 
 type Thread struct {
 	id       ids.ThreadID
+	agentID  ids.AgentID
 	messages []messages.Message
 
 	pendingEvents[ThreadEvent]
@@ -19,10 +20,19 @@ type Thread struct {
 var _ EventsReader[ThreadEvent] = (*Thread)(nil)
 var _ ThreadReadOnly = (*Thread)(nil)
 
-func NewThread(id ids.ThreadID, messages []messages.Message) (*Thread, error) {
+type ThreadOption func(*Thread)
+
+func WithAgent(id ids.AgentID) ThreadOption {
+	return func(t *Thread) { t.agentID = id }
+}
+
+func NewThread(id ids.ThreadID, messages []messages.Message, opts ...ThreadOption) (*Thread, error) {
 	c := &Thread{
 		id:       id,
 		messages: messages,
+	}
+	for _, opt := range opts {
+		opt(c)
 	}
 
 	if err := c.Validate(); err != nil {
@@ -79,9 +89,11 @@ type ThreadReadOnly interface {
 
 	ID() ids.ThreadID
 	Messages() []messages.Message
+	AgentID() ids.AgentID
 }
 
 func (c *Thread) ID() ids.ThreadID             { return c.id }
+func (c *Thread) AgentID() ids.AgentID         { return c.agentID }
 func (c *Thread) Messages() []messages.Message { return c.messages }
 
 // WRITE
@@ -98,6 +110,22 @@ func (c *Thread) AddMessage(message messages.Message) error {
 	})
 
 	return nil
+}
+
+func (c *Thread) SetAgent(agentID ids.AgentID) bool {
+	previous := c.agentID
+
+	if previous == agentID || !agentID.Valid() {
+		return false
+	}
+
+	c.agentID = agentID
+	c.pendingEvents = append(c.pendingEvents, ThreadEventAgentSet{
+		agentID:  agentID,
+		previous: previous,
+	})
+
+	return true
 }
 
 // EVENTS
@@ -118,3 +146,12 @@ func (e ThreadEventMessageAdded) undo(c *Thread) {
 		c.messages = c.messages[:n-1]
 	}
 }
+
+type ThreadEventAgentSet struct {
+	agentID  ids.AgentID
+	previous ids.AgentID
+}
+
+func (e ThreadEventAgentSet) AgentID() ids.AgentID { return e.agentID }
+
+func (e ThreadEventAgentSet) undo(c *Thread) { c.agentID = e.previous }

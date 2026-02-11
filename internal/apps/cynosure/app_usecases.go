@@ -8,12 +8,14 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
 var (
 	chatUsecase     = wire.NewSet(newChatUsecase)
 	accountsUsecase = wire.NewSet(newAccountsUsecase)
 	serversUsecase  = wire.NewSet(newServersUsecase)
+	usersUsecase    = wire.NewSet(newUsersUsecase)
 )
 
 func newChatUsecase(
@@ -27,8 +29,8 @@ func newChatUsecase(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	logger chat.LogCallbacks,
-) *chat.Service {
-	defaultModelConfig := must(ids.NewModelConfigIDFromString(p.defaultModelConfig))
+) *chat.Usecase {
+	defaultModelConfig := must(ids.NewAgentIDFromString(p.defaultModelConfig))
 
 	return chat.New(
 		storage,
@@ -73,5 +75,17 @@ func newServersUsecase(
 ) *servers.Service {
 	return servers.New(storage, oauth, p.oauthCallback,
 		servers.WithTracerProvider(p.observability),
+	)
+}
+
+func newUsersUsecase(
+	p *appParams,
+	usersPort ports.UserStorage,
+	agents ports.AgentStorage,
+) *users.Usecase {
+	return users.New(
+		usersPort,
+		agents,
+		users.WithTracerProvider(p.observability),
 	)
 }

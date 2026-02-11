@@ -13,7 +13,7 @@ type MessageToolResponse struct {
 	content    json.RawMessage
 
 	// Indicates that struct correctly initialized
-	valid bool
+	_valid bool
 }
 
 func (tm MessageToolResponse) _Message()     {}
@@ -39,12 +39,12 @@ func NewMessageToolResponse(content json.RawMessage, toolName, toolCallID string
 	if err := m.Validate(); err != nil {
 		return MessageToolResponse{}, err
 	}
-	m.valid = true
+	m._valid = true
 
 	return m, nil
 }
 
-func (tm MessageToolResponse) Valid() bool { return tm.valid || tm.Validate() == nil }
+func (tm MessageToolResponse) Valid() bool { return tm._valid || tm.Validate() == nil }
 func (tm MessageToolResponse) Validate() error {
 	switch {
 	case tm.toolName == "":

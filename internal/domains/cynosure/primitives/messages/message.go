@@ -7,7 +7,7 @@ import (
 	"maps"
 )
 
-const maxMessageLength = 2048
+const maxMessageLength = 8192
 
 // Implemented by these message types:
 //
@@ -97,7 +97,9 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 					WithMessageUserExtra(extra),
 					WithMessageUserMergeTag(next.MergeTag()),
 				); err != nil {
-					yield(nil, fmt.Errorf("creating merged MessageUser: %w", err))
+					if !yield(nil, fmt.Errorf("creating merged MessageUser: %w", err)) {
+						return
+					}
 				}
 
 			case MessageAssistant:
@@ -106,13 +108,21 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 					yield(nil, fmt.Errorf("expected previous MessageAssistant, got %T", next))
 					return
 				}
+				metadata := next.ProtocolMetadata()
+				if metadata == nil {
+					metadata = currentMsg.ProtocolMetadata()
+				}
 
 				if current, err = NewMessageAssistant(
 					currentMsg.Text()+next.Text(),
 					WithMessageAssistantReasoning(currentMsg.Reasoning()+next.Reasoning()),
 					WithMessageAssistantMergeTag(next.MergeTag()),
+					WithMessageAssistantAgentID(next.AgentID()),
+					WithMessageAssistantProtocolMetadata(metadata),
 				); err != nil {
-					yield(nil, fmt.Errorf("creating merged MessageAssistant: %w", err))
+					if !yield(nil, fmt.Errorf("creating merged MessageAssistant: %w", err)) {
+						return
+					}
 				}
 
 			default:

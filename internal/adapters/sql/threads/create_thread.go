@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 )
@@ -11,7 +12,15 @@ import (
 func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
 	id := thread.ID()
 
-	err := t.q.CreateThread(ctx, db.CreateThreadParams{
+	tx, err := t.tx.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := t.q.WithTx(tx)
+
+	err = qtx.CreateThread(ctx, db.CreateThreadParams{
 		ID:     id.String(),
 		UserID: id.User().ID(),
 	})
@@ -19,5 +28,13 @@ func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOn
 		return fmt.Errorf("create thread: %w", err)
 	}
 
-	return nil
+	for i, msg := range thread.Messages() {
+		pos := int64(i + 1)
+		err := t.insertMessage(ctx, qtx, id.String(), pos, msg)
+		if err != nil {
+			return fmt.Errorf("insert message %d: %w", i, err)
+		}
+	}
+
+	return tx.Commit(ctx)
 }

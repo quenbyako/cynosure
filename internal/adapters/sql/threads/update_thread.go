@@ -14,7 +14,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-func (t *Threads) SaveThread(ctx context.Context, thread entities.ThreadReadOnly) error {
+func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
 	pending := thread.PendingEvents()
 	if len(pending) == 0 {
 		return nil

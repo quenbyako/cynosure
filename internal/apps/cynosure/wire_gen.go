@@ -14,12 +14,13 @@ import (
 // Injectors from wire.go:
 
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
+	baseLogger := newLogger(config)
 	adapter, err := newSQLAdapter(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 	threadStorage := ports.NewThreadStorage(adapter)
-	geminiModel, err := newGeminiModel(ctx, config)
+	geminiModel, err := newGeminiModel(ctx, config, baseLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -33,12 +34,12 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
 	toolStorage := ports.NewToolStorage(adapter)
 	agentStorage := ports.NewAgentStorage(adapter)
-	cynosureLogger := newLogCallbacks(config)
-	service := newChatUsecase(config, threadStorage, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, cynosureLogger)
+	usecase := newChatUsecase(config, threadStorage, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
 	userStorage := ports.NewUserStorage(adapter)
-	usecase := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, userStorage)
-	serversService := newServersUsecase(config, serverStorage, oAuthHandler)
-	app, err := connectDependencies(config, service, usecase, serversService)
+	usecase2 := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, userStorage)
+	service := newServersUsecase(config, serverStorage, oAuthHandler)
+	usecase3 := newUsersUsecase(config, userStorage, agentStorage)
+	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, service, usecase3)
 	if err != nil {
 		return nil, err
 	}

@@ -59,7 +59,7 @@ func (t *tokenRefresher) Token() (*oauth2.Token, error) {
 	ctx, cancel := context.WithTimeout(t.ctx, t.tokenTimeout)
 	defer cancel()
 
-	token, err := t.refreshToken(ctx, t.token)
+	token, err := t.refreshToken(ctx, t.server, t.token)
 	if err != nil {
 		return nil, fmt.Errorf("refreshing token: %w", err)
 	}

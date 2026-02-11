@@ -12,13 +12,14 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
-	"github.com/quenbyako/cynosure/internal/controllers/a2a"
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
 	"github.com/quenbyako/cynosure/internal/controllers/oauth"
+	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
 type SecretGetter interface {
@@ -27,10 +28,13 @@ type SecretGetter interface {
 
 type appParams struct {
 	geminiKey          SecretGetter
+	telegramKey        SecretGetter
+	telegramPublicAddr string
 	defaultModelConfig string
 
-	grpcAddr grpc.ServiceRegistrar
-	httpAddr func(http.Handler)
+	grpcAddr     grpc.ServiceRegistrar
+	httpAddr     func(http.Handler)
+	telegramAddr func(http.Handler)
 
 	observability core.Metrics
 
@@ -44,6 +48,12 @@ func (p *appParams) validate() error {
 	var errs []error
 	if p.geminiKey == nil {
 		errs = append(errs, errors.New("missing geminiKey"))
+	}
+	if p.telegramKey == nil {
+		errs = append(errs, errors.New("missing telegramKey"))
+	}
+	if p.telegramPublicAddr == "" {
+		errs = append(errs, errors.New("missing telegramPublicAddr"))
 	}
 	if p.defaultModelConfig == "" {
 		errs = append(errs, errors.New("missing defaultModelConfig"))
@@ -68,6 +78,18 @@ func WithGRPCServer(port grpc.ServiceRegistrar) AppOpts {
 
 func WithHTTPServer(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.httpAddr = registrar }
+}
+
+func WithTelegramServer(registrar func(http.Handler)) AppOpts {
+	return func(p *appParams) { p.telegramAddr = registrar }
+}
+
+func WithTelegramPublicAddr(addr string) AppOpts {
+	return func(p *appParams) { p.telegramPublicAddr = addr }
+}
+
+func WithTelegramKey(key SecretGetter) AppOpts {
+	return func(p *appParams) { p.telegramKey = key }
 }
 
 func WithGeminiKey(key SecretGetter) AppOpts {
@@ -105,17 +127,25 @@ func Build(ctx context.Context, opts ...AppOpts) *App {
 }
 
 func connectDependencies(
+	ctx context.Context,
 	p *appParams,
-	chat *chat.Service,
+	log telegram.LogCallbacks,
+	chat *chat.Usecase,
 	accounts *accounts.Usecase,
 	servers *servers.Service,
+	users *users.Usecase,
 ) (*App, error) {
+	telegramKey, err := p.telegramKey.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get telegram key: %w", err)
+	}
+
 	// grpc controllers
-	a2a.Register(chat, p.anonUser)(p.grpcAddr)
 	admin.Register(accounts, servers)(p.grpcAddr)
 
 	// http controllers
 	p.httpAddr(oauth.NewHandler(accounts))
+	p.telegramAddr(telegram.NewHandler(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log)))
 
 	return &App{}, nil
 }

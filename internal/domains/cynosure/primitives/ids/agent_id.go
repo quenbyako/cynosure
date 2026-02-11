@@ -12,23 +12,23 @@ type AgentID struct {
 	valid bool
 }
 
-func RandomModelConfigID() AgentID {
-	if id, err := NewModelConfigID(uuid.New()); err == nil {
+func RandomAgentID() AgentID {
+	if id, err := NewAgentID(uuid.New()); err == nil {
 		return id
 	} else {
 		panic(err)
 	}
 }
 
-func NewModelConfigIDFromString(id string) (AgentID, error) {
+func NewAgentIDFromString(id string) (AgentID, error) {
 	modelConfigID, err := uuid.Parse(id)
 	if err != nil {
 		return AgentID{}, err
 	}
-	return NewModelConfigID(modelConfigID)
+	return NewAgentID(modelConfigID)
 }
 
-func NewModelConfigID(id uuid.UUID) (AgentID, error) {
+func NewAgentID(id uuid.UUID) (AgentID, error) {
 	t := AgentID{
 		id: id,
 	}

@@ -20,7 +20,7 @@ func (t *Tools) ListTools(ctx context.Context, account ids.AccountID) ([]*entiti
 		// Construct tool from row
 		// Row type is ListToolsForAccountsRow
 
-		id, err := ids.NewToolID(account, row.ID)
+		id, err := ids.NewToolID(account, row.ID, ids.WithSlug(row.Name))
 		if err != nil {
 			return nil, fmt.Errorf("invalid tool id: %w", err)
 		}
@@ -38,7 +38,7 @@ func (t *Tools) ListTools(ctx context.Context, account ids.AccountID) ([]*entiti
 		tool, err := entities.NewTool(
 			id,
 			row.Name,
-			"", // Description missing
+			row.Description,
 			row.Input,
 			row.Output,
 			entities.WithEmbedding(embedding),

@@ -10,7 +10,7 @@ import (
 
 // ToDomainAgent converts database model to domain entity
 func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
-	id, err := ids.NewModelConfigID(row.ID)
+	id, err := ids.NewAgentID(row.ID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid agent id: %w", err)
 	}

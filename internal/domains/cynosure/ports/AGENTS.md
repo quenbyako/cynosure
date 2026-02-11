@@ -16,7 +16,16 @@ Good documentation MUST contain:
 1. What the method does
 2. Out of scope usage, if it's not obvious
 3. Examples in test suites how does this method works
-4. List of errors it can throw. Errors MUST be defined, and no any mention of "other error" or "error" should be present.
+4. List of errors it can throw. Errors **MUST** be defined, and no any mention of "other error" or "error" should be present. In documentation, mentioned error types **MUST** be writen in square brackets, to point godoc for that type, like this: `[SomeError]`.
+
+   Format **SHOULD** look like this:
+
+   ```go
+   // Throws:
+   //
+   //  - [TypeError], description of error
+   //  - [ErrAnother], description of error
+   ```
 
 #### Good example of port documentation:
 

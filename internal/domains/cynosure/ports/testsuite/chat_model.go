@@ -53,7 +53,7 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	}
 
 	settings := must(entities.NewModelSettings(
-		must(ids.NewModelConfigID(uuid.New())),
+		must(ids.NewAgentID(uuid.New())),
 		"gemini-2.5-flash",
 	))
 
