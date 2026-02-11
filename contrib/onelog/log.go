@@ -277,29 +277,70 @@ func (e *event) Ctx(ctx context.Context) Event {
 	return e
 }
 
-func (e *event) Dict(key string, dict Event) Event               { panic("unimplemented") }
-func (e *event) Discard() Event                                  { panic("unimplemented") }
-func (e *event) Dur(key string, d time.Duration) Event           { panic("unimplemented") }
-func (e *event) Durs(key string, d []time.Duration) Event        { panic("unimplemented") }
-func (e *event) EmbedObject(obj LogObjectMarshaler) Event        { panic("unimplemented") }
-func (e *event) Enabled() bool                                   { panic("unimplemented") }
-func (e *event) Err(err error) Event                             { return e.AnErr("error", err) }
-func (e *event) Errs(key string, errs []error) Event             { panic("unimplemented") }
-func (e *event) Fields(fields any) Event                         { panic("unimplemented") }
-func (e *event) Float32(key string, f float32) Event             { panic("unimplemented") }
-func (e *event) Float64(key string, f float64) Event             { panic("unimplemented") }
-func (e *event) Floats32(key string, f []float32) Event          { panic("unimplemented") }
-func (e *event) Floats64(key string, f []float64) Event          { panic("unimplemented") }
-func (e *event) Func(f func(e Event)) Event                      { panic("unimplemented") }
-func (e *event) GetCtx() context.Context                         { panic("unimplemented") }
-func (e *event) Hex(key string, val []byte) Event                { panic("unimplemented") }
-func (e *event) IPAddr(key string, ip net.IP) Event              { panic("unimplemented") }
-func (e *event) IPPrefix(key string, pfx net.IPNet) Event        { panic("unimplemented") }
-func (e *event) Int(key string, i int) Event                     { panic("unimplemented") }
-func (e *event) Int16(key string, i int16) Event                 { panic("unimplemented") }
-func (e *event) Int32(key string, i int32) Event                 { panic("unimplemented") }
-func (e *event) Int64(key string, i int64) Event                 { panic("unimplemented") }
-func (e *event) Int8(key string, i int8) Event                   { panic("unimplemented") }
+func (e *event) Dict(key string, dict Event) Event        { panic("unimplemented") }
+func (e *event) Discard() Event                           { panic("unimplemented") }
+func (e *event) Dur(key string, d time.Duration) Event    { panic("unimplemented") }
+func (e *event) Durs(key string, d []time.Duration) Event { panic("unimplemented") }
+func (e *event) EmbedObject(obj LogObjectMarshaler) Event { panic("unimplemented") }
+func (e *event) Enabled() bool                            { panic("unimplemented") }
+func (e *event) Err(err error) Event                      { return e.AnErr("error", err) }
+func (e *event) Errs(key string, errs []error) Event      { panic("unimplemented") }
+func (e *event) Fields(fields any) Event                  { panic("unimplemented") }
+func (e *event) Float32(key string, f float32) Event      { panic("unimplemented") }
+func (e *event) Float64(key string, f float64) Event      { panic("unimplemented") }
+func (e *event) Floats32(key string, f []float32) Event   { panic("unimplemented") }
+func (e *event) Floats64(key string, f []float64) Event   { panic("unimplemented") }
+func (e *event) Func(f func(e Event)) Event               { panic("unimplemented") }
+func (e *event) GetCtx() context.Context                  { panic("unimplemented") }
+func (e *event) Hex(key string, val []byte) Event         { panic("unimplemented") }
+func (e *event) IPAddr(key string, ip net.IP) Event       { panic("unimplemented") }
+func (e *event) IPPrefix(key string, pfx net.IPNet) Event { panic("unimplemented") }
+
+func (e *event) Int(key string, i int) Event {
+	if e.handler == nil {
+		return e
+	}
+
+	e.record.AddAttrs(slog.Int(key, i))
+	return e
+}
+
+func (e *event) Int16(key string, i int16) Event {
+	if e.handler == nil {
+		return e
+	}
+
+	e.record.AddAttrs(slog.Int64(key, int64(i)))
+	return e
+}
+
+func (e *event) Int32(key string, i int32) Event {
+	if e.handler == nil {
+		return e
+	}
+
+	e.record.AddAttrs(slog.Int64(key, int64(i)))
+	return e
+}
+
+func (e *event) Int64(key string, i int64) Event {
+	if e.handler == nil {
+		return e
+	}
+
+	e.record.AddAttrs(slog.Int64(key, i))
+	return e
+}
+
+func (e *event) Int8(key string, i int8) Event {
+	if e.handler == nil {
+		return e
+	}
+
+	e.record.AddAttrs(slog.Int64(key, int64(i)))
+	return e
+}
+
 func (e *event) Interface(key string, i any) Event               { panic("unimplemented") }
 func (e *event) Ints(key string, i []int) Event                  { panic("unimplemented") }
 func (e *event) Ints16(key string, i []int16) Event              { panic("unimplemented") }

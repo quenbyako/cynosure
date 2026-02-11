@@ -25,7 +25,7 @@ func WithToolChoice(toolChoice tools.ToolChoice) GenerateResponseOpt {
 	return func(params *generateResponseParams) { params.toolChoice = toolChoice }
 }
 
-func (s *Service) GenerateResponse(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser, opts ...GenerateResponseOpt) (iter.Seq2[messages.Message, error], error) {
+func (s *Usecase) GenerateResponse(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser, opts ...GenerateResponseOpt) (iter.Seq2[messages.Message, error], error) {
 	ctx, span := s.trace.Start(ctx, "Service.GenerateResponse")
 	defer span.End()
 
@@ -53,7 +53,7 @@ func (s *Service) GenerateResponse(ctx context.Context, threadID ids.ThreadID, m
 // loadOrCreateChat retrieves an existing chat session by its thread ID or
 // creates a new one if it doesn't exist. It then appends the incoming user
 // message to the chat history.
-func (s *Service) loadOrCreateChat(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser) (*chat.Chat, error) {
+func (s *Usecase) loadOrCreateChat(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser) (*chat.Chat, error) {
 	c, err := chat.New(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID)
 	if errors.Is(err, ports.ErrNotFound) {
 		c, err = chat.CreateChatAggregate(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID, nil)
@@ -71,7 +71,7 @@ func (s *Service) loadOrCreateChat(ctx context.Context, threadID ids.ThreadID, m
 	return c, nil
 }
 
-func (s *Service) agentLoop(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) iter.Seq2[messages.Message, error] {
+func (s *Usecase) agentLoop(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) iter.Seq2[messages.Message, error] {
 	return func(yield func(messages.Message, error) bool) {
 		for turn := range s.agentLoopTurns {
 			toolRequests, shouldContinue := s.askModel(ctx, c, config, toolChoice, yield)
@@ -96,7 +96,7 @@ func (s *Service) agentLoop(ctx context.Context, c *chat.Chat, config entities.A
 	}
 }
 
-func (s *Service) askModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice, yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool) {
+func (s *Usecase) askModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice, yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool) {
 	stream, err := s.callModel(ctx, c, config, toolChoice)
 	if err != nil {
 		return nil, s.handleModelError(ctx, c, err, yield)
@@ -105,7 +105,7 @@ func (s *Service) askModel(ctx context.Context, c *chat.Chat, config entities.Ag
 	return s.streamModelMessages(ctx, c, stream, yield)
 }
 
-func (s *Service) callModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) (iter.Seq2[messages.Message, error], error) {
+func (s *Usecase) callModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) (iter.Seq2[messages.Message, error], error) {
 	var opts []ports.StreamOption
 	if toolChoice != tools.ToolChoiceForbidden {
 		opts = append(opts, ports.WithStreamToolbox(c.RelevantTools()))
@@ -113,7 +113,7 @@ func (s *Service) callModel(ctx context.Context, c *chat.Chat, config entities.A
 	return s.model.Stream(ctx, c.Messages(), config, opts...)
 }
 
-func (s *Service) handleModelError(ctx context.Context, c *chat.Chat, err error, yield func(messages.Message, error) bool) bool {
+func (s *Usecase) handleModelError(ctx context.Context, c *chat.Chat, err error, yield func(messages.Message, error) bool) bool {
 	errorMsg, msgErr := messages.NewMessageAssistant(
 		fmt.Sprintf("I apologize, but I encountered a technical error while processing your request: %v", err),
 	)
@@ -131,7 +131,7 @@ func (s *Service) handleModelError(ctx context.Context, c *chat.Chat, err error,
 	return false
 }
 
-func (s *Service) streamModelMessages(ctx context.Context, c *chat.Chat, stream iter.Seq2[messages.Message, error], yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool) {
+func (s *Usecase) streamModelMessages(ctx context.Context, c *chat.Chat, stream iter.Seq2[messages.Message, error], yield func(messages.Message, error) bool) ([]messages.MessageToolRequest, bool) {
 	var toolRequests []messages.MessageToolRequest
 
 	for msg, err := range messages.MergeMessagesStreaming(stream) {
@@ -148,7 +148,7 @@ func (s *Service) streamModelMessages(ctx context.Context, c *chat.Chat, stream 
 	return toolRequests, true
 }
 
-func (s *Service) saveAndYieldMessage(ctx context.Context, c *chat.Chat, msg messages.Message, toolRequests *[]messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
+func (s *Usecase) saveAndYieldMessage(ctx context.Context, c *chat.Chat, msg messages.Message, toolRequests *[]messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
 	var err error
 	switch v := msg.(type) {
 	case messages.MessageAssistant:
@@ -168,7 +168,7 @@ func (s *Service) saveAndYieldMessage(ctx context.Context, c *chat.Chat, msg mes
 	return yield(msg, nil)
 }
 
-func (s *Service) executeTools(ctx context.Context, c *chat.Chat, toolRequests []messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
+func (s *Usecase) executeTools(ctx context.Context, c *chat.Chat, toolRequests []messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
 	for _, req := range toolRequests {
 		if !s.executeTool(ctx, c, req, yield) {
 			return false
@@ -177,7 +177,7 @@ func (s *Service) executeTools(ctx context.Context, c *chat.Chat, toolRequests [
 	return true
 }
 
-func (s *Service) executeTool(ctx context.Context, c *chat.Chat, req messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
+func (s *Usecase) executeTool(ctx context.Context, c *chat.Chat, req messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
 	toolID, cleanArgs, err := c.RelevantTools().ConvertRequest(req.ToolName(), req.Arguments())
 	if err != nil {
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Failed to resolve tool: %v", err), yield)

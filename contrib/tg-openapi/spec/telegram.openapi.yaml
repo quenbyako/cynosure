@@ -141,6 +141,7 @@ paths:
                   - result
   /setWebhook:
     post:
+      operationId: SetWebhook
       description: "Use this method to specify a URL and receive incoming updates via an outgoing webhook. Whenever there is an update for the bot, we will send an HTTPS POST request to the specified URL, containing a JSON-serialized [Update](https://core.telegram.org/bots/api/#update). In case of an unsuccessful request (a request with response [HTTP status code](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes) different from `2XY`), we will repeat the request and give up after a reasonable amount of attempts. Returns *True* on success.\n\nIf you'd like to make sure that the webhook was set by you, you can specify secret data in the parameter *secret\\_token*. If specified, the request will contain a header “X-Telegram-Bot-Api-Secret-Token” with the secret token as content."
       externalDocs:
         url: "https://core.telegram.org/bots/api/#setwebhook"
@@ -155,6 +156,35 @@ paths:
                   type: string
                 certificate:
                   $ref: "#/components/schemas/InputFile"
+                ip_address:
+                  description: The fixed IP address which will be used to send webhook requests instead of the IP address resolved through DNS
+                  type: string
+                max_connections:
+                  description: "The maximum allowed number of simultaneous HTTPS connections to the webhook for update delivery, 1-100. Defaults to *40*. Use lower values to limit the load on your bot's server, and higher values to increase your bot's throughput."
+                  default: 40
+                  type: integer
+                allowed_updates:
+                  description: "A JSON-serialized list of the update types you want your bot to receive. For example, specify `[\"message\", \"edited_channel_post\", \"callback_query\"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api/#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat\\_member*, *message\\_reaction*, and *message\\_reaction\\_count* (default). If not specified, the previous setting will be used.  \nPlease note that this parameter doesn't affect updates created before the call to the setWebhook, so unwanted updates may be received for a short period of time."
+                  type: array
+                  items:
+                    type: string
+                drop_pending_updates:
+                  description: Pass *True* to drop all pending updates
+                  type: boolean
+                secret_token:
+                  description: "A secret token to be sent in a header “X-Telegram-Bot-Api-Secret-Token” in every webhook request, 1-256 characters. Only characters `A-Z`, `a-z`, `0-9`, `_` and `-` are allowed. The header is useful to ensure that the request comes from a webhook set by you."
+                  type: string
+                  minLength: 1
+                  maxLength: 256
+              required:
+                - url
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  description: HTTPS URL to send updates to. Use an empty string to remove webhook integration
+                  type: string
                 ip_address:
                   description: The fixed IP address which will be used to send webhook requests instead of the IP address resolved through DNS
                   type: string
@@ -365,6 +395,7 @@ paths:
                   - result
   /sendMessage:
     post:
+      operationId: SendMessage
       description: "Use this method to send text messages. On success, the sent [Message](https://core.telegram.org/bots/api/#message) is returned."
       externalDocs:
         url: "https://core.telegram.org/bots/api/#sendmessage"
@@ -379,9 +410,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -438,9 +467,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -497,9 +524,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -583,9 +608,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -594,9 +617,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original message was sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 video_start_timestamp:
                   description: New start timestamp for the forwarded video in the message
                   type: integer
@@ -624,9 +645,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -635,9 +654,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original message was sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 video_start_timestamp:
                   description: New start timestamp for the forwarded video in the message
                   type: integer
@@ -665,9 +682,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -676,9 +691,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original message was sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 video_start_timestamp:
                   description: New start timestamp for the forwarded video in the message
                   type: integer
@@ -736,9 +749,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -747,9 +758,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original messages were sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages in the chat *from\\_chat\\_id* to forward. The identifiers must be specified in a strictly increasing order."
                   type: array
@@ -771,9 +780,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -782,9 +789,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original messages were sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages in the chat *from\\_chat\\_id* to forward. The identifiers must be specified in a strictly increasing order."
                   type: array
@@ -806,9 +811,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -817,9 +820,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original messages were sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages in the chat *from\\_chat\\_id* to forward. The identifiers must be specified in a strictly increasing order."
                   type: array
@@ -873,9 +874,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -884,9 +883,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original message was sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Message identifier in the chat specified in *from\\_chat\\_id*"
                   type: integer
@@ -942,9 +939,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -953,9 +948,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original message was sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Message identifier in the chat specified in *from\\_chat\\_id*"
                   type: integer
@@ -1011,9 +1004,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1022,9 +1013,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original message was sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Message identifier in the chat specified in *from\\_chat\\_id*"
                   type: integer
@@ -1110,9 +1099,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1121,9 +1108,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original messages were sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages in the chat *from\\_chat\\_id* to copy. The identifiers must be specified in a strictly increasing order."
                   type: array
@@ -1148,9 +1133,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1159,9 +1142,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original messages were sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages in the chat *from\\_chat\\_id* to copy. The identifiers must be specified in a strictly increasing order."
                   type: array
@@ -1186,9 +1167,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1197,9 +1176,7 @@ paths:
                   type: integer
                 from_chat_id:
                   description: "Unique identifier for the chat where the original messages were sent (or channel username in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages in the chat *from\\_chat\\_id* to copy. The identifiers must be specified in a strictly increasing order."
                   type: array
@@ -1259,9 +1236,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1357,9 +1332,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1463,9 +1436,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1563,9 +1534,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1686,9 +1655,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1798,9 +1765,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1893,9 +1858,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -1983,9 +1946,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). If the chat is a channel, all Telegram Star proceeds from this media will be credited to the chat's balance. Otherwise, they will be credited to the bot's balance."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2082,9 +2043,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2158,9 +2117,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2221,9 +2178,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2284,9 +2239,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2377,9 +2330,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2448,9 +2399,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2519,9 +2468,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2620,9 +2567,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2677,9 +2622,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2734,9 +2677,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2821,9 +2762,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). Polls can't be sent to channel direct messages chats."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -2916,9 +2855,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). Polls can't be sent to channel direct messages chats."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3011,9 +2948,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). Polls can't be sent to channel direct messages chats."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3195,9 +3130,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3249,9 +3182,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3303,9 +3234,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3316,13 +3245,7 @@ paths:
                   description: "Emoji on which the dice throw animation is based. Currently, must be one of “🎲”, “🎯”, “🏀”, “⚽”, “🎳”, or “🎰”. Dice can have values 1-6 for “🎲”, “🎯” and “🎳”, values 1-5 for “🏀” and “⚽”, and values 1-64 for “🎰”. Defaults to “🎲”"
                   default: 🎲
                   type: string
-                  enum:
-                    - 🎲
-                    - 🎯
-                    - 🏀
-                    - ⚽
-                    - 🎳
-                    - 🎰
+                  enum: ["🎲", "🎯", "🏀", "⚽", "🎳", "🎰"]
                 disable_notification:
                   description: "Sends the message [silently](https://telegram.org/blog/channels-2-0#silent-messages). Users will receive a notification with no sound."
                   type: boolean
@@ -3508,9 +3431,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`). Channel chats and channel direct messages chats aren't supported."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread or topic of a forum; for supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3541,9 +3462,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`). Channel chats and channel direct messages chats aren't supported."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread or topic of a forum; for supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3574,9 +3493,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`). Channel chats and channel direct messages chats aren't supported."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread or topic of a forum; for supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -3635,9 +3552,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Identifier of the target message. If the message belongs to a media group, the reaction is set to the first non-deleted message in the group instead."
                   type: integer
@@ -3658,9 +3573,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Identifier of the target message. If the message belongs to a media group, the reaction is set to the first non-deleted message in the group instead."
                   type: integer
@@ -3681,9 +3594,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Identifier of the target message. If the message belongs to a media group, the reaction is set to the first non-deleted message in the group instead."
                   type: integer
@@ -4036,9 +3947,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4057,9 +3966,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4078,9 +3985,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4130,9 +4035,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4148,9 +4051,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4166,9 +4067,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4215,9 +4114,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4239,9 +4136,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4263,9 +4158,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4318,9 +4211,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4381,9 +4272,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4444,9 +4333,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4538,9 +4425,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4559,9 +4444,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4580,9 +4463,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -4632,9 +4513,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sender_chat_id:
                   description: Unique identifier of the target sender chat
                   type: integer
@@ -4647,9 +4526,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sender_chat_id:
                   description: Unique identifier of the target sender chat
                   type: integer
@@ -4662,9 +4539,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sender_chat_id:
                   description: Unique identifier of the target sender chat
                   type: integer
@@ -4708,9 +4583,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sender_chat_id:
                   description: Unique identifier of the target sender chat
                   type: integer
@@ -4723,9 +4596,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sender_chat_id:
                   description: Unique identifier of the target sender chat
                   type: integer
@@ -4738,9 +4609,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sender_chat_id:
                   description: Unique identifier of the target sender chat
                   type: integer
@@ -4784,9 +4653,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 permissions:
                   $ref: "#/components/schemas/ChatPermissions"
                 use_independent_chat_permissions:
@@ -4801,9 +4668,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 permissions:
                   $ref: "#/components/schemas/ChatPermissions"
                 use_independent_chat_permissions:
@@ -4818,9 +4683,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 permissions:
                   $ref: "#/components/schemas/ChatPermissions"
                 use_independent_chat_permissions:
@@ -4866,9 +4729,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -4877,9 +4738,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -4888,9 +4747,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -4929,9 +4786,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: Invite link name; 0-32 characters
                   type: string
@@ -4954,9 +4809,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: Invite link name; 0-32 characters
                   type: string
@@ -4979,9 +4832,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: Invite link name; 0-32 characters
                   type: string
@@ -5034,9 +4885,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to edit
                   type: string
@@ -5063,9 +4912,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to edit
                   type: string
@@ -5092,9 +4939,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to edit
                   type: string
@@ -5151,9 +4996,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target channel chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: Invite link name; 0-32 characters
                   type: string
@@ -5175,9 +5018,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target channel chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: Invite link name; 0-32 characters
                   type: string
@@ -5199,9 +5040,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target channel chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: Invite link name; 0-32 characters
                   type: string
@@ -5253,9 +5092,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to edit
                   type: string
@@ -5273,9 +5110,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to edit
                   type: string
@@ -5293,9 +5128,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to edit
                   type: string
@@ -5343,9 +5176,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier of the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to revoke
                   type: string
@@ -5358,9 +5189,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier of the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to revoke
                   type: string
@@ -5373,9 +5202,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier of the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 invite_link:
                   description: The invite link to revoke
                   type: string
@@ -5418,9 +5245,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -5433,9 +5258,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -5448,9 +5271,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -5494,9 +5315,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -5509,9 +5328,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -5524,9 +5341,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -5570,9 +5385,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 photo:
                   $ref: "#/components/schemas/InputFile"
               required:
@@ -5615,9 +5428,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -5626,9 +5437,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -5637,9 +5446,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -5679,9 +5486,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 title:
                   description: "New chat title, 1-128 characters"
                   type: string
@@ -5696,9 +5501,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 title:
                   description: "New chat title, 1-128 characters"
                   type: string
@@ -5713,9 +5516,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 title:
                   description: "New chat title, 1-128 characters"
                   type: string
@@ -5761,9 +5562,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 description:
                   description: "New chat description, 0-255 characters"
                   type: string
@@ -5777,9 +5576,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 description:
                   description: "New chat description, 0-255 characters"
                   type: string
@@ -5793,9 +5590,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 description:
                   description: "New chat description, 0-255 characters"
                   type: string
@@ -5843,9 +5638,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of a message to pin
                   type: integer
@@ -5864,9 +5657,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of a message to pin
                   type: integer
@@ -5885,9 +5676,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of a message to pin
                   type: integer
@@ -5937,9 +5726,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Identifier of the message to unpin. Required if *business\\_connection\\_id* is specified. If not specified, the most recent pinned message (by sending date) will be unpinned."
                   type: integer
@@ -5954,9 +5741,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Identifier of the message to unpin. Required if *business\\_connection\\_id* is specified. If not specified, the most recent pinned message (by sending date) will be unpinned."
                   type: integer
@@ -5971,9 +5756,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Identifier of the message to unpin. Required if *business\\_connection\\_id* is specified. If not specified, the most recent pinned message (by sending date) will be unpinned."
                   type: integer
@@ -6016,9 +5799,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -6027,9 +5808,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -6038,9 +5817,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -6080,9 +5857,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`). Channel direct messages chats aren't supported; leave the corresponding channel instead."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -6091,9 +5866,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`). Channel direct messages chats aren't supported; leave the corresponding channel instead."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -6102,9 +5875,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`). Channel direct messages chats aren't supported; leave the corresponding channel instead."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -6144,9 +5915,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -6155,9 +5924,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -6166,9 +5933,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -6207,9 +5972,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -6218,9 +5981,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -6229,9 +5990,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -6272,9 +6031,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -6283,9 +6040,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -6294,9 +6049,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -6335,9 +6088,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -6350,9 +6101,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -6365,9 +6114,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup or channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -6410,9 +6157,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sticker_set_name:
                   description: Name of the sticker set to be set as the group sticker set
                   type: string
@@ -6425,9 +6170,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sticker_set_name:
                   description: Name of the sticker set to be set as the group sticker set
                   type: string
@@ -6440,9 +6183,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 sticker_set_name:
                   description: Name of the sticker set to be set as the group sticker set
                   type: string
@@ -6486,9 +6227,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -6497,9 +6236,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -6508,9 +6245,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -6579,9 +6314,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: "Topic name, 1-128 characters"
                   type: string
@@ -6609,9 +6342,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: "Topic name, 1-128 characters"
                   type: string
@@ -6639,9 +6370,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: "Topic name, 1-128 characters"
                   type: string
@@ -6699,9 +6428,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6722,9 +6449,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6745,9 +6470,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6799,9 +6522,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6814,9 +6535,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6829,9 +6548,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6875,9 +6592,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6890,9 +6605,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6905,9 +6618,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6951,9 +6662,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6966,9 +6675,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -6981,9 +6688,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -7027,9 +6732,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -7042,9 +6745,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -7057,9 +6758,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread of the forum topic
                   type: integer
@@ -7103,9 +6802,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: "New topic name, 1-128 characters"
                   type: string
@@ -7120,9 +6817,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: "New topic name, 1-128 characters"
                   type: string
@@ -7137,9 +6832,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 name:
                   description: "New topic name, 1-128 characters"
                   type: string
@@ -7185,9 +6878,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -7196,9 +6887,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -7207,9 +6896,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -7249,9 +6936,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -7260,9 +6945,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -7271,9 +6954,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -7313,9 +6994,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -7324,9 +7003,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -7335,9 +7012,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -7377,9 +7052,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -7388,9 +7061,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -7399,9 +7070,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -7441,9 +7110,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -7452,9 +7119,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -7463,9 +7128,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target supergroup (in the format `@supergroupusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -7611,9 +7274,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the chat or username of the channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -7626,9 +7287,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the chat or username of the channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -7641,9 +7300,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the chat or username of the channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 user_id:
                   description: Unique identifier of the target user
                   type: integer
@@ -8608,9 +8265,7 @@ paths:
                   type: integer
                 chat_id:
                   description: "Required if *user\\_id* is not specified. Unique identifier for the chat or username of the channel (in the format `@channelusername`) that will receive the gift."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 gift_id:
                   description: "Identifier of the gift; limited gifts can't be sent to channel chats"
                   type: string
@@ -8641,9 +8296,7 @@ paths:
                   type: integer
                 chat_id:
                   description: "Required if *user\\_id* is not specified. Unique identifier for the chat or username of the channel (in the format `@channelusername`) that will receive the gift."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 gift_id:
                   description: "Identifier of the gift; limited gifts can't be sent to channel chats"
                   type: string
@@ -8674,9 +8327,7 @@ paths:
                   type: integer
                 chat_id:
                   description: "Required if *user\\_id* is not specified. Unique identifier for the chat or username of the channel (in the format `@channelusername`) that will receive the gift."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 gift_id:
                   description: "Identifier of the gift; limited gifts can't be sent to channel chats"
                   type: string
@@ -8941,9 +8592,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). Channel direct messages chats can't be verified."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 custom_description:
                   description: "Custom description for the verification; 0-70 characters. Must be empty if the organization isn't allowed to provide a custom verification description."
                   type: string
@@ -8957,9 +8606,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). Channel direct messages chats can't be verified."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 custom_description:
                   description: "Custom description for the verification; 0-70 characters. Must be empty if the organization isn't allowed to provide a custom verification description."
                   type: string
@@ -8973,9 +8620,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`). Channel direct messages chats can't be verified."
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 custom_description:
                   description: "Custom description for the verification; 0-70 characters. Must be empty if the organization isn't allowed to provide a custom verification description."
                   type: string
@@ -9078,9 +8723,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           multipart/form-data:
@@ -9089,9 +8732,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
           application/json:
@@ -9100,9 +8741,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
               required:
                 - chat_id
         required: true
@@ -10138,9 +9777,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 exclude_unsaved:
                   description: "Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can\\_post\\_messages* administrator right in the channel."
                   type: boolean
@@ -10180,9 +9817,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 exclude_unsaved:
                   description: "Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can\\_post\\_messages* administrator right in the channel."
                   type: boolean
@@ -10222,9 +9857,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 exclude_unsaved:
                   description: "Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can\\_post\\_messages* administrator right in the channel."
                   type: boolean
@@ -10855,6 +10488,7 @@ paths:
                   - result
   /editMessageText:
     post:
+      operationId: editMessageText
       description: "Use this method to edit text and [game](https://core.telegram.org/bots/api/#games) messages. On success, if the edited message is not an inline message, the edited [Message](https://core.telegram.org/bots/api/#message) is returned, otherwise *True* is returned. Note that business messages that were not sent by the bot and do not contain an inline keyboard can only be edited within **48 hours** from the time they were sent."
       externalDocs:
         url: "https://core.telegram.org/bots/api/#editmessagetext"
@@ -10869,9 +10503,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -10906,9 +10538,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -10943,9 +10573,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11010,9 +10638,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11046,9 +10672,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11082,9 +10706,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11148,9 +10770,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11202,9 +10822,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11243,9 +10861,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11284,9 +10900,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11355,9 +10969,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message with live location to stop"
                   type: integer
@@ -11375,9 +10987,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message with live location to stop"
                   type: integer
@@ -11395,9 +11005,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message with live location to stop"
                   type: integer
@@ -11497,9 +11105,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11517,9 +11123,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11537,9 +11141,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: "Required if *inline\\_message\\_id* is not specified. Identifier of the message to edit"
                   type: integer
@@ -11587,9 +11189,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of the original message with the poll
                   type: integer
@@ -11607,9 +11207,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of the original message with the poll
                   type: integer
@@ -11627,9 +11225,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of the original message with the poll
                   type: integer
@@ -11838,9 +11434,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of the message to delete
                   type: integer
@@ -11853,9 +11447,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of the message to delete
                   type: integer
@@ -11868,9 +11460,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_id:
                   description: Identifier of the message to delete
                   type: integer
@@ -11914,9 +11504,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages to delete. See [deleteMessage](https://core.telegram.org/bots/api/#deletemessage) for limitations on which messages can be deleted"
                   type: array
@@ -11931,9 +11519,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages to delete. See [deleteMessage](https://core.telegram.org/bots/api/#deletemessage) for limitations on which messages can be deleted"
                   type: array
@@ -11948,9 +11534,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_ids:
                   description: "A JSON-serialized list of 1-100 identifiers of messages to delete. See [deleteMessage](https://core.telegram.org/bots/api/#deletemessage) for limitations on which messages can be deleted"
                   type: array
@@ -11999,9 +11583,7 @@ paths:
                   type: string
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -13294,9 +12876,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -13406,9 +12986,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer
@@ -13518,9 +13096,7 @@ paths:
               properties:
                 chat_id:
                   description: "Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)"
-                  anyOf:
-                    - type: integer
-                    - type: string
+                  type: integer
                 message_thread_id:
                   description: Unique identifier for the target message thread (topic) of a forum; for forum supergroups and private chats of bots with forum topic mode enabled only
                   type: integer

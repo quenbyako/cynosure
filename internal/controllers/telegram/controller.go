@@ -8,17 +8,19 @@ import (
 	"time"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
+	"golang.org/x/time/rate"
 
-	"github.com/quenbyako/cynosure/internal/domains/gateway/components"
-	"github.com/quenbyako/cynosure/internal/domains/gateway/components/ids"
-	"github.com/quenbyako/cynosure/internal/domains/gateway/entities"
-	"github.com/quenbyako/cynosure/internal/domains/gateway/usecases"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
 type Handler struct {
 	log LogCallbacks
 
-	srv *usecases.Usecase
+	srv            *chat.Service
+	client         *botapi.ClientWithResponses
+	updateInterval time.Duration
 }
 
 var _ botapi.StrictWebhookInterface = (*Handler)(nil)

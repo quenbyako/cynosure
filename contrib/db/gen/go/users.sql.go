@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :exec
@@ -20,8 +19,24 @@ ON CONFLICT (id) DO NOTHING
 
 // CreateUser registers a new user in the system.
 // Idempotent: does nothing if user already exists (ON CONFLICT DO NOTHING).
-func (q *Queries) CreateUser(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) CreateUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, createUser, id)
+	return err
+}
+
+const createUserTelegram = `-- name: CreateUserTelegram :exec
+INSERT INTO agents.user_telegram (user_id, telegram_id)
+VALUES ($1, $2)
+`
+
+type CreateUserTelegramParams struct {
+	UserID     uuid.UUID
+	TelegramID int64
+}
+
+// CreateUserTelegram associates a user with a telegram ID.
+func (q *Queries) CreateUserTelegram(ctx context.Context, arg CreateUserTelegramParams) error {
+	_, err := q.db.Exec(ctx, createUserTelegram, arg.UserID, arg.TelegramID)
 	return err
 }
 
@@ -32,7 +47,7 @@ WHERE id = $1
 
 // DeleteUser removes a user and all cascade-linked data (if configured).
 // Currently handles basic user record deletion.
-func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteUser, id)
 	return err
 }
@@ -47,9 +62,23 @@ WHERE id = $1
 // Used during authentication/authorization checks.
 //
 // Returns: id if found, error if not found.
-func (q *Queries) GetUser(ctx context.Context, userID pgtype.UUID) (uuid.UUID, error) {
+func (q *Queries) GetUser(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getUser, userID)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const lookupUserByTelegram = `-- name: LookupUserByTelegram :one
+SELECT user_id
+FROM agents.user_telegram
+WHERE telegram_id = $1
+`
+
+// LookupUserByTelegram returns the user ID associated with the given telegram ID.
+func (q *Queries) LookupUserByTelegram(ctx context.Context, telegramID int64) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lookupUserByTelegram, telegramID)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }
