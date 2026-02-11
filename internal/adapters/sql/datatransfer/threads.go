@@ -45,6 +45,10 @@ func ThreadFromRows(rows []db.GetThreadWithMessagesRow) (*entities.Thread, error
 		msgs = append(msgs, msg)
 	}
 
+	if len(msgs) == 0 {
+		return nil, fmt.Errorf("thread %s has no messages in database", threadID)
+	}
+
 	thread, err := entities.NewThread(threadID, msgs)
 	if err != nil {
 		return nil, fmt.Errorf("new thread: %w", err)
@@ -102,7 +106,7 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 		// Convert pgtype.UUID (Bytes [16]byte) to uuid.UUID
 		uid := uuid.UUID(row.AssistantAgentID.Bytes)
 
-		agentID, err = ids.NewModelConfigID(uid)
+		agentID, err = ids.NewAgentID(uid)
 		if err != nil {
 			return nil, fmt.Errorf("invalid agent id: %w", err)
 		}

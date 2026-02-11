@@ -26,7 +26,7 @@ func (c *Chat) AcceptToolRequest(ctx context.Context, message messages.MessageTo
 		return fmt.Errorf("adding assistant tool request message: %w", err)
 	}
 
-	if err := c.storage.SaveThread(ctx, c.thread); err != nil {
+	if err := c.storage.UpdateThread(ctx, c.thread); err != nil {
 		c.thread.Reset()
 		return fmt.Errorf("saving thread after tool request: %w", err)
 	}

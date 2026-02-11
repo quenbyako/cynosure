@@ -30,7 +30,7 @@ func (c *Chat) AcceptAssistantMessage(ctx context.Context, message messages.Mess
 		return fmt.Errorf("adding assistant message: %w", err)
 	}
 
-	if err := c.storage.SaveThread(ctx, c.thread); err != nil {
+	if err := c.storage.UpdateThread(ctx, c.thread); err != nil {
 		c.thread.Reset() // Rollback
 		return fmt.Errorf("saving thread after assistant message: %w", err)
 	}

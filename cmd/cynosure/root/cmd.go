@@ -18,6 +18,9 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithGRPCServer(cfg.Port),
 		cynosure.WithHTTPServer(cfg.HttpPort.Register),
 		cynosure.WithGeminiKey(cfg.GeminiKey),
+		cynosure.WithTelegramKey(cfg.TelegramKey),
+		cynosure.WithTelegramServer(cfg.TelegramPort.Register),
+		cynosure.WithTelegramPublicAddr(cfg.TelegramPublicAddr),
 		cynosure.WithDefaultModelConfig("e0689c78-4fd0-4eca-a907-8e00515bc88d"),
 	}
 
@@ -34,6 +37,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 	jobs := []func(context.Context) error{
 		cfg.Port.Serve,
 		cfg.HttpPort.Serve,
+		cfg.TelegramPort.Serve,
 	}
 
 	if err := core.RunJobs(ctx, jobs...); err != nil {

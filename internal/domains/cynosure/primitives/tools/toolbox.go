@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -55,6 +56,11 @@ func (t Toolbox) validate() error {
 
 // Tools returns all tools in the toolbox indexed by tool name.
 func (t Toolbox) Tools() map[string]RawToolInfo { return maps.Clone(t.tools) }
+
+// List returns all tools in the toolbox as a slice.
+func (t Toolbox) List() []RawToolInfo {
+	return slices.Collect(maps.Values(t.tools))
+}
 
 // Merge combines this toolbox with additional tools.
 //

@@ -3,6 +3,7 @@ package entities
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -74,6 +75,10 @@ func NewTool(id ids.ToolID, name, desc string, paramsSchema, responseSchema json
 
 func (t *Tool) Valid() bool { return t._valid || t.Validate() == nil }
 func (t *Tool) Validate() error {
+	if t.desc == "" {
+		return errors.New("description is required, but empty")
+	}
+
 	return nil
 }
 

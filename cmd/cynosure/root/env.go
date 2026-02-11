@@ -16,16 +16,19 @@ type Config struct {
 	CACerts      []string `env:"CA_CERTS"    default:""  envSeparator:","`
 	VaultAddress *url.URL `env:"VAULT_ADDR"  default:""`
 
-	LogLevel    slog.Level     `env:"CYNOSURE_LOG_LEVEL"    default:"info"`
-	Port        grpc.Server    `env:"CYNOSURE_GRPC_ADDR"    default:"grpc://0.0.0.0:5001"`
-	HttpPort    http.Server    `env:"CYNOSURE_HTTP_ADDR"    default:"http://0.0.0.0:5002"`
-	MetricsPort *url.URL       `env:"CYNOSURE_METRICS_ADDR" default:""`
-	DatabaseURL string         `env:"CYNOSURE_DATABASE_URL"`
-	GeminiKey   secrets.Secret `env:"CYNOSURE_GEMINI_KEY"`
-	TLSKey      string         `env:"CYNOSURE_TLS_KEY"      default:""`
-	TLSCert     string         `env:"CYNOSURE_TLS_CERT"     default:""`
-	FileSecret  *url.URL       `env:"CYNOSURE_FILE_SECRETS" default:""`
-	OtelHost    *url.URL       `env:"CYNOSURE_OTEL_HOST"    default:""`
+	LogLevel           slog.Level     `env:"CYNOSURE_LOG_LEVEL"     default:"info"`
+	Port               grpc.Server    `env:"CYNOSURE_GRPC_ADDR"     default:"grpc://0.0.0.0:5001"`
+	HttpPort           http.Server    `env:"CYNOSURE_HTTP_ADDR"     default:"http://0.0.0.0:5002"`
+	TelegramPort       http.Server    `env:"CYNOSURE_TELEGRAM_ADDR" default:"http://0.0.0.0:5003"`
+	MetricsPort        *url.URL       `env:"CYNOSURE_METRICS_ADDR"  default:""`
+	DatabaseURL        string         `env:"CYNOSURE_DATABASE_URL"`
+	GeminiKey          secrets.Secret `env:"CYNOSURE_GEMINI_KEY"`
+	TelegramKey        secrets.Secret `env:"CYNOSURE_TELEGRAM_KEY"`
+	TelegramPublicAddr string         `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
+	TLSKey             string         `env:"CYNOSURE_TLS_KEY"      default:""`
+	TLSCert            string         `env:"CYNOSURE_TLS_CERT"     default:""`
+	FileSecret         *url.URL       `env:"CYNOSURE_FILE_SECRETS" default:""`
+	OtelHost           *url.URL       `env:"CYNOSURE_OTEL_HOST"    default:""`
 }
 
 var _ core.ActionConfig = (*Config)(nil)

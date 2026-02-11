@@ -7,9 +7,12 @@ package mocks
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 	mock "github.com/stretchr/testify/mock"
 	"golang.org/x/oauth2"
 )
@@ -42,27 +45,27 @@ func (_m *MockToolClient) EXPECT() *MockToolClient_Expecter {
 }
 
 // DiscoverTools provides a mock function for the type MockToolClient
-func (_mock *MockToolClient) DiscoverTools(ctx context.Context, url string, token *oauth2.Token) ([]*entities.Tool, error) {
-	ret := _mock.Called(ctx, url, token)
+func (_mock *MockToolClient) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string) ([]tools.RawToolInfo, error) {
+	ret := _mock.Called(ctx, u, token, account, accountDesc)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DiscoverTools")
 	}
 
-	var r0 []*entities.Tool
+	var r0 []tools.RawToolInfo
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *oauth2.Token) ([]*entities.Tool, error)); ok {
-		return returnFunc(ctx, url, token)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL, *oauth2.Token, ids.AccountID, string) ([]tools.RawToolInfo, error)); ok {
+		return returnFunc(ctx, u, token, account, accountDesc)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *oauth2.Token) []*entities.Tool); ok {
-		r0 = returnFunc(ctx, url, token)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL, *oauth2.Token, ids.AccountID, string) []tools.RawToolInfo); ok {
+		r0 = returnFunc(ctx, u, token, account, accountDesc)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entities.Tool)
+			r0 = ret.Get(0).([]tools.RawToolInfo)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *oauth2.Token) error); ok {
-		r1 = returnFunc(ctx, url, token)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *url.URL, *oauth2.Token, ids.AccountID, string) error); ok {
+		r1 = returnFunc(ctx, u, token, account, accountDesc)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -76,48 +79,60 @@ type MockToolClient_DiscoverTools_Call struct {
 
 // DiscoverTools is a helper method to define mock.On call
 //   - ctx context.Context
-//   - url string
+//   - u *url.URL
 //   - token *oauth2.Token
-func (_e *MockToolClient_Expecter) DiscoverTools(ctx interface{}, url interface{}, token interface{}) *MockToolClient_DiscoverTools_Call {
-	return &MockToolClient_DiscoverTools_Call{Call: _e.mock.On("DiscoverTools", ctx, url, token)}
+//   - account ids.AccountID
+//   - accountDesc string
+func (_e *MockToolClient_Expecter) DiscoverTools(ctx interface{}, u interface{}, token interface{}, account interface{}, accountDesc interface{}) *MockToolClient_DiscoverTools_Call {
+	return &MockToolClient_DiscoverTools_Call{Call: _e.mock.On("DiscoverTools", ctx, u, token, account, accountDesc)}
 }
 
-func (_c *MockToolClient_DiscoverTools_Call) Run(run func(ctx context.Context, url string, token *oauth2.Token)) *MockToolClient_DiscoverTools_Call {
+func (_c *MockToolClient_DiscoverTools_Call) Run(run func(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string)) *MockToolClient_DiscoverTools_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 string
+		var arg1 *url.URL
 		if args[1] != nil {
-			arg1 = args[1].(string)
+			arg1 = args[1].(*url.URL)
 		}
 		var arg2 *oauth2.Token
 		if args[2] != nil {
 			arg2 = args[2].(*oauth2.Token)
 		}
+		var arg3 ids.AccountID
+		if args[3] != nil {
+			arg3 = args[3].(ids.AccountID)
+		}
+		var arg4 string
+		if args[4] != nil {
+			arg4 = args[4].(string)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
+			arg4,
 		)
 	})
 	return _c
 }
 
-func (_c *MockToolClient_DiscoverTools_Call) Return(tools []*entities.Tool, err error) *MockToolClient_DiscoverTools_Call {
-	_c.Call.Return(tools, err)
+func (_c *MockToolClient_DiscoverTools_Call) Return(rawToolInfos []tools.RawToolInfo, err error) *MockToolClient_DiscoverTools_Call {
+	_c.Call.Return(rawToolInfos, err)
 	return _c
 }
 
-func (_c *MockToolClient_DiscoverTools_Call) RunAndReturn(run func(ctx context.Context, url string, token *oauth2.Token) ([]*entities.Tool, error)) *MockToolClient_DiscoverTools_Call {
+func (_c *MockToolClient_DiscoverTools_Call) RunAndReturn(run func(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string) ([]tools.RawToolInfo, error)) *MockToolClient_DiscoverTools_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ExecuteTool provides a mock function for the type MockToolClient
-func (_mock *MockToolClient) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage) (messages.MessageTool, error) {
-	ret := _mock.Called(ctx, tool, args)
+func (_mock *MockToolClient) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
+	ret := _mock.Called(ctx, tool, args, toolCallID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ExecuteTool")
@@ -125,18 +140,18 @@ func (_mock *MockToolClient) ExecuteTool(ctx context.Context, tool entities.Tool
 
 	var r0 messages.MessageTool
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Tool, map[string]json.RawMessage) (messages.MessageTool, error)); ok {
-		return returnFunc(ctx, tool, args)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Tool, map[string]json.RawMessage, string) (messages.MessageTool, error)); ok {
+		return returnFunc(ctx, tool, args, toolCallID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Tool, map[string]json.RawMessage) messages.MessageTool); ok {
-		r0 = returnFunc(ctx, tool, args)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entities.Tool, map[string]json.RawMessage, string) messages.MessageTool); ok {
+		r0 = returnFunc(ctx, tool, args, toolCallID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(messages.MessageTool)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Tool, map[string]json.RawMessage) error); ok {
-		r1 = returnFunc(ctx, tool, args)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entities.Tool, map[string]json.RawMessage, string) error); ok {
+		r1 = returnFunc(ctx, tool, args, toolCallID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -152,11 +167,12 @@ type MockToolClient_ExecuteTool_Call struct {
 //   - ctx context.Context
 //   - tool entities.Tool
 //   - args map[string]json.RawMessage
-func (_e *MockToolClient_Expecter) ExecuteTool(ctx interface{}, tool interface{}, args interface{}) *MockToolClient_ExecuteTool_Call {
-	return &MockToolClient_ExecuteTool_Call{Call: _e.mock.On("ExecuteTool", ctx, tool, args)}
+//   - toolCallID string
+func (_e *MockToolClient_Expecter) ExecuteTool(ctx interface{}, tool interface{}, args interface{}, toolCallID interface{}) *MockToolClient_ExecuteTool_Call {
+	return &MockToolClient_ExecuteTool_Call{Call: _e.mock.On("ExecuteTool", ctx, tool, args, toolCallID)}
 }
 
-func (_c *MockToolClient_ExecuteTool_Call) Run(run func(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage)) *MockToolClient_ExecuteTool_Call {
+func (_c *MockToolClient_ExecuteTool_Call) Run(run func(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string)) *MockToolClient_ExecuteTool_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -170,10 +186,15 @@ func (_c *MockToolClient_ExecuteTool_Call) Run(run func(ctx context.Context, too
 		if args[2] != nil {
 			arg2 = args[2].(map[string]json.RawMessage)
 		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -184,7 +205,7 @@ func (_c *MockToolClient_ExecuteTool_Call) Return(messageTool messages.MessageTo
 	return _c
 }
 
-func (_c *MockToolClient_ExecuteTool_Call) RunAndReturn(run func(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage) (messages.MessageTool, error)) *MockToolClient_ExecuteTool_Call {
+func (_c *MockToolClient_ExecuteTool_Call) RunAndReturn(run func(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)) *MockToolClient_ExecuteTool_Call {
 	_c.Call.Return(run)
 	return _c
 }

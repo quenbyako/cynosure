@@ -37,13 +37,14 @@ type AgentsMcpServer struct {
 }
 
 type AgentsMcpTool struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
-	DeletedAt pgtype.Timestamptz
-	Name      string
-	Input     []byte
-	Output    []byte
-	Embedding *pgvector.Vector
+	ID          uuid.UUID
+	AccountID   uuid.UUID
+	DeletedAt   pgtype.Timestamptz
+	Name        string
+	Description string
+	Input       []byte
+	Output      []byte
+	Embedding   *pgvector.Vector
 }
 
 type AgentsMessage struct {

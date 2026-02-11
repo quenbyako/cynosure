@@ -164,12 +164,12 @@ func (_c *MockThreadStorage_GetThread_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
-// SaveThread provides a mock function for the type MockThreadStorage
-func (_mock *MockThreadStorage) SaveThread(ctx context.Context, thread entities.ThreadReadOnly) error {
+// UpdateThread provides a mock function for the type MockThreadStorage
+func (_mock *MockThreadStorage) UpdateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
 	ret := _mock.Called(ctx, thread)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SaveThread")
+		panic("no return value specified for UpdateThread")
 	}
 
 	var r0 error
@@ -181,19 +181,19 @@ func (_mock *MockThreadStorage) SaveThread(ctx context.Context, thread entities.
 	return r0
 }
 
-// MockThreadStorage_SaveThread_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveThread'
-type MockThreadStorage_SaveThread_Call struct {
+// MockThreadStorage_UpdateThread_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateThread'
+type MockThreadStorage_UpdateThread_Call struct {
 	*mock.Call
 }
 
-// SaveThread is a helper method to define mock.On call
+// UpdateThread is a helper method to define mock.On call
 //   - ctx context.Context
 //   - thread entities.ThreadReadOnly
-func (_e *MockThreadStorage_Expecter) SaveThread(ctx interface{}, thread interface{}) *MockThreadStorage_SaveThread_Call {
-	return &MockThreadStorage_SaveThread_Call{Call: _e.mock.On("SaveThread", ctx, thread)}
+func (_e *MockThreadStorage_Expecter) UpdateThread(ctx interface{}, thread interface{}) *MockThreadStorage_UpdateThread_Call {
+	return &MockThreadStorage_UpdateThread_Call{Call: _e.mock.On("UpdateThread", ctx, thread)}
 }
 
-func (_c *MockThreadStorage_SaveThread_Call) Run(run func(ctx context.Context, thread entities.ThreadReadOnly)) *MockThreadStorage_SaveThread_Call {
+func (_c *MockThreadStorage_UpdateThread_Call) Run(run func(ctx context.Context, thread entities.ThreadReadOnly)) *MockThreadStorage_UpdateThread_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -211,12 +211,12 @@ func (_c *MockThreadStorage_SaveThread_Call) Run(run func(ctx context.Context, t
 	return _c
 }
 
-func (_c *MockThreadStorage_SaveThread_Call) Return(err error) *MockThreadStorage_SaveThread_Call {
+func (_c *MockThreadStorage_UpdateThread_Call) Return(err error) *MockThreadStorage_UpdateThread_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockThreadStorage_SaveThread_Call) RunAndReturn(run func(ctx context.Context, thread entities.ThreadReadOnly) error) *MockThreadStorage_SaveThread_Call {
+func (_c *MockThreadStorage_UpdateThread_Call) RunAndReturn(run func(ctx context.Context, thread entities.ThreadReadOnly) error) *MockThreadStorage_UpdateThread_Call {
 	_c.Call.Return(run)
 	return _c
 }

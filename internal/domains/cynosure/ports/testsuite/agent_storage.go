@@ -62,7 +62,7 @@ func (s *ModelSettingsStorageTestSuite) AfterTest(t *testing.T) {
 // TODO: need to verify that adapters understand filtering by user id, by
 // creating two users with two ids and retrieving models for each of them.
 func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
-	modelID := ids.RandomModelConfigID()
+	modelID := ids.RandomAgentID()
 	userID := ids.RandomUserID()
 
 	model := must(entities.NewModelSettings(

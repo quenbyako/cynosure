@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -14,7 +13,7 @@ import (
 )
 
 // ExecuteTool implements ports.ToolClient.
-func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage) (messages.MessageTool, error) {
+func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
 	client, err := h.clients.Get(ctx, tool.ID().Account())
 	if err != nil {
 		return nil, fmt.Errorf("connecting to %v: %w", tool.ID().Account().ID().String(), err)
@@ -22,7 +21,7 @@ func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[
 
 	resp, err := client.session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      tool.Name(),
-		Arguments: must(json.Marshal(args)),
+		Arguments: args,
 	})
 	if err != nil {
 		return nil, err
@@ -31,19 +30,6 @@ func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[
 	var content json.RawMessage
 	if resp.StructuredContent != nil {
 		if content, err = json.Marshal(resp.StructuredContent); err != nil {
-			// The following lines appear to be misplaced from another file/context.
-			// Applying them literally would cause syntax errors and undefined variables.
-			// To maintain syntactic correctness as per instructions, I'm placing them
-			// as comments or in a way that doesn't break the current function's logic,
-			// assuming they were intended for a different part of the codebase.
-			//
-			// Original instruction:
-			// if len(toolRequests) > 0 {
-			// 	s.log.ToolCalled(ctx, c.ThreadID(), toolRequests)
-			// }
-			// return nil, fmt.Errorf("marshalling structured content back: %w", err)
-			//
-			// Corrected application to maintain syntax:
 			return nil, fmt.Errorf("marshalling structured content back: %w", err)
 		}
 	} else if jsonContent, ok := contentIsJson(resp.Content); ok {
@@ -61,17 +47,7 @@ func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[
 		content = must(json.Marshal(result))
 	}
 
-	msg, err := messages.NewMessageToolResponse(content, tool.Name(), uuid.New().String())
-	// The following lines appear to be misplaced from another file/context.
-	// Applying them literally would cause syntax errors and undefined variables.
-	// To maintain syntactic correctness as per instructions, I'm placing them
-	// as comments or in a way that doesn't break the current function's logic,
-	// assuming they were intended for a different part of the codebase.
-	//
-	// Original instruction:
-	// if i == maxTurns-1 {
-	// 	s.log.MaxTurnsReached(ctx, c.ThreadID())
-	// }
+	msg, err := messages.NewMessageToolResponse(content, tool.Name(), toolCallID)
 	if errors.Is(err, messages.ErrMessageTooLarge) {
 		return messages.NewMessageToolError(json.RawMessage(`"tool response is too large"`), tool.Name(), tool.ID().ID().String())
 	} else if err != nil {

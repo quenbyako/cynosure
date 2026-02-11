@@ -1,11 +1,8 @@
 -- REMINDER: After modifying this file, regenerate Go code:
 --   cd contrib/db && go generate ./...
 
--- ListAccountIDs retrieves all account IDs for a user.
--- Returns only non-deleted accounts.
---
 -- name: ListAccountIDs :many
-SELECT id, server_id
+SELECT id, server_id, name
 FROM agents.mcp_accounts
 WHERE user_id = sqlc.arg('user_id')::UUID AND deleted_at IS NULL;
 
@@ -94,11 +91,12 @@ WHERE account_id IN (SELECT id FROM deleted_account)
 -- RESETs deleted_at to NULL if tool existed previously.
 --
 -- name: InsertAccountTool :exec
-INSERT INTO agents.mcp_tools (id, account_id, name, input, output, deleted_at, embedding)
+INSERT INTO agents.mcp_tools (id, account_id, name, description, input, output, deleted_at, embedding)
 VALUES (
     sqlc.arg('id'),
     sqlc.arg('account_id'),
     sqlc.arg('name'),
+    sqlc.arg('description'),
     sqlc.arg('input'),
     sqlc.arg('output'),
     NULL,
@@ -107,6 +105,7 @@ VALUES (
 ON CONFLICT (id) DO UPDATE
 SET account_id = EXCLUDED.account_id,
     name = EXCLUDED.name,
+    description = EXCLUDED.description,
     input = EXCLUDED.input,
     output = EXCLUDED.output,
     embedding = EXCLUDED.embedding,
@@ -117,7 +116,7 @@ SET account_id = EXCLUDED.account_id,
 --
 -- Returns: All non-deleted tools belonging to valid accounts.
 -- name: ListToolsForAccounts :many
-SELECT id, account_id, name, input, output, embedding, deleted_at
+SELECT id, account_id, name, description, input, output, embedding, deleted_at
 FROM agents.mcp_tools
 WHERE account_id = ANY(sqlc.arg('account_ids')::uuid[]) AND deleted_at IS NULL;
 
@@ -142,7 +141,7 @@ WHERE id = sqlc.arg('tool_id');
 --
 -- Returns: Tools ordered by similarity (closest first).
 -- name: SearchToolsByEmbedding :many
-SELECT id, account_id, name, input, output, embedding, deleted_at,
+SELECT id, account_id, name, description, input, output, embedding, deleted_at,
        1 - (embedding <=> sqlc.arg('query_embedding')::vector) AS similarity
 FROM agents.mcp_tools
 WHERE deleted_at IS NULL
@@ -151,7 +150,7 @@ ORDER BY embedding <=> sqlc.arg('query_embedding')::vector
 LIMIT sqlc.arg('limit_count');
 
 -- name: GetTool :one
-SELECT id, account_id, name, input, output, embedding, deleted_at
+SELECT id, account_id, name, description, input, output, embedding, deleted_at
 FROM agents.mcp_tools
 WHERE id = sqlc.arg('tool_id') AND account_id = sqlc.arg('account_id') AND deleted_at IS NULL;
 

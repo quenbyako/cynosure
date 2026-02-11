@@ -55,10 +55,15 @@ CREATE TABLE agents.mcp_tools (
 	deleted_at TIMESTAMPTZ,
 
 	name      TEXT  NOT NULL,
+	description TEXT NOT NULL DEFAULT '',
 	input     JSONB NOT NULL,
 	output    JSONB NOT NULL,
 	-- using pgvector, it's allowed to have empty embeddings since flow of
 	-- adding embeddings is optional.
+	--
+	-- currently — using only gemini with fixed vector, however, when the model
+	-- or configs will change — we will add a new column with new vector config.
+	-- Not perfect — but for now it's fine.
 	embedding VECTOR(1536)
 );
 

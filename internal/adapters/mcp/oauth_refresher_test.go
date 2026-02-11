@@ -84,8 +84,8 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 		Once()
 
 	// Adapters for mocks
-	refreshTokenFunc := func(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
-		return mockAuth.RefreshToken(ctx, serverConfig.AuthConfig(), token)
+	refreshTokenFunc := func(ctx context.Context, server entities.ServerConfigReadOnly, token *oauth2.Token) (*oauth2.Token, error) {
+		return mockAuth.RefreshToken(ctx, server.AuthConfig(), token)
 	}
 	saveAccountFunc := func(ctx context.Context, acc ids.AccountID, token *oauth2.Token) error {
 		// Verify we are updating the correct account
@@ -192,8 +192,8 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 		Once()
 
 	// Adapters
-	refreshTokenFunc := func(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
-		return mockAuth.RefreshToken(ctx, serverConfig.AuthConfig(), token)
+	refreshTokenFunc := func(ctx context.Context, server entities.ServerConfigReadOnly, token *oauth2.Token) (*oauth2.Token, error) {
+		return mockAuth.RefreshToken(ctx, server.AuthConfig(), token)
 	}
 	saveAccountFunc := func(ctx context.Context, acc ids.AccountID, token *oauth2.Token) error {
 		return mockStorage.SaveAccount(ctx, account)
@@ -267,8 +267,8 @@ func TestTokenRefresh_NoRefreshToken(t *testing.T) {
 	}
 
 	// Adapters - these should NOT be called
-	refreshTokenFunc := func(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
-		return mockAuth.RefreshToken(ctx, serverConfig.AuthConfig(), token)
+	refreshTokenFunc := func(ctx context.Context, server entities.ServerConfigReadOnly, token *oauth2.Token) (*oauth2.Token, error) {
+		return mockAuth.RefreshToken(ctx, server.AuthConfig(), token)
 	}
 	saveAccountFunc := func(ctx context.Context, acc ids.AccountID, token *oauth2.Token) error {
 		return mockStorage.SaveAccount(ctx, account)

@@ -29,8 +29,8 @@ func newChatUsecase(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	logger chat.LogCallbacks,
-) *chat.Service {
-	defaultModelConfig := must(ids.NewModelConfigIDFromString(p.defaultModelConfig))
+) *chat.Usecase {
+	defaultModelConfig := must(ids.NewAgentIDFromString(p.defaultModelConfig))
 
 	return chat.New(
 		storage,

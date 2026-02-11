@@ -8,6 +8,7 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 
 	. "github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -51,7 +52,7 @@ func TestMessageFromGenAIContent(t *testing.T) {
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", 0)
+			got, _, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", nil, 0, ids.RandomAgentID())
 			require.NoError(t, err, "expected no error")
 			require.Equal(t, tt.want, got, "unexpected message")
 		})

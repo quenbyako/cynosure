@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"iter"
@@ -30,7 +31,7 @@ func (s *Usecase) GenerateResponse(ctx context.Context, threadID ids.ThreadID, m
 	defer span.End()
 
 	p := generateResponseParams{
-		toolChoice: tools.ToolChoiceForbidden,
+		toolChoice: tools.ToolChoiceAllowed,
 		model:      s.defaultModel,
 	}
 	for _, opt := range opts {
@@ -56,16 +57,16 @@ func (s *Usecase) GenerateResponse(ctx context.Context, threadID ids.ThreadID, m
 func (s *Usecase) loadOrCreateChat(ctx context.Context, threadID ids.ThreadID, msg messages.MessageUser) (*chat.Chat, error) {
 	c, err := chat.New(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID)
 	if errors.Is(err, ports.ErrNotFound) {
-		c, err = chat.CreateChatAggregate(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID, nil)
+		c, err = chat.CreateChatAggregate(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, threadID, []messages.Message{msg})
 		if err != nil {
 			return nil, fmt.Errorf("creating chat: %w", err)
 		}
 	} else if err != nil {
 		return nil, fmt.Errorf("loading chat: %w", err)
-	}
-
-	if err = c.AcceptUserMessage(ctx, msg); err != nil {
-		return nil, fmt.Errorf("adding user message: %w", err)
+	} else {
+		if err = c.AcceptUserMessage(ctx, msg); err != nil {
+			return nil, fmt.Errorf("adding user message: %w", err)
+		}
 	}
 
 	return c, nil
@@ -188,7 +189,7 @@ func (s *Usecase) executeTool(ctx context.Context, c *chat.Chat, req messages.Me
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Tool not found: %v", err), yield)
 	}
 
-	result, err := s.tools.ExecuteTool(ctx, *tool, cleanArgs)
+	result, err := s.tools.ExecuteTool(ctx, *tool, cleanArgs, req.ToolCallID())
 	if err != nil {
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Execution failed: %v", err), yield)
 	}
@@ -202,8 +203,9 @@ func (s *Usecase) executeTool(ctx context.Context, c *chat.Chat, req messages.Me
 }
 
 func yieldToolError(ctx context.Context, c *chat.Chat, req messages.MessageToolRequest, errMsg string, yield func(messages.Message, error) bool) bool {
+	content, _ := json.Marshal(map[string]string{"error": errMsg})
 	toolErr, err := messages.NewMessageToolError(
-		[]byte(fmt.Sprintf("Failed to call tool: %q", errMsg)),
+		content,
 		req.ToolName(),
 		req.ToolCallID(),
 	)

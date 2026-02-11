@@ -51,7 +51,7 @@ type Chat struct {
 	indexer     ports.ToolSemanticIndex
 	toolStorage ports.ToolStorage
 	accounts    ports.AccountStorage
-	models      ports.AgentStorage
+	agents      ports.AgentStorage
 
 	mu sync.RWMutex
 }
@@ -62,7 +62,7 @@ func New(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	models ports.AgentStorage,
+	agents ports.AgentStorage,
 	threadID ids.ThreadID,
 ) (*Chat, error) {
 	thread, err := storage.GetThread(ctx, threadID)
@@ -70,7 +70,7 @@ func New(
 		return nil, fmt.Errorf("getting thread: %w", err)
 	}
 
-	return newChatAggregate(ctx, thread, storage, indexer, toolStorage, accounts, models)
+	return newChatAggregate(ctx, thread, storage, indexer, toolStorage, accounts, agents)
 }
 
 func CreateChatAggregate(
@@ -79,7 +79,7 @@ func CreateChatAggregate(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	models ports.AgentStorage,
+	agents ports.AgentStorage,
 	threadID ids.ThreadID,
 	messages []messages.Message,
 ) (*Chat, error) {
@@ -88,12 +88,12 @@ func CreateChatAggregate(
 		return nil, fmt.Errorf("creating thread: %w", err)
 	}
 
-	err = storage.CreateThread(ctx, thread)
+	err = storage.UpdateThread(ctx, thread)
 	if err != nil {
 		return nil, fmt.Errorf("creating thread in storage: %w", err)
 	}
 
-	return newChatAggregate(ctx, thread, storage, indexer, toolStorage, accounts, models)
+	return newChatAggregate(ctx, thread, storage, indexer, toolStorage, accounts, agents)
 }
 
 func newChatAggregate(
@@ -103,7 +103,7 @@ func newChatAggregate(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	models ports.AgentStorage,
+	agents ports.AgentStorage,
 ) (*Chat, error) {
 	c := &Chat{
 		thread:      thread,
@@ -115,7 +115,7 @@ func newChatAggregate(
 		indexer:     indexer,
 		toolStorage: toolStorage,
 		accounts:    accounts,
-		models:      models,
+		agents:      agents,
 
 		mu: sync.RWMutex{},
 	}
@@ -145,7 +145,7 @@ func (c *Chat) validate() error {
 	if c.accounts == nil {
 		return fmt.Errorf("accounts is nil")
 	}
-	if c.models == nil {
+	if c.agents == nil {
 		return fmt.Errorf("models is nil")
 	}
 	if !c.thread.Valid() {
