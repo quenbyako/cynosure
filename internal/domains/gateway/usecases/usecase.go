@@ -2,16 +2,13 @@ package usecases
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/components/ids"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/entities"
+	"github.com/quenbyako/cynosure/internal/domains/gateway/localization"
 	"github.com/quenbyako/cynosure/internal/domains/gateway/ports"
 )
 
@@ -59,7 +56,7 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 
 	resp, err := u.a2a.SendMessage(ctx, msg.ID(), text)
 	if err != nil {
-		friendlyMsg := userFriendlyError(err)
+		friendlyMsg := localization.UserFriendlyError(err)
 		if friendlyText, textErr := components.NewMessageText(friendlyMsg); textErr == nil {
 			_, _ = u.client.SendMessage(ctx, msg.ID().ChannelID(), friendlyText)
 		}
@@ -92,7 +89,7 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 	// Consume streaming response with batched updates
 	for part, err := range resp {
 		if err != nil {
-			friendlyMsg := userFriendlyError(err)
+			friendlyMsg := localization.UserFriendlyError(err)
 			if friendlyText, textErr := components.NewMessageText(friendlyMsg); textErr == nil {
 				if sentMessageID.Valid() {
 					// Update existing message with error
@@ -159,49 +156,3 @@ func (u *Usecase) ReceiveNewMessageEvent(ctx context.Context, msg *entities.Mess
 	return nil
 }
 
-// TODO: STRICTLY NECESSARY to move this part into localization package later
-//
-// userFriendlyError converts technical errors into user-friendly messages with emojis.
-// This function categorizes common failure scenarios and provides helpful guidance to users.
-// Used by the gateway usecase to communicate errors clearly to end users via Telegram.
-//
-// Error categories handled:
-// - Context deadline exceeded: Agent timeout
-// - codes.Unavailable: Service temporarily down
-// - codes.ResourceExhausted: Service overloaded
-// - codes.Unauthenticated/PermissionDenied: Access issues
-// - codes.InvalidArgument: Bad input format
-// - Default: Generic error with details
-func userFriendlyError(err error) string {
-	if err == nil {
-		return ""
-	}
-
-	// Check for context deadline exceeded
-	if errors.Is(err, context.DeadlineExceeded) {
-		return "⏱ The agent is taking too long to respond. Please try again later."
-	}
-
-	// Check for gRPC status errors
-	if st, ok := status.FromError(err); ok {
-		switch st.Code() {
-		case codes.Unavailable:
-			return "🔌 The agent service is temporarily unavailable. Please try again in a few moments."
-		case codes.DeadlineExceeded:
-			return "⏱ The agent is taking too long to respond. Please try again later."
-		case codes.Canceled:
-			return "🚫 The request was canceled. Please try again."
-		case codes.ResourceExhausted:
-			return "⚠️ The service is currently overloaded. Please try again in a few moments."
-		case codes.Unauthenticated:
-			return "🔐 Authentication failed. Please check your credentials."
-		case codes.PermissionDenied:
-			return "🚫 You don't have permission to perform this action."
-		case codes.InvalidArgument:
-			return "❌ Invalid message format. Please check your input."
-		}
-	}
-
-	// Default error message
-	return fmt.Sprintf("❌ An unexpected error occurred: %v", err)
-}
