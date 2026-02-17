@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 )
 
 func (h *Handler) SendUpdate(ctx context.Context, request botapi.SendUpdateRequestObject) (botapi.SendUpdateResponseObject, error) {
+	ctx, span := h.tracer.Start(ctx, "SendUpdate")
+	defer span.End()
+
 	update := request.Body
 	if update == nil {
 		return nil, fmt.Errorf("update is nil")
@@ -29,7 +33,7 @@ func (h *Handler) SendUpdate(ctx context.Context, request botapi.SendUpdateReque
 		}
 	default:
 		// Unknown update type, ignore
-		return botapi.SendUpdate204Response{}, nil
+		return noContentResponse{}, nil
 	}
 
 }
@@ -39,7 +43,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 
 	if msg.Chat.Type != "private" {
 		// Only supporting private chats for now to avoid group spamming
-		return botapi.SendUpdate204Response{}, nil
+		return noContentResponse{}, nil
 	}
 
 	// We resolve basic info synchronously to ensure we can respond with error if something is fundamentally wrong.
@@ -47,7 +51,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 	userID, err := h.users.EnsureUser(requestCtx, "telegram", strconv.Itoa(msg.From.Id))
 	if err != nil {
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making user id: %w", err))
-		return botapi.SendUpdate204Response{}, nil
+		return noContentResponse{}, nil
 	}
 
 	thread := strconv.Itoa(msg.Chat.Id)
@@ -58,7 +62,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 	threadID, err := ids.NewThreadID(userID, thread)
 	if err != nil {
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making thread id: %w", err))
-		return botapi.SendUpdate204Response{}, nil
+		return noContentResponse{}, nil
 	}
 
 	var text string
@@ -66,20 +70,17 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 		text = *msg.Text
 	}
 	if text == "" {
-		return botapi.SendUpdate204Response{}, nil
+		return noContentResponse{}, nil
 	}
 
 	userMessage, err := messages.NewMessageUser(text)
 	if err != nil {
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making user message: %w", err))
-		return botapi.SendUpdate204Response{}, nil
+		return noContentResponse{}, nil
 	}
 
 	// Detach processing to avoid Telegram timeout (and subsequent retries)
-	go func() {
-		// Use lifecycleCtx for background work to ensure it stops on SIGINT
-		ctx := h.lifecycleCtx
-
+	go func(ctx context.Context) {
 		h.log.ProcessMessageStart(ctx, chatID, text)
 		startTime := time.Now()
 
@@ -104,7 +105,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 
 			switch res := res.(type) {
 			case messages.MessageAssistant:
-				accumulated = res.Text()
+				accumulated = res.Content()
 			case messages.MessageToolError:
 				accumulated += fmt.Sprintf("\n\nTool error: %s", string(res.Content()))
 			case messages.MessageToolRequest:
@@ -168,7 +169,30 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 
 		duration := time.Since(startTime)
 		h.log.ProcessMessageSuccess(ctx, chatID, duration.String())
-	}()
+	}(ctxMergeValuesOnly(h.lifecycleCtx, requestCtx))
 
-	return botapi.SendUpdate204Response{}, nil
+	return noContentResponse{}, nil
+}
+
+type noContentResponse struct{}
+
+func (noContentResponse) VisitSendUpdateResponse(w http.ResponseWriter) error {
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+type merged struct {
+	context.Context
+	valuesOnly context.Context
+}
+
+func ctxMergeValuesOnly(ctx, values context.Context) context.Context {
+	return &merged{Context: ctx, valuesOnly: context.WithoutCancel(values)}
+}
+
+func (d *merged) Value(k any) any {
+	if val := d.valuesOnly.Value(k); val != nil {
+		return val
+	}
+	return d.Context.Value(k)
 }

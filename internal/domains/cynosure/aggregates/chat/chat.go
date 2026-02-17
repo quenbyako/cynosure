@@ -88,7 +88,7 @@ func CreateChatAggregate(
 		return nil, fmt.Errorf("creating thread: %w", err)
 	}
 
-	err = storage.UpdateThread(ctx, thread)
+	err = storage.CreateThread(ctx, thread)
 	if err != nil {
 		return nil, fmt.Errorf("creating thread in storage: %w", err)
 	}

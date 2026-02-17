@@ -37,6 +37,8 @@ var _ Message = MessageUser{}
 type MessageTool interface {
 	Message
 	ToolCallID() string
+	ToolName() string
+	Content() json.RawMessage
 
 	_MessageTool()
 }
@@ -114,7 +116,7 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 				}
 
 				if current, err = NewMessageAssistant(
-					currentMsg.Text()+next.Text(),
+					currentMsg.Content()+next.Content(),
 					WithMessageAssistantReasoning(currentMsg.Reasoning()+next.Reasoning()),
 					WithMessageAssistantMergeTag(next.MergeTag()),
 					WithMessageAssistantAgentID(next.AgentID()),

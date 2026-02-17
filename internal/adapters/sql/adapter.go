@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/trace"
+	noopTrace "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/adapters/sql/accounts"
 	"github.com/quenbyako/cynosure/internal/adapters/sql/agents"
@@ -16,6 +19,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
+const pkgName = "github.com/quenbyako/cynosure/internal/adapters/sql"
+
 type Adapter struct {
 	accounts.Accounts
 	agents.Agents
@@ -25,21 +30,43 @@ type Adapter struct {
 	users.Users
 
 	pool *pgxpool.Pool
+
+	trace trace.Tracer
 }
 
-var _ ports.AccountStorage = (*Adapter)(nil)
-var _ ports.AgentStorage = (*Adapter)(nil)
-var _ ports.ServerStorage = (*Adapter)(nil)
-var _ ports.ThreadStorage = (*Adapter)(nil)
-var _ ports.ToolStorage = (*Adapter)(nil)
-var _ ports.UserStorage = (*Adapter)(nil)
+var _ ports.AccountStorageFactory = (*Adapter)(nil)
+var _ ports.AgentStorageFactory = (*Adapter)(nil)
+var _ ports.ServerStorageFactory = (*Adapter)(nil)
+var _ ports.ThreadStorageFactory = (*Adapter)(nil)
+var _ ports.ToolStorageFactory = (*Adapter)(nil)
+var _ ports.UserStorageFactory = (*Adapter)(nil)
 var _ io.Closer = (*Adapter)(nil)
 
-func NewAdapter(ctx context.Context, connString string) (*Adapter, error) {
+type newParams struct {
+	tracer trace.TracerProvider
+}
+
+type NewOption func(*newParams)
+
+func WithTrace(tp trace.TracerProvider) NewOption {
+	return func(p *newParams) { p.tracer = tp }
+}
+
+func New(ctx context.Context, connString string, opts ...NewOption) (*Adapter, error) {
+	p := newParams{
+		tracer: noopTrace.NewTracerProvider(),
+	}
+	for _, opt := range opts {
+		opt(&p)
+	}
+
 	config, err := pgxpool.ParseConfig(connString)
 	if err != nil {
 		return nil, fmt.Errorf("parsing connection string: %w", err)
 	}
+	config.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithTracerProvider(p.tracer),
+	)
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -51,7 +78,7 @@ func NewAdapter(ctx context.Context, connString string) (*Adapter, error) {
 		return nil, fmt.Errorf("pinging db: %w", err)
 	}
 
-	return &Adapter{
+	a := Adapter{
 		Accounts: accounts.New(pool),
 		Agents:   agents.New(pool),
 		Servers:  servers.New(pool),
@@ -59,7 +86,23 @@ func NewAdapter(ctx context.Context, connString string) (*Adapter, error) {
 		Tools:    tools.New(pool),
 		Users:    users.New(pool),
 		pool:     pool,
-	}, nil
+		trace:    p.tracer.Tracer(pkgName),
+	}
+	if err := a.validate(); err != nil {
+		return nil, err
+	}
+
+	return &a, nil
+}
+
+func (a *Adapter) validate() error {
+	if a.pool == nil {
+		return fmt.Errorf("pool is nil")
+	}
+	if a.trace == nil {
+		return fmt.Errorf("trace is nil")
+	}
+	return nil
 }
 
 func (a *Adapter) Close() error {
@@ -72,6 +115,8 @@ func (a *Adapter) Close() error {
 func (a *Adapter) AccountStorage() ports.AccountStorage { return a }
 func (a *Adapter) AgentStorage() ports.AgentStorage     { return a }
 func (a *Adapter) ServerStorage() ports.ServerStorage   { return a }
-func (a *Adapter) ThreadStorage() ports.ThreadStorage   { return a }
-func (a *Adapter) ToolStorage() ports.ToolStorage       { return a }
-func (a *Adapter) UserStorage() ports.UserStorage       { return a }
+func (a *Adapter) ThreadStorage() ports.ThreadStorageWrapped {
+	return ports.WrapThreadStorage(a, ports.WithTrace(a.trace))
+}
+func (a *Adapter) ToolStorage() ports.ToolStorage { return a }
+func (a *Adapter) UserStorage() ports.UserStorage { return a }

@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/quenbyako/core"
-
 	"github.com/google/uuid"
+	"github.com/quenbyako/core"
 	"google.golang.org/grpc"
 
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
@@ -145,7 +144,7 @@ func connectDependencies(
 
 	// http controllers
 	p.httpAddr(oauth.NewHandler(accounts))
-	p.telegramAddr(telegram.NewHandler(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log)))
+	p.telegramAddr(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability)))
 
 	return &App{}, nil
 }

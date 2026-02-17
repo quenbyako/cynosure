@@ -20,7 +20,6 @@ type Config struct {
 	Port               grpc.Server    `env:"CYNOSURE_GRPC_ADDR"     default:"grpc://0.0.0.0:5001"`
 	HttpPort           http.Server    `env:"CYNOSURE_HTTP_ADDR"     default:"http://0.0.0.0:5002"`
 	TelegramPort       http.Server    `env:"CYNOSURE_TELEGRAM_ADDR" default:"http://0.0.0.0:5003"`
-	MetricsPort        *url.URL       `env:"CYNOSURE_METRICS_ADDR"  default:""`
 	DatabaseURL        string         `env:"CYNOSURE_DATABASE_URL"`
 	GeminiKey          secrets.Secret `env:"CYNOSURE_GEMINI_KEY"`
 	TelegramKey        secrets.Secret `env:"CYNOSURE_TELEGRAM_KEY"`
@@ -28,16 +27,24 @@ type Config struct {
 	TLSKey             string         `env:"CYNOSURE_TLS_KEY"      default:""`
 	TLSCert            string         `env:"CYNOSURE_TLS_CERT"     default:""`
 	FileSecret         *url.URL       `env:"CYNOSURE_FILE_SECRETS" default:""`
-	OtelHost           *url.URL       `env:"CYNOSURE_OTEL_HOST"    default:""`
+
+	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"  default:""`
+	OtlpHost     *url.URL          `env:"CYNOSURE_OTLP_HOST"     default:""`
+	OtlpMetadata map[string]string `env:"CYNOSURE_OTLP_METADATA" default:"" envSeparator:","`
 }
 
 var _ core.ActionConfig = (*Config)(nil)
 
 func (f Config) GetLogLevel() slog.Level             { return f.LogLevel }
-func (f Config) GetTraceEndpoint() *url.URL          { return f.OtelHost }
-func (f Config) GetMetricsAddr() *url.URL            { return nil }
 func (f Config) GetCertPaths() []string              { return f.CACerts }
 func (f Config) ClientCertPaths() (cert, key string) { return f.TLSCert, f.TLSKey }
+func (f Config) GetObservabilityConfig() core.ObservabilityConfig {
+	return core.ObservabilityConfig{
+		MetricsEndpoint: nil,
+		TraceEndpoint:   f.OtlpHost,
+		OtlpMetadata:    f.OtlpMetadata,
+	}
+}
 
 func (f Config) GetSecretDSNs() map[string]*url.URL {
 	return map[string]*url.URL{

@@ -9,7 +9,6 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
@@ -17,10 +16,6 @@ const (
 	embeddingModel = "gemini-embedding-001"
 	embeddingSize  = 1536
 )
-
-var _ ports.ToolSemanticIndex = (*GeminiModel)(nil)
-
-func (g *GeminiModel) ToolSemanticIndex() ports.ToolSemanticIndex { return g }
 
 // BuildToolEmbedding implements ports.ToolSemanticIndex.
 func (g *GeminiModel) BuildToolEmbedding(ctx context.Context, msgs []messages.Message) ([embeddingSize]float32, error) {
@@ -32,7 +27,7 @@ func (g *GeminiModel) BuildToolEmbedding(ctx context.Context, msgs []messages.Me
 		case messages.MessageUser:
 			sb.WriteString(fmt.Sprintf("User: %s\n\n", m.Content()))
 		case messages.MessageAssistant:
-			sb.WriteString(fmt.Sprintf("Model: %s\n\n", m.Text()))
+			sb.WriteString(fmt.Sprintf("Model: %s\n\n", m.Content()))
 		case messages.MessageToolRequest:
 			sb.WriteString(fmt.Sprintf("Tool Request: %s\n\n", m.ToolName()))
 		case messages.MessageToolResponse:

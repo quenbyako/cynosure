@@ -12,7 +12,7 @@ type MessageAssistant struct {
 	mergeTag uint64
 
 	reasoning   string
-	text        string
+	content     string
 	agentID     ids.AgentID
 	attachments []ChatContent
 
@@ -51,9 +51,9 @@ func WithMessageAssistantProtocolMetadata(metadata []byte) NewMessageAssistantOp
 
 // NewMessageAssistant creates a new assistant message with reasoning, text, and
 // optional attachments.
-func NewMessageAssistant(text string, opts ...NewMessageAssistantOpt) (MessageAssistant, error) {
+func NewMessageAssistant(content string, opts ...NewMessageAssistantOpt) (MessageAssistant, error) {
 	m := MessageAssistant{
-		text: text,
+		content: content,
 	}
 	for _, opt := range opts {
 		opt(&m)
@@ -70,9 +70,9 @@ func NewMessageAssistant(text string, opts ...NewMessageAssistantOpt) (MessageAs
 func (am MessageAssistant) Valid() bool { return am.valid || am.Validate() == nil }
 func (am MessageAssistant) Validate() error {
 	switch {
-	case am.text == "":
+	case am.content == "":
 		return fmt.Errorf("text cannot be empty")
-	case len(am.text) > maxMessageLength:
+	case len(am.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	default:
 		return nil
@@ -81,11 +81,11 @@ func (am MessageAssistant) Validate() error {
 
 func (am MessageAssistant) MergeTag() uint64         { return am.mergeTag }
 func (am MessageAssistant) Reasoning() string        { return am.reasoning }
-func (am MessageAssistant) Text() string             { return am.text }
+func (am MessageAssistant) Content() string          { return am.content }
 func (am MessageAssistant) AgentID() ids.AgentID     { return am.agentID }
 func (am MessageAssistant) ProtocolMetadata() []byte { return bytes.Clone(am.protocolMetadata) }
 func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
-	changedText, err := formatContent(am.text, vs, formatType)
+	changedText, err := formatContent(am.content, vs, formatType)
 	if err != nil {
 		return nil, fmt.Errorf("format assistant message text: %w", err)
 	}
@@ -94,7 +94,7 @@ func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, format
 	return MessageAssistant{
 		mergeTag:         am.mergeTag,
 		reasoning:        am.reasoning,
-		text:             changedText,
+		content:          changedText,
 		agentID:          am.agentID,
 		attachments:      am.attachments,
 		protocolMetadata: am.protocolMetadata,

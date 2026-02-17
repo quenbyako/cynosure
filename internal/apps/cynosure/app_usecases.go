@@ -42,7 +42,8 @@ func newChatUsecase(
 		account,
 		models,
 		defaultModelConfig,
-		logger,
+		chat.WithLogger(logger),
+		chat.WithTracer(p.observability),
 	)
 }
 

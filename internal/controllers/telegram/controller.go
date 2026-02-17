@@ -6,35 +6,64 @@ import (
 	"time"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/trace"
+	noopTrace "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
-type Handler struct {
-	log LogCallbacks
+const pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
 
+type Handler struct {
 	srv            *chat.Usecase
 	users          *users.Usecase
 	client         *botapi.ClientWithResponses
 	updateInterval time.Duration
 	lifecycleCtx   context.Context
+
+	log    LogCallbacks
+	tracer trace.Tracer
 }
 
 var _ botapi.StrictWebhookInterface = (*Handler)(nil)
 
-type HandlerOption func(*Handler)
-
-func WithUpdateInterval(interval time.Duration) HandlerOption {
-	return func(h *Handler) { h.updateInterval = interval }
+type newParams struct {
+	updateInterval time.Duration
+	log            LogCallbacks
+	tracer         trace.TracerProvider
 }
 
-func WithLogCallbacks(log LogCallbacks) HandlerOption {
-	return func(h *Handler) { h.log = log }
+type NewOption func(*newParams)
+
+func WithUpdateInterval(interval time.Duration) NewOption {
+	return func(h *newParams) { h.updateInterval = interval }
 }
 
-func NewHandler(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress string, token []byte, opts ...HandlerOption) http.Handler {
-	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot" + string(token))
+func WithLogCallbacks(log LogCallbacks) NewOption {
+	return func(h *newParams) { h.log = log }
+}
+
+func WithTracer(tracer trace.TracerProvider) NewOption {
+	return func(h *newParams) { h.tracer = tracer }
+}
+
+func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress string, token []byte, opts ...NewOption) http.Handler {
+	p := newParams{
+		updateInterval: time.Second * 2,
+		log:            NoOpLogCallbacks{},
+		tracer:         noopTrace.NewTracerProvider(),
+	}
+	for _, opt := range opts {
+		opt(&p)
+	}
+
+	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
+		botapi.WithHTTPClient(&http.Client{
+			Transport: otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(p.tracer)),
+		}),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -50,17 +79,13 @@ func NewHandler(ctx context.Context, srv *chat.Usecase, users *users.Usecase, se
 	}
 
 	h := &Handler{
-		log: NoOpLogCallbacks{},
-
+		log:            p.log,
+		tracer:         p.tracer.Tracer(pkgName),
 		srv:            srv,
 		users:          users,
 		client:         client,
-		updateInterval: time.Second * 2, // Default to 2 seconds, should be made configurable
+		updateInterval: p.updateInterval,
 		lifecycleCtx:   ctx,
-	}
-
-	for _, opt := range opts {
-		opt(h)
 	}
 
 	inner := botapi.NewStrictWebhookHandler(h, []botapi.StrictMiddlewareFunc{})

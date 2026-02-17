@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"errors"
+
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -27,6 +29,21 @@ type Usecase struct {
 	trace trace.Tracer
 }
 
+type newParams struct {
+	log    LogCallbacks
+	tracer trace.TracerProvider
+}
+
+type NewOpt func(*newParams)
+
+func WithLogger(log LogCallbacks) NewOpt {
+	return func(p *newParams) { p.log = log }
+}
+
+func WithTracer(tracer trace.TracerProvider) NewOpt {
+	return func(p *newParams) { p.tracer = tracer }
+}
+
 func New(
 	storage ports.ThreadStorage,
 	model ports.ChatModel,
@@ -37,37 +54,17 @@ func New(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	defaultModel ids.AgentID,
-	log LogCallbacks,
+	opts ...NewOpt,
 ) *Usecase {
-	if storage == nil {
-		panic("storage repository is required")
+	p := newParams{
+		log:    NoOpLogCallbacks{},
+		tracer: noop.NewTracerProvider(),
 	}
-	if model == nil {
-		panic("chat model is required")
-	}
-	if tool == nil {
-		panic("tool manager is required")
-	}
-	if indexer == nil {
-		panic("indexer is required")
-	}
-	if toolStorage == nil {
-		panic("tool storage is required")
-	}
-	if server == nil {
-		panic("server storage is required")
-	}
-	if account == nil {
-		panic("account storage is required")
-	}
-	if models == nil {
-		panic("model settings storage is required")
-	}
-	if !defaultModel.Valid() {
-		panic("default model is required")
+	for _, opt := range opts {
+		opt(&p)
 	}
 
-	return &Usecase{
+	u := &Usecase{
 		storage:     storage,
 		model:       model,
 		tools:       tool,
@@ -80,7 +77,44 @@ func New(
 		agentLoopTurns: 10,
 		defaultModel:   defaultModel,
 
-		log:   log,
-		trace: noop.NewTracerProvider().Tracer(pkgName),
+		log:   p.log,
+		trace: p.tracer.Tracer(pkgName),
 	}
+	if err := u.validate(); err != nil {
+		panic(err)
+	}
+
+	return u
+}
+
+func (u *Usecase) validate() error {
+	if u.storage == nil {
+		return errors.New("storage repository is required")
+	}
+	if u.model == nil {
+		return errors.New("chat model is required")
+	}
+	if u.tools == nil {
+		return errors.New("tool manager is required")
+	}
+	if u.indexer == nil {
+		return errors.New("indexer is required")
+	}
+	if u.toolStorage == nil {
+		return errors.New("tool storage is required")
+	}
+	if u.servers == nil {
+		return errors.New("server storage is required")
+	}
+	if u.accounts == nil {
+		return errors.New("account storage is required")
+	}
+	if u.models == nil {
+		return errors.New("model settings storage is required")
+	}
+	if !u.defaultModel.Valid() {
+		return errors.New("default model is required")
+	}
+
+	return nil
 }

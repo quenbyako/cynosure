@@ -3,6 +3,9 @@ package ports
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -45,9 +48,80 @@ type ThreadStorage interface {
 }
 
 type ThreadStorageFactory interface {
-	ThreadStorage() ThreadStorage
+	ThreadStorage() ThreadStorageWrapped
 }
 
-func NewThreadStorage(factory ThreadStorageFactory) ThreadStorage {
+func NewThreadStorage(factory ThreadStorageFactory) ThreadStorageWrapped {
 	return factory.ThreadStorage()
+}
+
+type ThreadStorageWrapped interface {
+	ThreadStorage
+
+	_ThreadStorage()
+}
+
+type threadStorageWrapped struct {
+	w ThreadStorage
+
+	trace trace.Tracer
+}
+
+func (t *threadStorageWrapped) _ThreadStorage() {}
+
+type WrapThreadStorageOption func(*threadStorageWrapped)
+
+// Unlike common option that expects TracerProvider, this option expects
+// initialized tracer, cause traces must show REAL package name, instead of
+// wrapper.
+func WithTrace(trace trace.Tracer) WrapThreadStorageOption {
+	return func(p *threadStorageWrapped) { p.trace = trace }
+}
+
+func WrapThreadStorage(storage ThreadStorage, opts ...WrapThreadStorageOption) ThreadStorageWrapped {
+	t := threadStorageWrapped{
+		w:     storage,
+		trace: noop.NewTracerProvider().Tracer(""),
+	}
+	for _, opt := range opts {
+		opt(&t)
+	}
+
+	return &t
+}
+
+func (t *threadStorageWrapped) CreateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
+	ctx, span := t.trace.Start(ctx, "CreateThread")
+	defer span.End()
+
+	err := t.w.CreateThread(ctx, thread)
+	if err != nil {
+		span.RecordError(err)
+	}
+
+	return err
+}
+
+func (t *threadStorageWrapped) GetThread(ctx context.Context, threadID ids.ThreadID) (*entities.Thread, error) {
+	ctx, span := t.trace.Start(ctx, "GetThread")
+	defer span.End()
+
+	res, err := t.w.GetThread(ctx, threadID)
+	if err != nil {
+		span.RecordError(err)
+	}
+
+	return res, err
+}
+
+func (t *threadStorageWrapped) UpdateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
+	ctx, span := t.trace.Start(ctx, "UpdateThread")
+	defer span.End()
+
+	err := t.w.UpdateThread(ctx, thread)
+	if err != nil {
+		span.RecordError(err)
+	}
+
+	return err
 }

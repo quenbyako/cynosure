@@ -39,4 +39,5 @@ dist/
 # act files
 
 .secrets
+*.secret
 .artifacts/

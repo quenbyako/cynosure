@@ -29,7 +29,7 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 				parts = append(parts, &genai.Part{Thought: true, Text: m.Reasoning()})
 			}
 
-			parts = append(parts, genai.NewPartFromText(m.Text()))
+			parts = append(parts, genai.NewPartFromText(m.Content()))
 
 			res = append(res, &genai.Content{
 				Role:  genai.RoleModel,

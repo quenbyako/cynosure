@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"iter"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -74,7 +77,14 @@ func (s *Usecase) loadOrCreateChat(ctx context.Context, threadID ids.ThreadID, m
 
 func (s *Usecase) agentLoop(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) iter.Seq2[messages.Message, error] {
 	return func(yield func(messages.Message, error) bool) {
+		ctx, span := s.trace.Start(ctx, "Usecase.agentLoop")
+		defer span.End()
+
 		for turn := range s.agentLoopTurns {
+			span.AddEvent("set.turn", trace.WithAttributes(
+				attribute.Int("turn", int(turn)),
+			))
+
 			toolRequests, shouldContinue := s.askModel(ctx, c, config, toolChoice, yield)
 			if !shouldContinue {
 				return
