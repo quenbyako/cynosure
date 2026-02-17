@@ -19,7 +19,7 @@ import (
 var apiKey string
 
 func TestGeminiChatModel(t *testing.T) {
-	gem, err := NewGeminiModel(t.Context(), &genai.ClientConfig{
+	gem, err := New(t.Context(), &genai.ClientConfig{
 		APIKey: apiKey,
 	})
 	require.NoError(t, err, "Failed to create GenAI client")

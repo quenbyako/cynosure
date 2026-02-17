@@ -19,7 +19,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	threadStorage := ports.NewThreadStorage(adapter)
+	threadStorageWrapped := ports.NewThreadStorage(adapter)
 	geminiModel, err := newGeminiModel(ctx, config, baseLogger)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
 	toolStorage := ports.NewToolStorage(adapter)
 	agentStorage := ports.NewAgentStorage(adapter)
-	usecase := newChatUsecase(config, threadStorage, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
 	userStorage := ports.NewUserStorage(adapter)
 	usecase2 := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, userStorage)
 	service := newServersUsecase(config, serverStorage, oAuthHandler)

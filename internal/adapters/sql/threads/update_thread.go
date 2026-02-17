@@ -81,7 +81,7 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		agentID := m.AgentID().ID()
 
 		_, err := q.InsertMessageAssistant(ctx, db.InsertMessageAssistantParams{
-			Text:                  m.Text(),
+			Text:                  m.Content(),
 			Reasoning:             m.Reasoning(),
 			AgentID:               agentID,
 			Position:              pos,

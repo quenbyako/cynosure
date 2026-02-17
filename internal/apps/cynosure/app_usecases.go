@@ -20,7 +20,7 @@ var (
 
 func newChatUsecase(
 	p *appParams,
-	storage ports.ThreadStorage,
+	storage ports.ThreadStorageWrapped,
 	model ports.ChatModel,
 	tool ports.ToolClient,
 	indexer ports.ToolSemanticIndex,
@@ -42,7 +42,8 @@ func newChatUsecase(
 		account,
 		models,
 		defaultModelConfig,
-		logger,
+		chat.WithLogger(logger),
+		chat.WithTracer(p.observability),
 	)
 }
 

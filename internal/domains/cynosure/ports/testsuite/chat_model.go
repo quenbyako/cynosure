@@ -67,7 +67,7 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 
 		require.NoError(t, err, "Streaming should not produce an error")
 		if assistantMsg, ok := msg.(messages.MessageAssistant); ok {
-			responseText += assistantMsg.Text()
+			responseText += assistantMsg.Content()
 			thought += assistantMsg.Reasoning()
 		}
 	}

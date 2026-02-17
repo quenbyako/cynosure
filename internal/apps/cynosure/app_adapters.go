@@ -7,7 +7,6 @@ import (
 	"github.com/goforj/wire"
 	"golang.org/x/oauth2"
 
-	// "github.com/quenbyako/cynosure/internal/adapters/file"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
@@ -18,14 +17,7 @@ import (
 )
 
 var (
-	// fileAdapter = wire.NewSet(
-	// 	newFileAdapter,
-	// 	wire.Bind(new(ports.ModelSettingsStorageFactory), new(*file.File)),
-	// 	wire.Bind(new(ports.AccountStorageFactory), new(*file.File)),
-	// 	wire.Bind(new(ports.ServerStorageFactory), new(*file.File)),
-	// )
-	sqlAdapter = wire.NewSet(
-		newSQLAdapter,
+	sqlAdapter = wire.NewSet(newSQLAdapter,
 		wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)),
 		wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)),
 		wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)),
@@ -45,12 +37,8 @@ var (
 	)
 )
 
-// func newFileAdapter(p *appParams) *file.File {
-// 	return file.New(p.storagePath)
-// }
-
 func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
-	return sql.NewAdapter(ctx, p.databaseURL)
+	return sql.New(ctx, p.databaseURL, sql.WithTrace(p.observability))
 }
 
 func newMCPHandler(
@@ -115,12 +103,13 @@ func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) 
 		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
 	}
 
-	return gemini.NewGeminiModel(
+	return gemini.New(
 		ctx,
 		&gemini.ClientConfig{
 			APIKey: string(geminiKey),
 		},
 		gemini.WithLogCallbacks(log),
+		gemini.WithTrace(p.observability),
 	)
 }
 
