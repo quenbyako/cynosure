@@ -20,7 +20,7 @@ var (
 
 func newChatUsecase(
 	p *appParams,
-	storage ports.ThreadStorage,
+	storage ports.ThreadStorageWrapped,
 	model ports.ChatModel,
 	tool ports.ToolClient,
 	indexer ports.ToolSemanticIndex,
