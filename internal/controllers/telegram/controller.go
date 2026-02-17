@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -49,7 +50,7 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
-func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress string, token []byte, opts ...NewOption) http.Handler {
+func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress string, token []byte, opts ...NewOption) (http.Handler, error) {
 	p := newParams{
 		updateInterval: time.Second * 2,
 		log:            NoOpLogCallbacks{},
@@ -65,17 +66,17 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 		}),
 	)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("creating telegram client: %w", err)
 	}
 
 	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
 		Url: serverPublicAddress,
 	})
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("setting telegram webhook: %w", err)
 	}
 	if resp.JSON200 == nil || !(resp.JSON200.Ok && resp.JSON200.Result) {
-		panic("failed to set webhook: " + resp.Status())
+		return nil, fmt.Errorf("failed to set telegram webhook: %s", resp.Status())
 	}
 
 	h := &Handler{
@@ -90,5 +91,5 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 
 	inner := botapi.NewStrictWebhookHandler(h, []botapi.StrictMiddlewareFunc{})
 
-	return botapi.WebhookHandler(inner)
+	return botapi.WebhookHandler(inner), nil
 }

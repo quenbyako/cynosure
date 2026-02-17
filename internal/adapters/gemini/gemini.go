@@ -40,8 +40,13 @@ func WithLogCallbacks(log LogCallbacks) NewOption {
 	return func(g *newParams) { g.log = log }
 }
 
-func WithTrace(trace trace.TracerProvider) NewOption {
-	return func(g *newParams) { g.trace = trace }
+func WithTrace(tp trace.TracerProvider) NewOption {
+	return func(g *newParams) {
+		if tp == nil {
+			panic("tracer provider is nil")
+		}
+		g.trace = tp
+	}
 }
 
 func New(ctx context.Context, cfg *ClientConfig, opts ...NewOption) (*GeminiModel, error) {

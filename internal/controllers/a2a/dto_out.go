@@ -17,7 +17,7 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 			Role: a2a.Role_ROLE_AGENT,
 			Content: []*a2a.Part{{
 				Part: &a2a.Part_Text{
-					Text: m.Text(),
+					Text: m.Content(),
 				},
 			}},
 		}, nil

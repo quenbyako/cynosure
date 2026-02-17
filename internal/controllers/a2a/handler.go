@@ -110,7 +110,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 		case messages.MessageAssistant:
 			parts = append(parts, &a2a.Part{
 				Part: &a2a.Part_Text{
-					Text: m.Text(),
+					Text: m.Content(),
 				},
 			})
 		case messages.MessageToolRequest:

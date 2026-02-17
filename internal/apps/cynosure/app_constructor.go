@@ -144,7 +144,9 @@ func connectDependencies(
 
 	// http controllers
 	p.httpAddr(oauth.NewHandler(accounts))
-	p.telegramAddr(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability)))
+
+	// TODO: each of controllers MUST be separated, like adapters and usecases.
+	p.telegramAddr(must(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability))))
 
 	return &App{}, nil
 }

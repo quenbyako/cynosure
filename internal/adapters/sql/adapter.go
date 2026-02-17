@@ -49,7 +49,12 @@ type newParams struct {
 type NewOption func(*newParams)
 
 func WithTrace(tp trace.TracerProvider) NewOption {
-	return func(p *newParams) { p.tracer = tp }
+	return func(p *newParams) {
+		if tp == nil {
+			panic("tracer provider is nil")
+		}
+		p.tracer = tp
+	}
 }
 
 func New(ctx context.Context, connString string, opts ...NewOption) (*Adapter, error) {

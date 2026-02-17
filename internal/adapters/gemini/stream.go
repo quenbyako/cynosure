@@ -113,11 +113,11 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 				Arguments: must(json.Marshal(msg.Arguments())),
 			})
 		case messages.MessageUser:
-			if this != nil && this.Role != RoleAssistant {
+			if this != nil && this.Role != RoleUser {
 				res, this = append(res, *this), nil
 			}
 			if this == nil {
-				this = &ChatMessage{Role: RoleAssistant}
+				this = &ChatMessage{Role: RoleUser}
 			}
 			this.Parts = append(this.Parts, &TextPart{
 				Type:    "text",
@@ -146,12 +146,13 @@ const (
 
 // Stream implements [ports.ChatModel].
 func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...ports.StreamOption) (iter.Seq2[messages.Message, error], error) {
+	msgsJSON := string(must(json.Marshal(otelMessageFromMessage(settings.SystemMessage(), input))))
 	attrs := []attribute.KeyValue{
 		semconv.GenAIOperationNameGenerateContent,
 		semconv.GenAIProviderNameGCPGemini,
 		semconv.GenAIConversationID("TODO"),
 		semconv.GenAIRequestModel(settings.Model()),
-		semconv.GenAIInputMessagesKey.String(string(must(json.Marshal(otelMessageFromMessage(settings.SystemMessage(), input))))),
+		semconv.GenAIInputMessagesKey.String(msgsJSON),
 	}
 	if v, ok := settings.TopP(); ok {
 		attrs = append(attrs, semconv.GenAIRequestTopP(float64(v)))

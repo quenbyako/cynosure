@@ -39,8 +39,14 @@ func (f Config) GetLogLevel() slog.Level             { return f.LogLevel }
 func (f Config) GetCertPaths() []string              { return f.CACerts }
 func (f Config) ClientCertPaths() (cert, key string) { return f.TLSCert, f.TLSKey }
 func (f Config) GetObservabilityConfig() core.ObservabilityConfig {
+	var metricsPort *url.URL
+	// TODO: какой-то баг с портом: если не указывать, то он пихает нулевое НЕ NIL значение
+	if f.MetricsPort != nil && f.MetricsPort.Host != "" {
+		metricsPort = f.MetricsPort
+	}
+
 	return core.ObservabilityConfig{
-		MetricsEndpoint: nil,
+		MetricsEndpoint: metricsPort,
 		TraceEndpoint:   f.OtlpHost,
 		OtlpMetadata:    f.OtlpMetadata,
 	}
