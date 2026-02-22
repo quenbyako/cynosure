@@ -24,7 +24,7 @@ type Usecase struct {
 	tools      ports.ToolStorage
 	index      ports.ToolSemanticIndex
 	toolClient ports.ToolClient
-	users      ports.UserStorage
+	users      ports.IdentityManager
 	clock      func() time.Time
 
 	oauthClientName string
@@ -59,7 +59,19 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-func New(servers ports.ServerStorage, oauth ports.OAuthHandler, accounts ports.AccountStorage, tools ports.ToolStorage, index ports.ToolSemanticIndex, toolClient ports.ToolClient, users ports.UserStorage, opts ...NewOption) *Usecase {
+func New(
+	servers ports.ServerStorage,
+	oauth ports.OAuthHandler,
+	accounts ports.AccountStorage,
+	tools ports.ToolStorage,
+	index ports.ToolSemanticIndex,
+	toolClient ports.ToolClient,
+	users ports.IdentityManager,
+	opts ...NewOption,
+) (
+	*Usecase,
+	error,
+) {
 	p := newParams{
 		clientName:      "test-client",
 		fixedKey:        randomAuthKey(),
@@ -87,10 +99,10 @@ func New(servers ports.ServerStorage, oauth ports.OAuthHandler, accounts ports.A
 		trace: p.tracer.Tracer(pkgName),
 	}
 	if err := s.validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return s
+	return s, nil
 }
 
 func (s *Usecase) validate() error {

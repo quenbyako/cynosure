@@ -6,7 +6,36 @@ import (
 	"net"
 	"strings"
 	"syscall"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
+
+// MapError maps internal transport errors to domain port errors.
+func MapError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	classified := ClassifyTransportError(err)
+
+	if e := new(AuthError); errors.As(classified, &e) {
+		return fmt.Errorf("%w: %v", ports.ErrAuthRequired, e.cause)
+	}
+
+	if e := new(InfrastructureError); errors.As(classified, &e) {
+		return fmt.Errorf("%w: %v", ports.ErrServerUnreachable, e.cause)
+	}
+
+	if e := new(ProtocolError); errors.As(classified, &e) {
+		return fmt.Errorf("%w: %v", ports.ErrProtocolNotSupported, e.cause)
+	}
+
+	if errors.Is(err, ErrNotMCPServer) {
+		return fmt.Errorf("%w: %v", ports.ErrServerUnreachable, err)
+	}
+
+	return err
+}
 
 // ClassifyTransportError categorizes an error into InfrastructureError, ProtocolError, or AuthError.
 // This is used to determine whether to attempt protocol fallback or fail immediately.
@@ -48,12 +77,15 @@ func ClassifyTransportError(err error) error {
 		return &AuthError{cause: err}
 	}
 
-	// Protocol-related errors
+	// Protocol-related errors (including MCP handshake failures)
 	if strings.Contains(errMsg, "unexpected eof") ||
 		strings.Contains(errMsg, "unknown response") ||
 		strings.Contains(errMsg, "invalid response") ||
 		strings.Contains(errMsg, "malformed") ||
-		strings.Contains(errMsg, "bad request") {
+		strings.Contains(errMsg, "bad request") ||
+		strings.Contains(errMsg, "not found") ||
+		strings.Contains(errMsg, "session not found") ||
+		strings.Contains(errMsg, "initialize") {
 		return &ProtocolError{cause: err}
 	}
 

@@ -10,6 +10,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -17,6 +19,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
+
+const pkgName = "github.com/quenbyako/cynosure/internal/adapters/mcp"
 
 type (
 	AccountTokenFunc func(context.Context, ids.AccountID) (entities.ServerConfigReadOnly, *oauth2.Token, error)
@@ -32,24 +36,48 @@ var clientImpl = &mcp.Implementation{
 
 type Handler struct {
 	clients *cache.Cache[ids.AccountID, *asyncClient]
+	tracer  trace.Tracer
 }
 
 var _ ports.ToolClientFactory = (*Handler)(nil)
 
-func (h *Handler) ToolClient() ports.ToolClient { return h }
+func (h *Handler) ToolClient() ports.ToolClientWrapped {
+	return ports.WrapToolClient(h, ports.WithToolClientTrace(h.tracer))
+}
 
-func NewHandler(
+type handlerParams struct {
+	tp trace.TracerProvider
+}
+
+type HandlerOption func(*handlerParams)
+
+func WithTracerProvider(tp trace.TracerProvider) HandlerOption {
+	return func(p *handlerParams) { p.tp = tp }
+}
+
+func New(
 	refresher RefreshTokenFunc,
 	storage SaveTokenFunc,
 	accountToken AccountTokenFunc,
+	opts ...HandlerOption,
 ) *Handler {
+	params := handlerParams{
+		tp: noop.NewTracerProvider(),
+	}
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	tracer := params.tp.Tracer(pkgName)
+
 	return &Handler{
 		clients: cache.New(
-			cacheConstructor(refresher, storage, accountToken, 10*time.Second),
+			cacheConstructor(refresher, storage, accountToken, 10*time.Second, tracer),
 			cacheDestructor(),
 			5,
 			10*time.Minute,
 		),
+		tracer: tracer,
 	}
 }
 
@@ -64,7 +92,10 @@ type asyncClient struct {
 // It tries StreamableClientTransport first, then falls back to SSEClientTransport
 // only on protocol errors. Infrastructure and auth errors fail immediately.
 // Returns the client with information about which protocol succeeded.
-func newAsyncClient(ctx context.Context, u *url.URL, httpClient *http.Client, preferredProtocol tools.Protocol) (*asyncClient, error) {
+func newAsyncClient(ctx context.Context, u *url.URL, httpClient *http.Client, preferredProtocol tools.Protocol, tracer trace.Tracer) (*asyncClient, error) {
+	ctx, span := tracer.Start(ctx, "newAsyncClient")
+	defer span.End()
+
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
 
 	var attemptedProtocols []tools.Protocol
@@ -165,6 +196,7 @@ func cacheConstructor(
 	storage SaveTokenFunc,
 	accountToken AccountTokenFunc,
 	refreshTimeout time.Duration,
+	tracer trace.Tracer,
 ) cache.ConstructorFunc[ids.AccountID, *asyncClient] {
 	return func(ctx context.Context, account ids.AccountID) (*asyncClient, error) {
 		server, session, err := accountToken(ctx, account)
@@ -188,7 +220,7 @@ func cacheConstructor(
 			))
 		}
 
-		return newAsyncClient(ctx, server.SSELink(), httpClient, server.PreferredProtocol())
+		return newAsyncClient(ctx, server.SSELink(), httpClient, server.PreferredProtocol(), tracer)
 	}
 }
 

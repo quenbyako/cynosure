@@ -13,9 +13,10 @@ import (
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 
-type Service struct {
+type Usecase struct {
 	oauth   ports.OAuthHandler
 	servers ports.ServerStorage
+	tools   ports.ToolClient
 	clock   func() time.Time
 
 	oauthClientName string
@@ -38,7 +39,13 @@ func WithTracerProvider(provider trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.trace = provider }
 }
 
-func New(servers ports.ServerStorage, oauth ports.OAuthHandler, redirectLink *url.URL, opts ...NewOption) *Service {
+func New(
+	servers ports.ServerStorage,
+	oauth ports.OAuthHandler,
+	toolClient ports.ToolClient,
+	redirectLink *url.URL,
+	opts ...NewOption,
+) *Usecase {
 	params := newParams{
 		clientName: "test-client",
 		trace:      noop.NewTracerProvider(),
@@ -47,9 +54,10 @@ func New(servers ports.ServerStorage, oauth ports.OAuthHandler, redirectLink *ur
 		opt(&params)
 	}
 
-	s := &Service{
+	s := &Usecase{
 		oauth:   oauth,
 		servers: servers,
+		tools:   toolClient,
 		clock:   time.Now,
 
 		oauthClientName: params.clientName,
@@ -63,12 +71,14 @@ func New(servers ports.ServerStorage, oauth ports.OAuthHandler, redirectLink *ur
 	return s
 }
 
-func (s *Service) validate() error {
+func (s *Usecase) validate() error {
 	switch {
 	case s.servers == nil:
 		return errors.New("server storage is required")
 	case s.oauth == nil:
 		return errors.New("OAuth handler is required")
+	case s.tools == nil:
+		return errors.New("tool client is required")
 	case s.oauthClientName == "":
 		return errors.New("OAuth client name is required")
 	case s.authRedirectURL == nil:

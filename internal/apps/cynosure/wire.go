@@ -20,6 +20,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		geminiAdapter,
 		mcpAdapter,
 		oauthAdapter,
+		oryAdapter,
 
 		chatUsecase,
 		accountsUsecase,

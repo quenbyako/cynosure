@@ -61,3 +61,8 @@ type MessengerClientRead interface {
 5. DO NOT define implementation specific info.
 
    - Note: documentation MAY contain tips and recommendations for implementers, but must not define implementation constraints.
+
+## Antipatterns
+
+- Implementation details **MUST NOT** be written in documentation. Even specific implementations **SHOULD NOT** be mentioned.
+

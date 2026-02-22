@@ -8,10 +8,12 @@ import (
 	"net/url"
 
 	"github.com/google/uuid"
+	mcpraw "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/quenbyako/core"
 	"google.golang.org/grpc"
 
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
+	"github.com/quenbyako/cynosure/internal/controllers/mcp"
 	"github.com/quenbyako/cynosure/internal/controllers/oauth"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -28,16 +30,20 @@ type SecretGetter interface {
 type appParams struct {
 	geminiKey          SecretGetter
 	telegramKey        SecretGetter
-	telegramPublicAddr string
+	telegramPublicAddr *url.URL
 	defaultModelConfig string
+	oryAdminKey        SecretGetter
+	oryEndpoint        *url.URL
 
-	grpcAddr     grpc.ServiceRegistrar
+	grpcAddr grpc.ServiceRegistrar
+	// TODO: join into one handler
 	httpAddr     func(http.Handler)
 	telegramAddr func(http.Handler)
+	mcpAddr      func(http.Handler)
 
 	observability core.Metrics
 
-	databaseURL   string
+	databaseURL   *url.URL
 	oauthScopes   []string
 	oauthCallback *url.URL
 	anonUser      ids.UserID
@@ -51,7 +57,7 @@ func (p *appParams) validate() error {
 	if p.telegramKey == nil {
 		errs = append(errs, errors.New("missing telegramKey"))
 	}
-	if p.telegramPublicAddr == "" {
+	if p.telegramPublicAddr == nil || p.telegramPublicAddr.Scheme == "" {
 		errs = append(errs, errors.New("missing telegramPublicAddr"))
 	}
 	if p.defaultModelConfig == "" {
@@ -59,10 +65,17 @@ func (p *appParams) validate() error {
 	} else if err := uuid.Validate(p.defaultModelConfig); err != nil {
 		errs = append(errs, fmt.Errorf("invalid defaultModelConfig: %w", err))
 	}
+	if p.oryAdminKey == nil {
+		errs = append(errs, errors.New("missing oryAdminKey"))
+	}
+	if p.oryEndpoint == nil || p.oryEndpoint.Scheme == "" {
+		errs = append(errs, errors.New("missing oryEndpoint"))
+	}
+
 	if !p.anonUser.Valid() {
 		errs = append(errs, errors.New("missing anonUser"))
 	}
-	if p.databaseURL == "" {
+	if p.databaseURL == nil || p.databaseURL.Scheme == "" {
 		errs = append(errs, errors.New("missing database URL"))
 	}
 
@@ -83,7 +96,7 @@ func WithTelegramServer(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.telegramAddr = registrar }
 }
 
-func WithTelegramPublicAddr(addr string) AppOpts {
+func WithTelegramPublicAddr(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.telegramPublicAddr = addr }
 }
 
@@ -103,8 +116,16 @@ func WithDefaultModelConfig(modelID string) AppOpts {
 	return func(p *appParams) { p.defaultModelConfig = modelID }
 }
 
-func WithDatabaseURL(url string) AppOpts {
-	return func(p *appParams) { p.databaseURL = url }
+func WithDatabaseURL(addr *url.URL) AppOpts {
+	return func(p *appParams) { p.databaseURL = addr }
+}
+
+func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
+	return func(p *appParams) { p.oryEndpoint, p.oryAdminKey = endpoint, adminKey }
+}
+
+func WithMCP(registrar func(http.Handler)) AppOpts {
+	return func(p *appParams) { p.mcpAddr = registrar }
 }
 
 func Build(ctx context.Context, opts ...AppOpts) *App {
@@ -125,13 +146,20 @@ func Build(ctx context.Context, opts ...AppOpts) *App {
 	return must(buildApp(ctx, &p))
 }
 
+var mcpImpl = mcpraw.Implementation{
+	Name:       "admin-mcp-server",
+	Title:      "Admin MCP Server",
+	Version:    "1.0.0",
+	WebsiteURL: "https://t.me/zhopakotabot",
+}
+
 func connectDependencies(
 	ctx context.Context,
 	p *appParams,
 	log telegram.LogCallbacks,
 	chat *chat.Usecase,
 	accounts *accounts.Usecase,
-	servers *servers.Service,
+	servers *servers.Usecase,
 	users *users.Usecase,
 ) (*App, error) {
 	telegramKey, err := p.telegramKey.Get(ctx)
@@ -147,6 +175,8 @@ func connectDependencies(
 
 	// TODO: each of controllers MUST be separated, like adapters and usecases.
 	p.telegramAddr(must(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability))))
+
+	p.mcpAddr(mcp.New(servers, accounts, mcpImpl, mcp.WithLogger(p.observability)))
 
 	return &App{}, nil
 }

@@ -22,6 +22,7 @@ type Logger interface {
 }
 
 type logger struct {
+	now     func() time.Time
 	handler slog.Handler
 }
 
@@ -29,6 +30,7 @@ var _ Logger = (*logger)(nil)
 
 func Wrap(handler slog.Handler) Logger {
 	return &logger{
+		now:     time.Now,
 		handler: handler,
 	}
 }
@@ -47,6 +49,7 @@ func (l *logger) WithLevel(level slog.Level) Event {
 	}
 
 	return &event{handler: l.handler, record: slog.Record{
+		Time:  l.now(),
 		Level: level,
 	}}
 }

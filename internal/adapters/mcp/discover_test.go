@@ -92,7 +92,7 @@ func TestDiscoverTools(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := mcp.NewHandler(nil, nil, nil)
+	h := mcp.New(nil, nil, nil)
 
 	t.Run("Valid Account Slug", func(t *testing.T) {
 		accID := mustAccountID(t, "valid-slug")

@@ -10,10 +10,10 @@ import (
 )
 
 // EnsureUser ensures that a user exists in the system by checking their external identity.
-// If the user doesn't exist, it creates a new user and initializes their default environment.
-func (s *Usecase) EnsureUser(ctx context.Context, provider, externalID string) (ids.UserID, error) {
+// If the user doesn't exist, it creates a new user, pushes it to Ory, and initializes their default environment.
+func (s *Usecase) EnsureUser(ctx context.Context, externalID, nickname, firstName, lastName string) (ids.UserID, error) {
 	// 1. Try to lookup user by identity
-	userID, err := s.users.LookupUser(ctx, provider, externalID)
+	userID, err := s.users.LookupUser(ctx, externalID)
 	if err == nil {
 		return userID, nil
 	} else if !errors.Is(err, ports.ErrNotFound) {
@@ -21,9 +21,7 @@ func (s *Usecase) EnsureUser(ctx context.Context, provider, externalID string) (
 	}
 
 	// 2. If not found, create a new user
-	newUserID := ids.RandomUserID()
-
-	err = s.users.NewUserWithIdentity(ctx, newUserID, provider, externalID)
+	newUserID, err := s.users.CreateUser(ctx, externalID, nickname, firstName, lastName)
 	if err != nil {
 		return ids.UserID{}, err
 	}

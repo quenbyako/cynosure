@@ -179,7 +179,7 @@ func (h *Handler) getServerMetadata(ctx context.Context, u *url.URL) (*serverMet
 		Host:   authServerHost,
 		Path:   "/.well-known/oauth-authorization-server",
 	}, nil)
-	if metadata != nil {
+	if err == nil {
 		return metadata, nil
 	}
 

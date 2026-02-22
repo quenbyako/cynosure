@@ -17,13 +17,13 @@ import (
 type Handler struct {
 	admin.UnsafeAdminServiceServer
 
-	servers  *servers.Service
+	servers  *servers.Usecase
 	accounts *accounts.Usecase
 }
 
 var _ admin.AdminServiceServer = (*Handler)(nil)
 
-func Register(accounts *accounts.Usecase, servers *servers.Service) func(server grpc.ServiceRegistrar) {
+func Register(accounts *accounts.Usecase, servers *servers.Usecase) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
 		accounts: accounts,
 		servers:  servers,
@@ -36,20 +36,19 @@ func Register(accounts *accounts.Usecase, servers *servers.Service) func(server 
 
 // AddServer implements admin.AdminServiceServer.
 func (h *Handler) AddServer(ctx context.Context, req *admin.AddServerRequest) (*admin.AddServerResponse, error) {
-	serverID, err := ids.NewServerIDFromString(req.GetId())
-	if err != nil {
-		return nil, fmt.Errorf("invalid server ID: %w", err)
-	}
 	serverURL, err := url.Parse(req.GetUrl())
 	if err != nil {
 		return nil, fmt.Errorf("invalid server URL: %w", err)
 	}
 
-	if err := h.servers.AddServer(ctx, serverID, serverURL); err != nil {
+	id, _, err := h.servers.AddServer(ctx, serverURL)
+	if err != nil {
 		return nil, fmt.Errorf("failed to register server: %w", err)
 	}
 
-	return &admin.AddServerResponse{}, nil
+	return &admin.AddServerResponse{
+		Id: id.ID().String(),
+	}, nil
 }
 
 // Authorize implements admin.AdminServiceServer.
@@ -63,10 +62,12 @@ func (h *Handler) Authorize(ctx context.Context, req *admin.AuthorizeRequest) (*
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	link, err := h.accounts.SetupAuthLink(ctx, serverID, userID, req.GetAccountName(), req.GetAccountDesc())
+	link, _, _, err := h.accounts.SetupAuthLink(ctx, serverID, userID, req.GetAccountName(), req.GetAccountDesc())
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup auth link: %w", err)
 	}
 
-	return &admin.AuthorizeResponse{Link: link.String()}, nil
+	return &admin.AuthorizeResponse{
+		Link: link.String(),
+	}, nil
 }

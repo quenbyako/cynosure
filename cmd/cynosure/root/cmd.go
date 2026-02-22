@@ -22,9 +22,11 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithTelegramServer(cfg.TelegramPort.Register),
 		cynosure.WithTelegramPublicAddr(cfg.TelegramPublicAddr),
 		cynosure.WithDefaultModelConfig("e0689c78-4fd0-4eca-a907-8e00515bc88d"),
+		cynosure.WithOry(cfg.OryEndpoint, cfg.OryAdminKey),
+		cynosure.WithMCP(cfg.MCPPort.Register),
 	}
 
-	if cfg.DatabaseURL != "" {
+	if cfg.DatabaseURL != nil || cfg.DatabaseURL.Scheme != "" {
 		opts = append(opts, cynosure.WithDatabaseURL(cfg.DatabaseURL))
 	}
 
@@ -38,6 +40,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cfg.Port.Serve,
 		cfg.HttpPort.Serve,
 		cfg.TelegramPort.Serve,
+		cfg.MCPPort.Serve, // TODO: force disable for mcp servers? How to do that?
 	}
 
 	if err := core.RunJobs(ctx, jobs...); err != nil {

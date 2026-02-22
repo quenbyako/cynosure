@@ -22,6 +22,7 @@ type OAuthHandler interface {
 	//
 	// Throws:
 	//
+	//  - [ErrAuthUnsupported] if auth is not supported, server may just connect without auth.
 	//  - [ErrServerUnreachable] if registration endpoint is unavailable.
 	RegisterClient(ctx context.Context, u *url.URL, clientName string, redirect *url.URL) (cfg *oauth2.Config, expiresAt time.Time, err error)
 

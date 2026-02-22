@@ -14,7 +14,7 @@ const (
 )
 
 type Usecase struct {
-	users  ports.UserStorage
+	users  ports.IdentityManager
 	agents ports.AgentStorage
 
 	trace trace.Tracer
@@ -30,7 +30,7 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-func New(users ports.UserStorage, agents ports.AgentStorage, opts ...NewOption) *Usecase {
+func New(users ports.IdentityManager, agents ports.AgentStorage, opts ...NewOption) *Usecase {
 	p := newParams{
 		tracer: noop.NewTracerProvider(),
 	}

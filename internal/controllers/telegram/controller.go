@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
@@ -50,7 +51,7 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
-func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress string, token []byte, opts ...NewOption) (http.Handler, error) {
+func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress *url.URL, token []byte, opts ...NewOption) (http.Handler, error) {
 	p := newParams{
 		updateInterval: time.Second * 2,
 		log:            NoOpLogCallbacks{},
@@ -70,7 +71,7 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 	}
 
 	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
-		Url: serverPublicAddress,
+		Url: serverPublicAddress.String(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("setting telegram webhook: %w", err)

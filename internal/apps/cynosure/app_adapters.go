@@ -10,6 +10,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
+	"github.com/quenbyako/cynosure/internal/adapters/ory"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -23,7 +24,6 @@ var (
 		wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)),
 		wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)),
 		wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)),
-		wire.Bind(new(ports.UserStorageFactory), new(*sql.Adapter)),
 	)
 	geminiAdapter = wire.NewSet(newGeminiModel,
 		wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)),
@@ -35,6 +35,9 @@ var (
 	mcpAdapter = wire.NewSet(newMCPHandler,
 		wire.Bind(new(ports.ToolClientFactory), new(*mcp.Handler)),
 	)
+	oryAdapter = wire.NewSet(newOryClient,
+		wire.Bind(new(ports.IdentityManagerFactory), new(*ory.Client)),
+	)
 )
 
 func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
@@ -43,7 +46,7 @@ func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
 
 func newMCPHandler(
 	p *appParams,
-	oauth ports.OAuthHandler,
+	oauthHandler ports.OAuthHandler,
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
 ) *mcp.Handler {
@@ -94,7 +97,9 @@ func newMCPHandler(
 		return server, account.Token(), nil
 	}
 
-	return mcp.NewHandler(refresher, saveToken, accountToken)
+	return mcp.New(refresher, saveToken, accountToken,
+		mcp.WithTracerProvider(p.observability),
+	)
 }
 
 func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) (*gemini.GeminiModel, error) {
@@ -118,4 +123,13 @@ func newOAuthHandler(p *appParams) *oauth.Handler {
 		p.oauthScopes,
 		oauth.WithTracerProvider(p.observability),
 	)
+}
+
+func newOryClient(ctx context.Context, p *appParams) (*ory.Client, error) {
+	adminKey, err := p.oryAdminKey.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting ory admin key: %w", err)
+	}
+
+	return ory.New(p.oryEndpoint, string(adminKey), ory.WithTracerProvider(p.observability)), nil
 }

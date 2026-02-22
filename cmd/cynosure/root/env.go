@@ -20,13 +20,17 @@ type Config struct {
 	Port               grpc.Server    `env:"CYNOSURE_GRPC_ADDR"     default:"grpc://0.0.0.0:5001"`
 	HttpPort           http.Server    `env:"CYNOSURE_HTTP_ADDR"     default:"http://0.0.0.0:5002"`
 	TelegramPort       http.Server    `env:"CYNOSURE_TELEGRAM_ADDR" default:"http://0.0.0.0:5003"`
-	DatabaseURL        string         `env:"CYNOSURE_DATABASE_URL"`
+	MCPPort            http.Server    `env:"CYNOSURE_MCP_ADDR"      default:"http://0.0.0.0:5004"`
+	DatabaseURL        *url.URL       `env:"CYNOSURE_DATABASE_URL"`
 	GeminiKey          secrets.Secret `env:"CYNOSURE_GEMINI_KEY"`
 	TelegramKey        secrets.Secret `env:"CYNOSURE_TELEGRAM_KEY"`
-	TelegramPublicAddr string         `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
+	TelegramPublicAddr *url.URL       `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
 	TLSKey             string         `env:"CYNOSURE_TLS_KEY"      default:""`
 	TLSCert            string         `env:"CYNOSURE_TLS_CERT"     default:""`
 	FileSecret         *url.URL       `env:"CYNOSURE_FILE_SECRETS" default:""`
+	OryAdminKey        secrets.Secret `env:"CYNOSURE_ORY_ADMIN_API_KEY"`
+	OryEndpoint        *url.URL       `env:"CYNOSURE_ORY_ISSUER_URL"`
+	OryJwksUrl         *url.URL       `env:"CYNOSURE_ORY_JWKS_URL"`
 
 	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"  default:""`
 	OtlpHost     *url.URL          `env:"CYNOSURE_OTLP_HOST"     default:""`

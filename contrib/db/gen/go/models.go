@@ -113,12 +113,3 @@ type AgentsThread struct {
 	CreatedAt      pgtype.Timestamptz
 	LastMessagePos int64
 }
-
-type AgentsUser struct {
-	ID uuid.UUID
-}
-
-type AgentsUserTelegram struct {
-	UserID     uuid.UUID
-	TelegramID int64
-}

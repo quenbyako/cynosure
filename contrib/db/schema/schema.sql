@@ -7,21 +7,6 @@ CREATE SCHEMA IF NOT EXISTS agents;
 -- TABLES
 -- =============================================================================
 
-CREATE TABLE agents.users (
-	-- Note: for now that's only what domain model requires, so leave it with
-	-- only field.
-	id UUID PRIMARY KEY
-);
-
--- user_telegram table is related to Telegram integration.
---
--- Note: for now, that's only telegram id mapping, but later there will be more
--- info, like username, first name, last name, etc.
-CREATE TABLE agents.user_telegram (
-	user_id     UUID   NOT NULL PRIMARY KEY,
-	telegram_id BIGINT NOT NULL UNIQUE CHECK (telegram_id > 0)
-);
-
 CREATE TABLE agents.mcp_accounts (
 	id         UUID PRIMARY KEY,
 	user_id    UUID NOT NULL,
@@ -175,20 +160,10 @@ CREATE INDEX idx_messages_type ON agents.messages(thread_id, msg_type);
 CREATE INDEX idx_tools_account ON agents.mcp_tools(account_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_accounts_user ON agents.mcp_accounts(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tool_result_request ON agents.messages_tool_result(thread_id, request_position);
-CREATE INDEX idx_user_telegram ON agents.user_telegram(telegram_id);
 
 -- =============================================================================
 -- FOREIGN KEYS
 -- =============================================================================
-
--- MCP hierarchy: users -> accounts -> tools
-ALTER TABLE agents.mcp_accounts ADD CONSTRAINT fk_account_user
-	FOREIGN KEY (user_id) REFERENCES agents.users(id)
-	ON DELETE RESTRICT ON UPDATE RESTRICT;
-
-ALTER TABLE agents.user_telegram ADD CONSTRAINT fk_user_telegram_user
-	FOREIGN KEY (user_id) REFERENCES agents.users(id)
-	ON DELETE CASCADE ON UPDATE RESTRICT;
 
 ALTER TABLE agents.mcp_accounts ADD CONSTRAINT fk_account_server
 	FOREIGN KEY (server_id) REFERENCES agents.mcp_servers(id)
@@ -240,6 +215,3 @@ ALTER TABLE agents.messages_tool_result ADD CONSTRAINT fk_message_tool_result_re
 	FOREIGN KEY (thread_id, request_position) REFERENCES agents.messages_tool_request(thread_id, position)
 	ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE agents.threads ADD CONSTRAINT fk_thread_user
-	FOREIGN KEY (user_id) REFERENCES agents.users(id)
-	ON DELETE CASCADE ON UPDATE RESTRICT;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,7 +16,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql/servers"
 	"github.com/quenbyako/cynosure/internal/adapters/sql/threads"
 	"github.com/quenbyako/cynosure/internal/adapters/sql/tools"
-	"github.com/quenbyako/cynosure/internal/adapters/sql/users"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
@@ -27,7 +27,6 @@ type Adapter struct {
 	servers.Servers
 	threads.Threads
 	tools.Tools
-	users.Users
 
 	pool *pgxpool.Pool
 
@@ -39,7 +38,6 @@ var _ ports.AgentStorageFactory = (*Adapter)(nil)
 var _ ports.ServerStorageFactory = (*Adapter)(nil)
 var _ ports.ThreadStorageFactory = (*Adapter)(nil)
 var _ ports.ToolStorageFactory = (*Adapter)(nil)
-var _ ports.UserStorageFactory = (*Adapter)(nil)
 var _ io.Closer = (*Adapter)(nil)
 
 type newParams struct {
@@ -57,7 +55,7 @@ func WithTrace(tp trace.TracerProvider) NewOption {
 	}
 }
 
-func New(ctx context.Context, connString string, opts ...NewOption) (*Adapter, error) {
+func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter, error) {
 	p := newParams{
 		tracer: noopTrace.NewTracerProvider(),
 	}
@@ -65,7 +63,7 @@ func New(ctx context.Context, connString string, opts ...NewOption) (*Adapter, e
 		opt(&p)
 	}
 
-	config, err := pgxpool.ParseConfig(connString)
+	config, err := pgxpool.ParseConfig(connString.String())
 	if err != nil {
 		return nil, fmt.Errorf("parsing connection string: %w", err)
 	}
@@ -89,7 +87,6 @@ func New(ctx context.Context, connString string, opts ...NewOption) (*Adapter, e
 		Servers:  servers.New(pool),
 		Threads:  threads.New(pool),
 		Tools:    tools.New(pool),
-		Users:    users.New(pool),
 		pool:     pool,
 		trace:    p.tracer.Tracer(pkgName),
 	}
@@ -124,4 +121,3 @@ func (a *Adapter) ThreadStorage() ports.ThreadStorageWrapped {
 	return ports.WrapThreadStorage(a, ports.WithTrace(a.trace))
 }
 func (a *Adapter) ToolStorage() ports.ToolStorage { return a }
-func (a *Adapter) UserStorage() ports.UserStorage { return a }

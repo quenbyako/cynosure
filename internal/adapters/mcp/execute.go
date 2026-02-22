@@ -16,7 +16,7 @@ import (
 func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
 	client, err := h.clients.Get(ctx, tool.ID().Account())
 	if err != nil {
-		return nil, fmt.Errorf("connecting to %v: %w", tool.ID().Account().ID().String(), err)
+		return nil, MapError(err)
 	}
 
 	resp, err := client.session.CallTool(ctx, &mcp.CallToolParams{
@@ -24,7 +24,7 @@ func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[
 		Arguments: args,
 	})
 	if err != nil {
-		return nil, err
+		return nil, MapError(err)
 	}
 
 	var content json.RawMessage

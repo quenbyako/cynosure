@@ -35,11 +35,15 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	toolStorage := ports.NewToolStorage(adapter)
 	agentStorage := ports.NewAgentStorage(adapter)
 	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
-	userStorage := ports.NewUserStorage(adapter)
-	usecase2 := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, userStorage)
-	service := newServersUsecase(config, serverStorage, oAuthHandler)
-	usecase3 := newUsersUsecase(config, userStorage, agentStorage)
-	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, service, usecase3)
+	client, err := newOryClient(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	identityManagerWrapped := ports.NewIdentityManager(client)
+	usecase2 := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, identityManagerWrapped)
+	usecase3 := newServersUsecase(config, serverStorage, oAuthHandler, toolClient)
+	usecase4 := newUsersUsecase(config, identityManagerWrapped, agentStorage)
+	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, usecase3, usecase4)
 	if err != nil {
 		return nil, err
 	}

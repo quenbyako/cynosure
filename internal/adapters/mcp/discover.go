@@ -24,20 +24,20 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 	}
 
 	// Use 0 (invalid/unknown) as preferred protocol to force probing
-	client, err := newAsyncClient(ctx, u, httpClient, 0)
+	client, err := newAsyncClient(ctx, u, httpClient, 0, h.tracer)
 	if err != nil {
-		return nil, fmt.Errorf("connecting to %v: %w", u.String(), err)
+		return nil, MapError(err)
 	}
 	defer client.Close()
 
 	// Call the MCP ListTools method to get available tools
 	result, err := client.session.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {
-		return nil, fmt.Errorf("listing tools from MCP server: %w", err)
+		return nil, MapError(err)
 	}
 
 	// Convert MCP tool definitions to domain ToolInfo
-	discoveredTools := make([]tools.RawToolInfo, 0, len(result.Tools)) // Changed ToolInfo to RawToolInfo
+	discoveredTools := make([]tools.RawToolInfo, 0, len(result.Tools))
 	for _, mcpTool := range result.Tools {
 		// Marshal input schema from MCP tool definition
 		inputSchema, err := json.Marshal(mcpTool.InputSchema)

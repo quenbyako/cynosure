@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
 type serverMetadataResponse struct {
@@ -41,7 +43,13 @@ func fetchMetadataFromURL(ctx context.Context, client *http.Client, metadataURL 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// go further
+	case http.StatusNotFound:
+		// auth is not necessary, going further
+		return nil, ports.ErrAuthUnsupported
+	default:
 		// If metadata discovery fails, don't set any metadata
 		return nil, fmt.Errorf("fetching metadata from %s: %s", metadataURL.String(), resp.Status)
 	}

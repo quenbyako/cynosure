@@ -55,37 +55,38 @@ func newAccountsUsecase(
 	tools ports.ToolStorage,
 	index ports.ToolSemanticIndex,
 	toolClient ports.ToolClient,
-	users ports.UserStorage,
+	identities ports.IdentityManagerWrapped,
 ) *accounts.Usecase {
-	return accounts.New(
+	return must(accounts.New(
 		servers,
 		oauth,
 		accountsPort,
 		tools,
 		index,
 		toolClient,
-		users,
+		identities,
 		accounts.WithTracerProvider(p.observability),
-	)
+	))
 }
 
 func newServersUsecase(
 	p *appParams,
 	storage ports.ServerStorage,
 	oauth ports.OAuthHandler,
-) *servers.Service {
-	return servers.New(storage, oauth, p.oauthCallback,
+	toolClient ports.ToolClient,
+) *servers.Usecase {
+	return servers.New(storage, oauth, toolClient, p.oauthCallback,
 		servers.WithTracerProvider(p.observability),
 	)
 }
 
 func newUsersUsecase(
 	p *appParams,
-	usersPort ports.UserStorage,
+	identities ports.IdentityManagerWrapped,
 	agents ports.AgentStorage,
 ) *users.Usecase {
 	return users.New(
-		usersPort,
+		identities,
 		agents,
 		users.WithTracerProvider(p.observability),
 	)
