@@ -69,22 +69,13 @@ type threadStorageWrapped struct {
 
 func (t *threadStorageWrapped) _ThreadStorage() {}
 
-type WrapThreadStorageOption func(*threadStorageWrapped)
-
-// Unlike common option that expects TracerProvider, this option expects
-// initialized tracer, cause traces must show REAL package name, instead of
-// wrapper.
-func WithTrace(trace trace.Tracer) WrapThreadStorageOption {
-	return func(p *threadStorageWrapped) { p.trace = trace }
-}
-
 func WrapThreadStorage(storage ThreadStorage, opts ...WrapThreadStorageOption) ThreadStorageWrapped {
 	t := threadStorageWrapped{
 		w:     storage,
 		trace: noop.NewTracerProvider().Tracer(""),
 	}
 	for _, opt := range opts {
-		opt(&t)
+		opt.applyWrapThreadStorage(&t)
 	}
 
 	return &t

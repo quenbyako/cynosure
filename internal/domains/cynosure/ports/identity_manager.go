@@ -94,21 +94,13 @@ var _ IdentityManager = (*identityManagerWrapped)(nil)
 
 func (i *identityManagerWrapped) _IdentityManager() {}
 
-type WrapIdentityManagerOption func(*identityManagerWrapped)
-
-// WithIdentityManagerTrace expects initialized tracer, cause traces must show
-// REAL package name, instead of wrapper.
-func WithIdentityManagerTrace(trace trace.Tracer) WrapIdentityManagerOption {
-	return func(p *identityManagerWrapped) { p.trace = trace }
-}
-
 func WrapIdentityManager(storage IdentityManager, opts ...WrapIdentityManagerOption) IdentityManagerWrapped {
 	i := identityManagerWrapped{
 		w:     storage,
 		trace: noop.NewTracerProvider().Tracer(""),
 	}
 	for _, opt := range opts {
-		opt(&i)
+		opt.applyWrapIdentityManager(&i)
 	}
 
 	return &i

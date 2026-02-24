@@ -56,6 +56,14 @@ type ToolClient interface {
 	ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
 }
 
+func defaultDiscoverToolsParams() *discoverToolsParams {
+	return &discoverToolsParams{
+		toolIDBuilder: func(account ids.AccountID, name string) (ids.ToolID, error) {
+			return ids.RandomToolID(account, ids.WithSlug(name))
+		},
+	}
+}
+
 // ToolClientFactory creates [ToolClient] instances.
 type ToolClientFactory interface {
 	ToolClient() ToolClientWrapped
@@ -79,11 +87,6 @@ type toolClientWrapped struct {
 
 func (t *toolClientWrapped) _ToolClient() {}
 
-type WrapToolClientOption func(*toolClientWrapped)
-
-func WithToolClientTrace(trace trace.Tracer) WrapToolClientOption {
-	return func(p *toolClientWrapped) { p.trace = trace }
-}
 
 func WrapToolClient(client ToolClient, opts ...WrapToolClientOption) ToolClientWrapped {
 	t := toolClientWrapped{
@@ -91,7 +94,7 @@ func WrapToolClient(client ToolClient, opts ...WrapToolClientOption) ToolClientW
 		trace: noop.NewTracerProvider().Tracer(""),
 	}
 	for _, opt := range opts {
-		opt(&t)
+		opt.applyWrapToolClient(&t)
 	}
 
 	return &t

@@ -42,7 +42,7 @@ type Handler struct {
 var _ ports.ToolClientFactory = (*Handler)(nil)
 
 func (h *Handler) ToolClient() ports.ToolClientWrapped {
-	return ports.WrapToolClient(h, ports.WithToolClientTrace(h.tracer))
+	return ports.WrapToolClient(h, ports.WithTrace(h.tracer))
 }
 
 type handlerParams struct {

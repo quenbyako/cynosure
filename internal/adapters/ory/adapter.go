@@ -79,7 +79,7 @@ func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
 
 // IdentityManager implements ports.IdentityManagerFactory.
 func (a *Client) IdentityManager() ports.IdentityManagerWrapped {
-	return ports.WrapIdentityManager(a, ports.WithIdentityManagerTrace(a.trace))
+	return ports.WrapIdentityManager(a, ports.WithTrace(a.trace))
 }
 
 func (a *Client) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {

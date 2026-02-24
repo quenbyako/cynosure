@@ -55,6 +55,12 @@ type OAuthHandler interface {
 	Exchange(ctx context.Context, config *oauth2.Config, code string, verifier []byte) (*oauth2.Token, error)
 }
 
+func defaultRegisterClientParams() *registerClientParams {
+	return &registerClientParams{
+		suggestedProtectedResource: nil,
+	}
+}
+
 type OAuthHandlerFactory interface {
 	OAuthHandler() OAuthHandler
 }
