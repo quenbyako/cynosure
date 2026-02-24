@@ -50,20 +50,6 @@ func newMCPHandler(
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
 ) *mcp.Handler {
-	refresher := func(ctx context.Context, server entities.ServerConfigReadOnly, token *oauth2.Token) (*oauth2.Token, error) {
-		cfg := server.AuthConfig()
-		if cfg == nil {
-			return nil, fmt.Errorf("server %v has no OAuth config", server.ID())
-		}
-
-		newToken, err := cfg.TokenSource(ctx, token).Token()
-		if err != nil {
-			return nil, fmt.Errorf("refreshing token via oauth2: %w", err)
-		}
-
-		return newToken, nil
-	}
-
 	// Create save token callback
 	saveToken := func(ctx context.Context, accountID ids.AccountID, token *oauth2.Token) error {
 		account, err := accounts.GetAccount(ctx, accountID)
@@ -97,7 +83,7 @@ func newMCPHandler(
 		return server, account.Token(), nil
 	}
 
-	return mcp.New(refresher, saveToken, accountToken,
+	return mcp.New(saveToken, accountToken,
 		mcp.WithTracerProvider(p.observability),
 	)
 }

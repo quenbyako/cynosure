@@ -8,17 +8,18 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
+	_ = x[ProtocolUnknown-0]
 	_ = x[ProtocolHTTP-1]
 	_ = x[ProtocolSSE-2]
 }
 
-const _Protocol_name = "httpsse"
+const _Protocol_name = "unknownhttpsse"
 
-var _Protocol_index = [...]uint8{0, 4, 7}
+var _Protocol_index = [...]uint8{0, 7, 11, 14}
 
 func (i Protocol) String() string {
-	idx := int(i) - 1
-	if i < 1 || idx >= len(_Protocol_index)-1 {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Protocol_index)-1 {
 		return "Protocol(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _Protocol_name[_Protocol_index[idx]:_Protocol_index[idx+1]]

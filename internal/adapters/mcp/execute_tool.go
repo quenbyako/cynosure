@@ -13,7 +13,7 @@ import (
 )
 
 // ExecuteTool implements ports.ToolClient.
-func (h *Handler) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
+func (h *Handler) ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
 	client, err := h.clients.Get(ctx, tool.ID().Account())
 	if err != nil {
 		return nil, MapError(err)

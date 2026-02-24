@@ -7,18 +7,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/cynosure",
-            "env": {},
-        },
-        {
-            "name": "gateway",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/cynosure",
-            "args": [
-                "gateway"
-            ],
-            "env": {},
+            "envFile": "${workspaceFolder}/.env",
         }
     ]
 }

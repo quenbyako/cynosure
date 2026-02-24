@@ -22,6 +22,10 @@ type ToolClient interface {
 	// DiscoverTools retrieves available tools from an MCP server. Implements
 	// the MCP tool discovery phase, returning tools with their schemas.
 	//
+	// Options:
+	//
+	//  - [WithToolIDBuilder] — sets the tool ID builder for newly creating tools.
+	//
 	// See next test suites to find how it works:
 	//
 	//  - [TestDiscoverTools] — discovering tools from MCP servers
@@ -29,8 +33,11 @@ type ToolClient interface {
 	// Throws:
 	//
 	//  - [ErrServerUnreachable] if server connection fails.
+	//  - [ErrProtocolNotSupported] if server does not support MCP protocol.
 	//  - [ErrInvalidCredentials] if OAuth token is invalid or expired.
-	DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string) ([]tools.RawToolInfo, error)
+	//  - [RequiresAuthError] if server requires auth first, and there is no
+	//    data about mcp protocol yet.
+	DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawToolInfo, error)
 
 	// ExecuteTool executes a tool call and returns the result. Implements the
 	// MCP tool execution phase. Does not validate argument schemas - validation
@@ -45,18 +52,8 @@ type ToolClient interface {
 	//  - [ErrServerUnreachable] if server connection fails.
 	//  - [ErrInvalidCredentials] if tool execution requires auth and token is
 	//    invalid.
-	ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
-
-	// Probe checks if the specified URL points to a valid MCP server.
-	// It attempts a raw connection and handshake without performing any data
-	// operations.
-	//
-	// Throws:
-	//
-	//  - [ErrServerUnreachable] if server connection fails.
-	//  - [ErrProtocolNotSupported] if handshake fails or protocol mismatch.
-	//  - [ErrAuthRequired] if server acknowledges MCP but requires auth.
-	Probe(ctx context.Context, u *url.URL) error
+	//  - [RequiresAuthError] if server requires auth first, and there is no data about mcp protocol yet.
+	ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
 }
 
 // ToolClientFactory creates [ToolClient] instances.
@@ -64,7 +61,7 @@ type ToolClientFactory interface {
 	ToolClient() ToolClientWrapped
 }
 
-func NewToolClient(f ToolClientFactory) ToolClient {
+func NewToolClient(f ToolClientFactory) ToolClientWrapped {
 	return f.ToolClient()
 }
 
@@ -100,11 +97,11 @@ func WrapToolClient(client ToolClient, opts ...WrapToolClientOption) ToolClientW
 	return &t
 }
 
-func (t *toolClientWrapped) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string) ([]tools.RawToolInfo, error) {
+func (t *toolClientWrapped) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawToolInfo, error) {
 	ctx, span := t.trace.Start(ctx, "DiscoverTools")
 	defer span.End()
 
-	res, err := t.w.DiscoverTools(ctx, u, token, account, accountDesc)
+	res, err := t.w.DiscoverTools(ctx, u, token, account, accountDesc, opts...)
 	if err != nil {
 		span.RecordError(err)
 	}
@@ -112,7 +109,7 @@ func (t *toolClientWrapped) DiscoverTools(ctx context.Context, u *url.URL, token
 	return res, err
 }
 
-func (t *toolClientWrapped) ExecuteTool(ctx context.Context, tool entities.Tool, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
+func (t *toolClientWrapped) ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
 	ctx, span := t.trace.Start(ctx, "ExecuteTool")
 	defer span.End()
 
@@ -122,16 +119,4 @@ func (t *toolClientWrapped) ExecuteTool(ctx context.Context, tool entities.Tool,
 	}
 
 	return res, err
-}
-
-func (t *toolClientWrapped) Probe(ctx context.Context, u *url.URL) error {
-	ctx, span := t.trace.Start(ctx, "Probe")
-	defer span.End()
-
-	err := t.w.Probe(ctx, u)
-	if err != nil {
-		span.RecordError(err)
-	}
-
-	return err
 }

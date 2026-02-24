@@ -15,6 +15,10 @@ type OAuthHandler interface {
 	// supports it. Returns OAuth config and optional client credentials
 	// expiration.
 	//
+	// Options:
+	//
+	//  - [WithSuggestedLink] — suggests a link to use for registration.
+	//
 	// See next test suites to find how it works:
 	//
 	//  - [TestRegisterClient] — dynamic client registration with various
@@ -24,7 +28,7 @@ type OAuthHandler interface {
 	//
 	//  - [ErrAuthUnsupported] if auth is not supported, server may just connect without auth.
 	//  - [ErrServerUnreachable] if registration endpoint is unavailable.
-	RegisterClient(ctx context.Context, u *url.URL, clientName string, redirect *url.URL) (cfg *oauth2.Config, expiresAt time.Time, err error)
+	RegisterClient(ctx context.Context, u *url.URL, clientName string, redirect *url.URL, opts ...RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error)
 
 	// RefreshToken obtains a new access token using refresh token. Implements
 	// standard OAuth 2.0 refresh flow.

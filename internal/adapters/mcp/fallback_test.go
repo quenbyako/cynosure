@@ -23,7 +23,7 @@ func TestProtocolFallbackDecisionLogic(t *testing.T) {
 		shouldFallback: false,
 	}, {
 		name:           "Auth error does not trigger fallback",
-		firstErr:       ErrAuth(&HTTPStatusError{StatusCode: 401, Status: "Unauthorized"}),
+		firstErr:       &HTTPStatusError{StatusCode: 401, Status: "Unauthorized"},
 		shouldFallback: false,
 	}, {
 		name:           "Nil error does not trigger fallback",

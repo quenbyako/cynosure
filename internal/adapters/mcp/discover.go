@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/oauth2"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
@@ -17,14 +17,17 @@ import (
 // DiscoverTools implements ports.ToolManager.
 // Retrieves the list of available tools from the specified account's MCP server.
 // This is the tool discovery phase of the MCP protocol.
-func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string) ([]tools.RawToolInfo, error) {
-	httpClient := http.DefaultClient
-	if token != nil {
-		httpClient = oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	}
+func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string, opts ...ports.DiscoverToolsOption) ([]tools.RawToolInfo, error) {
+	p := ports.DiscoverToolsParams(opts...)
 
-	// Use 0 (invalid/unknown) as preferred protocol to force probing
-	client, err := newAsyncClient(ctx, u, httpClient, 0, h.tracer)
+	var client *asyncClient
+	var err error
+
+	if token == nil {
+		client, err = h.factory.GetAnonymous(ctx, u, tools.ProtocolUnknown)
+	} else {
+		client, err = h.factory.GetPartiallyAuthorized(ctx, u, token, tools.ProtocolUnknown)
+	}
 	if err != nil {
 		return nil, MapError(err)
 	}
@@ -46,7 +49,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 		}
 
 		// MCP tools may not have output schema defined, use default empty schema
-		outputSchema := []byte(`{"type": "string"}`)
+		outputSchema := []byte(`{"type":"string"}`)
 		if mcpTool.OutputSchema != nil {
 			outputSchema, err = json.Marshal(mcpTool.OutputSchema)
 			if err != nil {
@@ -54,7 +57,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 			}
 		}
 
-		toolID, err := ids.RandomToolID(account, ids.WithSlug(mcpTool.Name))
+		toolID, err := p.ToolIDBuilder()(account, mcpTool.Name)
 		if err != nil {
 			return nil, fmt.Errorf("creating tool id for tool %q: %w", mcpTool.Name, err)
 		}

@@ -199,7 +199,7 @@ func (s *Usecase) executeTool(ctx context.Context, c *chat.Chat, req messages.Me
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Tool not found: %v", err), yield)
 	}
 
-	result, err := s.tools.ExecuteTool(ctx, *tool, cleanArgs, req.ToolCallID())
+	result, err := s.tools.ExecuteTool(ctx, tool, cleanArgs, req.ToolCallID())
 	if err != nil {
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Execution failed: %v", err), yield)
 	}

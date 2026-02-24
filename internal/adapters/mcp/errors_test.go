@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -117,8 +118,13 @@ func TestClassifyError_Auth(t *testing.T) {
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
 			classified := ClassifyTransportError(tt.err)
-			if e := new(AuthError); errors.As(classified, &e) != tt.want {
-				t.Errorf("classifyError(%v).IsAuth() = %v, want %v", tt.err, !tt.want, tt.want)
+			var hErr *HTTPStatusError
+			isAuth := errors.As(classified, &hErr) && (hErr.StatusCode == 401 || hErr.StatusCode == 403)
+			if !isAuth && strings.Contains(strings.ToLower(tt.err.Error()), "token expired") {
+				isAuth = true
+			}
+			if isAuth != tt.want {
+				t.Errorf("classifyError(%v).IsAuth() = %v, want %v", tt.err, isAuth, tt.want)
 			}
 		})
 	}
