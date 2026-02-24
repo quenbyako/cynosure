@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
@@ -33,7 +32,7 @@ func RunServerStorageTests(a ports.ServerStorage, opts ...ServerStorageTestSuite
 		panic(err)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 type ServerStorageTestSuite struct {
@@ -42,7 +41,7 @@ type ServerStorageTestSuite struct {
 	cleanup func() error
 }
 
-var _ suites.AfterTest = (*ServerStorageTestSuite)(nil)
+var _ afterTest = (*ServerStorageTestSuite)(nil)
 
 type ServerStorageTestSuiteOption func(*ServerStorageTestSuite)
 
@@ -58,7 +57,7 @@ func (s *ServerStorageTestSuite) validate() error {
 	return nil
 }
 
-func (s *ServerStorageTestSuite) AfterTest(t *testing.T) {
+func (s *ServerStorageTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)

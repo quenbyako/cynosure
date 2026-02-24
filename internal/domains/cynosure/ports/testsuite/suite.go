@@ -1,4 +1,4 @@
-package suites
+package testsuite
 
 import (
 	"cmp"
@@ -10,13 +10,13 @@ import (
 )
 
 type (
-	BeforeSuite interface{ BeforeSuite(t *testing.T) }
-	AfterSuite  interface{ AfterSuite(t *testing.T) }
-	BeforeTest  interface{ BeforeTest(t *testing.T) }
-	AfterTest   interface{ AfterTest(t *testing.T) }
+	beforeSuite interface{ beforeSuite(t *testing.T) }
+	afterSuite  interface{ afterSuite(t *testing.T) }
+	beforeTest  interface{ beforeTest(t *testing.T) }
+	afterTest   interface{ afterTest(t *testing.T) }
 )
 
-func Run(suite any) func(t *testing.T) {
+func runSuite(suite any) func(t *testing.T) {
 	typ := reflect.TypeOf(suite)
 	numMethods := getTestMethods(typ)
 
@@ -27,28 +27,28 @@ func Run(suite any) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Helper()
 
-		if s, ok := suite.(BeforeSuite); ok {
-			s.BeforeSuite(t)
+		if s, ok := suite.(beforeSuite); ok {
+			s.beforeSuite(t)
 		}
 
 		for _, i := range numMethods {
 			method := typ.Method(i)
 
-			if s, ok := suite.(BeforeTest); ok {
-				s.BeforeTest(t)
+			if s, ok := suite.(beforeTest); ok {
+				s.beforeTest(t)
 			}
 
 			t.Run(method.Name, func(t *testing.T) {
 				method.Func.Call([]reflect.Value{reflect.ValueOf(suite), reflect.ValueOf(t)})
 			})
 
-			if s, ok := suite.(AfterTest); ok {
-				s.AfterTest(t)
+			if s, ok := suite.(afterTest); ok {
+				s.afterTest(t)
 			}
 		}
 
-		if s, ok := suite.(AfterSuite); ok {
-			s.AfterSuite(t)
+		if s, ok := suite.(afterSuite); ok {
+			s.afterSuite(t)
 		}
 	}
 }

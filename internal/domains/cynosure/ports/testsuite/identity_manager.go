@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -23,7 +22,7 @@ func RunIdentityManagerTests(a ports.IdentityManager, opts ...IdentityManagerTes
 		panic(err)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 type IdentityManagerTestSuite struct {
@@ -32,7 +31,7 @@ type IdentityManagerTestSuite struct {
 	cleanup func() error
 }
 
-var _ suites.AfterTest = (*IdentityManagerTestSuite)(nil)
+var _ afterTest = (*IdentityManagerTestSuite)(nil)
 
 type IdentityManagerTestSuiteOption func(*IdentityManagerTestSuite)
 
@@ -48,7 +47,7 @@ func (s *IdentityManagerTestSuite) validate() error {
 	return nil
 }
 
-func (s *IdentityManagerTestSuite) AfterTest(t *testing.T) {
+func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)

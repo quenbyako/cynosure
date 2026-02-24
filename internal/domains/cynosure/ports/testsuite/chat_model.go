@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
-
 	"github.com/google/uuid"
 	"github.com/k0kubun/pp/v3"
 	"github.com/stretchr/testify/require"
@@ -31,7 +29,7 @@ func RunChatModelTests(a ports.ChatModel, opts ...ChatModelTestSuiteOpts) func(t
 		opt(s)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 type ChatModelTestSuite struct {

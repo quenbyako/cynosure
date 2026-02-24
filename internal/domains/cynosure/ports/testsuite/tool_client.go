@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
 	"github.com/quenbyako/cynosure/contrib/mcpmock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -25,7 +24,7 @@ func RunToolClientTests(a ports.ToolClient, opts ...ToolClientTestSuiteOpts) fun
 		opt(s)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 type ToolClientTestSuite struct {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -25,7 +24,7 @@ func RunModelSettingsStorageTests(a ports.AgentStorage, opts ...ModelSettingsSto
 		panic(err)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 type ModelSettingsStorageTestSuite struct {
@@ -34,7 +33,7 @@ type ModelSettingsStorageTestSuite struct {
 	cleanup func() error
 }
 
-var _ suites.AfterTest = (*ModelSettingsStorageTestSuite)(nil)
+var _ afterTest = (*ModelSettingsStorageTestSuite)(nil)
 
 type ModelSettingsStorageTestSuiteOption func(*ModelSettingsStorageTestSuite)
 
@@ -50,7 +49,7 @@ func (s *ModelSettingsStorageTestSuite) validate() error {
 	return nil
 }
 
-func (s *ModelSettingsStorageTestSuite) AfterTest(t *testing.T) {
+func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
