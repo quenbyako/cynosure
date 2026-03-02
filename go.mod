@@ -30,7 +30,7 @@ require (
 	github.com/ldclabs/cose v1.3.2
 	github.com/modelcontextprotocol/go-sdk v1.3.1
 	github.com/nikolalohinski/gonja v1.5.3
-	github.com/oapi-codegen/runtime v1.1.2
+	github.com/oapi-codegen/runtime v1.2.0
 	github.com/ogen-go/ogen v1.19.0
 	github.com/pgvector/pgvector-go v0.3.0
 	github.com/quenbyako/core v0.0.0-20260302171220-13c94d7b0462

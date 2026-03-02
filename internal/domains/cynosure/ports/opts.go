@@ -12,8 +12,6 @@ import (
 // Applies to:
 //
 //   - [WrapThreadStorage]
-//   - [WrapIdentityManager]
-//   - [WrapToolClient]
 func WithTrace(trace trace.Tracer) traceWrapper {
 	return traceWrapper{trace: trace}
 }
@@ -37,9 +35,8 @@ func WithStreamToolChoice(choice tools.ToolChoice) StreamOption {
 }
 
 type (
-	StreamOption              interface{ applyStream(*streamParams) }
-	WrapThreadStorageOption   interface{ applyWrapThreadStorage(*threadStorageWrapped) }
-	WrapIdentityManagerOption interface{ applyWrapIdentityManager(*identityManagerWrapped) }
+	StreamOption            interface{ applyStream(*streamParams) }
+	WrapThreadStorageOption interface{ applyWrapThreadStorage(*threadStorageWrapped) }
 
 	streamFunc func(*streamParams)
 
@@ -49,14 +46,12 @@ type (
 var (
 	_ StreamOption = (streamFunc)(nil)
 
-	_ WrapThreadStorageOption   = traceWrapper{}
-	_ WrapIdentityManagerOption = traceWrapper{}
+	_ WrapThreadStorageOption = traceWrapper{}
 )
 
 func (f streamFunc) applyStream(p *streamParams) { f(p) }
 
-func (t traceWrapper) applyWrapThreadStorage(p *threadStorageWrapped)     { p.trace = t.trace }
-func (t traceWrapper) applyWrapIdentityManager(p *identityManagerWrapped) { p.trace = t.trace }
+func (t traceWrapper) applyWrapThreadStorage(p *threadStorageWrapped) { p.trace = t.trace }
 
 //============================================================================//
 //                            [ChatModel.Stream]                             //

@@ -35,9 +35,11 @@ paths:
 
   /.well-known/oauth-authorization-server:
     get:
+      summary: Authorization Server Metadata
+      description: Returns metadata about the authorization server (RFC 8414).
       operationId: GetAuthServerMetadata
       responses:
-        default:
+        "200":
           $ref: "#/components/responses/authorization_server_metadata"
 
   /{register_client_endpoint}:
@@ -372,7 +374,7 @@ components:
       type: object
       required:
         - redirect_uris
-        - client_name 
+        - client_name
       properties:
         # ==========================================
         # RFC 7591: Base Client Metadata

@@ -14,6 +14,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -38,7 +39,7 @@ var (
 		wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)),
 	)
 	oryAdapter = wire.NewSet(newOryClient,
-		wire.Bind(new(ports.IdentityManagerFactory), new(*ory.Client)),
+		wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)),
 	)
 )
 
@@ -119,5 +120,5 @@ func newOryClient(ctx context.Context, p *appParams) (*ory.Client, error) {
 		return nil, fmt.Errorf("getting ory admin key: %w", err)
 	}
 
-	return ory.New(p.oryEndpoint, string(adminKey), ory.WithTracerProvider(p.observability)), nil
+	return ory.New(p.oryEndpoint, string(adminKey), ory.WithObservability(p.observability)), nil
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -55,7 +56,7 @@ func newAccountsUsecase(
 	tools ports.ToolStorage,
 	index ports.ToolSemanticIndex,
 	toolClient toolclient.PortWrapped,
-	identities ports.IdentityManagerWrapped,
+	identities identitymanager.PortWrapped,
 ) *accounts.Usecase {
 	return must(accounts.New(
 		servers,
@@ -72,7 +73,7 @@ func newAccountsUsecase(
 
 func newUsersUsecase(
 	p *appParams,
-	identities ports.IdentityManagerWrapped,
+	identities identitymanager.PortWrapped,
 	agents ports.AgentStorage,
 ) *users.Usecase {
 	return users.New(

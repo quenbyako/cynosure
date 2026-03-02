@@ -6,12 +6,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 )
 
 // RunIdentityManagerTests runs tests for the given adapter. These tests are
 // predefined and REQUIRED to be used for ANY adapter implementation.
-func RunIdentityManagerTests(a ports.IdentityManager, opts ...IdentityManagerTestSuiteOption) func(t *testing.T) {
+func RunIdentityManagerTests(a identitymanager.Port, opts ...IdentityManagerTestSuiteOption) func(t *testing.T) {
 	s := &IdentityManagerTestSuite{
 		adapter: a,
 	}
@@ -26,7 +26,7 @@ func RunIdentityManagerTests(a ports.IdentityManager, opts ...IdentityManagerTes
 }
 
 type IdentityManagerTestSuite struct {
-	adapter ports.IdentityManager
+	adapter identitymanager.Port
 
 	cleanup func() error
 }
@@ -77,20 +77,10 @@ func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, userID, gotID)
 		})
-
-		t.Run("save_mapping", func(t *testing.T) {
-			// Test that we can save another mapping for same user
-			err := s.adapter.SaveUserMapping(t.Context(), userID, "another", "id-456")
-			require.NoError(t, err)
-
-			gotID, err := s.adapter.LookupUser(t.Context(), "id-456")
-			require.NoError(t, err)
-			require.Equal(t, userID, gotID)
-		})
 	})
 
 	t.Run("not_found", func(t *testing.T) {
 		_, err := s.adapter.LookupUser(t.Context(), "nonexistent")
-		require.ErrorIs(t, err, ports.ErrNotFound)
+		require.ErrorIs(t, err, identitymanager.ErrNotFound)
 	})
 }

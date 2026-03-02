@@ -12,6 +12,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -30,7 +31,7 @@ type Usecase struct {
 	tools      ports.ToolStorage
 	index      ports.ToolSemanticIndex
 	toolClient toolclient.Port
-	users      ports.IdentityManager
+	users      identitymanager.Port
 	clock      func() time.Time
 
 	key              [16]byte
@@ -78,7 +79,7 @@ func New(
 	tools ports.ToolStorage,
 	index ports.ToolSemanticIndex,
 	toolClient toolclient.Port,
-	users ports.IdentityManager,
+	users identitymanager.Port,
 	opts ...NewOption,
 ) (
 	*Usecase,

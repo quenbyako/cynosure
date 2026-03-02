@@ -128,7 +128,7 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 			continue
 		}
 
-		m := metadataResp.JSONDefault
+		m := metadataResp.JSON200
 		if m == nil {
 			authMetadataErr = fmt.Errorf("empty metadata response")
 			continue

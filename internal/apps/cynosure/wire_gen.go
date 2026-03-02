@@ -9,6 +9,7 @@ package cynosure
 import (
 	"context"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
@@ -41,9 +42,9 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	identityManagerWrapped := ports.NewIdentityManager(client)
-	usecase2 := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identityManagerWrapped)
-	usecase3 := newUsersUsecase(config, identityManagerWrapped, agentStorage)
+	identitymanagerPortWrapped := identitymanager.New(client)
+	usecase2 := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
+	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage)
 	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, usecase3)
 	if err != nil {
 		return nil, err

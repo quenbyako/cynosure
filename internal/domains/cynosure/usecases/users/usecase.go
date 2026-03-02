@@ -7,6 +7,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 )
 
 type Usecase struct {
-	users  ports.IdentityManager
+	users  identitymanager.Port
 	agents ports.AgentStorage
 
 	trace trace.Tracer
@@ -30,7 +31,7 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-func New(users ports.IdentityManager, agents ports.AgentStorage, opts ...NewOption) *Usecase {
+func New(users identitymanager.Port, agents ports.AgentStorage, opts ...NewOption) *Usecase {
 	p := newParams{
 		tracer: noop.NewTracerProvider(),
 	}

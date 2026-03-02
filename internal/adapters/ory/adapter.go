@@ -12,10 +12,10 @@ import (
 	"net/url"
 	"strconv"
 
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
+	"github.com/quenbyako/core"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -25,11 +25,10 @@ type Client struct {
 	baseURL  string
 	adminKey string
 
-	trace trace.Tracer
+	trace ports.ObserveStack
 }
 
-var _ ports.IdentityManager = (*Client)(nil)
-var _ ports.IdentityManagerFactory = (*Client)(nil)
+var _ identitymanager.PortFactory = (*Client)(nil)
 
 type identityTraits struct {
 	TelegramID int64  `json:"telegram_id"`
@@ -52,18 +51,18 @@ type createIdentityBody struct {
 }
 
 type newParams struct {
-	trace trace.TracerProvider
+	metrics core.Metrics
 }
 
 type NewOption func(*newParams)
 
-func WithTracerProvider(trace trace.TracerProvider) NewOption {
-	return func(p *newParams) { p.trace = trace }
+func WithObservability(metrics core.Metrics) NewOption {
+	return func(p *newParams) { p.metrics = metrics }
 }
 
 func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
 	p := newParams{
-		trace: noop.NewTracerProvider(),
+		metrics: core.NoopMetrics(),
 	}
 
 	for _, opt := range opts {
@@ -73,13 +72,13 @@ func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
 	return &Client{
 		baseURL:  endpoint.String(),
 		adminKey: adminKey,
-		trace:    p.trace.Tracer(pkgName),
+		trace:    ports.StackFromCore(p.metrics, pkgName),
 	}
 }
 
-// IdentityManager implements ports.IdentityManagerFactory.
-func (a *Client) IdentityManager() ports.IdentityManagerWrapped {
-	return ports.WrapIdentityManager(a, ports.WithTrace(a.trace))
+// IdentityManager implements identitymanager.IdentityManagerFactory.
+func (a *Client) IdentityManager() identitymanager.PortWrapped {
+	return identitymanager.Wrap(a, a.trace)
 }
 
 func (a *Client) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
@@ -117,21 +116,15 @@ func (a *Client) HasUser(ctx context.Context, id ids.UserID) (bool, error) {
 
 // LookupUser searches for an identity by external identifier.
 func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
-	ctx, span := a.trace.Start(ctx, "LookupUser")
-	defer span.End()
-
 	resp, err := a.request(ctx, "GET", "/admin/identities", nil)
 	if err != nil {
-		span.RecordError(err)
 		return ids.UserID{}, fmt.Errorf("performing request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		err := fmt.Errorf("ory error (status: %d): %s", resp.StatusCode, string(body))
-		span.RecordError(err)
-		return ids.UserID{}, err
+		return ids.UserID{}, fmt.Errorf("ory error (status: %d): %s", resp.StatusCode, string(body))
 	}
 
 	var identities []identity
@@ -223,9 +216,4 @@ func (a *Client) CreateUser(ctx context.Context, externalID, username, firstName
 	}
 
 	return userID, nil
-}
-
-// SaveUserMapping is a no-op since Ory identity already contains the mapping in its traits.
-func (a *Client) SaveUserMapping(ctx context.Context, id ids.UserID, provider, externalID string) error {
-	return nil
 }
