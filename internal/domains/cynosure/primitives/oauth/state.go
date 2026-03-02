@@ -67,7 +67,7 @@ func StateFromToken(token string, k [16]byte) (State, error) {
 	server := must(ids.NewServerID(res.Payload.ServerID))
 
 	s := State{
-		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID, ids.WithSlug(res.Payload.AccountName))),
+		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID)),
 		name:      res.Payload.AccountName,
 		desc:      res.Payload.AccountDesc,
 		challenge: res.Payload.Challenge,

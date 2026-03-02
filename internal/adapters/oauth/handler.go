@@ -6,69 +6,67 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/oauth2"
 
+	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
 type Handler struct {
 	client *http.Client
 
 	serviceName string
-	authScopes  []string
 
-	tracer trace.Tracer
+	// default scopes are using when there is no information about required
+	// scopes for getting data from specificed endpoint.
+	defaultScopes []string
+
+	tracer ports.ObserveStack
 }
 
-var _ ports.OAuthHandlerFactory = (*Handler)(nil)
+var _ oauthhandler.Factory = (*Handler)(nil)
 
-func (h *Handler) OAuthHandler() ports.OAuthHandler { return h }
+func (h *Handler) OAuthHandler() oauthhandler.PortWrapped { return oauthhandler.Wrap(h, h.tracer) }
 
 type newParams struct {
-	client http.RoundTripper
-	tracer trace.TracerProvider
+	client  http.RoundTripper
+	metrics core.Metrics
 }
 
 type NewOption func(*newParams)
 
-func WithTracerProvider(tp trace.TracerProvider) NewOption {
-	return func(p *newParams) { p.tracer = tp }
+func WithObservability(m core.Metrics) NewOption {
+	return func(p *newParams) { p.metrics = m }
 }
 
-func New(scopes []string, opts ...NewOption) *Handler {
+func New(defaultScopes []string, opts ...NewOption) *Handler {
 	p := newParams{
-		client: http.DefaultTransport,
-		tracer: noop.NewTracerProvider(),
+		client:  http.DefaultTransport,
+		metrics: core.NoopMetrics(),
 	}
 	for _, opt := range opts {
 		opt(&p)
 	}
 
+	tracer := ports.StackFromCore(p.metrics, pkgName)
+
 	return &Handler{
-		client:     &http.Client{Transport: otelhttp.NewTransport(p.client, otelhttp.WithTracerProvider(p.tracer))},
-		authScopes: scopes,
-		tracer:     p.tracer.Tracer(pkgName),
+		client:        &http.Client{Transport: otelhttp.NewTransport(p.client, otelhttp.WithTracerProvider(p.metrics))},
+		defaultScopes: defaultScopes,
+		tracer:        tracer,
 	}
 }
 
 // Exchange implements ports.OAuthHandler.
 func (h *Handler) Exchange(ctx context.Context, config *oauth2.Config, code string, verifier []byte) (*oauth2.Token, error) {
-	ctx, span := h.tracer.Start(ctx, "Handler.Exchange")
-	defer span.End()
-
 	return config.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", base64.RawURLEncoding.EncodeToString(verifier)))
 }
 
 // RefreshToken implements ports.OAuthHandler.
 func (h *Handler) RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error) {
-	ctx, span := h.tracer.Start(ctx, "Handler.RefreshToken")
-	defer span.End()
-
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}
@@ -83,19 +81,4 @@ func (h *Handler) RefreshToken(ctx context.Context, config *oauth2.Config, token
 	}
 
 	return newToken, nil
-}
-
-// getDefaultEndpoints returns default OAuth endpoints based on the base URL
-func getDefaultEndpoints(u *url.URL) (*serverMetadataResponse, error) {
-	// Validate that the URL has a scheme and host
-	if u.Scheme == "" || u.Host == "" {
-		return nil, fmt.Errorf("invalid base URL: missing scheme or host in %q", u)
-	}
-
-	return &serverMetadataResponse{
-		Issuer:                (&url.URL{Scheme: u.Scheme, Host: u.Host}).String(),
-		AuthorizationEndpoint: (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: "/authorize"}).String(),
-		TokenEndpoint:         (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: "/token"}).String(),
-		RegistrationEndpoint:  (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: "/register"}).String(),
-	}, nil
 }

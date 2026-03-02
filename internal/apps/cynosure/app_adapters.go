@@ -14,6 +14,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -30,10 +32,10 @@ var (
 		wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)),
 	)
 	oauthAdapter = wire.NewSet(newOAuthHandler,
-		wire.Bind(new(ports.OAuthHandlerFactory), new(*oauth.Handler)),
+		wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)),
 	)
 	mcpAdapter = wire.NewSet(newMCPHandler,
-		wire.Bind(new(ports.ToolClientFactory), new(*mcp.Handler)),
+		wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)),
 	)
 	oryAdapter = wire.NewSet(newOryClient,
 		wire.Bind(new(ports.IdentityManagerFactory), new(*ory.Client)),
@@ -46,7 +48,7 @@ func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
 
 func newMCPHandler(
 	p *appParams,
-	oauthHandler ports.OAuthHandler,
+	oauthHandler oauthhandler.PortWrapped,
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
 ) *mcp.Handler {
@@ -84,7 +86,7 @@ func newMCPHandler(
 	}
 
 	return mcp.New(saveToken, accountToken,
-		mcp.WithTracerProvider(p.observability),
+		mcp.WithObservability(p.observability),
 	)
 }
 
@@ -107,7 +109,7 @@ func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) 
 func newOAuthHandler(p *appParams) *oauth.Handler {
 	return oauth.New(
 		p.oauthScopes,
-		oauth.WithTracerProvider(p.observability),
+		oauth.WithObservability(p.observability),
 	)
 }
 

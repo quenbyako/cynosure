@@ -18,11 +18,12 @@ func (s *Usecase) ListTools(ctx context.Context, accountID ids.AccountID) ([]too
 	for i, tool := range t {
 		res[i], err = tools.NewRawToolInfo(
 			tool.Name(),
-			tool.Desc(),
-			tool.ParamsSchema(),
-			tool.ResponseSchema(),
-			tools.WithMergedTool(tool.ID(), ""),
+			tool.Description(),
+			tool.InputSchema(),
+			tool.OutputSchema(),
+			tools.WithMergedTool(tool.ID(), tool.AccountName(), ""),
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("converting %q: %w", tool.Name(), err)
 		}

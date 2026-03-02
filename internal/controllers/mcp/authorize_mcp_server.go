@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"time"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
 
 type (
@@ -18,8 +20,10 @@ type (
 		Connected     bool   `json:"connected" jsonschema:"Whether the server is already connected"`
 		AuthURL       string `json:"auth_url,omitempty" jsonschema:"Link for authorization if connected=false"`
 		TempAccountID string `json:"temp_account_id,omitempty" jsonschema:"ID of the account to be created after auth"`
-		AccountID     string `json:"account_id,omitempty" jsonschema:"Final account ID if connected=true"`
 		ValidUntil    string `json:"valid_until,omitempty" jsonschema:"Expiration time of the auth link"`
+
+		AccountID     string `json:"account_id,omitempty" jsonschema:"Final account ID if connected=true"`
+		AuthAvailable bool   `json:"auth_available,omitempty" jsonschema:"If true, anonymous connection is already created, but user may authorize by request"`
 	}
 )
 
@@ -32,32 +36,41 @@ func (c *Controller) AuthorizeMcpServer(ctx context.Context, in AuthorizeMcpServ
 		return AuthorizeMcpServerOutput{}, fmt.Errorf("invalid server URL: %w", err)
 	}
 
-	id, authRequired, err := c.servers.AddServer(ctx, serverURL)
-	if err != nil {
-		return AuthorizeMcpServerOutput{}, fmt.Errorf("failed to register server: %w", err)
+	if in.Name == "" {
+		return AuthorizeMcpServerOutput{}, fmt.Errorf("name is required")
 	}
-	if !authRequired {
-		return AuthorizeMcpServerOutput{
-			Connected:     true,
-			AccountID:     id.ID().String(),
-			AuthURL:       "",
-			TempAccountID: "",
-			ValidUntil:    "",
-		}, nil
+
+	if in.Description == "" {
+		return AuthorizeMcpServerOutput{}, fmt.Errorf("description is required")
 	}
+
+	fmt.Printf("called %q %q %q\n", in.URL, in.Name, in.Description)
 
 	// next is auth link
 
-	link, accountID, validUntil, err := c.accounts.SetupAuthLink(ctx, id, userID, in.Name, in.Description)
+	resp, err := c.accounts.AddAccount(ctx, userID, serverURL, in.Name, in.Description)
 	if err != nil {
 		return AuthorizeMcpServerOutput{}, fmt.Errorf("failed to setup auth link: %w", err)
 	}
 
-	return AuthorizeMcpServerOutput{
-		Connected:     false,
-		AuthURL:       link.String(),
-		TempAccountID: accountID.ID().String(),
-		AccountID:     "",
-		ValidUntil:    validUntil.Format(time.RFC3339),
-	}, nil
+	switch resp := resp.(type) {
+	case accounts.AddAccountResponseAuthRequired:
+		return AuthorizeMcpServerOutput{
+			Connected:     false,
+			AuthURL:       resp.AuthURL().String(),
+			TempAccountID: resp.TempAccountID().ID().String(),
+			AccountID:     "",
+			ValidUntil:    resp.ValidUntil().Format(time.RFC3339),
+		}, nil
+	case accounts.AddAccountResponseOK:
+		return AuthorizeMcpServerOutput{
+			Connected:     true,
+			AuthURL:       "",
+			TempAccountID: "",
+			AccountID:     resp.AccountID().ID().String(),
+			ValidUntil:    "",
+		}, nil
+	default:
+		panic(fmt.Sprintf("unexpected accounts.AddAccountResponse: %#v", resp))
+	}
 }

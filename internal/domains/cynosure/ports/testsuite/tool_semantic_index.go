@@ -299,11 +299,13 @@ func (s *ToolSemanticIndexTestSuite) buildTool(t *testing.T, name, description s
 
 	tool, err := entities.NewTool(
 		must(ids.RandomToolID(account)),
+		"test-account",
 		name,
 		description,
 		schema,
 		responseSchema,
 	)
+
 	require.NoError(t, err, "failed to create tool: %q", name)
 
 	return tool

@@ -19,7 +19,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
@@ -159,7 +158,6 @@ func connectDependencies(
 	log telegram.LogCallbacks,
 	chat *chat.Usecase,
 	accounts *accounts.Usecase,
-	servers *servers.Usecase,
 	users *users.Usecase,
 ) (*App, error) {
 	telegramKey, err := p.telegramKey.Get(ctx)
@@ -168,7 +166,7 @@ func connectDependencies(
 	}
 
 	// grpc controllers
-	admin.Register(accounts, servers)(p.grpcAddr)
+	admin.Register(accounts)(p.grpcAddr)
 
 	// http controllers
 	p.httpAddr(oauth.NewHandler(accounts))
@@ -176,7 +174,7 @@ func connectDependencies(
 	// TODO: each of controllers MUST be separated, like adapters and usecases.
 	p.telegramAddr(must(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability))))
 
-	p.mcpAddr(mcp.New(servers, accounts, mcpImpl, mcp.WithLogger(p.observability)))
+	p.mcpAddr(mcp.New(accounts, mcpImpl, mcp.WithLogger(p.observability)))
 
 	return &App{}, nil
 }

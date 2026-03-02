@@ -138,7 +138,7 @@ func (c *ServerConfig) PreferredProtocol() tools.Protocol {
 
 // WRITE
 
-func (c *ServerConfig) UpdateOAuthConfig(cfg *oauth2.Config) error {
+func (c *ServerConfig) SetOAuthConfig(cfg *oauth2.Config) error {
 	if err := c.validateConfig(cfg); err != nil {
 		return err
 	}

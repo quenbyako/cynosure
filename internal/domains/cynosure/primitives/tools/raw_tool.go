@@ -15,6 +15,13 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+type accountDesc struct {
+	slug, desc string
+}
+
+func (r accountDesc) Slug() string { return r.slug }
+func (r accountDesc) Desc() string { return r.desc }
+
 // ToolSet is a set of different tools, combined into a single entity for
 // correct config conversion.
 //
@@ -32,7 +39,7 @@ type RawToolInfo struct {
 
 	// encodedTools, value is a description of the account, not the tool
 	// (description of tool located at [RawToolInfo.desc])
-	encodedTools map[ids.ToolID]string
+	encodedTools map[ids.ToolID]accountDesc
 
 	params   json.RawMessage
 	response json.RawMessage
@@ -45,8 +52,8 @@ type RawToolInfoOption func(*RawToolInfo)
 // WithMergedTool associates a tool with a specific account. Use this to define
 // which accounts can execute this tool and provide a description of each
 // account's purpose or context.
-func WithMergedTool(id ids.ToolID, accountDescription string) RawToolInfoOption {
-	return func(r *RawToolInfo) { r.encodedTools[id] = accountDescription }
+func WithMergedTool(id ids.ToolID, accountSlug, accountDescription string) RawToolInfoOption {
+	return func(r *RawToolInfo) { r.encodedTools[id] = accountDesc{slug: accountSlug, desc: accountDescription} }
 }
 
 // NewRawToolInfo constructs and validates a tool definition.
@@ -55,7 +62,7 @@ func NewRawToolInfo(name, desc string, params, response json.RawMessage, opts ..
 	r := RawToolInfo{
 		name:         name,
 		desc:         desc,
-		encodedTools: make(map[ids.ToolID]string),
+		encodedTools: make(map[ids.ToolID]accountDesc),
 		params:       params,
 		response:     response,
 	}
@@ -86,18 +93,13 @@ func (r RawToolInfo) Validate() error {
 	if len(r.encodedTools) < 1 {
 		return fmt.Errorf("tool must be associated with at least one account")
 	}
-	for id := range r.encodedTools {
+	for id, account := range r.encodedTools {
 		if !id.Valid() {
 			return fmt.Errorf("invalid tool id: %v", id.ID())
 		}
 
-		// each tool slug must have same name as the tool name.
-		if id.Slug() != r.name {
-			return fmt.Errorf("tool id slug %q does not match tool name %q", id.Slug(), r.name)
-		}
-
 		// account slug must not be empty for proper conversion
-		if id.Account().Slug() == "" {
+		if account.slug == "" {
 			return fmt.Errorf("account slug cannot be empty for tool %q", r.name)
 		}
 	}
@@ -120,7 +122,7 @@ func (r RawToolInfo) Desc() string { return r.desc }
 
 // EncodedTools returns all tool-account associations.
 // The map key is the ToolID, value is the account description.
-func (r RawToolInfo) EncodedTools() map[ids.ToolID]string { return maps.Clone(r.encodedTools) }
+func (r RawToolInfo) EncodedTools() map[ids.ToolID]accountDesc { return maps.Clone(r.encodedTools) }
 
 func (r RawToolInfo) Params() json.RawMessage   { return slices.Clone(r.params) }
 func (r RawToolInfo) Response() json.RawMessage { return slices.Clone(r.response) }
@@ -145,16 +147,16 @@ func (r RawToolInfo) Merge(other RawToolInfo) (RawToolInfo, error) {
 
 	var opts []RawToolInfoOption
 	for id, desc := range r.encodedTools {
-		opts = append(opts, WithMergedTool(id, desc))
+		opts = append(opts, WithMergedTool(id, desc.slug, desc.desc))
 	}
 
 	for id, desc := range other.encodedTools {
 		// Check for conflicting account descriptions. Extremely rare case, but
 		// still possible. Just to be sure at 100%.
-		if existingDesc, exists := r.encodedTools[id]; exists && existingDesc != desc {
+		if existingDesc, exists := r.encodedTools[id]; exists && (existingDesc.slug != desc.slug || existingDesc.desc != desc.desc) {
 			return RawToolInfo{}, fmt.Errorf("cannot merge: duplicate tool id with different descriptions")
 		}
-		opts = append(opts, WithMergedTool(id, desc))
+		opts = append(opts, WithMergedTool(id, desc.slug, desc.desc))
 	}
 
 	return NewRawToolInfo(r.name, r.desc, r.params, r.response, opts...)
@@ -223,8 +225,8 @@ func (r RawToolInfo) ConvertRequest(req map[string]json.RawMessage) (ids.ToolID,
 		return ids.ToolID{}, nil, fmt.Errorf("field %q cannot be empty", RawAccountInjectKey)
 	}
 
-	for id := range r.encodedTools {
-		if id.Account().Slug() == slug {
+	for id, account := range r.encodedTools {
+		if account.slug == slug {
 			return id, req, nil
 		}
 	}
@@ -239,21 +241,20 @@ type accountData struct {
 	Desc string
 }
 
-func accountNamesAsSchema(accounts map[ids.ToolID]string) *openapi3.SchemaRef {
+func accountNamesAsSchema(accounts map[ids.ToolID]accountDesc) *openapi3.SchemaRef {
 	// Multiple accounts case - inject chooser enum
-	sorted := slices.SortedFunc(maps.Keys(accounts), func(a, b ids.ToolID) int {
-		return cmp.Compare(a.Account().Slug(), b.Account().Slug())
+	sorted := slices.SortedFunc(maps.Values(accounts), func(a, b accountDesc) int {
+		return cmp.Compare(a.slug, b.slug)
 	})
 
 	accountSlugsRaw := make([]any, len(sorted))
 	templateData := make([]accountData, len(sorted))
 
-	for i, toolID := range sorted {
-		slug := toolID.Account().Slug()
-		accountSlugsRaw[i] = slug
+	for i, account := range sorted {
+		accountSlugsRaw[i] = account.slug
 		templateData[i] = accountData{
-			Name: slug,
-			Desc: accounts[toolID],
+			Name: account.slug,
+			Desc: account.desc,
 		}
 	}
 

@@ -7,9 +7,8 @@ import (
 	"net/url"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"golang.org/x/oauth2"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
@@ -17,13 +16,13 @@ import (
 // DiscoverTools implements ports.ToolManager.
 // Retrieves the list of available tools from the specified account's MCP server.
 // This is the tool discovery phase of the MCP protocol.
-func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string, opts ...ports.DiscoverToolsOption) ([]tools.RawToolInfo, error) {
-	p := ports.DiscoverToolsParams(opts...)
+func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawToolInfo, error) {
+	p := toolclient.DiscoverToolsParams(opts...)
 
 	var client *asyncClient
 	var err error
 
-	if token == nil {
+	if token := p.Token(); token == nil {
 		client, err = h.factory.GetAnonymous(ctx, u, tools.ProtocolUnknown)
 	} else {
 		client, err = h.factory.GetPartiallyAuthorized(ctx, u, token, tools.ProtocolUnknown)
@@ -65,7 +64,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 		// Create domain ToolInfo from MCP definition
 		tool, err := tools.NewRawToolInfo( // Changed NewToolInfo to NewRawToolInfo, and toolInfo to tool
 			mcpTool.Name, mcpTool.Description, inputSchema, outputSchema,
-			tools.WithMergedTool(toolID, accountDesc),
+			tools.WithMergedTool(toolID, accountSlug, accountDesc),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating tool info for tool %q: %w", mcpTool.Name, err)

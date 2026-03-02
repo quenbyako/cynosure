@@ -7,6 +7,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -15,7 +16,7 @@ const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecase
 type Usecase struct {
 	storage     ports.ThreadStorage
 	model       ports.ChatModel
-	tools       ports.ToolClient
+	tools       toolclient.Port
 	indexer     ports.ToolSemanticIndex
 	toolStorage ports.ToolStorage
 	servers     ports.ServerStorage
@@ -47,7 +48,7 @@ func WithTracer(tracer trace.TracerProvider) NewOpt {
 func New(
 	storage ports.ThreadStorage,
 	model ports.ChatModel,
-	tool ports.ToolClient,
+	tool toolclient.Port,
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,

@@ -29,7 +29,7 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 	refreshCtx := context.WithoutCancel(requestCtx)
 
 	// Setup mocks
-	mockAuth := mocks.NewMockOAuthHandler(t)
+	mockAuth := mocks.NewOAuthHandler(t)
 	mockStorage := mocks.NewMockAccountStorage(t)
 
 	userID := ids.RandomUserID()
@@ -141,7 +141,7 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 	refreshCtx := requestCtx
 
 	// Setup mocks
-	mockAuth := mocks.NewMockOAuthHandler(t)
+	mockAuth := mocks.NewOAuthHandler(t)
 	mockStorage := mocks.NewMockAccountStorage(t)
 
 	userID := ids.RandomUserID()
@@ -229,7 +229,7 @@ func TestTokenRefresh_NoRefreshToken(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	mockAuth := mocks.NewMockOAuthHandler(t)
+	mockAuth := mocks.NewOAuthHandler(t)
 	mockStorage := mocks.NewMockAccountStorage(t)
 
 	userID := ids.RandomUserID()

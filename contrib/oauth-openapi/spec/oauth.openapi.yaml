@@ -1,0 +1,615 @@
+openapi: 3.0.0
+info:
+  title: OAuth specifications
+  description: OAuth specifications based on RFCs
+  version: 1.0.0
+servers:
+  - url: "https://{hostname}"
+    variables:
+      hostname:
+        description: hostname of service
+        default: example.com
+
+paths:
+  /.well-known/oauth-protected-resource:
+    get:
+      operationId: GetResourceMetadata
+      responses:
+        default:
+          $ref: "#/components/responses/protected_resource_metadata"
+
+  /.well-known/oauth-protected-resource/{resource_path}:
+    get:
+      operationId: GetSpecificResourceMetadata
+      parameters:
+        - name: resource_path
+          in: path
+          required: true
+          schema:
+            type: string
+          allowReserved: true
+
+      responses:
+        default:
+          $ref: "#/components/responses/protected_resource_metadata"
+
+  /.well-known/oauth-authorization-server:
+    get:
+      operationId: GetAuthServerMetadata
+      responses:
+        default:
+          $ref: "#/components/responses/authorization_server_metadata"
+
+  /{register_client_endpoint}:
+    post:
+      summary: Client Registration Endpoint
+      description: |
+        Registers a new client with the authorization server (RFC 7591).
+        Accepts a JSON document containing client metadata parameters.
+      operationId: registerOauthClient
+      parameters:
+        - name: register_client_endpoint
+          in: path
+          required: true
+          schema:
+            type: string
+          allowReserved: true
+      requestBody:
+        $ref: "#/components/requestBodies/register_client_request"
+      responses:
+        default:
+          $ref: "#/components/responses/client_registration_response"
+
+components:
+  requestBodies:
+    register_client_request:
+      description: Client metadata parameters to register.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/client_registration_request"
+
+  responses:
+    protected_resource_metadata:
+      description:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/protected_resource_metadata"
+
+    authorization_server_metadata:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/authorization_server_metadata"
+
+    client_registration_response:
+      description: Client registered successfully.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/client_registration_response"
+
+  schemas:
+    authorization_server_metadata:
+      type: object
+      required:
+        - issuer
+        - response_types_supported
+      properties:
+        # --- RFC 8414 (Base Metadata) ---
+        issuer:
+          type: string
+          format: uri
+          description: "REQUIRED. The authorization server's issuer identifier. (RFC 8414)"
+        authorization_endpoint:
+          type: string
+          format: uri
+          description: "URL of the authorization server's authorization endpoint. (RFC 8414)"
+        token_endpoint:
+          type: string
+          format: uri
+          description: "URL of the authorization server's token endpoint. (RFC 8414)"
+        jwks_uri:
+          type: string
+          format: uri
+          description: "URL of the authorization server's JWK Set document. (RFC 8414)"
+        registration_endpoint:
+          type: string
+          format: uri
+          description: "URL of the authorization server's Dynamic Client Registration endpoint. (RFC 8414)"
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: "List of the OAuth 2.0 scope values supported. (RFC 8414)"
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          description: "REQUIRED. List of the OAuth 2.0 response_type values supported. (RFC 8414)"
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+          description: "List of the OAuth 2.0 response_mode values supported. (RFC 8414)"
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          description: "List of the OAuth 2.0 grant type values supported. (RFC 8414)"
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          description: "Client authentication methods supported by the token endpoint. (RFC 8414)"
+        token_endpoint_auth_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "JWS signing algorithms supported by the token endpoint. (RFC 8414)"
+        service_documentation:
+          type: string
+          format: uri
+          description: "URL of human-readable service documentation. (RFC 8414)"
+        ui_locales_supported:
+          type: array
+          items:
+            type: string
+          description: "Languages and scripts supported for the user interface. (RFC 8414)"
+        op_policy_uri:
+          type: string
+          format: uri
+          description: "URL to the authorization server's policy document. (RFC 8414)"
+        op_tos_uri:
+          type: string
+          format: uri
+          description: "URL to the authorization server's terms of service. (RFC 8414)"
+        revocation_endpoint:
+          type: string
+          format: uri
+          description: "URL of the revocation endpoint. (RFC 8414 / RFC 7009)"
+        revocation_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          description: "Authentication methods supported by the revocation endpoint. (RFC 8414)"
+        revocation_endpoint_auth_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "JWS signing algorithms supported by the revocation endpoint. (RFC 8414)"
+        introspection_endpoint:
+          type: string
+          format: uri
+          description: "URL of the introspection endpoint. (RFC 8414 / RFC 7662)"
+        introspection_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          description: "Authentication methods supported by the introspection endpoint. (RFC 8414)"
+        introspection_endpoint_auth_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "JWS signing algorithms supported by the introspection endpoint. (RFC 8414)"
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+          description: "PKCE code challenge methods supported. (RFC 8414 / RFC 7636)"
+        signed_metadata:
+          type: string
+          description: "A JWT containing metadata values about the authorization server as claims. (RFC 8414)"
+
+        # --- RFC 8628 (Device Grant) ---
+        device_authorization_endpoint:
+          type: string
+          format: uri
+          description: "URL of the device authorization endpoint. (RFC 8628)"
+
+        # --- RFC 8705 (mTLS) ---
+        tls_client_certificate_bound_access_tokens:
+          type: boolean
+          description: "Indicates support for mutual-TLS certificate-bound access tokens. (RFC 8705)"
+        mtls_endpoint_aliases:
+          type: object
+          description: "Alternative endpoints for mutual-TLS. (RFC 8705)"
+
+        # --- RFC 9101 (JAR) ---
+        require_signed_request_object:
+          type: boolean
+          description: "Indicates if the server requires request objects to be signed. (RFC 9101)"
+
+        # --- RFC 9126 (PAR) ---
+        pushed_authorization_request_endpoint:
+          type: string
+          format: uri
+          description: "URL of the pushed authorization request endpoint. (RFC 9126)"
+        require_pushed_authorization_requests:
+          type: boolean
+          description: "Indicates if the server requires PAR. (RFC 9126)"
+
+        # --- RFC 9207 (Mix-up Mitigation) ---
+        authorization_response_iss_parameter_supported:
+          type: boolean
+          description: "Indicates if the 'iss' parameter is supported in authorization responses. (RFC 9207)"
+
+        # --- RFC 9396 (Rich Authorization Requests) ---
+        authorization_details_types_supported:
+          type: array
+          items:
+            type: string
+          description: "JSON array containing the names of the authorization details types supported. (RFC 9396)"
+
+        # --- RFC 9449 (DPoP) ---
+        dpop_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "List of JWS algorithms supported for DPoP proof JWTs. (RFC 9449)"
+
+        # --- RFC 9701 (JWT Introspection Response) ---
+        introspection_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "Algorithms supported for signing the JWT Introspection Response. (RFC 9701)"
+        introspection_encryption_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "Algorithms (alg) supported for encrypting the JWT Introspection Response. (RFC 9701)"
+        introspection_encryption_enc_values_supported:
+          type: array
+          items:
+            type: string
+          description: "Algorithms (enc) supported for encrypting the JWT Introspection Response. (RFC 9701)"
+
+        # --- RFC 9728 (Protected Resource Metadata) ---
+        protected_resources:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: "List of protected resource identifiers. (RFC 9728)"
+
+      additionalProperties: true
+
+    protected_resource_metadata:
+      type: object
+      required:
+        - resource
+      properties:
+        resource:
+          type: string
+          format: uri
+          description: "REQUIRED. The protected resource's resource identifier (must use https without fragment)."
+
+        authorization_servers:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: "OPTIONAL. JSON array containing a list of OAuth authorization server issuer identifiers that can be used with this protected resource."
+
+        jwks_uri:
+          type: string
+          format: uri
+          description: "OPTIONAL. URL of the protected resource's JSON Web Key (JWK) Set document (must use https)."
+
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          description: "RECOMMENDED. JSON array containing a list of scope values used to request access to this protected resource."
+
+        bearer_methods_supported:
+          type: array
+          items:
+            type: string
+            enum: ["header", "body", "query"]
+          description: "OPTIONAL. JSON array containing a list of the supported methods of sending an OAuth 2.0 bearer token."
+
+        resource_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+            not:
+              const: "none"
+          description: "OPTIONAL. JSON array containing a list of the JWS signing algorithms supported by the protected resource. 'none' is not allowed."
+
+        tls_client_certificate_bound_access_tokens:
+          type: boolean
+          default: false
+          description: "OPTIONAL. Boolean value indicating protected resource support for mutual-TLS client certificate-bound access tokens."
+
+        authorization_details_types_supported:
+          type: array
+          items:
+            type: string
+          description: "OPTIONAL. JSON array containing a list of the authorization details type values supported by the resource server (RFC 9396)."
+
+        dpop_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "OPTIONAL. JSON array containing a list of the JWS alg values supported by the resource server for validating DPoP proof JWTs (RFC 9449)."
+
+        dpop_bound_access_tokens_required:
+          type: boolean
+          default: false
+          description: "OPTIONAL. Boolean value specifying whether the protected resource always requires the use of DPoP-bound access tokens."
+
+        signed_metadata:
+          type: string
+          description: "OPTIONAL. A JWT containing metadata parameters about the protected resource as claims."
+
+        resource_name:
+          type: string
+          description: "RECOMMENDED. Human-readable name of the protected resource intended for display to the end user. Supports language tags (e.g., resource_name#en)."
+
+        resource_documentation:
+          type: string
+          format: uri
+          description: "OPTIONAL. URL of a page containing human-readable information for developers. Supports language tags."
+
+        resource_policy_uri:
+          type: string
+          format: uri
+          description: "OPTIONAL. URL of a page containing human-readable information about the resource's requirements on data usage. Supports language tags."
+
+        resource_tos_uri:
+          type: string
+          format: uri
+          description: "OPTIONAL. URL of a page containing human-readable information about the resource's terms of service. Supports language tags."
+
+      additionalProperties: true
+
+    client_registration_request:
+      type: object
+      required:
+        - redirect_uris
+        - client_name 
+      properties:
+        # ==========================================
+        # RFC 7591: Base Client Metadata
+        # ==========================================
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: "REQUIRED. Array of redirection URI strings for use in redirect-based flows (RFC 7591)."
+          minItems: 1
+
+        token_endpoint_auth_method:
+          type: string
+          description: "Requested authentication method for the token endpoint (e.g., 'none', 'client_secret_post', 'client_secret_basic'). (RFC 7591)"
+          default: "client_secret_basic"
+
+        grant_types:
+          type: array
+          items:
+            type: string
+          description: "Array of OAuth 2.0 grant type strings that the client can use at the token endpoint. (RFC 7591)"
+          default: ["authorization_code"]
+
+        response_types:
+          type: array
+          items:
+            type: string
+          description: "Array of the OAuth 2.0 response type strings that the client can use at the authorization endpoint. (RFC 7591)"
+          default: ["code"]
+
+        scope:
+          type: string
+          description: "String containing a space-separated list of scope values that the client can use when requesting access tokens. (RFC 7591)"
+
+        contacts:
+          type: array
+          items:
+            type: string
+          description: "Array of strings representing ways to contact people responsible for this client, typically email addresses. (RFC 7591)"
+
+        jwks_uri:
+          type: string
+          format: uri
+          description: "URL string referencing the client's JSON Web Key (JWK) Set document. MUST NOT be present if 'jwks' is present. (RFC 7591)"
+
+        jwks:
+          type: object
+          description: "Client's JSON Web Key Set document value. MUST NOT be present if 'jwks_uri' is present. (RFC 7591)"
+
+        software_id:
+          type: string
+          description: "A unique identifier string assigned by the client developer or software publisher. (RFC 7591)"
+
+        software_version:
+          type: string
+          description: "A version identifier string for the client software identified by 'software_id'. (RFC 7591)"
+
+        client_id:
+          type: string
+          description: "Client identifier. Mostly used as an output value in registration responses. (RFC 7591)"
+
+        client_secret:
+          type: string
+          description: "Client secret. Mostly used as an output value in registration responses. (RFC 7591)"
+
+        client_id_issued_at:
+          type: integer
+          description: "Time at which the client identifier was issued (Unix timestamp). (RFC 7591)"
+
+        client_secret_expires_at:
+          type: integer
+          description: "Time at which the client secret will expire or 0 if it will not expire (Unix timestamp). (RFC 7591)"
+
+        software_statement:
+          type: string
+          description: "A JWT containing metadata claims about the client software. (RFC 7591 Section 2.3)"
+
+        # ==========================================
+        # RFC 7592: Registration Management
+        # ==========================================
+        registration_access_token:
+          type: string
+          description: "Registration access token. Output parameter. (RFC 7592)"
+
+        registration_client_uri:
+          type: string
+          format: uri
+          description: "URL of the client's configuration endpoint. Output parameter. (RFC 7592)"
+
+        # ==========================================
+        # RFC 8705: Mutual TLS (MTLS)
+        # ==========================================
+        tls_client_certificate_bound_access_tokens:
+          type: boolean
+          description: "Indicates the client's intention to use mutual-TLS client certificate-bound access tokens. (RFC 8705)"
+          default: false
+
+        tls_client_auth_subject_dn:
+          type: string
+          description: "Expected subject distinguished name (DN) of the client certificate. (RFC 8705)"
+
+        tls_client_auth_san_dns:
+          type: string
+          description: "Expected dNSName SAN entry in the client certificate. (RFC 8705)"
+
+        tls_client_auth_san_uri:
+          type: string
+          format: uri
+          description: "Expected uniformResourceIdentifier SAN entry in the client certificate. (RFC 8705)"
+
+        tls_client_auth_san_ip:
+          type: string
+          description: "Expected iPAddress SAN entry in the client certificate. (RFC 8705)"
+
+        tls_client_auth_san_email:
+          type: string
+          description: "Expected rfc822Name SAN entry in the client certificate. (RFC 8705)"
+
+        # ==========================================
+        # RFC 9101: JWT-Secured Authorization Request (JAR)
+        # ==========================================
+        require_signed_request_object:
+          type: boolean
+          description: "Indicates whether the client requires the authorization request to be protected as a signed Request Object. (RFC 9101)"
+
+        # ==========================================
+        # RFC 9126: Pushed Authorization Requests (PAR)
+        # ==========================================
+        require_pushed_authorization_requests:
+          type: boolean
+          description: "Indicates whether the client must use Pushed Authorization Requests. (RFC 9126)"
+          default: false
+
+        # ==========================================
+        # RFC 9396: Rich Authorization Requests (RAR)
+        # ==========================================
+        authorization_details_types:
+          type: array
+          items:
+            type: string
+          description: "Array of the authorization details type values supported by the client. (RFC 9396)"
+
+        # ==========================================
+        # RFC 9449: DPoP (Demonstrating Proof-of-Possession)
+        # ==========================================
+        dpop_bound_access_tokens:
+          type: boolean
+          description: "Indicates whether the client requires the authorization server to return DPoP-bound access tokens. (RFC 9449)"
+
+        # ==========================================
+        # RFC 9701: Token Introspection Response
+        # ==========================================
+        introspection_signed_response_alg:
+          type: string
+          description: "JWS alg algorithm required for signing introspection responses. (RFC 9701)"
+
+        introspection_encrypted_response_alg:
+          type: string
+          description: "JWE alg algorithm required for encrypting introspection responses. (RFC 9701)"
+
+        introspection_encrypted_response_enc:
+          type: string
+          description: "JWE enc algorithm required for encrypting introspection responses. (RFC 9701)"
+
+        # ==========================================
+        # Parameter Extensions for Human-Readable Metadata
+        # ==========================================
+        client_name:
+          type: string
+          description: "Human-readable string name of the client to be presented to the end-user during authorization."
+
+        client_uri:
+          type: string
+          format: uri
+          description: "URL string of a web page providing information about the client."
+
+        logo_uri:
+          type: string
+          format: uri
+          description: "URL string that references a logo for the client."
+
+        tos_uri:
+          type: string
+          format: uri
+          description: "URL string that points to a human-readable terms of service document for the client."
+
+        policy_uri:
+          type: string
+          format: uri
+          description: "URL string that points to a human-readable privacy policy document."
+
+      additionalProperties: true
+
+    client_registration_response:
+      description: |
+        The server responds with the registered metadata along with unique identifiers
+        (client_id, client_secret, etc.).
+      type: object
+      required:
+        - client_id
+      properties:
+        client_id:
+          type: string
+          description: "REQUIRED. Unique client identifier issued by the authorization server."
+        client_secret:
+          type: string
+          description: "OPTIONAL. Client secret. Required if a confidential auth method was requested."
+        client_id_issued_at:
+          type: integer
+          description: "OPTIONAL. Time at which the client identifier was issued (Unix timestamp)."
+        client_secret_expires_at:
+          type: integer
+          description: "OPTIONAL. Time at which the client secret will expire (Unix timestamp). 0 means it does not expire."
+        registration_access_token:
+          type: string
+          description: "OPTIONAL (RFC 7592). Registration access token for subsequently reading/updating the client."
+        registration_client_uri:
+          type: string
+          format: uri
+          description: "OPTIONAL (RFC 7592). URL of the client's configuration endpoint."
+
+    client_registration_error:
+      description: standard OAuth error response specifically tailored for dynamic registration (RFC 7591 Section 3.2.2).
+      type: object
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_redirect_uri
+            - invalid_client_metadata
+            - invalid_software_statement
+            - unapproved_software_statement
+          description: "REQUIRED. A single ASCII error code."
+        error_description:
+          type: string
+          description: "OPTIONAL. Human-readable ASCII text providing additional information."
+      required:
+        - error

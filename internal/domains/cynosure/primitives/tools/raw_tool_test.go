@@ -20,8 +20,8 @@ func TestRawToolInfo_Validate_Success(t *testing.T) {
 	// Setup: create valid dependencies
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
-	accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-	toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+	accountID := must(ids.RandomAccountID(userID, serverID))
+	toolID := must(ids.RandomToolID(accountID))
 
 	validParams := json.RawMessage(`{"message": "string"}`)
 	validResponse := json.RawMessage(`{"status": "string"}`)
@@ -40,24 +40,20 @@ func TestRawToolInfo_Validate_Success(t *testing.T) {
 				"Send a message to chat",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID, "Main production bot"),
+				WithMergedTool(toolID, "main_bot", "Main production bot"),
 			)
 		},
 	}, {
 		name: "valid tool with multiple accounts",
 		setup: func() (RawToolInfo, error) {
-			toolID2 := must(ids.NewToolID(
-				accountID,
-				uuid.New(),
-				ids.WithSlug("send_message"),
-			))
+			toolID2 := must(ids.RandomToolID(accountID))
 			return NewRawToolInfo(
 				"send_message",
 				"Send a message to chat",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID, "Main production bot"),
-				WithMergedTool(toolID2, "Backup bot"),
+				WithMergedTool(toolID, "main_bot", "Main production bot"),
+				WithMergedTool(toolID2, "backup_bot", "Backup bot"),
 			)
 		},
 	}, {
@@ -68,7 +64,7 @@ func TestRawToolInfo_Validate_Success(t *testing.T) {
 				"Description",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID, "Bot"),
+				WithMergedTool(toolID, "main_bot", "Bot"),
 			)
 		},
 		wantErr: require.Error,
@@ -80,7 +76,7 @@ func TestRawToolInfo_Validate_Success(t *testing.T) {
 				"", // empty description
 				validParams,
 				validResponse,
-				WithMergedTool(toolID, "Bot"),
+				WithMergedTool(toolID, "main_bot", "Bot"),
 			)
 		},
 		wantErr: require.Error,
@@ -97,30 +93,17 @@ func TestRawToolInfo_Validate_Success(t *testing.T) {
 		},
 		wantErr: require.Error,
 	}, {
-		name: "invalid: tool id slug mismatch",
-		setup: func() (RawToolInfo, error) {
-			wrongToolID := must(ids.RandomToolID(accountID, ids.WithSlug("different_tool")))
-			return NewRawToolInfo(
-				"send_message",
-				"Description",
-				validParams,
-				validResponse,
-				WithMergedTool(wrongToolID, "Bot"),
-			)
-		},
-		wantErr: require.Error,
-	}, {
 		name: "invalid: empty account slug",
 		setup: func() (RawToolInfo, error) {
 			// Create account without slug
 			accountNoSlug := must(ids.RandomAccountID(userID, serverID))
-			toolNoSlug := must(ids.RandomToolID(accountNoSlug, ids.WithSlug("send_message")))
+			toolNoSlug := must(ids.RandomToolID(accountNoSlug))
 			return NewRawToolInfo(
 				"send_message",
 				"Description",
 				validParams,
 				validResponse,
-				WithMergedTool(toolNoSlug, "Bot"),
+				WithMergedTool(toolNoSlug, "", "Bot"),
 			)
 		},
 		wantErr: require.Error,
@@ -149,8 +132,8 @@ func TestRawToolInfo_ConvertRequest_SingleAccount(t *testing.T) {
 	// Setup: create tool with single account
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
-	accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-	toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+	accountID := must(ids.RandomAccountID(userID, serverID))
+	toolID := must(ids.RandomToolID(accountID))
 
 	validParams := json.RawMessage(`{"type": "object", "properties": {"text": {"type": "string"}}}`)
 	validResponse := json.RawMessage(`{"type": "object"}`)
@@ -160,7 +143,7 @@ func TestRawToolInfo_ConvertRequest_SingleAccount(t *testing.T) {
 		"Send a message",
 		validParams,
 		validResponse,
-		WithMergedTool(toolID, "Main bot"),
+		WithMergedTool(toolID, "main_bot", "Main bot"),
 	))
 
 	tests := []struct {
@@ -219,11 +202,11 @@ func TestRawToolInfo_ConvertRequest_MultipleAccounts(t *testing.T) {
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
 
-	account1 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-	account2 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("backup_bot")))
+	account1 := must(ids.RandomAccountID(userID, serverID))
+	account2 := must(ids.RandomAccountID(userID, serverID))
 
-	toolID1 := must(ids.RandomToolID(account1, ids.WithSlug("send_message")))
-	toolID2 := must(ids.RandomToolID(account2, ids.WithSlug("send_message")))
+	toolID1 := must(ids.RandomToolID(account1))
+	toolID2 := must(ids.RandomToolID(account2))
 
 	validParams := json.RawMessage(`{"type": "object", "properties": {"text": {"type": "string"}}}`)
 	validResponse := json.RawMessage(`{"type": "object"}`)
@@ -233,8 +216,8 @@ func TestRawToolInfo_ConvertRequest_MultipleAccounts(t *testing.T) {
 		"Send a message",
 		validParams,
 		validResponse,
-		WithMergedTool(toolID1, "Main production bot"),
-		WithMergedTool(toolID2, "Backup bot"),
+		WithMergedTool(toolID1, "main_bot", "Main production bot"),
+		WithMergedTool(toolID2, "backup_bot", "Backup bot"),
 	))
 
 	tests := []struct {
@@ -332,31 +315,31 @@ func TestRawToolInfo_ConvertedSchema(t *testing.T) {
 	}{{
 		name: "single account - no _target_account field",
 		setup: func() RawToolInfo {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID := must(ids.RandomToolID(accountID))
 			return must(NewRawToolInfo(
 				"send_message",
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID, "Main bot"),
+				WithMergedTool(toolID, "main_bot", "Main bot"),
 			))
 		},
 		expectTargetAccountField: false,
 	}, {
 		name: "multiple accounts - _target_account field added with enum",
 		setup: func() RawToolInfo {
-			account1 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			account2 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("backup_bot")))
-			toolID1 := must(ids.RandomToolID(account1, ids.WithSlug("send_message")))
-			toolID2 := must(ids.RandomToolID(account2, ids.WithSlug("send_message")))
+			account1 := must(ids.RandomAccountID(userID, serverID))
+			account2 := must(ids.RandomAccountID(userID, serverID))
+			toolID1 := must(ids.RandomToolID(account1))
+			toolID2 := must(ids.RandomToolID(account2))
 			return must(NewRawToolInfo(
 				"send_message",
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID1, "Main production bot"),
-				WithMergedTool(toolID2, "Backup bot"),
+				WithMergedTool(toolID1, "main_bot", "Main production bot"),
+				WithMergedTool(toolID2, "backup_bot", "Backup bot"),
 			))
 		},
 		expectTargetAccountField: true,
@@ -443,17 +426,17 @@ func TestRawToolInfo_Merge(t *testing.T) {
 	}{{
 		name: "success: merge same schemas with different accounts",
 		setup: func() (RawToolInfo, RawToolInfo) {
-			account1 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			account2 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("backup_bot")))
-			toolID1 := must(ids.RandomToolID(account1, ids.WithSlug("send_message")))
-			toolID2 := must(ids.RandomToolID(account2, ids.WithSlug("send_message")))
+			account1 := must(ids.RandomAccountID(userID, serverID))
+			account2 := must(ids.RandomAccountID(userID, serverID))
+			toolID1 := must(ids.RandomToolID(account1))
+			toolID2 := must(ids.RandomToolID(account2))
 
 			tool1 := must(NewRawToolInfo(
 				"send_message",
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID1, "Main bot"),
+				WithMergedTool(toolID1, "main_bot", "Main bot"),
 			))
 
 			tool2 := must(NewRawToolInfo(
@@ -461,7 +444,7 @@ func TestRawToolInfo_Merge(t *testing.T) {
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID2, "Backup bot"),
+				WithMergedTool(toolID2, "backup_bot", "Backup bot"),
 			))
 
 			return tool1, tool2
@@ -472,12 +455,12 @@ func TestRawToolInfo_Merge(t *testing.T) {
 	}, {
 		name: "error: different names",
 		setup: func() (RawToolInfo, RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID1 := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
-			toolID2 := must(ids.RandomToolID(accountID, ids.WithSlug("delete_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID1 := must(ids.RandomToolID(accountID))
+			toolID2 := must(ids.RandomToolID(accountID))
 
-			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID1, "Bot")))
-			tool2 := must(NewRawToolInfo("delete_message", "Desc", validParams, validResponse, WithMergedTool(toolID2, "Bot")))
+			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID1, "main_bot", "Bot")))
+			tool2 := must(NewRawToolInfo("delete_message", "Desc", validParams, validResponse, WithMergedTool(toolID2, "backup_bot", "Bot")))
 
 			return tool1, tool2
 		},
@@ -485,12 +468,12 @@ func TestRawToolInfo_Merge(t *testing.T) {
 	}, {
 		name: "error: different descriptions",
 		setup: func() (RawToolInfo, RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID1 := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
-			toolID2 := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID1 := must(ids.RandomToolID(accountID))
+			toolID2 := must(ids.RandomToolID(accountID))
 
-			tool1 := must(NewRawToolInfo("send_message", "Send messages", validParams, validResponse, WithMergedTool(toolID1, "Bot")))
-			tool2 := must(NewRawToolInfo("send_message", "Delete messages", validParams, validResponse, WithMergedTool(toolID2, "Bot")))
+			tool1 := must(NewRawToolInfo("send_message", "Send messages", validParams, validResponse, WithMergedTool(toolID1, "main_bot", "Bot")))
+			tool2 := must(NewRawToolInfo("send_message", "Delete messages", validParams, validResponse, WithMergedTool(toolID2, "backup_bot", "Bot")))
 
 			return tool1, tool2
 		},
@@ -498,13 +481,13 @@ func TestRawToolInfo_Merge(t *testing.T) {
 	}, {
 		name: "error: different params",
 		setup: func() (RawToolInfo, RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID := must(ids.RandomToolID(accountID))
 
 			differentParams := json.RawMessage(`{"type": "object", "properties": {"message": {"type": "string"}}}`)
 
-			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "Bot")))
-			tool2 := must(NewRawToolInfo("send_message", "Desc", differentParams, validResponse, WithMergedTool(toolID, "Bot")))
+			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "main_bot", "Bot")))
+			tool2 := must(NewRawToolInfo("send_message", "Desc", differentParams, validResponse, WithMergedTool(toolID, "main_bot", "Bot")))
 
 			return tool1, tool2
 		},
@@ -512,13 +495,13 @@ func TestRawToolInfo_Merge(t *testing.T) {
 	}, {
 		name: "error: different response",
 		setup: func() (RawToolInfo, RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID := must(ids.RandomToolID(accountID))
 
 			differentResponse := json.RawMessage(`{"type": "object", "properties": {"success": {"type": "boolean"}}}`)
 
-			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "Bot")))
-			tool2 := must(NewRawToolInfo("send_message", "Desc", validParams, differentResponse, WithMergedTool(toolID, "Bot")))
+			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "main_bot", "Bot")))
+			tool2 := must(NewRawToolInfo("send_message", "Desc", validParams, differentResponse, WithMergedTool(toolID, "main_bot", "Bot")))
 
 			return tool1, tool2
 		},
@@ -526,12 +509,12 @@ func TestRawToolInfo_Merge(t *testing.T) {
 	}, {
 		name: "error: duplicate tool id with different descriptions",
 		setup: func() (RawToolInfo, RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
 			toolUUID := uuid.New()
-			toolID := must(ids.NewToolID(accountID, toolUUID, ids.WithSlug("send_message")))
+			toolID := must(ids.NewToolID(accountID, toolUUID))
 
-			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "Main bot")))
-			tool2 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "Backup bot")))
+			tool1 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "main_bot", "Main bot")))
+			tool2 := must(NewRawToolInfo("send_message", "Desc", validParams, validResponse, WithMergedTool(toolID, "backup_bot", "Backup bot")))
 
 			return tool1, tool2
 		},
@@ -563,8 +546,8 @@ func TestRawToolInfo_Immutability(t *testing.T) {
 
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
-	accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-	toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+	accountID := must(ids.RandomAccountID(userID, serverID))
+	toolID := must(ids.RandomToolID(accountID))
 
 	validParams := json.RawMessage(`{"type": "object"}`)
 	validResponse := json.RawMessage(`{"type": "object"}`)
@@ -574,23 +557,8 @@ func TestRawToolInfo_Immutability(t *testing.T) {
 		"Send a message",
 		validParams,
 		validResponse,
-		WithMergedTool(toolID, "Main bot"),
+		WithMergedTool(toolID, "main_bot", "Main bot"),
 	))
-
-	t.Run("EncodedTools returns cloned map", func(t *testing.T) {
-		// Get map twice
-		map1 := tool.EncodedTools()
-		map2 := tool.EncodedTools()
-
-		// Modify first map
-		newToolID := must(ids.RandomToolID(accountID, ids.WithSlug("test")))
-		map1[newToolID] = "Modified"
-
-		// Second map should be unaffected
-		_, exists := map2[newToolID]
-		require.False(t, exists, "modification should not affect second map")
-		require.Equal(t, 1, len(map2), "second map should have original size")
-	})
 
 	t.Run("Params returns cloned slice", func(t *testing.T) {
 		// Get params twice

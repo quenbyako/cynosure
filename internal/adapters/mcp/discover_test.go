@@ -99,9 +99,9 @@ func TestDiscoverTools(t *testing.T) {
 	h := mcp.New(nil, nil, nil)
 
 	t.Run("Valid Account Slug", func(t *testing.T) {
-		accID := mustAccountID(t, "valid-slug")
+		accID := mustAccountID(t)
 
-		tools, err := h.DiscoverTools(context.Background(), u, nil, accID, "desc")
+		tools, err := h.DiscoverTools(context.Background(), u, accID, "valid-slug", "desc")
 		if err != nil {
 			t.Fatalf("DiscoverTools failed: %v", err)
 		}
@@ -114,8 +114,8 @@ func TestDiscoverTools(t *testing.T) {
 	})
 
 	t.Run("Empty Account Slug", func(t *testing.T) {
-		accID := mustAccountID(t, "")
-		_, err := h.DiscoverTools(context.Background(), u, nil, accID, "desc")
+		accID := mustAccountID(t)
+		_, err := h.DiscoverTools(context.Background(), u, accID, "", "desc")
 		// Based on the user report: `tool must be associated with at least one account`
 		// and validation error `account slug cannot be empty`.
 		// The error comes from RawToolInfo.Validate().
@@ -123,17 +123,13 @@ func TestDiscoverTools(t *testing.T) {
 	})
 }
 
-func mustAccountID(t *testing.T, slug string) ids.AccountID {
+func mustAccountID(t *testing.T) ids.AccountID {
 	t.Helper()
 
 	uid := must(ids.NewUserID(uuid.New()))
 	sid := must(ids.NewServerID(uuid.New()))
-	var opts []ids.AccountIDOption
-	if slug != "" {
-		opts = append(opts, ids.WithSlug(slug))
-	}
 
-	return must(ids.NewAccountID(uid, sid, uuid.New(), opts...))
+	return must(ids.NewAccountID(uid, sid, uuid.New()))
 }
 
 func must[T any](v T, err error) T {

@@ -8,7 +8,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient/testsuite"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 
 	. "github.com/quenbyako/cynosure/internal/adapters/mcp"

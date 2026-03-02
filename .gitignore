@@ -41,3 +41,9 @@ dist/
 .secrets
 *.secret
 .artifacts/
+
+# ignore all other cmd binaries, but official
+
+cmd/
+
+!cmd/cynosure

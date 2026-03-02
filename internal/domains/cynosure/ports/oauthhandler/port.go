@@ -1,4 +1,4 @@
-package ports
+package oauthhandler
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// OAuthHandler manages OAuth 2.0 flows for MCP server authentication.
+// Port manages OAuth 2.0 flows for MCP server authentication.
 // Supports dynamic client registration, token exchange, and refresh operations.
-type OAuthHandler interface {
+type Port interface {
 	// RegisterClient performs dynamic client registration (RFC 7591) if server
 	// supports it. Returns OAuth config and optional client credentials
 	// expiration.
@@ -28,7 +28,8 @@ type OAuthHandler interface {
 	//
 	//  - [ErrAuthUnsupported] if auth is not supported, server may just connect without auth.
 	//  - [ErrServerUnreachable] if registration endpoint is unavailable.
-	RegisterClient(ctx context.Context, u *url.URL, clientName string, redirect *url.URL, opts ...RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error)
+	//  - [DynamicClientRegistrationNotSupportedError] if server does not support dynamic client registration.
+	RegisterClient(ctx context.Context, resourceURL *url.URL, clientName string, setRedirect *url.URL, opts ...RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error)
 
 	// RefreshToken obtains a new access token using refresh token. Implements
 	// standard OAuth 2.0 refresh flow.
@@ -60,9 +61,3 @@ func defaultRegisterClientParams() *registerClientParams {
 		suggestedProtectedResource: nil,
 	}
 }
-
-type OAuthHandlerFactory interface {
-	OAuthHandler() OAuthHandler
-}
-
-func NewOAuthHandler(factory OAuthHandlerFactory) OAuthHandler { return factory.OAuthHandler() }

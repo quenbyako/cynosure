@@ -18,12 +18,13 @@ type ToolCallFunc func(ctx context.Context, params map[string]json.RawMessage) (
 
 // Tool is the information of a tool.
 type Tool struct {
-	id   ids.ToolID
-	name string
-	desc string
+	id          ids.ToolID
+	accountName string
+	name        string
+	description string
 
-	params   json.RawMessage
-	response json.RawMessage
+	inputSchema  json.RawMessage
+	outputSchema json.RawMessage
 
 	embedding [embeddingSize]float32
 
@@ -42,22 +43,23 @@ func WithEmbedding(embedding [embeddingSize]float32) ToolOption {
 	return func(t *Tool) { t.embedding = embedding }
 }
 
-func NewTool(id ids.ToolID, name, desc string, paramsSchema, responseSchema json.RawMessage, opts ...ToolOption) (*Tool, error) {
-	normalizedInput, err := normalizeInputSchema(paramsSchema)
+func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, outputSchema json.RawMessage, opts ...ToolOption) (*Tool, error) {
+	normalizedInput, err := normalizeInputSchema(inputSchema)
 	if err != nil {
 		return nil, err
 	}
-	normalizedOutput, err := normalizeOutputSchema(responseSchema)
+	normalizedOutput, err := normalizeOutputSchema(outputSchema)
 	if err != nil {
 		return nil, err
 	}
 
 	t := Tool{
-		id:       id,
-		name:     name,
-		desc:     desc,
-		params:   normalizedInput,
-		response: normalizedOutput,
+		id:           id,
+		accountName:  accountName,
+		name:         name,
+		description:  description,
+		inputSchema:  normalizedInput,
+		outputSchema: normalizedOutput,
 	}
 	for _, opt := range opts {
 		opt(&t)
@@ -75,7 +77,7 @@ func NewTool(id ids.ToolID, name, desc string, paramsSchema, responseSchema json
 
 func (t *Tool) Valid() bool { return t._valid || t.Validate() == nil }
 func (t *Tool) Validate() error {
-	if t.desc == "" {
+	if t.description == "" {
 		return errors.New("description is required, but empty")
 	}
 
@@ -112,18 +114,20 @@ func normalizeSchema(schema json.RawMessage, verifyRoot string) (json.RawMessage
 
 type ToolReadOnly interface {
 	ID() ids.ToolID
+	AccountName() string
 	Name() string
-	Desc() string
-	ParamsSchema() json.RawMessage
-	ResponseSchema() json.RawMessage
+	Description() string
+	InputSchema() json.RawMessage
+	OutputSchema() json.RawMessage
 	Embedding() [embeddingSize]float32
 }
 
 func (t *Tool) ID() ids.ToolID                    { return t.id }
+func (t *Tool) AccountName() string               { return t.accountName }
 func (t *Tool) Name() string                      { return t.name }
-func (t *Tool) Desc() string                      { return t.desc }
-func (t *Tool) ParamsSchema() json.RawMessage     { return t.params }
-func (t *Tool) ResponseSchema() json.RawMessage   { return t.response }
+func (t *Tool) Description() string               { return t.description }
+func (t *Tool) InputSchema() json.RawMessage      { return t.inputSchema }
+func (t *Tool) OutputSchema() json.RawMessage     { return t.outputSchema }
 func (t *Tool) Embedding() [embeddingSize]float32 { return t.embedding }
 
 // WRITE

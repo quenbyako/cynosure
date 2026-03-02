@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/oauth2"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
@@ -51,7 +54,16 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 		return fmt.Errorf("saving account: %w", err)
 	}
 
-	rawTools, err := s.toolClient.DiscoverTools(ctx, server.SSELink(), token, state.Account(), state.Description())
+	return s.saveAccountAndTools(ctx, server, account, token)
+}
+
+func (s *Usecase) saveAccountAndTools(ctx context.Context, server entities.ServerConfigReadOnly, account entities.AccountReadOnly, token *oauth2.Token) error {
+	var opts []toolclient.DiscoverToolsOption
+	if token != nil {
+		opts = append(opts, toolclient.WithAuthToken(token))
+	}
+
+	rawTools, err := s.toolClient.DiscoverTools(ctx, server.SSELink(), account.ID(), account.Name(), account.Description(), opts...)
 	if err != nil {
 		return fmt.Errorf("discovering tools: %w", err)
 	}
@@ -68,11 +80,13 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 		// so we'll need to refactor this to pass toolID to ExecuteTool instead
 		tool, err := entities.NewTool(
 			toolID,
+			account.Name(),
 			rawTool.Name(),
 			rawTool.Desc(),
 			rawTool.Params(),
 			rawTool.Response(),
 		)
+
 		if err != nil {
 			return fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 		}

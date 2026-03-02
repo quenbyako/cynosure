@@ -34,7 +34,7 @@ func (t *Tools) GetTool(
 }
 
 func mapTool(account ids.AccountID, row db.GetToolRow) (*entities.Tool, error) {
-	id, err := ids.NewToolID(account, row.ID, ids.WithSlug(row.Name))
+	id, err := ids.NewToolID(account, row.ID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tool id: %w", err)
 	}
@@ -55,8 +55,8 @@ func mapTool(account ids.AccountID, row db.GetToolRow) (*entities.Tool, error) {
 	// row.Output is []byte (json)
 
 	tool, err := entities.NewTool(
-		// ... arguments
 		id,
+		row.AccountName,
 		row.Name,
 		row.Description,
 		json.RawMessage(row.Input),

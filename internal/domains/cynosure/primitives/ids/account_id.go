@@ -8,7 +8,6 @@ import (
 
 type AccountID struct {
 	id     uuid.UUID
-	slug   string // optional. empty means it doesn't exists
 	user   UserID
 	server ServerID
 
@@ -66,6 +65,5 @@ func (u AccountID) validate() error {
 }
 
 func (u AccountID) ID() uuid.UUID    { return u.id }
-func (u AccountID) Slug() string     { return u.slug }
 func (u AccountID) User() UserID     { return u.user }
 func (u AccountID) Server() ServerID { return u.server }

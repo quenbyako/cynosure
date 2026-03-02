@@ -11,13 +11,11 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 )
 
 var userID = must(ids.NewUserIDFromString("4588260b-5314-42bd-a087-c7c567947d0a"))
 
 type Controller struct {
-	servers  *servers.Usecase
 	accounts *accounts.Usecase
 }
 
@@ -34,7 +32,7 @@ func WithLogger(logger slog.Handler) NewOption {
 	return func(p *newParams) { p.logger = logger }
 }
 
-func New(servers *servers.Usecase, accounts *accounts.Usecase, impl mcp.Implementation, opts ...NewOption) http.Handler {
+func New( accounts *accounts.Usecase, impl mcp.Implementation, opts ...NewOption) http.Handler {
 	p := newParams{
 		logger: slog.DiscardHandler,
 	}
@@ -43,7 +41,6 @@ func New(servers *servers.Usecase, accounts *accounts.Usecase, impl mcp.Implemen
 	}
 
 	ctrl := &Controller{
-		servers:  servers,
 		accounts: accounts,
 	}
 	if err := ctrl.validate(); err != nil {
@@ -65,9 +62,6 @@ func New(servers *servers.Usecase, accounts *accounts.Usecase, impl mcp.Implemen
 }
 
 func (c *Controller) validate() error {
-	if c.servers == nil {
-		return errors.New("servers is nil")
-	}
 	if c.accounts == nil {
 		return errors.New("accounts is nil")
 	}

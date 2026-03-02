@@ -84,7 +84,7 @@ func (m *MockServer) Tools(accountDesc string, toolID func(string) ids.ToolID) [
 			"A mock tool",
 			json.RawMessage(`{"type":"object"}`),
 			json.RawMessage(`{"type":"string"}`),
-			tools.WithMergedTool(toolID("mock_tool"), accountDesc),
+			tools.WithMergedTool(toolID("mock_tool"), "mock_tool", accountDesc),
 		)),
 	}
 }

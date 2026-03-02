@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://github.com/open-telemetry/weaver/raw/refs/heads/main/schemas/semconv.schema.v2.json
+
+spans:
+  - type: cynosure.controllers.telegram.send_update
+    kind: internal
+    brief: "Span for sending a Telegram update."
+    stability: development
+    name:
+      note: "SendUpdate"
+    # [send_update.go:18](file:///Users/r0ck3t/macbook_air/repositories/tg-helper/internal/controllers/telegram/send_update.go#L18)

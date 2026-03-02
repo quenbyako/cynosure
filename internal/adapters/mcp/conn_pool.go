@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -80,13 +81,10 @@ type asyncClient struct {
 	usedProtocol tools.Protocol // Which protocol was successfully used
 }
 
-// newAsyncClient creates an MCP client with protocol fallback (Streamable → SSE).
-// It tries StreamableClientTransport first, then falls back to SSEClientTransport
-// only on protocol errors. Infrastructure and auth errors fail immediately.
-// Returns the client with information about which protocol succeeded.
-
 func (f *connFactory) GetAnonymous(ctx context.Context, u *url.URL, protocol tools.Protocol) (*asyncClient, error) {
-	ctx, span := f.tracer.Start(ctx, "newAsyncClient")
+	ctx, span := f.tracer.Start(ctx, "GetAnonymous", trace.WithAttributes(
+		attribute.String("mcp.url", u.String()),
+	))
 	defer span.End()
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
@@ -98,7 +96,9 @@ func (f *connFactory) GetAnonymous(ctx context.Context, u *url.URL, protocol too
 	session, discoveredProtocol, err := autoConnectProtocol(clientCtx, u.String(), client, protocol)
 	if err != nil {
 		clientCancel()
-		return nil, MapError(err)
+		mappedErr := MapError(err)
+		span.RecordError(mappedErr)
+		return nil, mappedErr
 	}
 
 	c := &asyncClient{
@@ -111,17 +111,26 @@ func (f *connFactory) GetAnonymous(ctx context.Context, u *url.URL, protocol too
 }
 
 func (f *connFactory) GetPartiallyAuthorized(ctx context.Context, u *url.URL, token *oauth2.Token, protocol tools.Protocol) (*asyncClient, error) {
-	ctx, span := f.tracer.Start(ctx, "newAsyncClient")
+	ctx, span := f.tracer.Start(ctx, "GetPartiallyAuthorized", trace.WithAttributes(
+		attribute.String("mcp.url", u.String()),
+		attribute.Bool("mcp.token_is_nil", token == nil),
+	))
 	defer span.End()
 
 	if u == nil {
-		return nil, errors.New("url is nil")
+		err := errors.New("url is nil")
+		span.RecordError(err)
+		return nil, err
 	}
 	if token == nil {
-		return nil, errors.New("token is nil")
+		err := errors.New("token is nil")
+		span.RecordError(err)
+		return nil, err
 	}
 	if !protocol.Valid() {
-		return nil, errors.New("protocol is invalid")
+		err := errors.New("protocol is invalid")
+		span.RecordError(err)
+		return nil, err
 	}
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
@@ -133,7 +142,9 @@ func (f *connFactory) GetPartiallyAuthorized(ctx context.Context, u *url.URL, to
 	session, discoveredProtocol, err := autoConnectProtocol(clientCtx, u.String(), client, protocol)
 	if err != nil {
 		clientCancel()
-		return nil, MapError(err)
+		mappedErr := MapError(err)
+		span.RecordError(mappedErr)
+		return nil, mappedErr
 	}
 
 	c := &asyncClient{
@@ -146,17 +157,26 @@ func (f *connFactory) GetPartiallyAuthorized(ctx context.Context, u *url.URL, to
 }
 
 func (f *connFactory) GetAuthorized(ctx context.Context, accountID ids.AccountID, server entities.ServerConfigReadOnly, token *oauth2.Token) (*asyncClient, error) {
-	ctx, span := f.tracer.Start(ctx, "newAsyncClient")
+	ctx, span := f.tracer.Start(ctx, "GetAuthorized", trace.WithAttributes(
+		attribute.String("mcp.account_id", accountID.ID().String()),
+		attribute.Bool("mcp.token_is_nil", token == nil),
+	))
 	defer span.End()
 
 	if !accountID.Valid() {
-		return nil, errors.New("account id is invalid")
+		err := errors.New("account id is invalid")
+		span.RecordError(err)
+		return nil, err
 	}
 	if server == nil {
-		return nil, errors.New("server is nil")
+		err := errors.New("server is nil")
+		span.RecordError(err)
+		return nil, err
 	}
 	if token == nil {
-		return nil, errors.New("token is nil")
+		err := errors.New("token is nil")
+		span.RecordError(err)
+		return nil, err
 	}
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
@@ -168,7 +188,9 @@ func (f *connFactory) GetAuthorized(ctx context.Context, accountID ids.AccountID
 	session, discoveredProtocol, err := autoConnectProtocol(clientCtx, server.SSELink().String(), client, server.PreferredProtocol())
 	if err != nil {
 		clientCancel()
-		return nil, MapError(err)
+		mappedErr := MapError(err)
+		span.RecordError(mappedErr)
+		return nil, mappedErr
 	}
 
 	c := &asyncClient{

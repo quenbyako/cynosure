@@ -74,10 +74,3 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	pp.Println("Response from model:", responseText)
 	pp.Println("Thoughts from model:", thought)
 }
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
-}

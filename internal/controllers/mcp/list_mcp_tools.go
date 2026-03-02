@@ -25,7 +25,7 @@ func (c *Controller) ListMcpTools(ctx context.Context, _ struct{}) (ListMCPTools
 	tools := make([]Tool, 0, len(accounts))
 
 	for _, account := range accounts {
-		accountTools, err := c.accounts.ListTools(ctx, account)
+		accountTools, err := c.accounts.ListTools(ctx, account.ID())
 		if err != nil {
 			return ListMCPToolsOutput{}, err
 		}

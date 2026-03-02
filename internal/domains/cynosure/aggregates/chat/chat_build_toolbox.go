@@ -58,11 +58,12 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 
 		rawTool, err := tools.NewRawToolInfo(
 			tool.Name(),
-			tool.Desc(),
-			tool.ParamsSchema(),
-			tool.ResponseSchema(),
-			tools.WithMergedTool(tool.ID(), desc),
+			tool.Description(),
+			tool.InputSchema(),
+			tool.OutputSchema(),
+			tools.WithMergedTool(tool.ID(), desc.slug, desc.desc),
 		)
+
 		if err != nil {
 			return tools.Toolbox{}, fmt.Errorf("creating raw tool %q: %w", tool.Name(), err)
 		}
@@ -86,7 +87,9 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 	return toolbox, nil
 }
 
-func (c *Chat) accountsDescriptions(ctx context.Context, tools []*entities.Tool) (map[ids.AccountID]string, error) {
+type accountDesc struct{ slug, desc string }
+
+func (c *Chat) accountsDescriptions(ctx context.Context, tools []*entities.Tool) (map[ids.AccountID]accountDesc, error) {
 	accountIDs := extractUniqueAccounts(tools)
 
 	accounts, err := c.accounts.GetAccountsBatch(ctx, accountIDs)
@@ -94,9 +97,12 @@ func (c *Chat) accountsDescriptions(ctx context.Context, tools []*entities.Tool)
 		return nil, fmt.Errorf("loading accounts: %w", err)
 	}
 
-	descriptions := make(map[ids.AccountID]string, len(accounts))
+	descriptions := make(map[ids.AccountID]accountDesc, len(accounts))
 	for _, account := range accounts {
-		descriptions[account.ID()] = account.Description()
+		descriptions[account.ID()] = accountDesc{
+			slug: account.Name(),
+			desc: account.Description(),
+		}
 	}
 
 	return descriptions, nil

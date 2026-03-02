@@ -94,14 +94,14 @@ func (s *Usecase) agentLoop(ctx context.Context, c *chat.Chat, config entities.A
 				return
 			}
 
-			s.log.ToolCalled(ctx, c.ThreadID(), toolRequests)
+			s.log.ToolCalled(ctx, c.ThreadID().String(), toolRequests)
 
 			if !s.executeTools(ctx, c, toolRequests, yield) {
 				return
 			}
 
 			if turn == s.agentLoopTurns-1 {
-				s.log.MaxTurnsReached(ctx, c.ThreadID())
+				s.log.MaxTurnsReached(ctx, c.ThreadID().String())
 			}
 		}
 	}

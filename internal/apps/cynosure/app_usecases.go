@@ -4,17 +4,17 @@ import (
 	"github.com/goforj/wire"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
 var (
 	chatUsecase     = wire.NewSet(newChatUsecase)
 	accountsUsecase = wire.NewSet(newAccountsUsecase)
-	serversUsecase  = wire.NewSet(newServersUsecase)
 	usersUsecase    = wire.NewSet(newUsersUsecase)
 )
 
@@ -22,7 +22,7 @@ func newChatUsecase(
 	p *appParams,
 	storage ports.ThreadStorageWrapped,
 	model ports.ChatModel,
-	tool ports.ToolClient,
+	tool toolclient.PortWrapped,
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
@@ -50,11 +50,11 @@ func newChatUsecase(
 func newAccountsUsecase(
 	p *appParams,
 	servers ports.ServerStorage,
-	oauth ports.OAuthHandler,
+	oauth oauthhandler.PortWrapped,
 	accountsPort ports.AccountStorage,
 	tools ports.ToolStorage,
 	index ports.ToolSemanticIndex,
-	toolClient ports.ToolClient,
+	toolClient toolclient.PortWrapped,
 	identities ports.IdentityManagerWrapped,
 ) *accounts.Usecase {
 	return must(accounts.New(
@@ -65,19 +65,9 @@ func newAccountsUsecase(
 		index,
 		toolClient,
 		identities,
+		accounts.WithOAuthRedirectURL(p.oauthCallback),
 		accounts.WithTracerProvider(p.observability),
 	))
-}
-
-func newServersUsecase(
-	p *appParams,
-	storage ports.ServerStorage,
-	oauth ports.OAuthHandler,
-	toolClient ports.ToolClient,
-) *servers.Usecase {
-	return servers.New(storage, oauth, toolClient, p.oauthCallback,
-		servers.WithTracerProvider(p.observability),
-	)
 }
 
 func newUsersUsecase(

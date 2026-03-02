@@ -30,15 +30,15 @@ func TestToolbox_Merge(t *testing.T) {
 	}{{
 		name: "add new tool to empty toolbox",
 		setup: func() (Toolbox, []RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID := must(ids.RandomToolID(accountID))
 
 			tool := must(NewRawToolInfo(
 				"send_message",
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID, "Main bot"),
+				WithMergedTool(toolID, "main_bot", "Main bot"),
 			))
 
 			return NewToolbox(), []RawToolInfo{tool}
@@ -49,17 +49,17 @@ func TestToolbox_Merge(t *testing.T) {
 	}, {
 		name: "merge existing tool with new account",
 		setup: func() (Toolbox, []RawToolInfo) {
-			account1 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			account2 := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("backup_bot")))
-			toolID1 := must(ids.RandomToolID(account1, ids.WithSlug("send_message")))
-			toolID2 := must(ids.RandomToolID(account2, ids.WithSlug("send_message")))
+			account1 := must(ids.RandomAccountID(userID, serverID))
+			account2 := must(ids.RandomAccountID(userID, serverID))
+			toolID1 := must(ids.RandomToolID(account1))
+			toolID2 := must(ids.RandomToolID(account2))
 
 			tool1 := must(NewRawToolInfo(
 				"send_message",
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID1, "Main bot"),
+				WithMergedTool(toolID1, "main_bot", "Main bot"),
 			))
 
 			tool2 := must(NewRawToolInfo(
@@ -67,7 +67,7 @@ func TestToolbox_Merge(t *testing.T) {
 				"Send a message",
 				validParams,
 				validResponse,
-				WithMergedTool(toolID2, "Backup bot"),
+				WithMergedTool(toolID2, "backup_bot", "Backup bot"),
 			))
 
 			initialToolbox, err := NewToolbox().Merge(tool1)
@@ -82,12 +82,12 @@ func TestToolbox_Merge(t *testing.T) {
 	}, {
 		name: "add multiple different tools",
 		setup: func() (Toolbox, []RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-			toolID1 := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
-			toolID2 := must(ids.RandomToolID(accountID, ids.WithSlug("delete_message")))
+			accountID := must(ids.RandomAccountID(userID, serverID))
+			toolID1 := must(ids.RandomToolID(accountID))
+			toolID2 := must(ids.RandomToolID(accountID))
 
-			tool1 := must(NewRawToolInfo("send_message", "Send", validParams, validResponse, WithMergedTool(toolID1, "Bot")))
-			tool2 := must(NewRawToolInfo("delete_message", "Delete", validParams, validResponse, WithMergedTool(toolID2, "Bot")))
+			tool1 := must(NewRawToolInfo("send_message", "Send", validParams, validResponse, WithMergedTool(toolID1, "main_bot", "Bot")))
+			tool2 := must(NewRawToolInfo("delete_message", "Delete", validParams, validResponse, WithMergedTool(toolID2, "main_bot", "Bot")))
 
 			return NewToolbox(), []RawToolInfo{tool1, tool2}
 		},
@@ -131,8 +131,8 @@ func TestToolbox_ConvertRequest(t *testing.T) {
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
 
-	accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-	toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+	accountID := must(ids.RandomAccountID(userID, serverID))
+	toolID := must(ids.RandomToolID(accountID))
 
 	validParams := json.RawMessage(`{"type": "object", "properties": {"text": {"type": "string"}}}`)
 	validResponse := json.RawMessage(`{"type": "object"}`)
@@ -142,7 +142,7 @@ func TestToolbox_ConvertRequest(t *testing.T) {
 		"Send a message",
 		validParams,
 		validResponse,
-		WithMergedTool(toolID, "Main bot"),
+		WithMergedTool(toolID, "main_bot", "Main bot"),
 	))
 
 	toolbox, err := NewToolbox().Merge(tool)
@@ -196,8 +196,8 @@ func TestToolbox_Immutability(t *testing.T) {
 
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
-	accountID := must(ids.RandomAccountID(userID, serverID, ids.WithSlug("main_bot")))
-	toolID := must(ids.RandomToolID(accountID, ids.WithSlug("send_message")))
+	accountID := must(ids.RandomAccountID(userID, serverID))
+	toolID := must(ids.RandomToolID(accountID))
 
 	validParams := json.RawMessage(`{"type": "object"}`)
 	validResponse := json.RawMessage(`{"type": "object"}`)
@@ -207,7 +207,7 @@ func TestToolbox_Immutability(t *testing.T) {
 		"Send a message",
 		validParams,
 		validResponse,
-		WithMergedTool(toolID, "Main bot"),
+		WithMergedTool(toolID, "main_bot", "Main bot"),
 	))
 
 	toolbox, err := NewToolbox().Merge(tool)

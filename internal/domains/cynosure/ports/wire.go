@@ -10,8 +10,6 @@ var WirePorts = wire.NewSet(
 	NewServerStorage,
 	NewThreadStorage,
 	NewChatModel,
-	NewOAuthHandler,
-	NewToolClient,
 	NewToolStorage,
 	NewToolSemanticIndex,
 	NewIdentityManager,

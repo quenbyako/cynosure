@@ -2,18 +2,19 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/quenbyako/core"
 	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -32,27 +33,27 @@ var clientImpl = &mcp.Implementation{
 
 type Handler struct {
 	clients *cache.Cache[ids.AccountID, *asyncClient]
-	tracer  trace.Tracer
+	tracer  ports.ObserveStack
 
 	// factory and accountToken for probing, bypass cache
 	factory      *connFactory
 	accountToken AccountTokenFunc
 }
 
-var _ ports.ToolClientFactory = (*Handler)(nil)
+var _ toolclient.PortFactory = (*Handler)(nil)
 
-func (h *Handler) ToolClient() ports.ToolClientWrapped {
-	return ports.WrapToolClient(h, ports.WithTrace(h.tracer))
+func (h *Handler) ToolClient() toolclient.PortWrapped {
+	return toolclient.Wrap(h, h.tracer)
 }
 
 type handlerParams struct {
-	tp          trace.TracerProvider
+	tp          core.Metrics
 	maxConnSize uint
 }
 
 type HandlerOption func(*handlerParams)
 
-func WithTracerProvider(tp trace.TracerProvider) HandlerOption {
+func WithObservability(tp core.Metrics) HandlerOption {
 	return func(p *handlerParams) { p.tp = tp }
 }
 
@@ -73,16 +74,16 @@ func New(
 	}
 
 	p := handlerParams{
-		tp:          noop.NewTracerProvider(),
+		tp:          core.NoopMetrics(),
 		maxConnSize: 5,
 	}
 	for _, opt := range opts {
 		opt(&p)
 	}
 
-	tracer := p.tp.Tracer(pkgName)
+	tracer := ports.StackFromCore(p.tp, pkgName)
 
-	connFactory := NewConnectionFactory(storage, accountToken, tracer)
+	connFactory := NewConnectionFactory(storage, accountToken, tracer.Tracer())
 
 	return &Handler{
 		clients: cache.New(
@@ -107,7 +108,15 @@ func cacheConstructor(
 			return nil, fmt.Errorf("retrieving session for account %v: %w", account.ID().String(), err)
 		}
 
-		return factory.GetAuthorized(ctx, account, server, token)
+		if token != nil {
+			return factory.GetAuthorized(ctx, account, server, token)
+		}
+
+		if server.AuthConfig() != nil {
+			return nil, errors.New("server requires auth, however, it's not provided")
+		}
+
+		return factory.GetAnonymous(ctx, server.SSELink(), server.PreferredProtocol())
 	}
 }
 

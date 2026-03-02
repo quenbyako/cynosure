@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://github.com/open-telemetry/weaver/raw/refs/heads/main/schemas/semconv.schema.v2.json
+
+attributes:
+  - key: cynosure.thread_id
+    type: string
+    brief: "The unique identifier for a thread."
+    stability: development
+  - key: cynosure.tool_names
+    type: string[]
+    brief: "The names of the tools called."
+    stability: development
+  - key: cynosure.tool_count
+    type: int
+    brief: "The number of tools available or passed."
+    stability: development
+  - key: cynosure.duration
+    type: string
+    brief: "Human-readable duration of the operation."
+    stability: development
+  - key: cynosure.telegram.channel_id
+    type: int
+    brief: "Telegram channel ID."
+    stability: development
+  - key: cynosure.telegram.message_text
+    type: string
+    brief: "The text content of a Telegram message."
+    stability: development
+  - key: cynosure.gemini.model
+    type: string
+    brief: "The Gemini model name."
+    stability: development
+  - key: cynosure.listen.addr
+    type: string
+    brief: "Network address."
+    stability: development
+
+events:
+  - name: cynosure.telegram.message_issue
+    brief: "Log event for issues during message processing."
+    stability: development
+    annotations:
+      severity: warn
+    attributes:
+      - ref: cynosure.telegram.channel_id
+        requirement_level: required
+      - ref: error.type
+        requirement_level: required
+
+  - name: cynosure.telegram.message_start
+    brief: "Log event for the start of message processing."
+    stability: development
+    annotations:
+      severity: info
+      note: started processing message from {cynosure.telegram.channel_id}
+    attributes:
+      - ref: cynosure.telegram.channel_id
+        requirement_level: required
+      - ref: cynosure.telegram.message_text
+        requirement_level: recommended
+
+  - name: cynosure.telegram.message_success
+    brief: "Log event for successful message processing."
+    stability: development
+    annotations:
+      severity: info
+    attributes:
+      - ref: cynosure.telegram.channel_id
+        requirement_level: required
+      - ref: cynosure.duration
+        requirement_level: required
+
+  - name: cynosure.generate.max_turns_reached
+    brief: "Log event when max turns are reached during generation."
+    stability: development
+    annotations:
+      severity: warn
+    attributes:
+      - ref: cynosure.thread_id
+        requirement_level: required
+
+  - name: cynosure.generate.tool_called
+    brief: "Log event when tools are called during generation."
+    stability: development
+    annotations:
+      severity: info
+    attributes:
+      - ref: cynosure.thread_id
+        requirement_level: required
+      - ref: cynosure.tool_names
+        requirement_level: required
+
+  - name: cynosure.notify.effective_environment
+    brief: "Log event for effective environment configuration."
+    stability: development
+    annotations:
+      severity: info
+    attributes:
+      - ref: process.environment_variable
+        requirement_level: required
+
+  - name: cynosure.metrics.started
+    brief: "Log event for metrics server start."
+    stability: development
+    annotations:
+      severity: info
+    attributes:
+      - ref: cynosure.listen.addr
+        requirement_level: required
+
+  - name: cynosure.metrics.stopped
+    brief: "Log event for metrics server stop."
+    stability: development
+    annotations:
+      severity: info
+    attributes:
+      - ref: cynosure.listen.addr
+        requirement_level: required
+
+  - name: cynosure.gemini.stream_started
+    brief: "Log event when Gemini stream is started with tools."
+    stability: development
+    annotations:
+      severity: info
+    attributes:
+      - ref: cynosure.gemini.model
+        requirement_level: required
+      - ref: cynosure.tool_count
+        requirement_level: required

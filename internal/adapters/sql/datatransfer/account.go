@@ -24,7 +24,7 @@ func AccountFromGetAccountRow(row db.GetAccountRow) (*entities.Account, error) {
 		return nil, fmt.Errorf("invalid server id: %w", err)
 	}
 
-	accountID, err := ids.NewAccountID(usrID, srvID, row.ID, ids.WithSlug(row.Name))
+	accountID, err := ids.NewAccountID(usrID, srvID, row.ID)
 	if err != nil {
 		return nil, fmt.Errorf("reconstructing account ID: %w", err)
 	}
@@ -53,7 +53,7 @@ func AccountFromGetAccountsBatchRow(row db.GetAccountsBatchRow) (*entities.Accou
 		return nil, fmt.Errorf("invalid server id: %w", err)
 	}
 
-	accountID, err := ids.NewAccountID(usrID, srvID, row.ID, ids.WithSlug(row.Name))
+	accountID, err := ids.NewAccountID(usrID, srvID, row.ID)
 	if err != nil {
 		return nil, fmt.Errorf("reconstructing account ID: %w", err)
 	}

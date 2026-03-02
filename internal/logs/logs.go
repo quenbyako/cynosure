@@ -2,28 +2,14 @@ package logs
 
 import (
 	"context"
+	"log/slog"
 	"net"
 
-	"github.com/quenbyako/core/contrib/runtime"
-	"github.com/quenbyako/cynosure/contrib/onelog"
+	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 
-	"github.com/quenbyako/cynosure/internal/adapters/gemini"
-	"github.com/quenbyako/cynosure/internal/controllers/telegram"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
-
-func New(l onelog.Logger) *BaseLogger { return &BaseLogger{l: l} }
-
-type BaseLogger struct {
-	l onelog.Logger
-}
-
-var _ chat.LogCallbacks = (*BaseLogger)(nil)
-var _ gemini.LogCallbacks = (*BaseLogger)(nil)
-var _ telegram.LogCallbacks = (*BaseLogger)(nil)
-var _ runtime.LogCallbacks = (*BaseLogger)(nil)
 
 const (
 	eventMaxTurnsReached      = "generate.max_turns_reached"
@@ -34,10 +20,19 @@ const (
 	eventMetricsStopped       = "metrics.stopped"
 )
 
+const (
+	TelegramChannelID attribute.Key = "telegram.channel_id"
+)
+
 // telegram.LogCallbacks
 
 func (l *BaseLogger) ProcessMessageIssue(ctx context.Context, channelID int, err error) {
-	l.l.Error().Err(err).Int("channel_id", channelID).Msg("message issue")
+	l.event(ctx, slog.LevelError, "message.issue").
+		Context(
+			TelegramChannelID.Int(channelID),
+			semconv.ErrorTypeKey.String(err.Error()),
+		).
+		Msg("message issue")
 }
 
 func (l *BaseLogger) ProcessMessageStart(ctx context.Context, channelID int, messageText string) {
@@ -48,18 +43,18 @@ func (l *BaseLogger) ProcessMessageSuccess(ctx context.Context, channelID int, d
 	l.l.Info().Int("channel_id", channelID).Str("duration", duration).Msg("message success")
 }
 
-func (l *BaseLogger) MaxTurnsReached(ctx context.Context, threadID ids.ThreadID) {
+func (l *BaseLogger) MaxTurnsReached(ctx context.Context, threadID string) {
 	l.l.Warn().
 		Str("event_type", eventMaxTurnsReached).
 		Any("context",
 			map[string]any{
-				"thread_id": threadID.String(),
+				"thread_id": threadID,
 			},
 		).
 		Msg("Model reached max turns with tool calls, consider adjusting settings")
 }
 
-func (l *BaseLogger) ToolCalled(ctx context.Context, threadID ids.ThreadID, toolRequests []messages.MessageToolRequest) {
+func (l *BaseLogger) ToolCalled(ctx context.Context, threadID string, toolRequests []messages.MessageToolRequest) {
 	names := make([]string, len(toolRequests))
 	for i, req := range toolRequests {
 		names[i] = req.ToolName()
@@ -69,7 +64,7 @@ func (l *BaseLogger) ToolCalled(ctx context.Context, threadID ids.ThreadID, tool
 		Str("event_type", eventToolCalled).
 		Any("context",
 			map[string]any{
-				"thread_id":  threadID.String(),
+				"thread_id":  threadID,
 				"tool_names": names,
 			},
 		).
