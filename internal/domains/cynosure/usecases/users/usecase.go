@@ -8,6 +8,8 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const (
@@ -15,8 +17,15 @@ const (
 )
 
 type Usecase struct {
-	users  identitymanager.Port
-	agents ports.AgentStorage
+	users      identitymanager.Port
+	agents     ports.AgentStorage
+	accounts   ports.AccountStorage
+	servers    ports.ServerStorage
+	tools      ports.ToolStorage
+	toolClient toolclient.Port
+	index      ports.ToolSemanticIndex
+
+	adminMCPID ids.ServerID
 
 	trace trace.Tracer
 }
@@ -31,7 +40,17 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-func New(users identitymanager.Port, agents ports.AgentStorage, opts ...NewOption) *Usecase {
+func New(
+	users identitymanager.Port,
+	agents ports.AgentStorage,
+	accounts ports.AccountStorage,
+	servers ports.ServerStorage,
+	tools ports.ToolStorage,
+	toolClient toolclient.Port,
+	index ports.ToolSemanticIndex,
+	adminMCPID ids.ServerID,
+	opts ...NewOption,
+) *Usecase {
 	p := newParams{
 		tracer: noop.NewTracerProvider(),
 	}
@@ -40,8 +59,15 @@ func New(users identitymanager.Port, agents ports.AgentStorage, opts ...NewOptio
 	}
 
 	s := &Usecase{
-		users:  users,
-		agents: agents,
+		users:      users,
+		agents:     agents,
+		accounts:   accounts,
+		servers:    servers,
+		tools:      tools,
+		toolClient: toolClient,
+		index:      index,
+
+		adminMCPID: adminMCPID,
 
 		trace: p.tracer.Tracer(pkgName),
 	}
@@ -58,6 +84,24 @@ func (s *Usecase) validate() error {
 	}
 	if s.agents == nil {
 		return errors.New("agent storage is required")
+	}
+	if s.accounts == nil {
+		return errors.New("account storage is required")
+	}
+	if s.servers == nil {
+		return errors.New("server storage is required")
+	}
+	if s.tools == nil {
+		return errors.New("tool storage is required")
+	}
+	if s.toolClient == nil {
+		return errors.New("tool client is required")
+	}
+	if s.index == nil {
+		return errors.New("tool semantic index is required")
+	}
+	if s.adminMCPID.Valid() == false {
+		return errors.New("admin MCP ID is required")
 	}
 
 	return nil

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://github.com/open-telemetry/weaver/raw/refs/heads/main/schemas/semconv.schema.v2.json
+
+attributes:
+  - key: cynosure.ory.method
+    type: string
+    brief: "HTTP method for Ory Admin API."
+    stability: development
+  - key: cynosure.ory.path
+    type: string
+    brief: "Request path for Ory Admin API."
+    stability: development
+  - key: cynosure.ory.status
+    type: int
+    brief: "HTTP status code from Ory Admin API."
+    stability: development
+
+events:
+  - name: cynosure.ory.request_started
+    brief: "Log event when a request to Ory Admin API is started."
+    stability: development
+    annotations:
+      severity: debug
+    attributes:
+      - ref: cynosure.ory.method
+        requirement_level: required
+      - ref: cynosure.ory.path
+        requirement_level: required
+
+  - name: cynosure.ory.request_finished
+    brief: "Log event when a request to Ory Admin API is finished."
+    stability: development
+    annotations:
+      severity: debug
+    attributes:
+      - ref: cynosure.ory.method
+        requirement_level: required
+      - ref: cynosure.ory.path
+        requirement_level: required
+      - ref: cynosure.ory.status
+        requirement_level: required
+
+spans:
+  - type: cynosure.adapters.ory.initiate_request
+    kind: internal
+    brief: "Span for initiating a request to Ory Admin API."
+    stability: development
+    name:
+      note: "InitiateRequest"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: cynosure.identity.user_id
+        requirement_level: required

@@ -1,6 +1,10 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
+)
 
 type (
 	DisableMcpAccountInput struct {
@@ -8,9 +12,12 @@ type (
 	}
 )
 
-func (c *Controller) DisableMcpAccount(_ context.Context, in DisableMcpAccountInput) (struct{}, error) {
-	userID := userID // TODO: get it from context
+func (c *Controller) DisableMcpAccount(ctx context.Context, in DisableMcpAccountInput) (struct{}, error) {
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return struct{}{}, fmt.Errorf("missing user ID in context")
+	}
 	_ = userID
 
-	return struct{}{}, nil
+	return struct{}{}, errors.New("unimplemented")
 }

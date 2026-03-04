@@ -26,7 +26,7 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 	}
 
 	switch candidate.Content.Role {
-	case genai.RoleModel:
+	case genai.RoleModel, "":
 		parts := candidate.Content.Parts
 		if len(parts) == 0 {
 			return nil, "", nil, fmt.Errorf("candidate content has no parts")

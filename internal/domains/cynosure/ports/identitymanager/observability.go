@@ -76,6 +76,21 @@ func (o *observable) createUser(ctx context.Context, telegramID string, nickname
 	return ctx, &spanCallback{span: span}
 }
 
+type issueTokenCallback interface {
+	span
+}
+
+func (o *observable) issueToken(ctx context.Context, userID string) (context.Context, issueTokenCallback) {
+	ctx, span := o.t.Start(ctx, "cynosure.ports.identity.issue_token",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(
+			attribute.Key("cynosure.identity.user_id").String(userID),
+		),
+	)
+
+	return ctx, &spanCallback{span: span}
+}
+
 // log callbacks
 
 // generic span

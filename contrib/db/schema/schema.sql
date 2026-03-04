@@ -54,6 +54,7 @@ CREATE TABLE agents.mcp_tools (
 
 CREATE TABLE agents.agent_settings (
 	id             UUID PRIMARY KEY,
+	user_id        UUID NOT NULL,
 	model          TEXT NOT NULL,
 	system_message TEXT NOT NULL,
 	temperature    REAL NOT NULL CHECK (temperature >= 0), -- zero value counts as unset

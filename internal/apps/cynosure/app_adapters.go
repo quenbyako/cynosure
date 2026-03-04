@@ -120,5 +120,15 @@ func newOryClient(ctx context.Context, p *appParams) (*ory.Client, error) {
 		return nil, fmt.Errorf("getting ory admin key: %w", err)
 	}
 
-	return ory.New(p.oryEndpoint, string(adminKey), ory.WithObservability(p.observability)), nil
+	clientSecret, err := p.oryClientSecret.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting ory client secret: %w", err)
+	}
+
+	return ory.New(p.oryEndpoint, string(adminKey),
+		ory.WithObservability(p.observability),
+		ory.WithClientCredentials(p.oryClientID, string(clientSecret)),
+		ory.WithScopes(p.oryScopes...),
+		ory.WithRedirectURL(p.oryRedirectURL),
+	), nil
 }

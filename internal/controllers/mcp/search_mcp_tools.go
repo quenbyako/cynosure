@@ -1,6 +1,9 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type (
 	SearchMcpToolsInput struct {
@@ -16,8 +19,11 @@ type (
 	}
 )
 
-func (c *Controller) SearchMcpTools(_ context.Context, in SearchMcpToolsInput) (SearchMcpToolsOutput, error) {
-	userID := userID // TODO: get it from context
+func (c *Controller) SearchMcpTools(ctx context.Context, in SearchMcpToolsInput) (SearchMcpToolsOutput, error) {
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return SearchMcpToolsOutput{}, fmt.Errorf("missing user ID in context")
+	}
 	_ = userID
 
 	return SearchMcpToolsOutput{}, nil

@@ -24,7 +24,7 @@ func (q *Queries) DeleteAgentSettings(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAgentSettings = `-- name: GetAgentSettings :one
-SELECT id, model, system_message, temperature, top_p, stop_words
+SELECT id, user_id, model, system_message, temperature, top_p, stop_words
 FROM agents.agent_settings
 WHERE id = $1::UUID
 `
@@ -36,6 +36,7 @@ func (q *Queries) GetAgentSettings(ctx context.Context, id uuid.UUID) (AgentsAge
 	var i AgentsAgentSetting
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Model,
 		&i.SystemMessage,
 		&i.Temperature,
@@ -46,8 +47,9 @@ func (q *Queries) GetAgentSettings(ctx context.Context, id uuid.UUID) (AgentsAge
 }
 
 const listAgentSettings = `-- name: ListAgentSettings :many
-SELECT id, model, system_message, temperature, top_p, stop_words
+SELECT id, user_id, model, system_message, temperature, top_p, stop_words
 FROM agents.agent_settings
+WHERE user_id = $1::UUID
 ORDER BY model
 `
 
@@ -55,8 +57,8 @@ ORDER BY model
 // Used for admin dashboards or selection menus.
 //
 // Returns: All settings ordered by model name.
-func (q *Queries) ListAgentSettings(ctx context.Context) ([]AgentsAgentSetting, error) {
-	rows, err := q.db.Query(ctx, listAgentSettings)
+func (q *Queries) ListAgentSettings(ctx context.Context, userID uuid.UUID) ([]AgentsAgentSetting, error) {
+	rows, err := q.db.Query(ctx, listAgentSettings, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +68,7 @@ func (q *Queries) ListAgentSettings(ctx context.Context) ([]AgentsAgentSetting, 
 		var i AgentsAgentSetting
 		if err := rows.Scan(
 			&i.ID,
+			&i.UserID,
 			&i.Model,
 			&i.SystemMessage,
 			&i.Temperature,
@@ -83,14 +86,15 @@ func (q *Queries) ListAgentSettings(ctx context.Context) ([]AgentsAgentSetting, 
 }
 
 const upsertAgentSettings = `-- name: UpsertAgentSettings :exec
-INSERT INTO agents.agent_settings (id, model, system_message, temperature, top_p, stop_words)
+INSERT INTO agents.agent_settings (id, user_id, model, system_message, temperature, top_p, stop_words)
 VALUES (
     $1::UUID,
-    $2,
+    $2::UUID,
     $3,
     $4,
     $5,
-    $6
+    $6,
+    $7
 )
 ON CONFLICT (id) DO UPDATE SET
 	model = EXCLUDED.model,
@@ -102,6 +106,7 @@ ON CONFLICT (id) DO UPDATE SET
 
 type UpsertAgentSettingsParams struct {
 	ID            uuid.UUID
+	UserID        uuid.UUID
 	Model         string
 	SystemMessage string
 	Temperature   float32
@@ -114,6 +119,7 @@ type UpsertAgentSettingsParams struct {
 func (q *Queries) UpsertAgentSettings(ctx context.Context, arg UpsertAgentSettingsParams) error {
 	_, err := q.db.Exec(ctx, upsertAgentSettings,
 		arg.ID,
+		arg.UserID,
 		arg.Model,
 		arg.SystemMessage,
 		arg.Temperature,

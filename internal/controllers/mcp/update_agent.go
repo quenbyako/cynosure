@@ -1,6 +1,10 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
+)
 
 type (
 	UpdateAgentInput struct {
@@ -11,9 +15,12 @@ type (
 	}
 )
 
-func (c *Controller) UpdateAgent(_ context.Context, in UpdateAgentInput) (struct{}, error) {
-	userID := userID // TODO: get it from context
+func (c *Controller) UpdateAgent(ctx context.Context, in UpdateAgentInput) (struct{}, error) {
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return struct{}{}, fmt.Errorf("missing user ID in context")
+	}
 	_ = userID
 
-	return struct{}{}, nil
+	return struct{}{}, errors.New("unimplemented")
 }

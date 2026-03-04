@@ -7,7 +7,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
@@ -31,8 +30,6 @@ func newChatUsecase(
 	models ports.AgentStorage,
 	logger chat.LogCallbacks,
 ) *chat.Usecase {
-	defaultModelConfig := must(ids.NewAgentIDFromString(p.defaultModelConfig))
-
 	return chat.New(
 		storage,
 		model,
@@ -42,7 +39,6 @@ func newChatUsecase(
 		server,
 		account,
 		models,
-		defaultModelConfig,
 		chat.WithLogger(logger),
 		chat.WithTracer(p.observability),
 	)
@@ -75,10 +71,21 @@ func newUsersUsecase(
 	p *appParams,
 	identities identitymanager.PortWrapped,
 	agents ports.AgentStorage,
+	accounts ports.AccountStorage,
+	servers ports.ServerStorage,
+	tools ports.ToolStorage,
+	toolClient toolclient.PortWrapped,
+	index ports.ToolSemanticIndex,
 ) *users.Usecase {
 	return users.New(
 		identities,
 		agents,
+		accounts,
+		servers,
+		tools,
+		toolClient,
+		index,
+		p.adminMCPID,
 		users.WithTracerProvider(p.observability),
 	)
 }

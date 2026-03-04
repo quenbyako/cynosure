@@ -45,8 +45,8 @@ SELECT
     u.content AS user_content,
     a.text AS assistant_text,
     a.reasoning AS assistant_reasoning,
-    a.agent_id AS assistant_agent_id,
-    tr.tool_id AS req_tool_id,
+    a.agent_id::UUID AS assistant_agent_id,
+    tr.tool_id::UUID AS req_tool_id,
     tr.tool_name AS req_tool_name,
     tr.tool_call_id AS req_tool_call_id,
     tr.reasoning AS req_reasoning,
@@ -84,8 +84,8 @@ type GetThreadWithMessagesRow struct {
 	UserContent           *string
 	AssistantText         *string
 	AssistantReasoning    *string
-	AssistantAgentID      pgtype.UUID
-	ReqToolID             pgtype.UUID
+	AssistantAgentID      uuid.UUID
+	ReqToolID             uuid.UUID
 	ReqToolName           *string
 	ReqToolCallID         *string
 	ReqReasoning          *string

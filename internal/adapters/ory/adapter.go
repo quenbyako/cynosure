@@ -1,22 +1,17 @@
-// TODO: here we are using raw requests, instead of utilizing openapi schema for
-// ory api. This is a tech debt for sure.
 package ory
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/quenbyako/core"
+	"github.com/quenbyako/cynosure/contrib/ory-openapi/gen/go/ory"
+	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const pkgName = "github.com/quenbyako/cynosure/internal/adapters/ory"
@@ -25,39 +20,48 @@ type Client struct {
 	baseURL  string
 	adminKey string
 
+	// For IssueToken
+	config oauth2.Config
+
+	obs   *observable
 	trace ports.ObserveStack
+
+	api *ory.ClientWithResponses
 }
 
 var _ identitymanager.PortFactory = (*Client)(nil)
 
-type identityTraits struct {
-	TelegramID int64  `json:"telegram_id"`
-	Username   string `json:"username,omitempty"`
-	FirstName  string `json:"first_name,omitempty"`
-	LastName   string `json:"last_name,omitempty"`
-}
-
-type identity struct {
-	ID       string          `json:"id"`
-	Traits   json.RawMessage `json:"traits"`
-	SchemaID string          `json:"schema_id"`
-	State    string          `json:"state"`
-}
-
-type createIdentityBody struct {
-	SchemaID string         `json:"schema_id"`
-	Traits   identityTraits `json:"traits"`
-	State    string         `json:"state"`
+func (a *Client) IdentityManager() identitymanager.PortWrapped {
+	return identitymanager.Wrap(a, a.trace)
 }
 
 type newParams struct {
-	metrics core.Metrics
+	metrics      core.Metrics
+	clientID     string
+	clientSecret string
+	redirectURL  string
+	scopes       []string
 }
 
 type NewOption func(*newParams)
 
 func WithObservability(metrics core.Metrics) NewOption {
 	return func(p *newParams) { p.metrics = metrics }
+}
+
+func WithClientCredentials(clientID, clientSecret string) NewOption {
+	return func(p *newParams) {
+		p.clientID = clientID
+		p.clientSecret = clientSecret
+	}
+}
+
+func WithScopes(scopes ...string) NewOption {
+	return func(p *newParams) { p.scopes = scopes }
+}
+
+func WithRedirectURL(url string) NewOption {
+	return func(p *newParams) { p.redirectURL = url }
 }
 
 func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
@@ -69,151 +73,76 @@ func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
 		opt(&p)
 	}
 
-	return &Client{
+	// TODO: validate config
+	conf := oauth2.Config{
+		ClientID:     p.clientID,
+		ClientSecret: p.clientSecret,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   endpoint.String() + "/oauth2/auth",
+			TokenURL:  endpoint.String() + "/oauth2/token",
+			AuthStyle: oauth2.AuthStyleInHeader,
+		},
+		RedirectURL: p.redirectURL,
+		Scopes:      p.scopes,
+	}
+
+	c := &Client{
 		baseURL:  endpoint.String(),
 		adminKey: adminKey,
+		config:   conf,
+		obs:      newObservable(ports.StackFromCore(p.metrics, pkgName)),
 		trace:    ports.StackFromCore(p.metrics, pkgName),
 	}
+
+	apiClient, err := ory.NewClientWithResponses(c.baseURL, ory.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
+		req.Header.Set("Authorization", "Bearer "+c.adminKey)
+		return nil
+	}))
+	if err != nil {
+		panic(fmt.Errorf("creating ory api client: %w", err))
+	}
+	c.api = apiClient
+
+	if err := c.validate(); err != nil {
+		panic(err)
+	}
+
+	return c
 }
 
-// IdentityManager implements identitymanager.IdentityManagerFactory.
-func (a *Client) IdentityManager() identitymanager.PortWrapped {
-	return identitymanager.Wrap(a, a.trace)
+func (a *Client) Valid() bool { return a != nil && a.validate() == nil }
+
+func (a *Client) validate() error {
+	if a.baseURL == "" {
+		return fmt.Errorf("base url is required")
+	}
+	if a.adminKey == "" {
+		return fmt.Errorf("admin key is required")
+	}
+	if err := validateOauthConfig(a.config); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (a *Client) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, a.baseURL+path, body)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+func validateOauthConfig(conf oauth2.Config) error {
+	if conf.ClientID == "" {
+		return fmt.Errorf("client id is required")
 	}
+	// client secrets are usually optional.
 
-	req.Header.Set("Authorization", "Bearer "+a.adminKey)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if conf.Endpoint.AuthURL == "" {
+		return fmt.Errorf("auth url is required")
 	}
-
-	return http.DefaultClient.Do(req)
-}
-
-// HasUser checks if identity exists in Ory.
-func (a *Client) HasUser(ctx context.Context, id ids.UserID) (bool, error) {
-	resp, err := a.request(ctx, "GET", "/admin/identities/"+id.ID().String(), nil)
-	if err != nil {
-		return false, fmt.Errorf("request failed: %w", err)
+	if conf.Endpoint.TokenURL == "" {
+		return fmt.Errorf("token url is required")
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return false, nil
+	if conf.RedirectURL == "" {
+		return fmt.Errorf("redirect url is required")
 	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return false, fmt.Errorf("ory error (status: %d): %s", resp.StatusCode, string(body))
+	if len(conf.Scopes) == 0 {
+		return fmt.Errorf("scopes are required")
 	}
-
-	return true, nil
-}
-
-// LookupUser searches for an identity by external identifier.
-func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
-	resp, err := a.request(ctx, "GET", "/admin/identities", nil)
-	if err != nil {
-		return ids.UserID{}, fmt.Errorf("performing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return ids.UserID{}, fmt.Errorf("ory error (status: %d): %s", resp.StatusCode, string(body))
-	}
-
-	var identities []identity
-	if err := json.NewDecoder(resp.Body).Decode(&identities); err != nil {
-		return ids.UserID{}, fmt.Errorf("decoding identities: %w", err)
-	}
-
-	for _, identity := range identities {
-		var traits map[string]interface{}
-		if err := json.Unmarshal(identity.Traits, &traits); err != nil {
-			continue
-		}
-
-		tgID, ok := traits["telegram_id"]
-		if !ok {
-			continue
-		}
-
-		var currentID string
-		switch v := tgID.(type) {
-		case float64:
-			currentID = strconv.FormatFloat(v, 'f', -1, 64)
-		case string:
-			currentID = v
-		case int:
-			currentID = strconv.Itoa(v)
-		case int64:
-			currentID = strconv.FormatInt(v, 10)
-		}
-
-		if currentID == externalID {
-			userID, err := ids.NewUserIDFromString(identity.ID)
-			if err != nil {
-				return ids.UserID{}, fmt.Errorf("parsing user id from ory: %w", err)
-			}
-			return userID, nil
-		}
-	}
-
-	return ids.UserID{}, ports.ErrNotFound
-}
-
-const registredIdentitySchema = "5d0946b0f4e2e44a9bb8350f56493fd679fc88927e677b853514aec85046e9718fa956647bb0a035f9465d826591d7dcd330b68d64a655733f7617770083a95c"
-
-// CreateUser creates a new identity in Ory with the given traits.
-func (a *Client) CreateUser(ctx context.Context, externalID, username, firstName, lastName string) (ids.UserID, error) {
-	idInt, err := strconv.ParseInt(externalID, 10, 64)
-	if err != nil {
-		return ids.UserID{}, fmt.Errorf("parsing external id: %w", err)
-	}
-
-	traits := identityTraits{
-		TelegramID: idInt,
-		Username:   username,
-		FirstName:  firstName,
-		LastName:   lastName,
-	}
-
-	bodyObj := createIdentityBody{
-		SchemaID: registredIdentitySchema,
-		Traits:   traits,
-		State:    "active",
-	}
-
-	bodyBytes, err := json.Marshal(bodyObj)
-	if err != nil {
-		return ids.UserID{}, fmt.Errorf("marshaling request body: %w", err)
-	}
-
-	resp, err := a.request(ctx, "POST", "/admin/identities", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return ids.UserID{}, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return ids.UserID{}, fmt.Errorf("ory error (status: %d): %s", resp.StatusCode, string(body))
-	}
-
-	var iden identity
-	if err := json.NewDecoder(resp.Body).Decode(&iden); err != nil {
-		return ids.UserID{}, fmt.Errorf("decoding response: %w", err)
-	}
-
-	userID, err := ids.NewUserIDFromString(iden.ID)
-	if err != nil {
-		return ids.UserID{}, fmt.Errorf("parsing created user id: %w", err)
-	}
-
-	return userID, nil
+	return nil
 }

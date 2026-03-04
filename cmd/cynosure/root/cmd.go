@@ -13,7 +13,6 @@ var _ core.ActionFunc[Config] = Cmd
 
 func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 	cfg := appCtx.Config()
-
 	opts := []cynosure.AppOpts{
 		cynosure.WithGRPCServer(cfg.Port),
 		cynosure.WithHTTPServer(cfg.HttpPort.Register),
@@ -21,12 +20,13 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithTelegramKey(cfg.TelegramKey),
 		cynosure.WithTelegramServer(cfg.TelegramPort.Register),
 		cynosure.WithTelegramPublicAddr(cfg.TelegramPublicAddr),
-		cynosure.WithDefaultModelConfig("e0689c78-4fd0-4eca-a907-8e00515bc88d"),
 		cynosure.WithOry(cfg.OryEndpoint, cfg.OryAdminKey),
+		cynosure.WithOryClientCredentials(cfg.OryClientID, cfg.OryClientSecret),
+		cynosure.WithOAuthCallbackURL(cfg.OAuthRedirectURL),
 		cynosure.WithMCP(cfg.MCPPort.Register),
+		cynosure.WithAdminMCPID(cfg.AdminMCPServerID),
 	}
-
-	if cfg.DatabaseURL != nil || cfg.DatabaseURL.Scheme != "" {
+	if cfg.DatabaseURL != nil && cfg.DatabaseURL.Scheme != "" {
 		opts = append(opts, cynosure.WithDatabaseURL(cfg.DatabaseURL))
 	}
 

@@ -3,6 +3,8 @@ package identitymanager
 import (
 	"context"
 
+	"golang.org/x/oauth2"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -53,4 +55,11 @@ type PortWrite interface {
 	//
 	//  - [ErrAlreadyExists]: if a user with such parameters already exists.
 	CreateUser(ctx context.Context, telegramID, nickname, firstName, lastName string) (ids.UserID, error)
+
+	// IssueToken issues a new OAuth2 token for the given user.
+	//
+	// Throws:
+	//
+	//  - [ErrNotFound]: if the user does not exist.
+	IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error)
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/core/contrib/runtime"
-	"github.com/quenbyako/cynosure/contrib/onelog"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"go.opentelemetry.io/otel/trace"
@@ -18,11 +17,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
-func New(l onelog.Logger) *BaseLogger { return &BaseLogger{l: l} }
+func New(l slog.Handler) *BaseLogger { return &BaseLogger{l: l} }
 
 type BaseLogger struct {
-	l  onelog.Logger
-	ll slog.Handler
+	l slog.Handler
 }
 
 var _ chat.LogCallbacks = (*BaseLogger)(nil)
@@ -37,7 +35,7 @@ type eventBuilder struct {
 }
 
 func (l *BaseLogger) event(ctx context.Context, level slog.Level, eventType string) *eventBuilder {
-	if !l.ll.Enabled(ctx, level) {
+	if !l.l.Enabled(ctx, level) {
 		return nil
 	}
 
@@ -58,7 +56,7 @@ func (l *BaseLogger) event(ctx context.Context, level slog.Level, eventType stri
 		)
 	}
 
-	return &eventBuilder{r: event}
+	return &eventBuilder{ctx: ctx, h: l.l, r: event}
 }
 
 func (e *eventBuilder) Context(attrs ...attribute.KeyValue) *eventBuilder {

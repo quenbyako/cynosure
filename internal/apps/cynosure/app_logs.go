@@ -3,7 +3,6 @@ package cynosure
 import (
 	"github.com/goforj/wire"
 	"github.com/quenbyako/core/contrib/runtime"
-	"github.com/quenbyako/cynosure/contrib/onelog"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
@@ -22,5 +21,5 @@ var (
 )
 
 func newLogger(p *appParams) *logs.BaseLogger {
-	return logs.New(onelog.Wrap(p.observability))
+	return logs.New(p.observability)
 }

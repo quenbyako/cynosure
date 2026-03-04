@@ -44,7 +44,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	}
 	identitymanagerPortWrapped := identitymanager.New(client)
 	usecase2 := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
-	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage)
+	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
 	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, usecase3)
 	if err != nil {
 		return nil, err

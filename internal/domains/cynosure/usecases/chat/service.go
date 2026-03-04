@@ -8,7 +8,6 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
@@ -23,7 +22,6 @@ type Usecase struct {
 	accounts    ports.AccountStorage
 	models      ports.AgentStorage
 
-	defaultModel   ids.AgentID
 	agentLoopTurns uint8
 
 	log   LogCallbacks
@@ -54,7 +52,6 @@ func New(
 	server ports.ServerStorage,
 	account ports.AccountStorage,
 	models ports.AgentStorage,
-	defaultModel ids.AgentID,
 	opts ...NewOpt,
 ) *Usecase {
 	p := newParams{
@@ -76,7 +73,6 @@ func New(
 		models:      models,
 
 		agentLoopTurns: 10,
-		defaultModel:   defaultModel,
 
 		log:   p.log,
 		trace: p.tracer.Tracer(pkgName),
@@ -112,9 +108,6 @@ func (u *Usecase) validate() error {
 	}
 	if u.models == nil {
 		return errors.New("model settings storage is required")
-	}
-	if !u.defaultModel.Valid() {
-		return errors.New("default model is required")
 	}
 
 	return nil

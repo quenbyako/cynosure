@@ -54,7 +54,21 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 		return fmt.Errorf("saving account: %w", err)
 	}
 
-	return s.saveAccountAndTools(ctx, server, account, token)
+	bgCtx := context.WithoutCancel(ctx)
+	bgCtx, discoverToolsSpan := s.trace.Start(bgCtx, "Usecase.ExchangeToken.DiscoverTools")
+
+	// todo: replace to EDA.
+	go func() {
+		defer discoverToolsSpan.End()
+		err := s.saveAccountAndTools(bgCtx, server, account, token)
+		if err != nil {
+			// todo: add logging? or replace to EDA?
+			fmt.Println("Error saving account and tools:", err)
+			discoverToolsSpan.RecordError(err)
+		}
+	}()
+
+	return nil
 }
 
 func (s *Usecase) saveAccountAndTools(ctx context.Context, server entities.ServerConfigReadOnly, account entities.AccountReadOnly, token *oauth2.Token) error {

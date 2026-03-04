@@ -29,7 +29,10 @@ type (
 
 // TODO: this MUST be a usecase, there is too much of logic here
 func (c *Controller) AuthorizeMcpServer(ctx context.Context, in AuthorizeMcpServerInput) (AuthorizeMcpServerOutput, error) {
-	userID := userID // TODO: get it from context
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return AuthorizeMcpServerOutput{}, fmt.Errorf("missing user ID in context")
+	}
 
 	serverURL, err := url.Parse(in.URL)
 	if err != nil {

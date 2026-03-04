@@ -61,8 +61,8 @@ func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 // TODO: need to verify that adapters understand filtering by user id, by
 // creating two users with two ids and retrieving models for each of them.
 func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
-	modelID := ids.RandomAgentID()
 	userID := ids.RandomUserID()
+	modelID:= must(ids.RandomAgentID(userID))
 
 	model := must(entities.NewModelSettings(
 		modelID,
@@ -92,18 +92,15 @@ func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 	t.Run("listing_models", func(t *testing.T) {
 		models, err := s.adapter.ListAgents(t.Context(), userID)
 		require.NoError(t, err, "failed to list models")
-		require.GreaterOrEqual(t, len(models), 1)
+		require.Len(t, models, 1)
+		require.Equal(t, modelID, models[0].ID())
+	})
 
-		// Find our model in the list
-		found := false
-		for _, m := range models {
-			if m.ID() == modelID {
-				found = true
-				require.Equal(t, model.Model(), m.Model())
-				break
-			}
-		}
-		require.True(t, found, "saved model not found in list")
+	t.Run("listing_models_other_user", func(t *testing.T) {
+		otherUser := ids.RandomUserID()
+		models, err := s.adapter.ListAgents(t.Context(), otherUser)
+		require.NoError(t, err, "failed to list models for other user")
+		require.Empty(t, models, "should not find models for other user")
 	})
 
 	t.Run("deleting_model", func(t *testing.T) {

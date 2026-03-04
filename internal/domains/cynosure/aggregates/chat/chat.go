@@ -175,3 +175,25 @@ func (c *Chat) Messages() []messages.Message {
 	defer c.mu.RUnlock()
 	return c.thread.Messages()
 }
+
+func (c *Chat) AgentID() ids.AgentID {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.thread.AgentID()
+}
+
+func (c *Chat) SetAgent(ctx context.Context, agentID ids.AgentID) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.thread.SetAgent(agentID) {
+		return nil
+	}
+
+	if err := c.storage.UpdateThread(ctx, c.thread); err != nil {
+		return fmt.Errorf("saving thread with new agent: %w", err)
+	}
+
+	c.thread.ClearEvents()
+	return nil
+}

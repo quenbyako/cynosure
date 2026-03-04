@@ -30,7 +30,10 @@ type Config struct {
 	FileSecret         *url.URL       `env:"CYNOSURE_FILE_SECRETS" default:""`
 	OryAdminKey        secrets.Secret `env:"CYNOSURE_ORY_ADMIN_API_KEY"`
 	OryEndpoint        *url.URL       `env:"CYNOSURE_ORY_ISSUER_URL"`
-	OryJwksUrl         *url.URL       `env:"CYNOSURE_ORY_JWKS_URL"`
+	OryClientID        string         `env:"CYNOSURE_ORY_CLIENT_ID"`
+	OryClientSecret    secrets.Secret `env:"CYNOSURE_ORY_CLIENT_SECRET"`
+	OAuthRedirectURL   *url.URL       `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
+	AdminMCPServerID   string         `env:"CYNOSURE_ADMIN_MCP_SERVER_ID"`
 
 	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"  default:""`
 	OtlpHost     *url.URL          `env:"CYNOSURE_OTLP_HOST"     default:""`

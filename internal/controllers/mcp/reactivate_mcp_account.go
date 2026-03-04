@@ -1,6 +1,10 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
+)
 
 type (
 	ReactivateMcpAccountInput struct {
@@ -11,9 +15,12 @@ type (
 	}
 )
 
-func (c *Controller) ReactivateMcpAccount(_ context.Context, in ReactivateMcpAccountInput) (ReactivateMcpAccountOutput, error) {
-	userID := userID // TODO: get it from context
+func (c *Controller) ReactivateMcpAccount(ctx context.Context, in ReactivateMcpAccountInput) (ReactivateMcpAccountOutput, error) {
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return ReactivateMcpAccountOutput{}, fmt.Errorf("missing user ID in context")
+	}
 	_ = userID
 
-	return ReactivateMcpAccountOutput{}, nil
+	return ReactivateMcpAccountOutput{}, errors.New("unimplemented")
 }

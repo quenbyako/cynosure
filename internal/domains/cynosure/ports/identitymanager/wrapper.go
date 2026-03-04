@@ -3,6 +3,8 @@ package identitymanager
 import (
 	"context"
 
+	"golang.org/x/oauth2"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -61,6 +63,16 @@ func (i *portWrapped) CreateUser(ctx context.Context, telegramID, nickname, firs
 	defer span.end()
 
 	res, err := i.w.CreateUser(ctx, telegramID, nickname, firstName, lastName)
+	span.recordError(err)
+
+	return res, err
+}
+
+func (i *portWrapped) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
+	ctx, span := i.t.issueToken(ctx, id.ID().String())
+	defer span.end()
+
+	res, err := i.w.IssueToken(ctx, id)
 	span.recordError(err)
 
 	return res, err

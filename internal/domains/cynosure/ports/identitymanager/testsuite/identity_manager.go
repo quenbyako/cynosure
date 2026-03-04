@@ -2,7 +2,9 @@ package testsuite
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -56,8 +58,10 @@ func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
 }
 
 func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
-	externalID := "ext-123"
-	nickname := "tester"
+	id := time.Now().UnixNano() / 1000
+
+	externalID := fmt.Sprintf("%d", id)
+	nickname := fmt.Sprintf("go-test-user-%d", id)
 	firstName := "Test"
 	lastName := "User"
 
@@ -76,6 +80,13 @@ func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
 			gotID, err := s.adapter.LookupUser(t.Context(), externalID)
 			require.NoError(t, err)
 			require.Equal(t, userID, gotID)
+		})
+
+		t.Run("issue_token", func(t *testing.T) {
+			token, err := s.adapter.IssueToken(t.Context(), userID)
+			require.NoError(t, err)
+			require.NotNil(t, token)
+			require.NotEmpty(t, token.AccessToken)
 		})
 	})
 

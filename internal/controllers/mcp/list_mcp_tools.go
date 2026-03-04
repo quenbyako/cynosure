@@ -1,6 +1,9 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type (
 	Tool struct {
@@ -14,8 +17,10 @@ type (
 )
 
 func (c *Controller) ListMcpTools(ctx context.Context, _ struct{}) (ListMCPToolsOutput, error) {
-	userID := userID // TODO: get it from context
-	_ = userID
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return ListMCPToolsOutput{}, fmt.Errorf("missing user ID in context")
+	}
 
 	accounts, err := c.accounts.ListAccounts(ctx, userID)
 	if err != nil {

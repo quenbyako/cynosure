@@ -1,6 +1,10 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
+)
 
 type (
 	CreateAgentInput struct {
@@ -13,9 +17,12 @@ type (
 	}
 )
 
-func (c *Controller) CreateAgent(_ context.Context, in CreateAgentInput) (CreateAgentOutput, error) {
-	userID := userID // TODO: get it from context
+func (c *Controller) CreateAgent(ctx context.Context, in CreateAgentInput) (CreateAgentOutput, error) {
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return CreateAgentOutput{}, fmt.Errorf("missing user ID in context")
+	}
 	_ = userID
 
-	return CreateAgentOutput{}, nil
+	return CreateAgentOutput{}, errors.New("unimplemented")
 }

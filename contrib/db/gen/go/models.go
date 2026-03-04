@@ -12,6 +12,7 @@ import (
 
 type AgentsAgentSetting struct {
 	ID            uuid.UUID
+	UserID        uuid.UUID
 	Model         string
 	SystemMessage string
 	Temperature   float32

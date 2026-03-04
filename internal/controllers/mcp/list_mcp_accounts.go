@@ -1,6 +1,9 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 type (
 	ListMcpAccountsOutput struct {
@@ -15,7 +18,10 @@ type (
 )
 
 func (c *Controller) ListMcpAccounts(ctx context.Context, _ struct{}) (ListMcpAccountsOutput, error) {
-	userID := userID // TODO: get it from context
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return ListMcpAccountsOutput{}, errors.New("unauthorized")
+	}
 
 	accounts, err := c.accounts.ListAccounts(ctx, userID)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/k0kubun/pp/v3"
 	"github.com/stretchr/testify/require"
 
@@ -51,7 +50,7 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	}
 
 	settings := must(entities.NewModelSettings(
-		must(ids.NewAgentID(uuid.New())),
+		must(ids.RandomAgentID(ids.RandomUserID())),
 		"gemini-2.5-flash",
 	))
 

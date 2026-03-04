@@ -48,6 +48,20 @@ func (AddAccountResponseOK) _AddAccountResponse() {}
 func (r AddAccountResponseOK) AccountID() ids.AccountID { return r.account }
 func (r AddAccountResponseOK) AuthAvailable() bool      { return r.authAvailable }
 
+// This is special case: if user was just created, there must be created a new
+// MCP admin account for user.
+func (s *Usecase) AddAccountByID(ctx context.Context, userID ids.UserID, id ids.ServerID, accName, accDescription string) (AddAccountResponse, error) {
+	ctx, span := s.trace.Start(ctx, "AddAccountByID")
+	defer span.End()
+
+	server, err := s.servers.GetServerInfo(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("getting server info: %w", err)
+	}
+
+	return s.AddAccount(ctx, userID, server.SSELink(), accName, accDescription)
+}
+
 func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL, accName, accDescription string) (AddAccountResponse, error) {
 	ctx, span := s.trace.Start(ctx, "AddAccount")
 	defer span.End()

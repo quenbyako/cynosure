@@ -78,3 +78,17 @@ spans:
         requirement_level: opt_in
       - ref: cynosure.identity.last_name
         requirement_level: opt_in
+
+  - type: cynosure.ports.identity.issue_token
+    kind: internal
+    brief: "Span for issuing a new OAuth2 token."
+    stability: development
+    name:
+      note: "IssueToken"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: cynosure.identity.user_id
+        requirement_level: required

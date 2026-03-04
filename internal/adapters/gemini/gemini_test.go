@@ -52,7 +52,7 @@ func TestMessageFromGenAIContent(t *testing.T) {
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", nil, 0, ids.RandomAgentID())
+			got, _, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", nil, 0, must(ids.RandomAgentID(ids.RandomUserID())))
 			require.NoError(t, err, "expected no error")
 			require.Equal(t, tt.want, got, "unexpected message")
 		})

@@ -1,6 +1,10 @@
 package mcp
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
+)
 
 type (
 	DisableAgentInput struct {
@@ -8,9 +12,12 @@ type (
 	}
 )
 
-func (c *Controller) DisableAgent(_ context.Context, in DisableAgentInput) (struct{}, error) {
-	userID := userID // TODO: get it from context
+func (c *Controller) DisableAgent(ctx context.Context, in DisableAgentInput) (struct{}, error) {
+	userID, ok := FromContext(ctx)
+	if !ok {
+		return struct{}{}, fmt.Errorf("missing user ID in context")
+	}
 	_ = userID
 
-	return struct{}{}, nil
+	return struct{}{}, errors.New("unimplemented")
 }

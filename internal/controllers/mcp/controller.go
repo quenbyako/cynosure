@@ -9,21 +9,16 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
-
-var userID = must(ids.NewUserIDFromString("4588260b-5314-42bd-a087-c7c567947d0a"))
 
 type Controller struct {
 	accounts *accounts.Usecase
 }
 
 type newParams struct {
-	// specific case: mcp server has specific request for slog logger,
-	// unforutnately, it's impossible (yet) to pass callbacks instead of plain
-	// logger.
-	logger slog.Handler
+	logger         slog.Handler
+	allowedIssuers []string
 }
 
 type NewOption func(*newParams)
@@ -32,7 +27,11 @@ func WithLogger(logger slog.Handler) NewOption {
 	return func(p *newParams) { p.logger = logger }
 }
 
-func New( accounts *accounts.Usecase, impl mcp.Implementation, opts ...NewOption) http.Handler {
+func WithAllowedIssuers(issuers ...string) NewOption {
+	return func(p *newParams) { p.allowedIssuers = issuers }
+}
+
+func New(accounts *accounts.Usecase, impl mcp.Implementation, opts ...NewOption) http.Handler {
 	p := newParams{
 		logger: slog.DiscardHandler,
 	}
@@ -58,7 +57,7 @@ func New( accounts *accounts.Usecase, impl mcp.Implementation, opts ...NewOption
 		JSONResponse: true,
 	}))
 
-	return mux
+	return Middleware(p.allowedIssuers, slog.New(p.logger))(mux)
 }
 
 func (c *Controller) validate() error {

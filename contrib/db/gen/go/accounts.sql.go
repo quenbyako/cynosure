@@ -181,8 +181,8 @@ func (q *Queries) GetAccountsBatch(ctx context.Context, accountIds []uuid.UUID) 
 
 const getTool = `-- name: GetTool :one
 SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name
-FROM agents.mcp_tools t
-JOIN agents.mcp_accounts a ON t.account_id = a.id
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
 WHERE t.id = $1 AND t.account_id = $2 AND t.deleted_at IS NULL
 `
 
@@ -360,8 +360,8 @@ func (q *Queries) ListToolsForAccounts(ctx context.Context, accountIds []uuid.UU
 const searchToolsByEmbedding = `-- name: SearchToolsByEmbedding :many
 SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
        1 - (t.embedding <=> $1::vector) AS similarity
-FROM agents.mcp_tools t
-JOIN agents.mcp_accounts a ON t.account_id = a.id
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
 WHERE t.deleted_at IS NULL
   AND t.account_id = ANY($2::uuid[])
 ORDER BY t.embedding <=> $1::vector
