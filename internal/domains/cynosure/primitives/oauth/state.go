@@ -20,7 +20,7 @@ type State struct {
 	name      string
 	desc      string
 	challenge []byte
-	ExpireAt  time.Time
+	expireAt  time.Time
 
 	valid bool
 }
@@ -37,7 +37,7 @@ func NewState(
 		name:      name,
 		desc:      desc,
 		challenge: challenge,
-		ExpireAt:  expireAt,
+		expireAt:  expireAt,
 	}
 	if err := s.validate(); err != nil {
 		return State{}, err
@@ -67,11 +67,11 @@ func StateFromToken(token string, k [16]byte) (State, error) {
 	server := must(ids.NewServerID(res.Payload.ServerID))
 
 	s := State{
-		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID, ids.WithSlug(res.Payload.AccountName))),
+		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID)),
 		name:      res.Payload.AccountName,
 		desc:      res.Payload.AccountDesc,
 		challenge: res.Payload.Challenge,
-		ExpireAt:  time.Unix(int64(res.Payload.Expiration), 0).UTC(),
+		expireAt:  time.Unix(int64(res.Payload.Expiration), 0).UTC(),
 	}
 	if err := s.validate(); err != nil {
 		return State{}, err
@@ -129,7 +129,7 @@ func (s *State) State(kid string, k [16]byte) string {
 				Issuer:     "",
 				Subject:    "",
 				Audience:   "",
-				Expiration: uint64(s.ExpireAt.Unix()),
+				Expiration: uint64(s.expireAt.Unix()),
 				NotBefore:  0,
 				IssuedAt:   0,
 				CWTID:      key.ByteStr(nil),

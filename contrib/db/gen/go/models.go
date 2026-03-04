@@ -12,6 +12,7 @@ import (
 
 type AgentsAgentSetting struct {
 	ID            uuid.UUID
+	UserID        uuid.UUID
 	Model         string
 	SystemMessage string
 	Temperature   float32
@@ -112,13 +113,4 @@ type AgentsThread struct {
 	UserID         uuid.UUID
 	CreatedAt      pgtype.Timestamptz
 	LastMessagePos int64
-}
-
-type AgentsUser struct {
-	ID uuid.UUID
-}
-
-type AgentsUserTelegram struct {
-	UserID     uuid.UUID
-	TelegramID int64
 }

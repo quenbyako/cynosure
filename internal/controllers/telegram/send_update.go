@@ -2,14 +2,17 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/time/rate"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
@@ -48,8 +51,34 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 
 	// We resolve basic info synchronously to ensure we can respond with error if something is fundamentally wrong.
 	// But the actual heavy generation happens in background.
-	userID, err := h.users.EnsureUser(requestCtx, "telegram", strconv.Itoa(msg.From.Id))
+	var nickname, firstName, lastName string
+	if msg.From.Username != nil {
+		nickname = *msg.From.Username
+	}
+	firstName = msg.From.FirstName
+	if msg.From.LastName != nil {
+		lastName = *msg.From.LastName
+	}
+
+	userID, err := h.users.EnsureUser(requestCtx, strconv.Itoa(msg.From.Id), nickname, firstName, lastName)
 	if err != nil {
+		if errors.Is(err, identitymanager.ErrRateLimited) {
+			traceID := trace.SpanFromContext(requestCtx).SpanContext().TraceID()
+			text := "Sorry, I'm currently overwhelmed with requests. Please try again in a moment."
+			if traceID.IsValid() {
+				text += fmt.Sprintf(" (trace id: %s)", traceID.String())
+			}
+
+			_, err := h.client.SendMessageWithResponse(requestCtx, botapi.SendMessageJSONRequestBody{
+				ChatId:          chatID,
+				MessageThreadId: msg.MessageThreadId,
+				Text:            text,
+			})
+			if err != nil {
+				h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("sending error message: %w", err))
+			}
+			return noContentResponse{}, nil
+		}
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making user id: %w", err))
 		return noContentResponse{}, nil
 	}

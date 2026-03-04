@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
@@ -95,18 +94,12 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 			reasoning = *row.AssistantReasoning
 		}
 
-		var agentID ids.AgentID
-		if !row.AssistantAgentID.Valid {
-			// If agent ID is missing in DB (unlikely due to NOT NULL), we fail?
-			// Schema says NOT NULL, so it should be valid.
-			return nil, fmt.Errorf("assistant agent id is missing")
+		userID, err := ids.NewUserID(row.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid user id: %w", err)
 		}
 
-		var err error
-		// Convert pgtype.UUID (Bytes [16]byte) to uuid.UUID
-		uid := uuid.UUID(row.AssistantAgentID.Bytes)
-
-		agentID, err = ids.NewAgentID(uid)
+		agentID, err := ids.NewAgentID(userID, row.AssistantAgentID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid agent id: %w", err)
 		}

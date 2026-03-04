@@ -6,7 +6,6 @@ import (
 	"math"
 	"testing"
 
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -42,7 +41,7 @@ func RunToolSemanticIndexTests(a ports.ToolSemanticIndex, opts ...ToolSemanticIn
 		panic(err)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 func (s *ToolSemanticIndexTestSuite) validate() error {
@@ -300,11 +299,13 @@ func (s *ToolSemanticIndexTestSuite) buildTool(t *testing.T, name, description s
 
 	tool, err := entities.NewTool(
 		must(ids.RandomToolID(account)),
+		"test-account",
 		name,
 		description,
 		schema,
 		responseSchema,
 	)
+
 	require.NoError(t, err, "failed to create tool: %q", name)
 
 	return tool

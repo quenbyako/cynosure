@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://github.com/open-telemetry/weaver/raw/refs/heads/main/schemas/semconv.schema.v2.json
+
+attributes:
+  - key: cynosure.account.id
+    stability: development
+    type: string
+    brief: The ID of the account.
+    examples: ["12345678-1234-1234-1234-1234567890ab"]
+
+spans:
+  - type: cynosure.ports.tool.discover_tools
+    kind: internal
+    brief: "Span for discovering tools (wrapper)."
+    stability: development
+    name:
+      note: "DiscoverTools"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: mcp.resource.uri
+        requirement_level: required
+      - ref: cynosure.account.id
+        requirement_level: required
+
+  - type: cynosure.ports.tool.execute_tool
+    kind: internal
+    brief: "Span for executing a tool (wrapper)."
+    stability: development
+    name:
+      note: "ExecuteTool"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: gen_ai.tool.call.arguments
+        requirement_level: required
+      - ref: gen_ai.tool.call.id
+        requirement_level: required
+      - ref: gen_ai.tool.name
+        requirement_level: required
+      - ref: gen_ai.tool.type
+        requirement_level: required
+      - ref: gen_ai.tool.call.result
+        requirement_level: required

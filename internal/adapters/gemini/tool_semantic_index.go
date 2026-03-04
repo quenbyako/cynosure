@@ -49,12 +49,13 @@ func (g *GeminiModel) BuildToolEmbedding(ctx context.Context, msgs []messages.Me
 // IndexTool implements ports.ToolSemanticIndex.
 func (g *GeminiModel) IndexTool(ctx context.Context, tool entities.ToolReadOnly) ([embeddingSize]float32, error) {
 	// Serialize tool definition
-	schema := tool.ParamsSchema()
+	schema := tool.InputSchema()
 	schemaBytes, _ := json.Marshal(schema)
 
-	content := fmt.Sprintf("Tool Name: %s\nDescription: %s\nArguments: %s",
+	content := fmt.Sprintf("Tool Name: %s\nAccount: %s\nDescription: %s\nArguments: %s",
 		tool.Name(),
-		tool.Desc(),
+		tool.AccountName(),
+		tool.Description(),
 		string(schemaBytes),
 	)
 
@@ -62,6 +63,9 @@ func (g *GeminiModel) IndexTool(ctx context.Context, tool entities.ToolReadOnly)
 }
 
 func (g *GeminiModel) embed(ctx context.Context, content string, taskType string) ([embeddingSize]float32, error) {
+	ctx, span := g.trace.Start(ctx, "Gemini.embed")
+	defer span.End()
+
 	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, []*genai.Content{
 		{Parts: []*genai.Part{genai.NewPartFromText(content)}},
 	}, &genai.EmbedContentConfig{

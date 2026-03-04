@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
@@ -15,14 +15,13 @@ const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecase
 type Usecase struct {
 	storage     ports.ThreadStorage
 	model       ports.ChatModel
-	tools       ports.ToolClient
+	tools       toolclient.Port
 	indexer     ports.ToolSemanticIndex
 	toolStorage ports.ToolStorage
 	servers     ports.ServerStorage
 	accounts    ports.AccountStorage
 	models      ports.AgentStorage
 
-	defaultModel   ids.AgentID
 	agentLoopTurns uint8
 
 	log   LogCallbacks
@@ -47,13 +46,12 @@ func WithTracer(tracer trace.TracerProvider) NewOpt {
 func New(
 	storage ports.ThreadStorage,
 	model ports.ChatModel,
-	tool ports.ToolClient,
+	tool toolclient.Port,
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,
 	models ports.AgentStorage,
-	defaultModel ids.AgentID,
 	opts ...NewOpt,
 ) *Usecase {
 	p := newParams{
@@ -75,7 +73,6 @@ func New(
 		models:      models,
 
 		agentLoopTurns: 10,
-		defaultModel:   defaultModel,
 
 		log:   p.log,
 		trace: p.tracer.Tracer(pkgName),
@@ -111,9 +108,6 @@ func (u *Usecase) validate() error {
 	}
 	if u.models == nil {
 		return errors.New("model settings storage is required")
-	}
-	if !u.defaultModel.Valid() {
-		return errors.New("default model is required")
 	}
 
 	return nil

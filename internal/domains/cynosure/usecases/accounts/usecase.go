@@ -1,14 +1,21 @@
 package accounts
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
+	"net/url"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
@@ -18,27 +25,29 @@ var (
 )
 
 type Usecase struct {
-	oauth      ports.OAuthHandler
+	oauth      oauthhandler.Port
 	servers    ports.ServerStorage
 	accounts   ports.AccountStorage
 	tools      ports.ToolStorage
 	index      ports.ToolSemanticIndex
-	toolClient ports.ToolClient
-	users      ports.UserStorage
+	toolClient toolclient.Port
+	users      identitymanager.Port
 	clock      func() time.Time
 
-	oauthClientName string
-	key             [16]byte
-	stateExpiration time.Duration
+	key              [16]byte
+	stateExpiration  time.Duration
+	oauthClientName  string
+	oauthRedirectURL *url.URL
 
 	trace trace.Tracer
 }
 
 type newParams struct {
-	clientName      string
-	fixedKey        [16]byte
-	stateExpiration time.Duration
-	tracer          trace.TracerProvider
+	clientName       string
+	fixedKey         [16]byte
+	stateExpiration  time.Duration
+	tracer           trace.TracerProvider
+	oauthRedirectURL *url.URL
 }
 
 type NewOption func(*newParams)
@@ -55,11 +64,27 @@ func WithStateExpiration(d time.Duration) NewOption {
 	return func(p *newParams) { p.stateExpiration = d }
 }
 
+func WithOAuthRedirectURL(u *url.URL) NewOption {
+	return func(p *newParams) { p.oauthRedirectURL = u }
+}
+
 func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-func New(servers ports.ServerStorage, oauth ports.OAuthHandler, accounts ports.AccountStorage, tools ports.ToolStorage, index ports.ToolSemanticIndex, toolClient ports.ToolClient, users ports.UserStorage, opts ...NewOption) *Usecase {
+func New(
+	servers ports.ServerStorage,
+	oauth oauthhandler.Port,
+	accounts ports.AccountStorage,
+	tools ports.ToolStorage,
+	index ports.ToolSemanticIndex,
+	toolClient toolclient.Port,
+	users identitymanager.Port,
+	opts ...NewOption,
+) (
+	*Usecase,
+	error,
+) {
 	p := newParams{
 		clientName:      "test-client",
 		fixedKey:        randomAuthKey(),
@@ -80,17 +105,18 @@ func New(servers ports.ServerStorage, oauth ports.OAuthHandler, accounts ports.A
 		users:      users,
 		clock:      time.Now,
 
-		oauthClientName: p.clientName,
-		key:             p.fixedKey,
-		stateExpiration: p.stateExpiration,
+		oauthRedirectURL: p.oauthRedirectURL,
+		oauthClientName:  p.clientName,
+		key:              p.fixedKey,
+		stateExpiration:  p.stateExpiration,
 
 		trace: p.tracer.Tracer(pkgName),
 	}
 	if err := s.validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return s
+	return s, nil
 }
 
 func (s *Usecase) validate() error {
@@ -115,6 +141,9 @@ func (s *Usecase) validate() error {
 	if s.users == nil {
 		return errors.New("user storage is required")
 	}
+	if s.oauthRedirectURL == nil {
+		return errors.New("OAuth redirect URL is required")
+	}
 	if s.oauthClientName == "" {
 		return errors.New("OAuth client name is required")
 	}
@@ -126,6 +155,10 @@ func (s *Usecase) validate() error {
 	}
 
 	return nil
+}
+
+func (s *Usecase) GetServerInfo(ctx context.Context, id ids.ServerID) (entities.ServerConfigReadOnly, error) {
+	return s.servers.GetServerInfo(ctx, id)
 }
 
 func randomAuthKey() [16]byte {

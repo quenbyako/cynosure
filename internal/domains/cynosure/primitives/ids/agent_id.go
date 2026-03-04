@@ -7,30 +7,32 @@ import (
 )
 
 type AgentID struct {
-	id uuid.UUID
+	user UserID
+	id   uuid.UUID
 
 	valid bool
 }
 
-func RandomAgentID() AgentID {
-	if id, err := NewAgentID(uuid.New()); err == nil {
-		return id
+func RandomAgentID(user UserID) (AgentID, error) {
+	if id, err := NewAgentID(user, uuid.New()); err != nil {
+		return AgentID{}, err
 	} else {
-		panic(err)
+		return id, nil
 	}
 }
 
-func NewAgentIDFromString(id string) (AgentID, error) {
+func NewAgentIDFromString(user UserID, id string) (AgentID, error) {
 	modelConfigID, err := uuid.Parse(id)
 	if err != nil {
 		return AgentID{}, err
 	}
-	return NewAgentID(modelConfigID)
+	return NewAgentID(user, modelConfigID)
 }
 
-func NewAgentID(id uuid.UUID) (AgentID, error) {
+func NewAgentID(user UserID, id uuid.UUID) (AgentID, error) {
 	t := AgentID{
-		id: id,
+		user: user,
+		id:   id,
 	}
 
 	if err := t.validate(); err != nil {
@@ -44,12 +46,16 @@ func NewAgentID(id uuid.UUID) (AgentID, error) {
 
 func (u AgentID) Valid() bool { return u.valid || u.validate() == nil }
 func (u AgentID) validate() error {
-	switch {
-	case u.id == uuid.Nil:
+	if u.id == uuid.Nil {
 		return fmt.Errorf("invalid model config ID: %s", u.id)
-	default:
-		return nil
 	}
+
+	if !u.user.Valid() {
+		return fmt.Errorf("invalid user ID: %v", u.user.ID().String())
+	}
+
+	return nil
 }
 
-func (u AgentID) ID() uuid.UUID { return u.id }
+func (u AgentID) ID() uuid.UUID  { return u.id }
+func (u AgentID) UserID() UserID { return u.user }

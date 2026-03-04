@@ -171,7 +171,7 @@ linters:
     # complains about empty lines at the beginning and end of functions
     - whitespace
     # lines sticking, line break placement after if, for, switch, select
-    - wsl
+    - wsl_v5
     # checks that code identifiers don't contain non-ASCII characters
     - asciicheck
     # Checks the order of declarations and number of types, constants, variables and functions
@@ -256,6 +256,7 @@ linters:
         - wg sync.WaitGroup
     funlen:
       ignore-comments: true
+      # lines: 20
     lll:
       line-length: 100
       tab-width: 4

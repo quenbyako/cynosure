@@ -38,7 +38,7 @@ func (t *Tools) LookupTools(
 			continue
 		}
 
-		accID, err := ids.NewAccountID(user, serverID, acc.ID, ids.WithSlug(acc.Name))
+		accID, err := ids.NewAccountID(user, serverID, acc.ID)
 		if err != nil {
 			continue
 		}
@@ -64,7 +64,7 @@ func (t *Tools) LookupTools(
 			continue
 		}
 
-		toolID, err := ids.NewToolID(accID, row.ID, ids.WithSlug(row.Name))
+		toolID, err := ids.NewToolID(accID, row.ID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid tool id: %w", err)
 		}
@@ -81,12 +81,14 @@ func (t *Tools) LookupTools(
 
 		tool, err := entities.NewTool(
 			toolID,
+			row.AccountName,
 			row.Name,
 			row.Description,
 			row.Input,
 			row.Output,
 			entities.WithEmbedding(toolEmbedding),
 		)
+
 		if err != nil {
 			return nil, fmt.Errorf("map tool: %w", err)
 		}

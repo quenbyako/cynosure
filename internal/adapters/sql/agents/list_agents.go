@@ -10,8 +10,7 @@ import (
 )
 
 func (s *Agents) ListAgents(ctx context.Context, user ids.UserID) ([]*entities.Agent, error) {
-	// TODO: Filter by user_id when added to schema
-	rows, err := s.q.ListAgentSettings(ctx)
+	rows, err := s.q.ListAgentSettings(ctx, user.ID())
 	if err != nil {
 		return nil, fmt.Errorf("list agents: %w", err)
 	}

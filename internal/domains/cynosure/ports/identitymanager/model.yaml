@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://github.com/open-telemetry/weaver/raw/refs/heads/main/schemas/semconv.schema.v2.json
+
+attributes:
+  - key: cynosure.identity.user_id
+    stability: development
+    type: string
+    brief: The internal user ID.
+  - key: cynosure.identity.telegram_id
+    stability: development
+    type: string
+    brief: The Telegram ID of the user.
+  - key: cynosure.identity.nickname
+    stability: development
+    type: string
+    brief: The user's nickname.
+  - key: cynosure.identity.first_name
+    stability: development
+    type: string
+    brief: The user's first name.
+  - key: cynosure.identity.last_name
+    stability: development
+    type: string
+    brief: The user's last name.
+  - key: cynosure.identity.provider
+    stability: development
+    type: string
+    brief: External identity provider name.
+  - key: cynosure.identity.external_id
+    stability: development
+    type: string
+    brief: External identity ID.
+
+spans:
+  - type: cynosure.ports.identity.has_user
+    kind: internal
+    brief: "Span for checking if a user exists."
+    stability: development
+    name:
+      note: "HasUser"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: cynosure.identity.user_id
+        requirement_level: required
+
+  - type: cynosure.ports.identity.lookup_user
+    kind: internal
+    brief: "Span for looking up a user."
+    stability: development
+    name:
+      note: "LookupUser"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: cynosure.identity.telegram_id
+        requirement_level: required
+
+  - type: cynosure.ports.identity.create_user
+    kind: internal
+    brief: "Span for creating a new user."
+    stability: development
+    name:
+      note: "CreateUser"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: cynosure.identity.telegram_id
+        requirement_level: required
+      - ref: cynosure.identity.nickname
+        requirement_level: opt_in
+      - ref: cynosure.identity.first_name
+        requirement_level: opt_in
+      - ref: cynosure.identity.last_name
+        requirement_level: opt_in
+
+  - type: cynosure.ports.identity.issue_token
+    kind: internal
+    brief: "Span for issuing a new OAuth2 token."
+    stability: development
+    name:
+      note: "IssueToken"
+    attributes:
+      - ref: error.type
+        annotations:
+          as_callback: true
+        requirement_level: required
+      - ref: cynosure.identity.user_id
+        requirement_level: required

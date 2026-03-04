@@ -8,7 +8,6 @@ import (
 
 type ToolID struct {
 	id      uuid.UUID
-	slug    string // optional. empty means it doesn't exists
 	account AccountID
 
 	_valid bool
@@ -63,5 +62,4 @@ func (u ToolID) validate() error {
 }
 
 func (u ToolID) ID() uuid.UUID      { return u.id }
-func (u ToolID) Slug() string       { return u.slug }
 func (u ToolID) Account() AccountID { return u.account }

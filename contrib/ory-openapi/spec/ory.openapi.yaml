@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: Ory Cloud API
+  version: "v1.0.0"
+  description: "Unified API for Ory Hydra and Ory Kratos."
+tags:
+  - name: Hydra
+    description: OAuth 2.0 and OpenID Connect provider
+  - name: Kratos
+    description: Identity and User Management
+paths:
+  "/health/ready":
+    get:
+      operationId: GetHealthReady
+      summary: Check HTTP Server and Database Status
+      responses:
+        "200":
+          description: ok
+  "/oauth2/auth":
+    get:
+      operationId: GetOauth2Auth
+      tags: [Hydra]
+      summary: The OAuth 2.0 Authorize Endpoint
+      parameters:
+        - name: login_challenge
+          in: query
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect
+  "/oauth2/token":
+    post:
+      operationId: PostOauth2Token
+      tags: [Hydra]
+      summary: The OAuth 2.0 Token Endpoint
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/oAuth2Token"
+  "/admin/oauth2/auth/requests/login/accept":
+    put:
+      operationId: AcceptLoginRequest
+      tags: [Hydra]
+      summary: Accept a Login Request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/acceptOAuth2LoginRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/oAuth2RedirectTo"
+  "/admin/oauth2/auth/requests/consent/accept":
+    put:
+      operationId: AcceptConsentRequest
+      tags: [Hydra]
+      summary: Accept a Consent Request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/acceptOAuth2ConsentRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/oAuth2RedirectTo"
+  "/admin/identities":
+    get:
+      operationId: ListIdentities
+      tags: [Kratos]
+      summary: List Identities
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Identity"
+    post:
+      operationId: CreateIdentity
+      tags: [Kratos]
+      summary: Create an Identity
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateIdentity"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Identity"
+  "/admin/identities/{id}":
+    get:
+      operationId: GetIdentity
+      tags: [Kratos]
+      summary: Get an Identity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Identity"
+components:
+  schemas:
+    oAuth2Token:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer }
+        token_type: { type: string }
+    oAuth2RedirectTo:
+      type: object
+      properties:
+        redirect_to: { type: string }
+    acceptOAuth2LoginRequest:
+      type: object
+      required: [subject]
+      properties:
+        subject: { type: string }
+        remember: { type: boolean }
+        remember_for: { type: integer }
+    acceptOAuth2ConsentRequest:
+      type: object
+      properties:
+        grant_scope: { type: array, items: { type: string } }
+        remember: { type: boolean }
+        remember_for: { type: integer }
+    Identity:
+      type: object
+      required: [id, traits, schema_id]
+      properties:
+        id: { type: string, format: uuid }
+        schema_id: { type: string }
+        traits: { type: object }
+        state: { type: string }
+    CreateIdentity:
+      type: object
+      required: [schema_id, traits]
+      properties:
+        schema_id: { type: string }
+        traits: { type: object }
+        state: { type: string }

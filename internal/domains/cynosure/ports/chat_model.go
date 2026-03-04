@@ -9,36 +9,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-type StreamOption func(*streamParams)
-
-type streamParams struct {
-	toolChoice tools.ToolChoice
-	tools      tools.Toolbox
-}
-
-func StreamParams(opts ...StreamOption) *streamParams {
-	p := &streamParams{
-		toolChoice: tools.ToolChoiceAllowed,
-		tools:      tools.Toolbox{},
-	}
-	for _, opt := range opts {
-		opt(p)
-	}
-
-	return p
-}
-
-func (s *streamParams) Toolbox() tools.Toolbox       { return s.tools }
-func (s *streamParams) ToolChoice() tools.ToolChoice { return s.toolChoice }
-
-func WithStreamToolbox(toolbox tools.Toolbox) StreamOption {
-	return func(p *streamParams) { p.tools = toolbox }
-}
-
-func WithStreamToolChoice(choice tools.ToolChoice) StreamOption {
-	return func(p *streamParams) { p.toolChoice = choice }
-}
-
 // ChatModel generates AI responses via LLM streaming API. Supports tool
 // calling and custom agent parameters (temperature, system prompt, etc.).
 type ChatModel interface {
@@ -46,11 +16,23 @@ type ChatModel interface {
 	// tool calling when toolbox is provided via StreamOption. Returns iterator
 	// that yields message chunks and errors.
 	//
+	// Options:
+	//
+	//  - [WithStreamToolbox] — sets the toolbox for newly creating tools.
+	//  - [WithStreamToolChoice] — sets the tool choice for newly creating tools.
+	//
 	// See next test suites to find how it works:
 	//
 	//  - [TestStreamBasicResponse] — generating simple text responses
 	//  - [TestStreamWithTools] — tool calling flow and message formatting
 	Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...StreamOption) (iter.Seq2[messages.Message, error], error)
+}
+
+func defaultStreamParams() *streamParams {
+	return &streamParams{
+		toolChoice: tools.ToolChoiceAllowed,
+		tools:      tools.Toolbox{},
+	}
 }
 
 type ChatModelFactory interface {

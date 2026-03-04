@@ -116,9 +116,11 @@ SET account_id = EXCLUDED.account_id,
 --
 -- Returns: All non-deleted tools belonging to valid accounts.
 -- name: ListToolsForAccounts :many
-SELECT id, account_id, name, description, input, output, embedding, deleted_at
-FROM agents.mcp_tools
-WHERE account_id = ANY(sqlc.arg('account_ids')::uuid[]) AND deleted_at IS NULL;
+SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+WHERE t.account_id = ANY(sqlc.arg('account_ids')::uuid[]) AND t.deleted_at IS NULL;
+
 
 -- DeleteAccountToken removes the OAuth token.
 -- Used when revoking access or signing out of a specific integration.
@@ -141,18 +143,20 @@ WHERE id = sqlc.arg('tool_id');
 --
 -- Returns: Tools ordered by similarity (closest first).
 -- name: SearchToolsByEmbedding :many
-SELECT id, account_id, name, description, input, output, embedding, deleted_at,
-       1 - (embedding <=> sqlc.arg('query_embedding')::vector) AS similarity
-FROM agents.mcp_tools
-WHERE deleted_at IS NULL
-  AND account_id = ANY(sqlc.arg('account_ids')::uuid[])
-ORDER BY embedding <=> sqlc.arg('query_embedding')::vector
+SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
+       1 - (t.embedding <=> sqlc.arg('query_embedding')::vector) AS similarity
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+WHERE t.deleted_at IS NULL
+  AND t.account_id = ANY(sqlc.arg('account_ids')::uuid[])
+ORDER BY t.embedding <=> sqlc.arg('query_embedding')::vector
 LIMIT sqlc.arg('limit_count');
 
 -- name: GetTool :one
-SELECT id, account_id, name, description, input, output, embedding, deleted_at
-FROM agents.mcp_tools
-WHERE id = sqlc.arg('tool_id') AND account_id = sqlc.arg('account_id') AND deleted_at IS NULL;
+SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+WHERE t.id = sqlc.arg('tool_id') AND t.account_id = sqlc.arg('account_id') AND t.deleted_at IS NULL;
 
 -- name: DeleteTool :exec
 UPDATE agents.mcp_tools

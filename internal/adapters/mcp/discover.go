@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"golang.org/x/oauth2"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
@@ -17,27 +16,30 @@ import (
 // DiscoverTools implements ports.ToolManager.
 // Retrieves the list of available tools from the specified account's MCP server.
 // This is the tool discovery phase of the MCP protocol.
-func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.Token, account ids.AccountID, accountDesc string) ([]tools.RawToolInfo, error) {
-	httpClient := http.DefaultClient
-	if token != nil {
-		httpClient = oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	}
+func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawToolInfo, error) {
+	p := toolclient.DiscoverToolsParams(opts...)
 
-	// Use 0 (invalid/unknown) as preferred protocol to force probing
-	client, err := newAsyncClient(ctx, u, httpClient, 0)
+	var client *asyncClient
+	var err error
+
+	if token := p.Token(); token == nil {
+		client, err = h.factory.GetAnonymous(ctx, u, tools.ProtocolUnknown)
+	} else {
+		client, err = h.factory.GetPartiallyAuthorized(ctx, u, token, tools.ProtocolUnknown)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("connecting to %v: %w", u.String(), err)
+		return nil, MapError(err)
 	}
 	defer client.Close()
 
 	// Call the MCP ListTools method to get available tools
 	result, err := client.session.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {
-		return nil, fmt.Errorf("listing tools from MCP server: %w", err)
+		return nil, MapError(err)
 	}
 
 	// Convert MCP tool definitions to domain ToolInfo
-	discoveredTools := make([]tools.RawToolInfo, 0, len(result.Tools)) // Changed ToolInfo to RawToolInfo
+	discoveredTools := make([]tools.RawToolInfo, 0, len(result.Tools))
 	for _, mcpTool := range result.Tools {
 		// Marshal input schema from MCP tool definition
 		inputSchema, err := json.Marshal(mcpTool.InputSchema)
@@ -46,7 +48,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 		}
 
 		// MCP tools may not have output schema defined, use default empty schema
-		outputSchema := []byte(`{"type": "string"}`)
+		outputSchema := []byte(`{"type":"string"}`)
 		if mcpTool.OutputSchema != nil {
 			outputSchema, err = json.Marshal(mcpTool.OutputSchema)
 			if err != nil {
@@ -54,7 +56,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 			}
 		}
 
-		toolID, err := ids.RandomToolID(account, ids.WithSlug(mcpTool.Name))
+		toolID, err := p.ToolIDBuilder()(account, mcpTool.Name)
 		if err != nil {
 			return nil, fmt.Errorf("creating tool id for tool %q: %w", mcpTool.Name, err)
 		}
@@ -62,7 +64,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, token *oauth2.T
 		// Create domain ToolInfo from MCP definition
 		tool, err := tools.NewRawToolInfo( // Changed NewToolInfo to NewRawToolInfo, and toolInfo to tool
 			mcpTool.Name, mcpTool.Description, inputSchema, outputSchema,
-			tools.WithMergedTool(toolID, accountDesc),
+			tools.WithMergedTool(toolID, accountSlug, accountDesc),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating tool info for tool %q: %w", mcpTool.Name, err)

@@ -132,20 +132,13 @@ func (c *ServerConfig) Protocol() (tools.Protocol, bool) {
 	return c.protocol, c.protocol.Valid()
 }
 
-// PreferredProtocol returns the protocol that should be tried first for new connections.
-// Business Logic:
-//   - If no detection history exists, return HTTP (universal fallback)
-//   - If detection history exists, return the known working protocol
 func (c *ServerConfig) PreferredProtocol() tools.Protocol {
-	if !c.protocol.Valid() {
-		return tools.ProtocolHTTP // Default for new servers
-	}
-	return c.protocol // Known working protocol
+	return c.protocol
 }
 
 // WRITE
 
-func (c *ServerConfig) UpdateOAuthConfig(cfg *oauth2.Config) error {
+func (c *ServerConfig) SetOAuthConfig(cfg *oauth2.Config) error {
 	if err := c.validateConfig(cfg); err != nil {
 		return err
 	}

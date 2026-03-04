@@ -9,6 +9,9 @@ package cynosure
 import (
 	"context"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
 // Injectors from wire.go:
@@ -26,20 +29,23 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	}
 	chatModel := ports.NewChatModel(geminiModel)
 	handler := newOAuthHandler(config)
-	oAuthHandler := ports.NewOAuthHandler(handler)
+	portWrapped := oauthhandler.New(handler)
 	serverStorage := ports.NewServerStorage(adapter)
 	accountStorage := ports.NewAccountStorage(adapter)
-	mcpHandler := newMCPHandler(config, oAuthHandler, serverStorage, accountStorage)
-	toolClient := ports.NewToolClient(mcpHandler)
+	mcpHandler := newMCPHandler(config, portWrapped, serverStorage, accountStorage)
+	toolclientPortWrapped := toolclient.New(mcpHandler)
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
 	toolStorage := ports.NewToolStorage(adapter)
 	agentStorage := ports.NewAgentStorage(adapter)
-	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, toolClient, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
-	userStorage := ports.NewUserStorage(adapter)
-	usecase2 := newAccountsUsecase(config, serverStorage, oAuthHandler, accountStorage, toolStorage, toolSemanticIndex, toolClient, userStorage)
-	service := newServersUsecase(config, serverStorage, oAuthHandler)
-	usecase3 := newUsersUsecase(config, userStorage, agentStorage)
-	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, service, usecase3)
+	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	client, err := newOryClient(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	identitymanagerPortWrapped := identitymanager.New(client)
+	usecase2 := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
+	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
+	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, usecase3)
 	if err != nil {
 		return nil, err
 	}

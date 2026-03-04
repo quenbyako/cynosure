@@ -35,20 +35,41 @@ func (s *Usecase) GenerateResponse(ctx context.Context, threadID ids.ThreadID, m
 
 	p := generateResponseParams{
 		toolChoice: tools.ToolChoiceAllowed,
-		model:      s.defaultModel,
 	}
 	for _, opt := range opts {
 		opt(&p)
 	}
 
-	modelConfig, err := s.models.GetAgent(ctx, p.model)
-	if err != nil {
-		return nil, fmt.Errorf("getting model: %w", err)
-	}
-
 	c, err := s.loadOrCreateChat(ctx, threadID, msg)
 	if err != nil {
 		return nil, err
+	}
+
+	agentID := p.model
+	if !agentID.Valid() {
+		agentID = c.AgentID()
+	}
+
+	if !agentID.Valid() {
+		// Deduced from user
+		agents, err := s.models.ListAgents(ctx, threadID.User())
+		if err != nil {
+			return nil, fmt.Errorf("listing user agents: %w", err)
+		}
+		if len(agents) == 0 {
+			return nil, fmt.Errorf("no agents found for user %v", threadID.User())
+		}
+
+		// TODO: need to select agent. For now, just take the first one.
+		agentID = agents[0].ID()
+		if err := c.SetAgent(ctx, agentID); err != nil {
+			return nil, fmt.Errorf("setting default agent to thread: %w", err)
+		}
+	}
+
+	modelConfig, err := s.models.GetAgent(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("getting model: %w", err)
 	}
 
 	return s.agentLoop(ctx, c, modelConfig, p.toolChoice), nil
@@ -94,14 +115,14 @@ func (s *Usecase) agentLoop(ctx context.Context, c *chat.Chat, config entities.A
 				return
 			}
 
-			s.log.ToolCalled(ctx, c.ThreadID(), toolRequests)
+			s.log.ToolCalled(ctx, c.ThreadID().String(), toolRequests)
 
 			if !s.executeTools(ctx, c, toolRequests, yield) {
 				return
 			}
 
 			if turn == s.agentLoopTurns-1 {
-				s.log.MaxTurnsReached(ctx, c.ThreadID())
+				s.log.MaxTurnsReached(ctx, c.ThreadID().String())
 			}
 		}
 	}
@@ -199,7 +220,7 @@ func (s *Usecase) executeTool(ctx context.Context, c *chat.Chat, req messages.Me
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Tool not found: %v", err), yield)
 	}
 
-	result, err := s.tools.ExecuteTool(ctx, *tool, cleanArgs, req.ToolCallID())
+	result, err := s.tools.ExecuteTool(ctx, tool, cleanArgs, req.ToolCallID())
 	if err != nil {
 		return yieldToolError(ctx, c, req, fmt.Sprintf("Execution failed: %v", err), yield)
 	}

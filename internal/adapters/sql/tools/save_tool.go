@@ -20,11 +20,12 @@ func (t *Tools) SaveTool(ctx context.Context, tool entities.ToolReadOnly) error 
 		ID:          toolID.ID(),
 		AccountID:   toolID.Account().ID(),
 		Name:        tool.Name(),
-		Description: tool.Desc(),
-		Input:       tool.ParamsSchema(),
-		Output:      tool.ResponseSchema(),
+		Description: tool.Description(),
+		Input:       tool.InputSchema(),
+		Output:      tool.OutputSchema(),
 		Embedding:   &embedVec,
 	})
+
 	if err != nil {
 		return fmt.Errorf("upsert tool: %w", err)
 	}

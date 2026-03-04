@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://github.com/open-telemetry/weaver/raw/refs/heads/main/schemas/semconv.schema.v2.json
+
+spans:
+  - type: cynosure.adapters.gemini.stream
+    kind: internal
+    brief: "Span for Gemini stream processing."
+    stability: development
+    name:
+      note: "GeminiModel.Stream"
+    # [stream.go:164](file:///Users/r0ck3t/macbook_air/repositories/tg-helper/internal/adapters/gemini/stream.go#L164)

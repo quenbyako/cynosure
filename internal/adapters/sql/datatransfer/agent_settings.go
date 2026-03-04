@@ -10,7 +10,12 @@ import (
 
 // ToDomainAgent converts database model to domain entity
 func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
-	id, err := ids.NewAgentID(row.ID)
+	userID, err := ids.NewUserID(row.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id: %w", err)
+	}
+
+	id, err := ids.NewAgentID(userID, row.ID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid agent id: %w", err)
 	}
@@ -33,6 +38,7 @@ func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
 // ToDBAgentParams converts domain entity to DB insert parameters
 func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams, error) {
 	dbID := agent.ID().ID()
+	userID := agent.ID().UserID().ID()
 
 	model := agent.Model()
 	sysMsg := agent.SystemMessage()
@@ -55,6 +61,7 @@ func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams
 
 	return db.UpsertAgentSettingsParams{
 		ID:            dbID,
+		UserID:        userID,
 		Model:         model,
 		SystemMessage: sysMsg,
 		Temperature:   temp,

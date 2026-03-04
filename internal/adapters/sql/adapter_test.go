@@ -2,6 +2,7 @@ package sql_test
 
 import (
 	"fmt"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,22 +17,13 @@ func TestAdapter(t *testing.T) {
 
 	// Get connection string from pool for NewAdapter
 	connStr := pool.Config().ConnString()
-	adapter, err := New(t.Context(), connStr)
+	adapter, err := New(t.Context(), must(url.Parse(connStr)))
 	require.NoError(t, err, "Failed to create SQL adapter")
 	require.NotNil(t, adapter, "Adapter should not be nil")
 	t.Cleanup(func() { adapter.Close() })
 
 	// Create fixturer function that inserts required servers before account tests
 	fixturer := func(fixture testsuite.SaveAccountFixture) error {
-		_, err := pool.Exec(
-			t.Context(),
-			"INSERT INTO agents.users (id) VALUES ($1) ON CONFLICT DO NOTHING",
-			fixture.AccountID.User().ID(),
-		)
-		if err != nil {
-			return fmt.Errorf("inserting user: %w", err)
-		}
-
 		_, err = pool.Exec(t.Context(), `
 			INSERT INTO agents.mcp_servers (id, url)
 			VALUES ($1, $2)
@@ -64,11 +56,10 @@ func TestAdapter(t *testing.T) {
 	cleanup := func() error {
 		// cleanup flushes the whole data in the test database leaving ONLY
 		// schema and roles.
-		pool.Exec(t.Context(), "TRUNCATE TABLE agents.model_settings CASCADE")
+		pool.Exec(t.Context(), "TRUNCATE TABLE agents.agent_settings CASCADE")
 		pool.Exec(t.Context(), "TRUNCATE TABLE agents.mcp_accounts CASCADE")
 		pool.Exec(t.Context(), "TRUNCATE TABLE agents.mcp_servers CASCADE")
 		pool.Exec(t.Context(), "TRUNCATE TABLE agents.oauth_configs CASCADE")
-		pool.Exec(t.Context(), "TRUNCATE TABLE agents.users CASCADE")
 
 		return nil
 	}
@@ -85,4 +76,11 @@ func TestAdapter(t *testing.T) {
 	testsuite.RunServerStorageTests(adapter,
 		testsuite.WithServerStorageCleanup(cleanup),
 	)(t)
+}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

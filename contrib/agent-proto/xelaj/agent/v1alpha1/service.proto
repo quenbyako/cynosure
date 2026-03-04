@@ -13,18 +13,19 @@ service AdminService {
 }
 
 message AddServerRequest {
-  string id = 1 [(buf.validate.field).string.uuid = true];
-  string url = 2 [(buf.validate.field).string.uri = true];
+  string url = 1 [(buf.validate.field).string.uri = true];
 }
 
-message AddServerResponse {}
+message AddServerResponse {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
 
 message AuthorizeRequest {
   string server_id = 1 [(buf.validate.field).string.uuid = true];
   string user_id = 2 [(buf.validate.field).string.uuid = true];
   string account_name = 3 [(buf.validate.field).string.pattern = '^[a-zA-Z0-9_-]{3,32}$'];
   string account_desc = 4 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 100
   }];
 }

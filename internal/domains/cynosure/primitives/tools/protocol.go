@@ -9,9 +9,9 @@ import "github.com/quenbyako/cynosure/internal/domains/cynosure/primitives"
 type Protocol uint8
 
 const (
-	_            Protocol = iota
-	ProtocolHTTP          // http
-	ProtocolSSE           // sse
+	ProtocolUnknown Protocol = iota // unknown
+	ProtocolHTTP                    // http
+	ProtocolSSE                     // sse
 )
 
 func ParseProtocol(str string) (res Protocol, err error) {
@@ -25,7 +25,7 @@ func (s *Protocol) UnmarshalText(buf []byte) error {
 
 	for i := range len(_Protocol_index) - 1 {
 		if string(buf) == _Protocol_name[_Protocol_index[i]:_Protocol_index[i+1]] {
-			*s = Protocol(i + 1) //nolint:gosec // codegen won't allow to get overflow
+			*s = Protocol(i) //nolint:gosec // codegen won't allow to get overflow
 			return nil
 		}
 	}
@@ -34,4 +34,4 @@ func (s *Protocol) UnmarshalText(buf []byte) error {
 }
 
 // IsValid checks if the tool choice is valid.
-func (w Protocol) Valid() bool { return w > 0 && w < Protocol(len(_Protocol_index)-1) }
+func (w Protocol) Valid() bool { return w <= Protocol(len(_Protocol_index)-1) }

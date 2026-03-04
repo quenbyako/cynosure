@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	httpapi "github.com/quenbyako/cynosure/contrib/oauth-openapi/v1/go"
+	httpapi "github.com/quenbyako/cynosure/contrib/cynosure-openapi/v1/go"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )

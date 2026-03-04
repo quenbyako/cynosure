@@ -2,19 +2,17 @@ package ports
 
 import (
 	"errors"
+	"fmt"
+	"net/url"
 )
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound      = errors.New("not found")
+	ErrAlreadyExists = errors.New("already exists")
 
 	ErrToolsNotCached = errors.New("tools were not cached")
 
 	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
-
-	// ErrAuthRequired indicates that authentication is required but was not
-	// provided. Use case should prompt user to authenticate or provide OAuth
-	// token.
-	ErrAuthRequired = errors.New("authentication required")
 
 	// ErrServerUnreachable indicates that all connection protocols failed.
 	// Use case should inform user that server is offline or unreachable.
@@ -30,17 +28,22 @@ var (
 )
 
 type RequiresAuthError struct {
-	Endpoint     string
-	State        string
-	CodeVerifier string
+	suggestedMetadataEndpoint *url.URL
 }
 
 var _ error = (*RequiresAuthError)(nil)
 
-func (e *RequiresAuthError) Error() string {
-	return "requires authentication at: " + e.Endpoint
+func ErrRequiresAuth(metadataEndpoint *url.URL) *RequiresAuthError {
+	return &RequiresAuthError{
+		suggestedMetadataEndpoint: metadataEndpoint,
+	}
 }
 
-func ErrRequiresAuth(endpoint, state, codeVerifier string) *RequiresAuthError {
-	return &RequiresAuthError{Endpoint: endpoint, State: state, CodeVerifier: codeVerifier}
+func (e *RequiresAuthError) Error() string {
+	if e.suggestedMetadataEndpoint == nil {
+		return "requires authentication, no metadata endpoint suggested"
+	}
+	return fmt.Sprintf("requires authentication, should use metadata endpoint: %s", e.suggestedMetadataEndpoint.String())
 }
+
+func (e *RequiresAuthError) Endpoint() *url.URL { return e.suggestedMetadataEndpoint }

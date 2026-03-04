@@ -7,17 +7,17 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/google/uuid"
+	mcpraw "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/quenbyako/core"
 	"google.golang.org/grpc"
 
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
+	"github.com/quenbyako/cynosure/internal/controllers/mcp"
 	"github.com/quenbyako/cynosure/internal/controllers/oauth"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/servers"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
@@ -28,19 +28,28 @@ type SecretGetter interface {
 type appParams struct {
 	geminiKey          SecretGetter
 	telegramKey        SecretGetter
-	telegramPublicAddr string
-	defaultModelConfig string
+	telegramPublicAddr *url.URL
+	oryAdminKey        SecretGetter
+	oryEndpoint        *url.URL
+	oryClientID        string
+	oryClientSecret    SecretGetter
 
-	grpcAddr     grpc.ServiceRegistrar
+	grpcAddr grpc.ServiceRegistrar
+	// TODO: join into one handler
 	httpAddr     func(http.Handler)
 	telegramAddr func(http.Handler)
+	mcpAddr      func(http.Handler)
+
+	oryScopes      []string
+	oryRedirectURL string
 
 	observability core.Metrics
 
-	databaseURL   string
+	databaseURL   *url.URL
 	oauthScopes   []string
 	oauthCallback *url.URL
-	anonUser      ids.UserID
+
+	adminMCPID ids.ServerID
 }
 
 func (p *appParams) validate() error {
@@ -51,19 +60,32 @@ func (p *appParams) validate() error {
 	if p.telegramKey == nil {
 		errs = append(errs, errors.New("missing telegramKey"))
 	}
-	if p.telegramPublicAddr == "" {
+	if p.telegramPublicAddr == nil || p.telegramPublicAddr.Scheme == "" {
 		errs = append(errs, errors.New("missing telegramPublicAddr"))
 	}
-	if p.defaultModelConfig == "" {
-		errs = append(errs, errors.New("missing defaultModelConfig"))
-	} else if err := uuid.Validate(p.defaultModelConfig); err != nil {
-		errs = append(errs, fmt.Errorf("invalid defaultModelConfig: %w", err))
+	if p.oryAdminKey == nil {
+		errs = append(errs, errors.New("missing oryAdminKey"))
 	}
-	if !p.anonUser.Valid() {
-		errs = append(errs, errors.New("missing anonUser"))
+	if p.oryEndpoint == nil || p.oryEndpoint.Scheme == "" {
+		errs = append(errs, errors.New("missing oryEndpoint"))
 	}
-	if p.databaseURL == "" {
+	if p.oryClientID == "" {
+		errs = append(errs, errors.New("missing oryClientID"))
+	}
+	if p.oryClientSecret == nil {
+		errs = append(errs, errors.New("missing oryClientSecret"))
+	}
+	if len(p.oryScopes) == 0 {
+		errs = append(errs, errors.New("missing oryScopes"))
+	}
+	if p.oryRedirectURL == "" {
+		errs = append(errs, errors.New("missing oryRedirectURL"))
+	}
+	if p.databaseURL == nil || p.databaseURL.Scheme == "" {
 		errs = append(errs, errors.New("missing database URL"))
+	}
+	if p.adminMCPID.Valid() == false {
+		errs = append(errs, errors.New("missing adminMCPID"))
 	}
 
 	return errors.Join(errs...)
@@ -83,7 +105,7 @@ func WithTelegramServer(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.telegramAddr = registrar }
 }
 
-func WithTelegramPublicAddr(addr string) AppOpts {
+func WithTelegramPublicAddr(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.telegramPublicAddr = addr }
 }
 
@@ -99,12 +121,36 @@ func WithObservability(metrics core.Metrics) AppOpts {
 	return func(p *appParams) { p.observability = metrics }
 }
 
-func WithDefaultModelConfig(modelID string) AppOpts {
-	return func(p *appParams) { p.defaultModelConfig = modelID }
+func WithDatabaseURL(addr *url.URL) AppOpts {
+	return func(p *appParams) { p.databaseURL = addr }
 }
 
-func WithDatabaseURL(url string) AppOpts {
-	return func(p *appParams) { p.databaseURL = url }
+func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
+	return func(p *appParams) { p.oryEndpoint, p.oryAdminKey = endpoint, adminKey }
+}
+
+func WithOryClientCredentials(clientID string, clientSecret SecretGetter) AppOpts {
+	return func(p *appParams) { p.oryClientID, p.oryClientSecret = clientID, clientSecret }
+}
+
+func WithOryScopes(scopes ...string) AppOpts {
+	return func(p *appParams) { p.oryScopes = scopes }
+}
+
+func WithOryRedirectURL(url string) AppOpts {
+	return func(p *appParams) { p.oryRedirectURL = url }
+}
+
+func WithOAuthCallbackURL(u *url.URL) AppOpts {
+	return func(p *appParams) { p.oauthCallback = u }
+}
+
+func WithMCP(registrar func(http.Handler)) AppOpts {
+	return func(p *appParams) { p.mcpAddr = registrar }
+}
+
+func WithAdminMCPID(id string) AppOpts {
+	return func(p *appParams) { p.adminMCPID = must(ids.NewServerIDFromString(id)) }
 }
 
 func Build(ctx context.Context, opts ...AppOpts) *App {
@@ -113,7 +159,9 @@ func Build(ctx context.Context, opts ...AppOpts) *App {
 
 		oauthScopes:   []string{"mcp.read", "mcp.write"},
 		oauthCallback: must(url.Parse("http://localhost:5002/oauth/callback")),
-		anonUser:      must(ids.NewUserIDFromString("ff06b500-0000-0000-0000-000000000001")),
+
+		oryScopes:      []string{"mcp:read", "mcp:write", "offline_access"},
+		oryRedirectURL: "http://localhost:5001",
 	}
 	for _, opt := range opts {
 		opt(&p)
@@ -125,13 +173,19 @@ func Build(ctx context.Context, opts ...AppOpts) *App {
 	return must(buildApp(ctx, &p))
 }
 
+var mcpImpl = mcpraw.Implementation{
+	Name:       "admin-mcp-server",
+	Title:      "Admin MCP Server",
+	Version:    "1.0.0",
+	WebsiteURL: "https://t.me/zhopakotabot",
+}
+
 func connectDependencies(
 	ctx context.Context,
 	p *appParams,
 	log telegram.LogCallbacks,
 	chat *chat.Usecase,
 	accounts *accounts.Usecase,
-	servers *servers.Service,
 	users *users.Usecase,
 ) (*App, error) {
 	telegramKey, err := p.telegramKey.Get(ctx)
@@ -140,13 +194,20 @@ func connectDependencies(
 	}
 
 	// grpc controllers
-	admin.Register(accounts, servers)(p.grpcAddr)
+	admin.Register(accounts)(p.grpcAddr)
 
 	// http controllers
 	p.httpAddr(oauth.NewHandler(accounts))
 
 	// TODO: each of controllers MUST be separated, like adapters and usecases.
 	p.telegramAddr(must(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability))))
+
+	p.mcpAddr(mcp.New(
+		accounts,
+		mcpImpl,
+		mcp.WithLogger(p.observability),
+		mcp.WithAllowedIssuers(p.oryEndpoint.String()),
+	))
 
 	return &App{}, nil
 }

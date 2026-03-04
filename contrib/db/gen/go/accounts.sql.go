@@ -180,9 +180,10 @@ func (q *Queries) GetAccountsBatch(ctx context.Context, accountIds []uuid.UUID) 
 }
 
 const getTool = `-- name: GetTool :one
-SELECT id, account_id, name, description, input, output, embedding, deleted_at
-FROM agents.mcp_tools
-WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL
+SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+WHERE t.id = $1 AND t.account_id = $2 AND t.deleted_at IS NULL
 `
 
 type GetToolParams struct {
@@ -199,6 +200,7 @@ type GetToolRow struct {
 	Output      []byte
 	Embedding   *pgvector.Vector
 	DeletedAt   pgtype.Timestamptz
+	AccountName string
 }
 
 func (q *Queries) GetTool(ctx context.Context, arg GetToolParams) (GetToolRow, error) {
@@ -213,6 +215,7 @@ func (q *Queries) GetTool(ctx context.Context, arg GetToolParams) (GetToolRow, e
 		&i.Output,
 		&i.Embedding,
 		&i.DeletedAt,
+		&i.AccountName,
 	)
 	return i, err
 }
@@ -302,9 +305,10 @@ func (q *Queries) ListAccountIDs(ctx context.Context, userID uuid.UUID) ([]ListA
 }
 
 const listToolsForAccounts = `-- name: ListToolsForAccounts :many
-SELECT id, account_id, name, description, input, output, embedding, deleted_at
-FROM agents.mcp_tools
-WHERE account_id = ANY($1::uuid[]) AND deleted_at IS NULL
+SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+WHERE t.account_id = ANY($1::uuid[]) AND t.deleted_at IS NULL
 `
 
 type ListToolsForAccountsRow struct {
@@ -316,6 +320,7 @@ type ListToolsForAccountsRow struct {
 	Output      []byte
 	Embedding   *pgvector.Vector
 	DeletedAt   pgtype.Timestamptz
+	AccountName string
 }
 
 // ListToolsForAccounts retrieves all active tools for a given set of accounts.
@@ -340,6 +345,7 @@ func (q *Queries) ListToolsForAccounts(ctx context.Context, accountIds []uuid.UU
 			&i.Output,
 			&i.Embedding,
 			&i.DeletedAt,
+			&i.AccountName,
 		); err != nil {
 			return nil, err
 		}
@@ -352,12 +358,13 @@ func (q *Queries) ListToolsForAccounts(ctx context.Context, accountIds []uuid.UU
 }
 
 const searchToolsByEmbedding = `-- name: SearchToolsByEmbedding :many
-SELECT id, account_id, name, description, input, output, embedding, deleted_at,
-       1 - (embedding <=> $1::vector) AS similarity
-FROM agents.mcp_tools
-WHERE deleted_at IS NULL
-  AND account_id = ANY($2::uuid[])
-ORDER BY embedding <=> $1::vector
+SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
+       1 - (t.embedding <=> $1::vector) AS similarity
+FROM agents.mcp_tools AS t
+JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+WHERE t.deleted_at IS NULL
+  AND t.account_id = ANY($2::uuid[])
+ORDER BY t.embedding <=> $1::vector
 LIMIT $3
 `
 
@@ -376,6 +383,7 @@ type SearchToolsByEmbeddingRow struct {
 	Output      []byte
 	Embedding   *pgvector.Vector
 	DeletedAt   pgtype.Timestamptz
+	AccountName string
 	Similarity  float64
 }
 
@@ -401,6 +409,7 @@ func (q *Queries) SearchToolsByEmbedding(ctx context.Context, arg SearchToolsByE
 			&i.Output,
 			&i.Embedding,
 			&i.DeletedAt,
+			&i.AccountName,
 			&i.Similarity,
 		); err != nil {
 			return nil, err

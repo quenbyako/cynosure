@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	suites "github.com/quenbyako/cynosure/contrib/bettersuites"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -25,7 +24,7 @@ func RunModelSettingsStorageTests(a ports.AgentStorage, opts ...ModelSettingsSto
 		panic(err)
 	}
 
-	return suites.Run(s)
+	return runSuite(s)
 }
 
 type ModelSettingsStorageTestSuite struct {
@@ -34,7 +33,7 @@ type ModelSettingsStorageTestSuite struct {
 	cleanup func() error
 }
 
-var _ suites.AfterTest = (*ModelSettingsStorageTestSuite)(nil)
+var _ afterTest = (*ModelSettingsStorageTestSuite)(nil)
 
 type ModelSettingsStorageTestSuiteOption func(*ModelSettingsStorageTestSuite)
 
@@ -50,7 +49,7 @@ func (s *ModelSettingsStorageTestSuite) validate() error {
 	return nil
 }
 
-func (s *ModelSettingsStorageTestSuite) AfterTest(t *testing.T) {
+func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
@@ -62,8 +61,8 @@ func (s *ModelSettingsStorageTestSuite) AfterTest(t *testing.T) {
 // TODO: need to verify that adapters understand filtering by user id, by
 // creating two users with two ids and retrieving models for each of them.
 func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
-	modelID := ids.RandomAgentID()
 	userID := ids.RandomUserID()
+	modelID:= must(ids.RandomAgentID(userID))
 
 	model := must(entities.NewModelSettings(
 		modelID,
@@ -93,18 +92,15 @@ func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 	t.Run("listing_models", func(t *testing.T) {
 		models, err := s.adapter.ListAgents(t.Context(), userID)
 		require.NoError(t, err, "failed to list models")
-		require.GreaterOrEqual(t, len(models), 1)
+		require.Len(t, models, 1)
+		require.Equal(t, modelID, models[0].ID())
+	})
 
-		// Find our model in the list
-		found := false
-		for _, m := range models {
-			if m.ID() == modelID {
-				found = true
-				require.Equal(t, model.Model(), m.Model())
-				break
-			}
-		}
-		require.True(t, found, "saved model not found in list")
+	t.Run("listing_models_other_user", func(t *testing.T) {
+		otherUser := ids.RandomUserID()
+		models, err := s.adapter.ListAgents(t.Context(), otherUser)
+		require.NoError(t, err, "failed to list models for other user")
+		require.Empty(t, models, "should not find models for other user")
 	})
 
 	t.Run("deleting_model", func(t *testing.T) {

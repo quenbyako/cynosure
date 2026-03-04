@@ -2,28 +2,14 @@ package logs
 
 import (
 	"context"
+	"log/slog"
 	"net"
 
-	"github.com/quenbyako/core/contrib/runtime"
-	"github.com/quenbyako/cynosure/contrib/onelog"
+	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 
-	"github.com/quenbyako/cynosure/internal/adapters/gemini"
-	"github.com/quenbyako/cynosure/internal/controllers/telegram"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
-
-func New(l onelog.Logger) *BaseLogger { return &BaseLogger{l: l} }
-
-type BaseLogger struct {
-	l onelog.Logger
-}
-
-var _ chat.LogCallbacks = (*BaseLogger)(nil)
-var _ gemini.LogCallbacks = (*BaseLogger)(nil)
-var _ telegram.LogCallbacks = (*BaseLogger)(nil)
-var _ runtime.LogCallbacks = (*BaseLogger)(nil)
 
 const (
 	eventMaxTurnsReached      = "generate.max_turns_reached"
@@ -34,89 +20,90 @@ const (
 	eventMetricsStopped       = "metrics.stopped"
 )
 
+const (
+	TelegramChannelID attribute.Key = "telegram.channel_id"
+)
+
 // telegram.LogCallbacks
 
 func (l *BaseLogger) ProcessMessageIssue(ctx context.Context, channelID int, err error) {
-	l.l.Error().Err(err).Int("channel_id", channelID).Msg("message issue")
+	l.event(ctx, slog.LevelError, "message.issue").
+		Context(
+			TelegramChannelID.Int(channelID),
+			semconv.ErrorTypeKey.String(err.Error()),
+		).
+		Msg("message issue")
 }
 
 func (l *BaseLogger) ProcessMessageStart(ctx context.Context, channelID int, messageText string) {
-	l.l.Info().Int("channel_id", channelID).Str("message_text", messageText).Msg("message start")
+	l.event(ctx, slog.LevelInfo, "message.start").
+		Context(
+			TelegramChannelID.Int(channelID),
+			attribute.Key("message.text").String(messageText),
+		).
+		Msg("message start")
 }
 
 func (l *BaseLogger) ProcessMessageSuccess(ctx context.Context, channelID int, duration string) {
-	l.l.Info().Int("channel_id", channelID).Str("duration", duration).Msg("message success")
+	l.event(ctx, slog.LevelInfo, "message.success").
+		Context(
+			TelegramChannelID.Int(channelID),
+			attribute.Key("duration").String(duration),
+		).
+		Msg("message success")
 }
 
-func (l *BaseLogger) MaxTurnsReached(ctx context.Context, threadID ids.ThreadID) {
-	l.l.Warn().
-		Str("event_type", eventMaxTurnsReached).
-		Any("context",
-			map[string]any{
-				"thread_id": threadID.String(),
-			},
+func (l *BaseLogger) MaxTurnsReached(ctx context.Context, threadID string) {
+	l.event(ctx, slog.LevelWarn, eventMaxTurnsReached).
+		Context(
+			attribute.Key("thread_id").String(threadID),
 		).
 		Msg("Model reached max turns with tool calls, consider adjusting settings")
 }
 
-func (l *BaseLogger) ToolCalled(ctx context.Context, threadID ids.ThreadID, toolRequests []messages.MessageToolRequest) {
+func (l *BaseLogger) ToolCalled(ctx context.Context, threadID string, toolRequests []messages.MessageToolRequest) {
 	names := make([]string, len(toolRequests))
 	for i, req := range toolRequests {
 		names[i] = req.ToolName()
 	}
 
-	l.l.Info().
-		Str("event_type", eventToolCalled).
-		Any("context",
-			map[string]any{
-				"thread_id":  threadID.String(),
-				"tool_names": names,
-			},
+	l.event(ctx, slog.LevelInfo, eventToolCalled).
+		Context(
+			attribute.Key("thread_id").String(threadID),
+			attribute.Key("tool_names").StringSlice(names),
 		).
 		Msg("Tool called during generation")
 }
 
 func (l *BaseLogger) EffectiveEnvironment(env map[string]string) {
-	l.l.Info().
-		Str("event_type", eventEffectiveEnvironment).
-		Any("context",
-			map[string]any{
-				"env": env,
-			},
+	l.event(context.Background(), slog.LevelInfo, eventEffectiveEnvironment).
+		Context(
+			asEnvs(env)...,
 		).
 		Msg("Parsed effective environment")
 }
 
 func (l *BaseLogger) MetricsStarted(addr net.Addr) {
-	l.l.Info().
-		Str("event_type", eventMetricsStarted).
-		Any("context",
-			map[string]any{
-				"addr": addr.String(),
-			},
+	l.event(context.Background(), slog.LevelInfo, eventMetricsStarted).
+		Context(
+			attribute.Key("addr").String(addr.String()),
 		).
 		Msg("Metrics server started")
 }
 
 func (l *BaseLogger) MetricsStopped(addr net.Addr) {
-	l.l.Info().
-		Str("event_type", eventMetricsStopped).
-		Any("context",
-			map[string]any{
-				"addr": addr.String(),
-			},
+	l.event(context.Background(), slog.LevelInfo, eventMetricsStopped).
+		Context(
+			attribute.Key("addr").String(addr.String()),
 		).
 		Msg("Metrics server stopped")
 }
 
 func (l *BaseLogger) GeminiStreamStarted(ctx context.Context, model string, toolCount int) {
-	l.l.Info().
-		Str("event_type", eventGeminiStreamStarted).
-		Any("context",
-			map[string]any{
-				"model":      model,
-				"tool_count": toolCount,
-			},
+	l.event(ctx, slog.LevelInfo, eventGeminiStreamStarted).
+		Context(
+			attribute.Key("model").String(model),
+			attribute.Key("tool_count").Int(toolCount),
 		).
 		Msg("Passing tools to Gemini")
 }

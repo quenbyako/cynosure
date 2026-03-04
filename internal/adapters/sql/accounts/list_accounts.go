@@ -20,7 +20,7 @@ func (a *Accounts) ListAccounts(ctx context.Context, user ids.UserID) ([]ids.Acc
 			return nil, fmt.Errorf("invalid server id for %s: %w", row.ID, err)
 		}
 
-		id, err := ids.NewAccountID(user, serverID, row.ID, ids.WithSlug(row.Name))
+		id, err := ids.NewAccountID(user, serverID, row.ID)
 		if err != nil {
 			return nil, fmt.Errorf("constructing account id for %s: %w", row.ID, err)
 		}

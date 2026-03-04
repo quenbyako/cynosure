@@ -14,29 +14,33 @@ packages:
       ChatModel:
         config:
           filename: "chat_model.go"
-      OAuthHandler:
-        config:
-          filename: "oauth_handler.go"
       ServerStorage:
         config:
           filename: "server_storage.go"
       ThreadStorage:
         config:
           filename: "thread_storage.go"
-      ToolClient:
-        config:
-          filename: "tool_client.go"
       ToolSemanticIndex:
         config:
           filename: "tool_semantic_index.go"
       ToolStorage:
         config:
           filename: "tool_storage.go"
-  github.com/quenbyako/cynosure/internal/domains/gateway/ports:
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient:
     config:
       pkgname: "mocks"
       dir: ./internal/adapters/mocks
     interfaces:
-      Messenger:
+      Port:
         config:
-          filename: "messenger.go"
+          filename: "tool_client.go"
+          structname: "ToolClient"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "oauth_handler.go"
+          structname: "OAuthHandler"

@@ -1,0 +1,102 @@
+https://api.ahrefs.com/mcp/mcp # issue with header — value is just a link, does not provide rfc spec.
+https://api.dashboard.plaid.com/mcp # returns 401 instead of 403, in addition, makes weird redirect, that follows to /mcp/
+https://api.fireflies.ai/mcp
+https://api.githubcopilot.com/mcp/
+https://api.grafbase.com/mcp
+https://asset-management.mcp.cloudinary.com/sse # no header, but there is protected resource
+https://bindings.mcp.cloudflare.com/sse
+https://getdialer.app/sse
+https://mcp-server.egnyte.com/sse
+https://mcp.asana.com/mcp # forbids registration of clients that are not redirected to 127.0.0.1 or localhost. invalid_redirect_uri error. Need to create your own application: https://developers.asana.com/docs/using-asanas-mcp-server, this link is also in the metadata
+https://mcp.asana.com/sse
+https://mcp.atlassian.com/v1/sse
+https://mcp.attio.com/mcp
+https://mcp.audioscrape.com
+https://mcp.box.com
+https://mcp.buildkite.com/mcp
+https://mcp.canva.com/mcp
+https://mcp.carbonvoice.app
+https://mcp.close.com/mcp
+https://mcp.cloudflare.com/mcp
+https://mcp.context7.com/mcp
+https://mcp.figma.com/mcp # has both resource_metadata and authorization_uri, but returns Forbidden on client registration
+https://mcp.generect.com/mcp
+https://mcp.globalping.dev/sse
+https://mcp.globalping.dev/sse
+https://mcp.indeed.com/claude/mcp
+https://mcp.instantdb.com/mcp
+https://mcp.jam.dev/mcp
+https://mcp.linear.app/mcp
+https://mcp.linear.app/sse
+https://mcp.listenetic.com/v1/mcp
+https://mcp.monday.com/mcp
+https://mcp.morningstar.com/mcp
+https://mcp.neon.tech/mcp
+https://mcp.neon.tech/sse
+https://mcp.notion.com/mcp
+https://mcp.notion.com/sse
+https://mcp.octagonagents.com/mcp
+https://mcp.paypal.com/sse
+https://mcp.pipeboard.co/meta-ads-mcp
+https://mcp.port.io/v1
+https://mcp.prisma.io/mcp
+https://mcp.semgrep.ai/mcp
+https://mcp.sentry.dev/mcp
+https://mcp.squareup.com/sse
+https://mcp.stackoverflow.com
+https://mcp.stripe.com/
+https://mcp.supabase.com/mcp
+https://mcp.tavily.com/mcp
+https://mcp.webflow.com/sse
+https://mcp.webflow.com/sse
+https://mcp.wix.com/sse
+https://mcp.zapier.com/api/v1/connect
+https://metro-mcp.anuragd.me/sse # returns 401 instead of 403
+https://netlify-mcp.netlify.app/mcp
+https://observability.mcp.cloudflare.com/sse
+https://rag-mcp-2.whatsmcp.workers.dev/sse
+https://ramp-mcp-remote.ramp.com/mcp
+https://rube.app/mcp
+https://scorecard-mcp.dare-d5b.workers.dev/sse
+https://search-mcp.parallel.ai/mcp
+https://task-mcp.parallel.ai/mcp
+https://www.ean-search.org/mcp
+https://www.mypromind.com/interface/mcp
+http://mcp.stytch.dev/mcp
+https://mcp.squareup.com/sse
+https://agent.thoughtspot.app/mcp
+https://mcp.turkishtechlab.com/mcp # the fuck??? turkish airlines HAS MCP??? NO FUCKING WAY
+https://mcp.vercel.com/
+https://mcp.webflow.com/sse
+https://mcp.wix.com/sse
+https://mcp.simplescraper.io/mcp
+https://waystation.ai/mcp # instead of resource_metadata_url sends just resource
+https://www.zine.ai/mcp
+https://mcp.close.com/mcp
+
+
+
+
+# supports both authorization and anonymous connection
+
+https://mcp.context7.com/mcp # 200 code, and www-authenticate header in response
+
+# without authorization
+
+https://mcp.cortex.io/mcp
+https://mcp.md.coinapi.io/mcp
+https://mcp.exa.ai/mcp
+https://knowledge-mcp.global.api.aws
+https://mcp.deepwiki.com/mcp
+https://mcp.api.coingecko.com/mcp
+https://api.findadomain.dev/mcp
+https://hiveintelligence.xyz/mcp
+https://mcp.peek.com
+https://xbirdapi.up.railway.app/mcp
+https://vibemarketing.ninja/mcp
+https://webzum.com/api/mcp
+https://bigquery.googleapis.com/mcp
+
+# works only with auth header and other dances:
+
+https://mcp.airweave.ai/mcp
