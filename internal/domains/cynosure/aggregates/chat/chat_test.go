@@ -136,7 +136,7 @@ func (f *chatFixture) assertToolbox(expected ...*entities.Tool) {
 		assert.True(f.t, ok)
 		found := false
 		for _, acc := range info.EncodedTools() {
-			if strings.Contains(strings.ToLower(acc.Desc()), strings.ToLower(acc.Slug())) {
+			if strings.Contains(strings.ToLower(acc.Desc), strings.ToLower(acc.Name)) {
 				found = true
 			}
 		}

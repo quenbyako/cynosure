@@ -77,14 +77,14 @@ func (m *MockServer) DropConnections() {
 	m.Server.CloseClientConnections()
 }
 
-func (m *MockServer) Tools(accountDesc string, toolID func(string) ids.ToolID) []tools.RawToolInfo {
-	return []tools.RawToolInfo{
-		must(tools.NewRawToolInfo(
+func (m *MockServer) Tools(accountDesc string, toolID func(string) ids.ToolID) []tools.RawTool {
+	return []tools.RawTool{
+		must(tools.NewRawTool(
 			"mock_tool",
 			"A mock tool",
 			json.RawMessage(`{"type":"object"}`),
 			json.RawMessage(`{"type":"string"}`),
-			tools.WithMergedTool(toolID("mock_tool"), "mock_tool", accountDesc),
+			toolID("mock_tool"), "mock_tool", accountDesc,
 		)),
 	}
 }

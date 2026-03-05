@@ -1,0 +1,37 @@
+cases:
+  - name: "success"
+    toolboxTools:
+      - name: "send_message"
+        desc: "Desc"
+        params:
+          type: object
+          properties:
+            text:
+              type: string
+        response:
+          type: object
+        accountName: "bot"
+        accountDesc: "Bot"
+    toolName: "send_message"
+    request:
+      text: "hello"
+    expectedParams:
+      text: "hello"
+    expectErr: false
+
+  - name: "not found"
+    toolboxTools:
+      - name: "send_message"
+        desc: "Desc"
+        params:
+          type: object
+          properties:
+            text:
+              type: string
+        response:
+          type: object
+        accountName: "bot"
+        accountDesc: "Bot"
+    toolName: "unknown"
+    request: {}
+    expectErr: true

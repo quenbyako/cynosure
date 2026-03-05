@@ -1,3 +1,4 @@
+// Package tools defines tool management primitives.
 package tools
 
 import (
@@ -15,14 +16,26 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+const (
+	RawAccountInjectKey    = "_target_account"
+	accountDescriptionTmpl = `The account that will be used to perform this action.
+Different accounts may have different access rights or contexts.
+
+Allowed values:
+{{range $acc := . -}}
+- ` + "`" + `{{$acc.Name}}` + "`" + ` — {{$acc.Desc}}
+{{end}}`
+)
+
+var tmpl = template.Must(template.New("account_description").Parse(accountDescriptionTmpl))
+
 type accountDesc struct {
-	slug, desc string
+	Name, Desc string
 }
 
-func (r accountDesc) Slug() string { return r.slug }
-func (r accountDesc) Desc() string { return r.desc }
+type toolAccounts = map[ids.ToolID]accountDesc
 
-// ToolSet is a set of different tools, combined into a single entity for
+// RawTool is a set of different tools, combined into a single entity for
 // correct config conversion.
 //
 // The core issue with language models is that they are not understanding
@@ -31,15 +44,15 @@ func (r accountDesc) Desc() string { return r.desc }
 // effect, models usually are going to  (including Gemini, Claude in playground, and ChatGPT in
 // playground too)
 //
-// в отличии от ToolInfo, RawToolInfo является сконвертированным форматом,
+// в отличии от ToolInfo, RawTool является сконвертированным форматом,
 // удобным для моделей
-type RawToolInfo struct {
+type RawTool struct {
 	name string
 	desc string
 
 	// encodedTools, value is a description of the account, not the tool
-	// (description of tool located at [RawToolInfo.desc])
-	encodedTools map[ids.ToolID]accountDesc
+	// (description of tool located at [RawTool.desc])
+	encodedTools toolAccounts
 
 	params   json.RawMessage
 	response json.RawMessage
@@ -47,237 +60,365 @@ type RawToolInfo struct {
 	_valid bool
 }
 
-type RawToolInfoOption func(*RawToolInfo)
+// NewRawTool constructs and validates a tool definition.
+func NewRawTool(
+	name, desc string,
+	params, response json.RawMessage,
+	accountID ids.ToolID,
+	accountName, accountDec string,
+) (RawTool, error) {
+	tool := unsafeRawTool(name, desc, params, response, accountID, accountName, accountDec)
 
-// WithMergedTool associates a tool with a specific account. Use this to define
-// which accounts can execute this tool and provide a description of each
-// account's purpose or context.
-func WithMergedTool(id ids.ToolID, accountSlug, accountDescription string) RawToolInfoOption {
-	return func(r *RawToolInfo) { r.encodedTools[id] = accountDesc{slug: accountSlug, desc: accountDescription} }
+	if err := tool.Validate(); err != nil {
+		return RawTool{}, err
+	}
+
+	tool._valid = true
+
+	return tool, nil
 }
 
-// NewRawToolInfo constructs and validates a tool definition.
-// Use functional options to associate the tool with one or more accounts.
-func NewRawToolInfo(name, desc string, params, response json.RawMessage, opts ...RawToolInfoOption) (RawToolInfo, error) {
-	r := RawToolInfo{
-		name:         name,
-		desc:         desc,
-		encodedTools: make(map[ids.ToolID]accountDesc),
-		params:       params,
-		response:     response,
-	}
-	for _, opt := range opts {
-		opt(&r)
+// MergeTools combines this tool with another that has the same schema but
+// different accounts. This is used when multiple sources provide the same tool
+// but for different accounts. Returns error if tool schemas (name, description,
+// params, response) don't match.
+func MergeTools(items ...RawTool) (RawTool, error) {
+	if err := checkMergeCompatibility(items...); err != nil {
+		return RawTool{}, err
 	}
 
-	if err := r.Validate(); err != nil {
-		return RawToolInfo{}, err
+	if len(items) == 1 {
+		return items[0], nil
 	}
-	r._valid = true
 
-	return r, nil
+	tools, err := items[0].mergeToolMap(items[1:]...)
+	if err != nil {
+		return RawTool{}, err
+	}
+
+	return RawTool{
+		name:         items[0].name,
+		desc:         items[0].desc,
+		encodedTools: tools,
+		params:       items[0].params,
+		response:     items[0].response,
+		_valid:       true,
+	}, nil
+}
+
+func unsafeRawTool(
+	name string,
+	desc string,
+	params json.RawMessage,
+	response json.RawMessage,
+	accountID ids.ToolID,
+	accountName, accountDec string,
+) RawTool {
+	tool := RawTool{
+		name: name,
+		desc: desc,
+		encodedTools: toolAccounts{
+			accountID: {
+				Name: accountName,
+				Desc: accountDec,
+			},
+		},
+		params:   params,
+		response: response,
+		_valid:   false,
+	}
+
+	return tool
 }
 
 // Valid reports whether this tool definition is properly constructed.
-func (r RawToolInfo) Valid() bool { return r._valid || r.Validate() == nil }
+func (r RawTool) Valid() bool { return r._valid || r.Validate() == nil }
 
 // Validate checks tool invariants and returns detailed errors if any are
 // violated.
-func (r RawToolInfo) Validate() error {
+func (r RawTool) Validate() error {
+	if err := r.validateFields(); err != nil {
+		return err
+	}
+
+	if err := r.validateAccounts(); err != nil {
+		return err
+	}
+
+	return r.validateMultiAccountSchema()
+}
+
+func (r RawTool) validateFields() error {
 	if r.name == "" {
-		return fmt.Errorf("tool name cannot be empty")
+		return ErrToolNameEmpty
 	}
+
 	if r.desc == "" {
-		return fmt.Errorf("tool description cannot be empty")
+		return ErrToolDescriptionEmpty
 	}
+
+	return nil
+}
+
+func (r RawTool) validateAccounts() error {
 	if len(r.encodedTools) < 1 {
-		return fmt.Errorf("tool must be associated with at least one account")
+		return ErrToolNoAccounts
 	}
+
 	for id, account := range r.encodedTools {
 		if !id.Valid() {
-			return fmt.Errorf("invalid tool id: %v", id.ID())
+			return fmt.Errorf("%w: %v", ErrInvalidToolID, id.ID())
 		}
 
-		// account slug must not be empty for proper conversion
-		if account.slug == "" {
-			return fmt.Errorf("account slug cannot be empty for tool %q", r.name)
-		}
-	}
-	if len(r.encodedTools) > 1 {
-		var schema openapi3.Schema
-		if err := json.Unmarshal(r.params, &schema); err != nil {
-			return fmt.Errorf("invalid input schema: %w", err)
-		}
-
-		if _, ok := schema.Properties[RawAccountInjectKey]; ok {
-			return fmt.Errorf("input schema must not contain '%s' property", RawAccountInjectKey)
+		if account.Name == "" {
+			return fmt.Errorf("%w: tool %q", ErrAccountSlugEmpty, r.name)
 		}
 	}
 
 	return nil
 }
 
-func (r RawToolInfo) Name() string { return r.name }
-func (r RawToolInfo) Desc() string { return r.desc }
-
-// EncodedTools returns all tool-account associations.
-// The map key is the ToolID, value is the account description.
-func (r RawToolInfo) EncodedTools() map[ids.ToolID]accountDesc { return maps.Clone(r.encodedTools) }
-
-func (r RawToolInfo) Params() json.RawMessage   { return slices.Clone(r.params) }
-func (r RawToolInfo) Response() json.RawMessage { return slices.Clone(r.response) }
-
-// Merge combines this tool with another that has the same schema but different
-// accounts. This is used when multiple sources provide the same tool but for
-// different accounts. Returns error if tool schemas (name, description, params,
-// response) don't match.
-func (r RawToolInfo) Merge(other RawToolInfo) (RawToolInfo, error) {
-	if r.name != other.name {
-		return RawToolInfo{}, fmt.Errorf("cannot merge tools with different names")
-	}
-	if r.desc != other.desc {
-		return RawToolInfo{}, fmt.Errorf("cannot merge tools with different descriptions")
-	}
-	if !bytes.Equal(r.params, other.params) {
-		return RawToolInfo{}, fmt.Errorf("cannot merge tools with different params")
-	}
-	if !bytes.Equal(r.response, other.response) {
-		return RawToolInfo{}, fmt.Errorf("cannot merge tools with different response")
-	}
-
-	var opts []RawToolInfoOption
-	for id, desc := range r.encodedTools {
-		opts = append(opts, WithMergedTool(id, desc.slug, desc.desc))
-	}
-
-	for id, desc := range other.encodedTools {
-		// Check for conflicting account descriptions. Extremely rare case, but
-		// still possible. Just to be sure at 100%.
-		if existingDesc, exists := r.encodedTools[id]; exists && (existingDesc.slug != desc.slug || existingDesc.desc != desc.desc) {
-			return RawToolInfo{}, fmt.Errorf("cannot merge: duplicate tool id with different descriptions")
-		}
-		opts = append(opts, WithMergedTool(id, desc.slug, desc.desc))
-	}
-
-	return NewRawToolInfo(r.name, r.desc, r.params, r.response, opts...)
-}
-
-// ConvertedSchema injects into original schema list of accounts, to provide
-// aviability for model to choose between accounts.
-func (r RawToolInfo) ConvertedSchema() json.RawMessage {
-	if len(r.encodedTools) == 1 {
-		return slices.Clone(r.params)
+func (r RawTool) validateMultiAccountSchema() error {
+	if len(r.encodedTools) <= 1 {
+		return nil
 	}
 
 	var schema openapi3.Schema
 	if err := json.Unmarshal(r.params, &schema); err != nil {
-		// exception: validated that schema is correct jsonschema on creation.
-		panic(fmt.Errorf("failed to unmarshal params: %w", err))
+		return fmt.Errorf("%w: %w", ErrInvalidInputSchema, err)
 	}
 
+	if _, ok := schema.Properties[RawAccountInjectKey]; ok {
+		return fmt.Errorf("%w: %s", ErrReservedPropertyUsed, RawAccountInjectKey)
+	}
+
+	return nil
+}
+
+func (r RawTool) Name() string { return r.name }
+func (r RawTool) Desc() string { return r.desc }
+
+// EncodedTools returns all tool-account associations.
+// The map key is the ToolID, value is the account description.
+func (r RawTool) EncodedTools() map[ids.ToolID]accountDesc {
+	return maps.Clone(r.encodedTools)
+}
+
+func (r RawTool) Params() json.RawMessage   { return slices.Clone(r.params) }
+func (r RawTool) Response() json.RawMessage { return slices.Clone(r.response) }
+
+func (r RawTool) mergeToolMap(others ...RawTool) (toolAccounts, error) {
+	tools := maps.Clone(r.encodedTools)
+	for _, tool := range others {
+		for id, acc := range tool.encodedTools {
+			existing, exists := tools[id]
+			if exists && existing != acc {
+				return nil, fmt.Errorf("%w: tool %q: %v", ErrDuplicateToolID, r.name, id.ID())
+			}
+
+			tools[id] = acc
+		}
+	}
+
+	return tools, nil
+}
+
+func checkMergeCompatibility(items ...RawTool) error {
+	switch len(items) {
+	case 0:
+		return ErrNoToolsToMerge
+	case 1:
+		return nil
+	default:
+		first := items[0]
+		if !first._valid {
+			return first.Validate()
+		}
+
+		for i := 1; i < len(items); i++ {
+			if err := checkMergeAccountsCompatibilityBetween(first, items[i]); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+func checkMergeAccountsCompatibilityBetween(first, other RawTool) error {
+	if !other._valid {
+		return other.Validate()
+	}
+
+	if first.name != other.name {
+		return ErrMergeDifferentNames
+	}
+
+	if first.desc != other.desc {
+		return ErrMergeDifferentDescs
+	}
+
+	if !bytes.Equal(first.params, other.params) {
+		return ErrMergeDifferentParams
+	}
+
+	if !bytes.Equal(first.response, other.response) {
+		return ErrMergeDifferentResps
+	}
+
+	return nil
+}
+
+// ConvertedSchema injects into original schema list of accounts, to provide
+// aviability for model to choose between accounts.
+func (r RawTool) ConvertedSchema() json.RawMessage {
+	if !r.Valid() {
+		return []byte("{}")
+	}
+
+	if len(r.encodedTools) == 1 {
+		return slices.Clone(r.params)
+	}
+
+	return buildMultiAccountSchema([]byte(r.params), r.encodedTools)
+}
+
+func buildMultiAccountSchema(params []byte, accounts toolAccounts) json.RawMessage {
+	var schema openapi3.Schema
+
+	if err := json.Unmarshal(params, &schema); err != nil {
+		// panic by intention: invariants must be detected on primitive
+		// creation, not here.
+		//
+		//nolint:forbidigo // see above.
+		panic(fmt.Errorf("unreachable: %w", err))
+	}
+
+	if err := injectMultiAccountProperty(&schema, accounts); err != nil {
+		// panic by intention: invariants must be detected on primitive
+		// creation, not here.
+		//
+		//nolint:forbidigo // see above.
+		panic(fmt.Errorf("unreachable: %w", err))
+	}
+
+	res, err := json.Marshal(schema)
+	if err != nil {
+		// panic by intention: invariants must be detected on primitive
+		// creation, not here.
+		//
+		//nolint:forbidigo // see above.
+		panic(fmt.Errorf("unreachable: %w", err))
+	}
+
+	return res
+}
+
+func injectMultiAccountProperty(schema *openapi3.Schema, accounts toolAccounts) error {
 	if schema.Properties == nil {
 		schema.Properties = make(openapi3.Schemas)
 	}
 
-	// Prevent overriding existing properties if tool ironically has a param
-	// named the same as our injection key
 	if _, ok := schema.Properties[RawAccountInjectKey]; ok {
-		// exception: validated that schema is correct jsonschema on creation,
-		// when we got 2 or more accounts.
-		panic(fmt.Errorf("schema already has property %q, collision with reserved key", RawAccountInjectKey))
+		return fmt.Errorf("%w: %q", ErrReservedPropertyCollision, RawAccountInjectKey)
 	}
 
-	schema.Properties[RawAccountInjectKey] = accountNamesAsSchema(r.encodedTools)
+	schRef := accountNamesAsSchema(accounts)
+
+	schema.Properties[RawAccountInjectKey] = schRef
 	schema.Required = append(schema.Required, RawAccountInjectKey)
 
-	return must(json.Marshal(schema))
+	return nil
 }
 
-// ConvertRequest selects the appropriate account for executing this tool. For
-// single-account tools: automatically selects the only available account. For
-// multi-account tools: reads the _target_account field from the request to
-// determine which account to use. Returns the selected ToolID and the request
-// parameters (with _target_account removed).
-func (r RawToolInfo) ConvertRequest(req map[string]json.RawMessage) (ids.ToolID, map[string]json.RawMessage, error) {
+func (r RawTool) ConvertRequest(
+	req map[string]json.RawMessage,
+) (ids.ToolID, map[string]json.RawMessage, error) {
 	if len(r.encodedTools) == 1 {
-		var id ids.ToolID
-		for k := range r.encodedTools {
-			id = k
-			break
-		}
-		// Remove _target_account field if present (even for single account)
+		toolID := r.getSingleAccountID()
+
 		delete(req, RawAccountInjectKey)
-		return id, req, nil
+
+		return toolID, req, nil
 	}
 
 	value, ok := req[RawAccountInjectKey]
 	if !ok {
-		return ids.ToolID{}, nil, fmt.Errorf("field %q is empty, expected to be required", RawAccountInjectKey)
+		return ids.ToolID{}, nil, fmt.Errorf("%w: %s",
+			ErrAccountInjectKeyMissing, RawAccountInjectKey)
 	}
+
 	delete(req, RawAccountInjectKey)
 
-	var slug string
-	if err := json.Unmarshal(value, &slug); err != nil {
-		return ids.ToolID{}, nil, fmt.Errorf("field %q expected to be a enum string, got %v: %w", RawAccountInjectKey, value, err)
+	return r.finishRequestConversion(value, req)
+}
+
+func (r RawTool) finishRequestConversion(
+	val json.RawMessage,
+	req map[string]json.RawMessage,
+) (ids.ToolID, map[string]json.RawMessage, error) {
+	var name string
+
+	if err := json.Unmarshal(val, &name); err != nil {
+		return ids.ToolID{}, nil, fmt.Errorf("%w: %w",
+			ErrInvalidEnumFormat, err)
 	}
 
-	if slug == "" {
-		return ids.ToolID{}, nil, fmt.Errorf("field %q cannot be empty", RawAccountInjectKey)
-	}
-
-	for id, account := range r.encodedTools {
-		if account.slug == slug {
-			return id, req, nil
+	for tid, acc := range r.encodedTools {
+		if acc.Name == name {
+			return tid, req, nil
 		}
 	}
 
-	return ids.ToolID{}, nil, fmt.Errorf("field %q has value %q, which is invalid", RawAccountInjectKey, slug)
-}
-
-const RawAccountInjectKey = "_target_account"
-
-type accountData struct {
-	Name string
-	Desc string
+	return ids.ToolID{}, nil, fmt.Errorf("%w: %q", ErrAccountNotFound, name)
 }
 
 func accountNamesAsSchema(accounts map[ids.ToolID]accountDesc) *openapi3.SchemaRef {
 	// Multiple accounts case - inject chooser enum
 	sorted := slices.SortedFunc(maps.Values(accounts), func(a, b accountDesc) int {
-		return cmp.Compare(a.slug, b.slug)
+		return cmp.Compare(a.Name, b.Name)
 	})
+	desc := getAccountDescription(sorted)
 
-	accountSlugsRaw := make([]any, len(sorted))
-	templateData := make([]accountData, len(sorted))
-
-	for i, account := range sorted {
-		accountSlugsRaw[i] = account.slug
-		templateData[i] = accountData{
-			Name: account.slug,
-			Desc: account.desc,
-		}
-	}
-
-	var description strings.Builder
-	if err := tmpl.Execute(&description, templateData); err != nil {
-		panic(err)
-	}
-
-	return &openapi3.SchemaRef{
-		Value: &openapi3.Schema{
-			Type:        &openapi3.Types{openapi3.TypeString},
-			Enum:        accountSlugsRaw,
-			Description: description.String(),
-		},
-	}
+	return buildSchemaRef(sorted, desc)
 }
 
-const accountDescriptionTemplate = `The account that will be used to perform this action.
-Different accounts may have different access rights or contexts.
+func buildSchemaRef(names []accountDesc, desc string) *openapi3.SchemaRef {
+	namesRaw := make([]any, len(names))
+	for i, name := range names {
+		namesRaw[i] = name.Name
+	}
 
-Allowed values:
-{{range $acc := . -}}
-- ` + "`" + `{{$acc.Name}}` + "`" + ` — {{$acc.Desc}}
-{{end}}`
+	sch := openapi3.NewSchema()
+	sch.Type = &openapi3.Types{openapi3.TypeString}
+	sch.Enum = namesRaw
+	sch.Description = desc
 
-var tmpl = template.Must(template.New("account_description").Parse(accountDescriptionTemplate))
+	return openapi3.NewSchemaRef("", sch)
+}
+
+func getAccountDescription(data []accountDesc) string {
+	var desc strings.Builder
+
+	if err := tmpl.Execute(&desc, data); err != nil {
+		// panicing by intention. Template is static, and we checked al
+		// invariants above
+		//
+		//nolint:forbidigo // see above
+		panic(fmt.Sprintf("unreachable: %v", err))
+	}
+
+	return desc.String()
+}
+
+func (r RawTool) getSingleAccountID() ids.ToolID {
+	var toolID ids.ToolID
+
+	for tid := range r.encodedTools {
+		toolID = tid
+
+		break
+	}
+
+	return toolID
+}

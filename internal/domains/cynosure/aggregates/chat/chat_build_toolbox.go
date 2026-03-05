@@ -48,7 +48,7 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 	}
 
 	// 5. Build RawToolInfo for each tool with account metadata
-	rawTools := make([]tools.RawToolInfo, 0, len(relevantTools))
+	rawTools := make([]tools.RawTool, 0, len(relevantTools))
 	for _, tool := range relevantTools {
 		desc, ok := descriptions[tool.ID().Account()]
 		if !ok {
@@ -56,12 +56,12 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 			continue
 		}
 
-		rawTool, err := tools.NewRawToolInfo(
+		rawTool, err := tools.NewRawTool(
 			tool.Name(),
 			tool.Description(),
 			tool.InputSchema(),
 			tool.OutputSchema(),
-			tools.WithMergedTool(tool.ID(), desc.slug, desc.desc),
+			tool.ID(), desc.slug, desc.desc,
 		)
 
 		if err != nil {

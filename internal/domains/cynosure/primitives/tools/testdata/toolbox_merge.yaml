@@ -1,0 +1,51 @@
+cases:
+  - name: "add new tool"
+    initialTools: []
+    toolsToAdd:
+      - name: "send_message"
+        desc: "Desc"
+        params: { type: object, properties: { text: { type: string } } }
+        response: { type: object }
+        accountName: "bot"
+        accountDesc: "Bot"
+    wantLen: 1
+    expectErr: false
+
+  - name: "merge existing tool"
+    initialTools:
+      - name: "m1"
+        desc: "D"
+        params:
+          type: object
+          properties:
+            text:
+              type: string
+        response:
+          type: object
+        accountName: "b1"
+        accountDesc: "B"
+    toolsToAdd:
+      - name: "m1"
+        desc: "D"
+        params:
+          type: object
+          properties:
+            text:
+              type: string
+        response:
+          type: object
+        accountName: "b2"
+        accountDesc: "B"
+    wantLen: 1
+    expectErr: false
+
+  - name: "error: invalid tool"
+    initialTools: []
+    toolsToAdd:
+      - name: ""
+        desc: ""
+        params: {}
+        response: {}
+        accountName: ""
+        accountDesc: ""
+    expectErr: true

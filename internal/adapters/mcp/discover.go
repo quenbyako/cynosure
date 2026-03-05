@@ -16,7 +16,7 @@ import (
 // DiscoverTools implements ports.ToolManager.
 // Retrieves the list of available tools from the specified account's MCP server.
 // This is the tool discovery phase of the MCP protocol.
-func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawToolInfo, error) {
+func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawTool, error) {
 	p := toolclient.DiscoverToolsParams(opts...)
 
 	var client *asyncClient
@@ -39,7 +39,7 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, account ids.Acc
 	}
 
 	// Convert MCP tool definitions to domain ToolInfo
-	discoveredTools := make([]tools.RawToolInfo, 0, len(result.Tools))
+	discoveredTools := make([]tools.RawTool, 0, len(result.Tools))
 	for _, mcpTool := range result.Tools {
 		// Marshal input schema from MCP tool definition
 		inputSchema, err := json.Marshal(mcpTool.InputSchema)
@@ -62,9 +62,9 @@ func (h *Handler) DiscoverTools(ctx context.Context, u *url.URL, account ids.Acc
 		}
 
 		// Create domain ToolInfo from MCP definition
-		tool, err := tools.NewRawToolInfo( // Changed NewToolInfo to NewRawToolInfo, and toolInfo to tool
+		tool, err := tools.NewRawTool( // Changed NewToolInfo to NewRawToolInfo, and toolInfo to tool
 			mcpTool.Name, mcpTool.Description, inputSchema, outputSchema,
-			tools.WithMergedTool(toolID, accountSlug, accountDesc),
+			toolID, accountSlug, accountDesc,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating tool info for tool %q: %w", mcpTool.Name, err)
