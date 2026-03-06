@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package singleflight provides a duplicate function call suppression
-// mechanism.
+// Package cache provides a duplicate function call suppression mechanism,
+// similar to golang.org/x/sync/singleflight, but with generic support and context-awareness.
 package cache
 
 import (
@@ -17,167 +17,159 @@ import (
 	"sync/atomic"
 )
 
-// errGoexit indicates the runtime.Goexit was called in
-// the user given function.
-var errGoexit = errors.New("runtime.Goexit was called")
-
-// A panicError is an arbitrary value recovered from a panic
-// with the stack trace during the execution of given function.
+// panicError is an arbitrary value recovered from a panic with the stack trace.
 type panicError struct {
 	value any
 	stack []byte
 }
 
-// Error implements error interface.
 func (p *panicError) Error() string {
 	return fmt.Sprintf("%v\n\n%s", p.value, p.stack)
 }
 
 func (p *panicError) Unwrap() error {
-	err, ok := p.value.(error)
-	if !ok {
-		return nil
+	if err, ok := p.value.(error); ok {
+		return err
 	}
 
-	return err
+	return nil
 }
 
-func newPanicError(v any) error {
+func newPanicError(val any) error {
 	stack := debug.Stack()
 
 	// The first line of the stack trace is of the form "goroutine N [status]:"
-	// but by the time the panic reaches Do the goroutine may no longer exist
-	// and its status will have changed. Trim out the misleading line.
-	if line := bytes.IndexByte(stack[:], '\n'); line >= 0 {
+	// but by the time the panic reaches Do, the goroutine may no longer exist.
+	// Trim out the first line.
+	if line := bytes.IndexByte(stack, '\n'); line >= 0 {
 		stack = stack[line+1:]
 	}
-	return &panicError{value: v, stack: stack}
+
+	return &panicError{value: val, stack: stack}
 }
 
-// call is an in-flight or completed singleflight.Do call
+// call represents an in-flight or completed singleflight.Do call.
 type call[T any] struct {
-	wg sync.WaitGroup
-
-	// These fields are written once before the WaitGroup is done
-	// and are only read after the WaitGroup is done.
-	val T
-	err error
-
-	// dups is atomically incremented and read to track duplicate callers
+	err  error
+	val  T
+	wg   sync.WaitGroup
 	dups atomic.Int32
 }
 
-// group represents a class of work and forms a namespace in
-// which units of work can be executed with duplicate suppression.
+// group represents a class of work and forms a namespace in which units of work
+// can be executed with duplicate suppression.
 type group[T any] struct {
-	mu sync.Mutex // protects m
-	c  *call[T]   // lazily initialized
+	current *call[T]
+	mu      sync.Mutex // protects current
 }
 
-func NewGroup() *group[any] {
-	return &group[any]{
-		mu: sync.Mutex{},
-		c:  nil,
-	}
-}
-
-// Do executes and returns the results of the given function, making
-// sure that only one execution is in-flight for a given key at a
-// time. If a duplicate comes in, the duplicate caller waits for the
-// original to complete and receives the same results.
-// The return value shared indicates whether v was given to multiple callers.
-func (g *group[T]) Do(ctx context.Context, fn func(ctx context.Context) (T, error)) (v T, err error, shared bool) {
+// Do executes and returns the results of the given function, making sure that
+// only one execution is in-flight for a given key at a time.
+func (g *group[T]) Do(
+	ctx context.Context,
+	executeConstructor func(ctx context.Context) (T, error),
+) (T, error, bool) {
 	g.mu.Lock()
-	if g.c != nil {
-		c := g.c // Capture call under lock
-		g.mu.Unlock()
-		c.dups.Add(1)
-		c.wg.Wait()
 
-		// After Wait(), c.val and c.err are safe to read without lock
-		if e, ok := c.err.(*panicError); ok {
-			panic(e)
-		} else if c.err == errGoexit {
-			runtime.Goexit()
-		}
-		return c.val, c.err, true
+	if activeCall := g.current; activeCall != nil {
+		g.mu.Unlock()
+
+		activeCall.dups.Add(1)
+		activeCall.wg.Wait()
+
+		g.handlePanicOrGoexit(activeCall.err)
+
+		return activeCall.val, activeCall.err, true
 	}
 
-	c := &call[T]{}
-	c.wg.Add(1)
-	g.c = c
+	newCall := &call[T]{
+		err:  nil,
+		val:  *new(T),
+		wg:   sync.WaitGroup{},
+		dups: atomic.Int32{},
+	}
+
+	newCall.wg.Add(1)
+	g.current = newCall
 	g.mu.Unlock()
 
-	g.doCall(ctx, c, fn)
+	g.doCall(ctx, newCall, executeConstructor)
 
-	// After doCall returns, the waitgroup is done and values are stable
-	// c is a local variable, safe to read even if g.c was cleared by Forget()
-	return c.val, c.err, c.dups.Load() > 0
+	return newCall.val, newCall.err, newCall.dups.Load() > 0
 }
 
-func (g *group[T]) Get() (v T, err error, ok bool) {
+// Get returns the current result if any.
+func (g *group[T]) Get() (v T, err error, duplicate bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.c != nil {
-		return g.c.val, g.c.err, true
+
+	if g.current != nil {
+		return g.current.val, g.current.err, true
 	}
 
-	return v, nil, false
+	var zero T
+
+	return zero, nil, false
 }
 
-// Forget tells the singleflight to forget about a key.  Future calls
-// to Do for this key will call the function rather than waiting for
-// an earlier call to complete.
+// Forget tells the singleflight to forget about a key.
 func (g *group[T]) Forget() {
 	g.mu.Lock()
-	g.c = nil
+	g.current = nil
 	g.mu.Unlock()
 }
 
-// doCall handles the single call for a key.
-// Takes c as parameter to avoid issues with Forget() clearing g.c.
-func (g *group[T]) doCall(ctx context.Context, c *call[T], fn func(ctx context.Context) (T, error)) {
+func (g *group[T]) doCall(
+	ctx context.Context,
+	activeCall *call[T],
+	executeConstructor func(ctx context.Context) (T, error),
+) {
 	normalReturn := false
 	recovered := false
 
-	// use double-defer to distinguish panic from runtime.Goexit,
-	// more details see https://golang.org/cl/134395
 	defer func() {
-		// the given function invoked runtime.Goexit
 		if !normalReturn && !recovered {
-			c.err = errGoexit
+			activeCall.err = errGoexit
 		}
 
-		c.wg.Done()
-
-		if e, ok := c.err.(*panicError); ok {
-			panic(e)
-		} else if c.err == errGoexit {
-			// Already in the process of goexit, no need to call again
-		}
+		activeCall.wg.Done()
+		g.handlePanicOrGoexit(activeCall.err)
 	}()
 
-	func() {
-		defer func() {
-			if !normalReturn {
-				// Ideally, we would wait to take a stack trace until we've determined
-				// whether this is a panic or a runtime.Goexit.
-				//
-				// Unfortunately, the only way we can distinguish the two is to see
-				// whether the recover stopped the goroutine from terminating, and by
-				// the time we know that, the part of the stack trace relevant to the
-				// panic has been discarded.
-				if r := recover(); r != nil {
-					c.err = newPanicError(r)
-				}
-			}
-		}()
-
-		c.val, c.err = fn(ctx)
-		normalReturn = true
-	}()
+	normalReturn = g.run(ctx, activeCall, executeConstructor)
 
 	if !normalReturn {
 		recovered = true
+	}
+}
+
+func (g *group[T]) run(
+	ctx context.Context,
+	activeCall *call[T],
+	executeConstructor func(ctx context.Context) (T, error),
+) (normalReturn bool) {
+	defer func() {
+		if !normalReturn {
+			if caught := recover(); caught != nil {
+				activeCall.err = newPanicError(caught)
+			}
+		}
+	}()
+
+	activeCall.val, activeCall.err = executeConstructor(ctx)
+
+	return true
+}
+
+// handlePanicOrGoexit re-throws a panic or Goexit if the error indicates one occurred.
+func (g *group[T]) handlePanicOrGoexit(err error) {
+	var pErr *panicError
+	if errors.As(err, &pErr) {
+		//nolint:forbidigo // Re-panicking is intended behavior for singleflight.
+		panic(pErr)
+	}
+
+	if errors.Is(err, errGoexit) {
+		runtime.Goexit()
 	}
 }

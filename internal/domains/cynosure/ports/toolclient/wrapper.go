@@ -38,7 +38,7 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	return &t
 }
 
-func (t *toolClientWrapped) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawToolInfo, error) {
+func (t *toolClientWrapped) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawTool, error) {
 	p := DiscoverToolsParams(opts...)
 
 	ctx, span := t.t.discoverTools(ctx, account.ID().String(), u.String(), p.Token() != nil)

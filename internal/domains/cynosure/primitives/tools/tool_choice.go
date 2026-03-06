@@ -1,11 +1,13 @@
 package tools
 
-import "github.com/quenbyako/cynosure/internal/domains/cynosure/primitives"
+import (
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives"
+)
 
-// ToolChoice controls how the model calls tools (if any). By default, tools are
-// forbidden.
+// ToolChoice controls how the model calls tools (if any).
 //
 //go:generate go tool stringer -type=ToolChoice -linecomment -output=tool_choice_string.gen.go
+//nolint:recvcheck // String() is generated with value receiver by stringer
 type ToolChoice uint8
 
 const (
@@ -15,10 +17,13 @@ const (
 	ToolChoiceForced               // forced
 )
 
+// ParseToolChoice parses a string into a ToolChoice.
 func ParseToolChoice(str string) (res ToolChoice, err error) {
-	return res, res.UnmarshalText([]byte(str))
+	err = res.UnmarshalText([]byte(str))
+	return res, err
 }
 
+// UnmarshalText implements encoding.TextUnmarshaler.
 func (s *ToolChoice) UnmarshalText(buf []byte) error {
 	if s == nil {
 		return primitives.ErrNilObject
@@ -26,7 +31,7 @@ func (s *ToolChoice) UnmarshalText(buf []byte) error {
 
 	for i := range len(_ToolChoice_index) - 1 {
 		if string(buf) == _ToolChoice_name[_ToolChoice_index[i]:_ToolChoice_index[i+1]] {
-			*s = ToolChoice(i + 1) //nolint:gosec // codegen won't allow to get overflow
+			*s = ToolChoice(i + 1)
 			return nil
 		}
 	}
@@ -34,5 +39,7 @@ func (s *ToolChoice) UnmarshalText(buf []byte) error {
 	return primitives.ErrInvalidEnum(string(buf))
 }
 
-// IsValid checks if the tool choice is valid.
-func (w ToolChoice) Valid() bool { return w > 0 && w < ToolChoice(len(_ToolChoice_index)-1) }
+// Valid checks if the tool choice is valid.
+func (s ToolChoice) Valid() bool {
+	return s > 0 && s < ToolChoice(len(_ToolChoice_index)-1)
+}

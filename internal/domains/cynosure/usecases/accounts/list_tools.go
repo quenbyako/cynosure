@@ -8,20 +8,20 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-func (s *Usecase) ListTools(ctx context.Context, accountID ids.AccountID) ([]tools.RawToolInfo, error) {
+func (s *Usecase) ListTools(ctx context.Context, accountID ids.AccountID) ([]tools.RawTool, error) {
 	t, err := s.tools.ListTools(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]tools.RawToolInfo, len(t))
+	res := make([]tools.RawTool, len(t))
 	for i, tool := range t {
-		res[i], err = tools.NewRawToolInfo(
+		res[i], err = tools.NewRawTool(
 			tool.Name(),
 			tool.Description(),
 			tool.InputSchema(),
 			tool.OutputSchema(),
-			tools.WithMergedTool(tool.ID(), tool.AccountName(), ""),
+			tool.ID(), tool.AccountName(), "",
 		)
 
 		if err != nil {
