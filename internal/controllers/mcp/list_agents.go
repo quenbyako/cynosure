@@ -2,8 +2,11 @@ package mcp
 
 import (
 	"context"
-	"errors"
-	"fmt"
+)
+
+const (
+	listAgentsName = "list_agents"
+	listAgentsDesc = "List all agents belonging to the current user."
 )
 
 type (
@@ -19,9 +22,10 @@ type (
 func (c *Controller) ListAgents(ctx context.Context, _ struct{}) (ListAgentsOutput, error) {
 	userID, ok := FromContext(ctx)
 	if !ok {
-		return ListAgentsOutput{}, fmt.Errorf("missing user ID in context")
+		return ListAgentsOutput{}, ErrUnauthorized
 	}
+
 	_ = userID
 
-	return ListAgentsOutput{}, errors.New("unimplemented")
+	return ListAgentsOutput{}, ErrUnimplemented
 }

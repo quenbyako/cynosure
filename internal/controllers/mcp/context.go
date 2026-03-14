@@ -31,39 +31,65 @@ type UserIDProvider interface {
 	WhoAmI(ctx context.Context, token string) (ids.UserID, error)
 }
 
-// Middleware extracts the user ID from the Authorization: Bearer <token> header and puts it into the context.
-func Middleware(issuers []string, logger *slog.Logger) func(http.Handler) http.Handler {
+// Middleware extracts the user ID from the Authorization: Bearer <token> header
+// and puts it into the context.
+func Middleware(issuers []string, logger slog.Handler) func(http.Handler) http.Handler {
 	auth := NewJWTAuthenticator(issuers, logger)
 
-	if logger == nil {
-		logger = slog.Default()
-	}
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h := r.Header.Get("Authorization")
-			if h == "" {
-				logger.Warn("missing Authorization header")
-				http.Error(w, "missing Authorization header", http.StatusUnauthorized)
-				return
-			}
-
-			if !strings.HasPrefix(h, "Bearer ") {
-				logger.Warn("invalid Authorization header format")
-				http.Error(w, "invalid Authorization header format, expected Bearer <token>", http.StatusUnauthorized)
-				return
-			}
-
-			token := strings.TrimPrefix(h, "Bearer ")
-
-			id, err := auth.WhoAmI(r.Context(), token)
-			if err != nil {
-				logger.Error("authentication failed", "error", err)
-				http.Error(w, fmt.Sprintf("authentication failed: %v", err), http.StatusUnauthorized)
-				return
-			}
-
-			ctx := WithUserID(r.Context(), id)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		return &authMiddleware{
+			auth:   auth,
+			logger: logger,
+			next:   next,
+		}
 	}
+}
+
+type authMiddleware struct {
+	auth   UserIDProvider
+	logger slog.Handler
+	next   http.Handler
+}
+
+func (m *authMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	token, ok := m.extractToken(w, r)
+	if !ok {
+		return
+	}
+
+	id, err := m.auth.WhoAmI(r.Context(), token)
+	if err != nil {
+		logError(r.Context(), m.logger, "authentication failed", "error", err)
+		http.Error(
+			w, fmt.Sprintf("authentication failed: %v", err),
+			http.StatusUnauthorized,
+		)
+
+		return
+	}
+
+	ctx := WithUserID(r.Context(), id)
+	m.next.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func (m *authMiddleware) extractToken(w http.ResponseWriter, r *http.Request) (string, bool) {
+	header := r.Header.Get("Authorization")
+	if header == "" {
+		logWarn(r.Context(), m.logger, "missing Authorization header")
+		http.Error(w, "missing Authorization header", http.StatusUnauthorized)
+
+		return "", false
+	}
+
+	if !strings.HasPrefix(header, "Bearer ") {
+		logWarn(r.Context(), m.logger, "invalid Authorization header format")
+		http.Error(
+			w, "invalid Authorization header format, expected Bearer <token>",
+			http.StatusUnauthorized,
+		)
+
+		return "", false
+	}
+
+	return strings.TrimPrefix(header, "Bearer "), true
 }

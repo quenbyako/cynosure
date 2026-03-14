@@ -5,6 +5,11 @@ import (
 	"fmt"
 )
 
+const (
+	listMcpToolsName = "list_mcp_tools"
+	listMcpToolsDesc = "Lists all available tools from all active MCP accounts."
+)
+
 type (
 	Tool struct {
 		Name        string `json:"name"`
@@ -19,12 +24,12 @@ type (
 func (c *Controller) ListMcpTools(ctx context.Context, _ struct{}) (ListMCPToolsOutput, error) {
 	userID, ok := FromContext(ctx)
 	if !ok {
-		return ListMCPToolsOutput{}, fmt.Errorf("missing user ID in context")
+		return ListMCPToolsOutput{}, ErrUnauthorized
 	}
 
 	accounts, err := c.accounts.ListAccounts(ctx, userID)
 	if err != nil {
-		return ListMCPToolsOutput{}, err
+		return ListMCPToolsOutput{}, fmt.Errorf("listing accounts: %w", err)
 	}
 
 	tools := make([]Tool, 0, len(accounts))
@@ -32,8 +37,10 @@ func (c *Controller) ListMcpTools(ctx context.Context, _ struct{}) (ListMCPTools
 	for _, account := range accounts {
 		accountTools, err := c.accounts.ListTools(ctx, account.ID())
 		if err != nil {
-			return ListMCPToolsOutput{}, err
+			e := fmt.Errorf("listing tools for account %q: %w", account.ID().ID().String(), err)
+			return ListMCPToolsOutput{}, e
 		}
+
 		for _, tool := range accountTools {
 			tools = append(tools, Tool{
 				Name:        tool.Name(),

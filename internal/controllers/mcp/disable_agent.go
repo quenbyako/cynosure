@@ -2,8 +2,11 @@ package mcp
 
 import (
 	"context"
-	"errors"
-	"fmt"
+)
+
+const (
+	disableAgentName = "disable_agent"
+	disableAgentDesc = "Deactivates an agent."
 )
 
 type (
@@ -15,9 +18,10 @@ type (
 func (c *Controller) DisableAgent(ctx context.Context, in DisableAgentInput) (struct{}, error) {
 	userID, ok := FromContext(ctx)
 	if !ok {
-		return struct{}{}, fmt.Errorf("missing user ID in context")
+		return struct{}{}, ErrUnauthorized
 	}
+
 	_ = userID
 
-	return struct{}{}, errors.New("unimplemented")
+	return struct{}{}, ErrUnimplemented
 }

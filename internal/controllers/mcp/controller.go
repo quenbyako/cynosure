@@ -21,6 +21,40 @@ type newParams struct {
 	allowedIssuers []string
 }
 
+func buildNewParams(opts ...NewOption) newParams {
+	params := newParams{
+		logger:         slog.DiscardHandler,
+		allowedIssuers: nil,
+	}
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return params
+}
+
+func (p *newParams) buildServerOptions() *mcp.ServerOptions {
+	return &mcp.ServerOptions{
+		Instructions: "",
+		//nolint:forbidigo // there is a reason to use it
+		Logger:                      slog.New(p.logger),
+		InitializedHandler:          nil,
+		PageSize:                    0,
+		RootsListChangedHandler:     nil,
+		ProgressNotificationHandler: nil,
+		CompletionHandler:           nil,
+		KeepAlive:                   0,
+		SubscribeHandler:            nil,
+		UnsubscribeHandler:          nil,
+		Capabilities:                nil,
+		HasPrompts:                  false,
+		HasResources:                false,
+		HasTools:                    false,
+		SchemaCache:                 nil,
+		GetSessionID:                nil,
+	}
+}
+
 type NewOption func(*newParams)
 
 func WithLogger(logger slog.Handler) NewOption {
@@ -31,82 +65,101 @@ func WithAllowedIssuers(issuers ...string) NewOption {
 	return func(p *newParams) { p.allowedIssuers = issuers }
 }
 
-func New(accounts *accounts.Usecase, impl mcp.Implementation, opts ...NewOption) http.Handler {
-	p := newParams{
-		logger: slog.DiscardHandler,
-	}
-	for _, opt := range opts {
-		opt(&p)
-	}
+func New(
+	accountsUsecase *accounts.Usecase,
+	impl mcp.Implementation,
+	opts ...NewOption,
+) (
+	http.Handler,
+	error,
+) {
+	params := buildNewParams(opts...)
 
 	ctrl := &Controller{
-		accounts: accounts,
-	}
-	if err := ctrl.validate(); err != nil {
-		panic(err)
+		accounts: accountsUsecase,
 	}
 
-	srv := mcp.NewServer(&impl, &mcp.ServerOptions{
-		Logger: slog.New(p.logger),
-	})
+	if err := ctrl.validate(); err != nil {
+		return nil, err
+	}
+
+	srv := mcp.NewServer(&impl, params.buildServerOptions())
 
 	route(srv, ctrl)
 
-	mux := http.NewServeMux()
-	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
-		JSONResponse: true,
-	}))
+	mux := buildMux(srv)
 
-	return Middleware(p.allowedIssuers, slog.New(p.logger))(mux)
+	return Middleware(params.allowedIssuers, params.logger)(mux), nil
 }
 
+func buildMux(srv *mcp.Server) *http.ServeMux {
+	mux := http.NewServeMux()
+
+	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(
+		func(r *http.Request) *mcp.Server { return srv },
+		&mcp.StreamableHTTPOptions{
+			JSONResponse:   true,
+			Stateless:      false,
+			Logger:         nil,
+			EventStore:     nil,
+			SessionTimeout: 0,
+		},
+	))
+
+	return mux
+}
+
+//nolint:err113 // validation will always throw specific unhandled errors.
 func (c *Controller) validate() error {
 	if c.accounts == nil {
-		return errors.New("accounts is nil")
+		return errors.New("accounts usecase is nil")
 	}
+
 	return nil
 }
 
-func route(srv *mcp.Server, c *Controller) {
+func route(srv *mcp.Server, ctrl *Controller) {
 	// --- MCP Servers & Accounts Management ---
-	register(srv, "authorize_mcp_server", "", "Registers an MCP server by URL. Returns either an auth link or a direct account ID.", c.AuthorizeMcpServer)
-	register(srv, "search_mcp_servers", "", "Searches for registered public MCP servers using a text query.", c.SearchMcpServers)
-	register(srv, "list_mcp_accounts", "", "Returns a list of registered and active MCP accounts for the current user.", c.ListMcpAccounts)
-	register(srv, "disable_mcp_account", "", "Deactivates an MCP account, preventing tools from being used.", c.DisableMcpAccount)
-	register(srv, "reactivate_mcp_account", "", "Reactivates a previously disabled MCP account.", c.ReactivateMcpAccount)
+	register(srv, authorizeMcpServerName, "", authorizeMcpServerDesc, ctrl.AuthorizeMcpServer)
+	register(srv, searchMcpServersName, "", searchMcpServersDesc, ctrl.SearchMcpServers)
+	register(srv, listMcpAccountsName, "", listMcpAccountsDesc, ctrl.ListMcpAccounts)
+	register(srv, disableMcpAccountName, "", disableMcpAccountDesc, ctrl.DisableMcpAccount)
+	register(srv, reactivateMcpAccountName, "", reactivateMcpAccountDesc, ctrl.ReactivateMcpAccount)
 
 	// --- Tools Discovery ---
-	register(srv, "list_mcp_tools", "", "Lists all available tools from all active MCP accounts.", c.ListMcpTools)
-	register(srv, "search_mcp_tools", "", "Search for tools across all active MCP accounts by query.", c.SearchMcpTools)
+	register(srv, listMcpToolsName, "", listMcpToolsDesc, ctrl.ListMcpTools)
+	register(srv, searchMcpToolsName, "", searchMcpToolsDesc, ctrl.SearchMcpTools)
 
 	// --- Agents Management ---
-	register(srv, "create_agent", "", "Creates a new autonomous agent with specified prompt and model.", c.CreateAgent)
-	register(srv, "update_agent", "", "Updates parameters of an existing autonomous agent.", c.UpdateAgent)
-	register(srv, "list_agents", "", "List all agents belonging to the current user.", c.ListAgents)
-	register(srv, "disable_agent", "", "Deactivates an agent.", c.DisableAgent)
-
+	register(srv, createAgentName, "", createAgentDesc, ctrl.CreateAgent)
+	register(srv, updateAgentName, "", updateAgentDesc, ctrl.UpdateAgent)
+	register(srv, listAgentsName, "", listAgentsDesc, ctrl.ListAgents)
+	register(srv, disableAgentName, "", disableAgentDesc, ctrl.DisableAgent)
 }
 
-const requestTimeout = 30 * time.Second
+const (
+	requestTimeout = 30 * time.Second
+)
+
+type handlerFunc[In, Out any] = func(context.Context, In) (Out, error)
 
 // regcister is a clean wrapper around mcp.AddTool that hides the JSON-RPC boilerplate.
-func register[In, Out any](srv *mcp.Server, name, title, desc string, h func(context.Context, In) (Out, error)) {
+func register[In, Out any](srv *mcp.Server, name, title, desc string, handle handlerFunc[In, Out]) {
 	mcp.AddTool(srv, &mcp.Tool{
-		Name:        name,
-		Description: desc,
-		Title:       title,
+		Name:         name,
+		Description:  desc,
+		Title:        title,
+		Meta:         nil,
+		Annotations:  nil,
+		InputSchema:  nil,
+		OutputSchema: nil,
+		Icons:        nil,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
 
-		out, err := h(ctx, in)
+		out, err := handle(ctx, in)
+
 		return nil, out, err
 	})
-}
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
 }
