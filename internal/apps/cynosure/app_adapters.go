@@ -49,10 +49,9 @@ func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
 
 func newMCPHandler(
 	p *appParams,
-	oauthHandler oauthhandler.PortWrapped,
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
-) *mcp.Handler {
+) (*mcp.Handler, error) {
 	// Create save token callback
 	saveToken := func(ctx context.Context, accountID ids.AccountID, token *oauth2.Token) error {
 		account, err := accounts.GetAccount(ctx, accountID)
@@ -86,9 +85,14 @@ func newMCPHandler(
 		return server, account.Token(), nil
 	}
 
-	return mcp.New(saveToken, accountToken,
+	handler, err := mcp.New(saveToken, accountToken,
 		mcp.WithObservability(p.observability),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("initializing mcp handler: %w", err)
+	}
+
+	return handler, nil
 }
 
 func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) (*gemini.GeminiModel, error) {

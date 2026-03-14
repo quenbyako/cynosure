@@ -2,8 +2,6 @@ package toolclient
 
 import (
 	"golang.org/x/oauth2"
-
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 // WithToolIDBuilder sets the tool ID builder for newly creating tools.
@@ -11,7 +9,7 @@ import (
 // Applies to:
 //
 //   - [ToolClient.DiscoverTools]
-func WithToolIDBuilder(builder func(account ids.AccountID, name string) (ids.ToolID, error)) DiscoverToolsOption {
+func WithToolIDBuilder(builder ToolIDBuilder) DiscoverToolsOption {
 	return discoverToolsFunc(func(p *discoverToolsParams) { p.toolIDBuilder = builder })
 }
 
@@ -41,7 +39,7 @@ func (f discoverToolsFunc) applyDiscoverTools(p *discoverToolsParams) { f(p) }
 //============================================================================//
 
 type discoverToolsParams struct {
-	toolIDBuilder func(account ids.AccountID, name string) (ids.ToolID, error)
+	toolIDBuilder ToolIDBuilder
 	token         *oauth2.Token
 }
 
@@ -58,7 +56,7 @@ func resolvedDiscoverToolsParams(value discoverToolsParams) DiscoverToolsOption 
 	return discoverToolsFunc(func(p *discoverToolsParams) { *p = value })
 }
 
-func (s *discoverToolsParams) ToolIDBuilder() func(account ids.AccountID, name string) (ids.ToolID, error) {
+func (s *discoverToolsParams) ToolIDBuilder() ToolIDBuilder {
 	return s.toolIDBuilder
 }
 

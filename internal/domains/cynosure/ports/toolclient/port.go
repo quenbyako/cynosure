@@ -11,6 +11,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
+// ToolIDBuilder is a function that creates a tool ID for newly creating tools.
+type ToolIDBuilder = func(account ids.AccountID, name string) (ids.ToolID, error)
+
 // ToolClient executes MCP (Model Context Protocol) operations: tool discovery
 // and tool execution. Abstracts MCP server connections, protocol handling, and
 // account-based access control.

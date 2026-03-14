@@ -294,10 +294,22 @@ linters:
         - '.*_test\.go'
     gocognit:
       min-complexity: 10 # default is 30
+    tagliatelle:
+      case:
+        rules:
+          json: snake
     forbidigo:
       # TODO: agree on list of forbidden functions, add new ones
       forbid:
-        - pattern: "slog.Logger"
+        - pattern: "^slog.Logger$"
+          msg: >-
+            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
+        - pattern: "^slog.New$"
+          msg: >-
+            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
+        - pattern: "^slog.Default$"
+          msg: >-
+            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
         - pattern: '^reflect\.'
         - pattern: "^panic$" # don't panic in code
         - pattern: "^print$"
@@ -633,3 +645,4 @@ linters:
         linters:
           - govet
           - gosec
+          - funlen
