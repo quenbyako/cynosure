@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -11,17 +10,25 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+// RefreshTokenFunc is a function that refreshes an OAuth 2.0 token.
+type RefreshTokenFunc func(context.Context, *oauth2.Config, *oauth2.Token) (*oauth2.Token, error)
+
 type tokenRefresher struct {
+	//nolint:containedctx // ctx is required for context cancellation
 	ctx           context.Context
 	saveToken     SaveTokenFunc
-	account       ids.AccountID
-	tokenTimeout  time.Duration
 	config        *oauth2.Config
 	originalToken *oauth2.Token
+	refresh       RefreshTokenFunc
+	tokenTimeout  time.Duration
+	account       ids.AccountID
 }
 
 var _ oauth2.TokenSource = (*tokenRefresher)(nil)
 
+// NewRefresher creates a new oauth2.TokenSource that refreshes tokens.
+//
+//nolint:ireturn // Returns oauth2.TokenSource interface as required by oauth2 package.
 func NewRefresher(
 	ctx context.Context,
 	token *oauth2.Token,
@@ -29,6 +36,7 @@ func NewRefresher(
 	account ids.AccountID,
 	config *oauth2.Config,
 	tokenTimeout time.Duration,
+	refresh RefreshTokenFunc,
 ) oauth2.TokenSource {
 	return &tokenRefresher{
 		ctx:           ctx,
@@ -37,19 +45,20 @@ func NewRefresher(
 		config:        config,
 		tokenTimeout:  tokenTimeout,
 		originalToken: token,
+		refresh:       refresh,
 	}
 }
 
 func (t *tokenRefresher) Token() (*oauth2.Token, error) {
 	// If original token doesn't have a refresh token, we can't refresh.
 	if t.originalToken.RefreshToken == "" {
-		return nil, errors.New("token expired and refresh token is not set")
+		return nil, ErrRefreshTokenNotSet
 	}
 
 	ctx, cancel := context.WithTimeout(t.ctx, t.tokenTimeout)
 	defer cancel()
 
-	newToken, err := t.config.TokenSource(ctx, t.originalToken).Token()
+	newToken, err := t.refresh(ctx, t.config, t.originalToken)
 	if err != nil {
 		return nil, fmt.Errorf("refreshing token: %w", err)
 	}

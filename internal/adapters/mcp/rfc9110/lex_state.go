@@ -1,7 +1,6 @@
 package rfc9110
 
 import (
-	"errors"
 	"strings"
 	"unicode"
 
@@ -9,7 +8,9 @@ import (
 )
 
 var (
-	alphanum = rangetable.New([]rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")...)
+	letters  = rangetable.New([]rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")...)
+	digits   = rangetable.New([]rune("0123456789")...)
+	alphanum = rangetable.Merge(letters, digits)
 	// tchar as defined in RFC 9110 Section 5.6.2
 	rfc7230TChar = rangetable.Merge(alphanum, rangetable.New([]rune("!#$%&'*+-.^_`|~+")...))
 	// token68 as defined in RFC 9110 Section 11.2
@@ -18,196 +19,243 @@ var (
 	tokensBoth = rangetable.Merge(rfc7230TChar, base68)
 
 	equal = rangetable.New('=')
-	comma = rangetable.New(',')
 )
 
-func lexChallenge(l *lexer) stateFn {
-	l.acceptRun(unicode.Space)
-	l.ignore()
+func lexChallenge(lex *lexer) stateFn {
+	lex.acceptRun(unicode.Space)
+	lex.ignore()
 
 	// Skip empty list elements (leading or between challenges)
-	for l.peek() == ',' {
-		l.next()
-		l.ignore()
-		l.acceptRun(unicode.Space)
-		l.ignore()
+	for lex.peek() == ',' {
+		lex.next()
+		lex.ignore()
+		lex.acceptRun(unicode.Space)
+		lex.ignore()
 	}
 
-	if l.eof() {
+	if lex.eof() {
 		return nil
 	}
 
-	if !l.acceptRun(rfc7230TChar) {
-		return l.errorf("invalid format, challenge must start with token")
+	if !lex.acceptRun(rfc7230TChar) {
+		return lex.errorf("invalid format, challenge must start with token")
 	}
-	l.emit("auth-scheme")
+
+	lex.emit("auth-scheme")
 
 	return lexAfterScheme
 }
 
-func lexAfterScheme(l *lexer) stateFn {
-	hasSpace := l.acceptRun(unicode.Space)
-	l.ignore()
+func lexAfterScheme(lex *lexer) stateFn {
+	hasSpace := lex.acceptRun(unicode.Space)
+	lex.ignore()
 
-	if l.eof() {
+	if lex.eof() {
 		return nil
 	}
-	if l.peek() == ',' {
-		l.next()
-		l.ignore()
+
+	if lex.peek() == ',' {
+		lex.next()
+		lex.ignore()
+
 		return lexChallenge
 	}
 
 	if !hasSpace {
-		return l.errorf("expected space after auth-scheme")
+		return lex.errorf("expected space after auth-scheme")
 	}
 
+	return handleChallengeBody(lex)
+}
+
+func handleChallengeBody(lex *lexer) stateFn {
 	// It's either a token68 or the start of auth-params
-	// We read characters that could be either.
-	// Note: rfc7230TChar excludes '/', but base68 includes it.
-	l.acceptRun(tokensBoth)
-	tokPos := l.pos
+	lex.acceptRun(tokensBoth)
 
-	l.acceptRun(unicode.Space)
-	if l.peek() == '=' {
-		// If next is '=', check if it's double '==' (token68 padding)
-		l.next()
-		if l.peek() == '=' {
-			// It's token68 padding. RFC 9110 Section 11.2: token68 ends with *"="
-			l.next()
-			l.acceptRun(equal)
-			l.emit("token68")
-			return lexAfterChallengeBody
-		}
-		// It was a single '=', so the token we read is a key OR token68 with padding.
-		// If it's followed by a value (token or quoted-string), it's a key.
-		// If it's followed by a comma or EOF, it's a token68.
-		l.acceptRun(unicode.Space)
-		p := l.peek()
-		if p == ',' || p == -1 {
-			// token68 with single padding
-			l.emit("token68")
-			return lexAfterChallengeBody
-		}
+	tokPos := lex.pos
 
-		// Also check if it's clearly a token68 by containing '/'
-		tokenVal := string(l.input[l.start:tokPos])
-		if !strings.Contains(tokenVal, "/") && (unicode.Is(rfc7230TChar, p) || p == '"') {
-			l.pos = tokPos
-			l.emit("key")
-			l.acceptRun(unicode.Space)
-			l.next() // consume the '='
-			l.ignore()
-			return lexValue
-		}
+	lex.acceptRun(unicode.Space)
 
-		// Fallback to token68
-		l.emit("token68")
+	if lex.peek() == '=' {
+		return handleEqualAfterScheme(lex, tokPos)
+	}
+
+	lex.pos = tokPos
+
+	lex.emit("token68")
+
+	return lexAfterChallengeBody
+}
+
+func handleEqualAfterScheme(lex *lexer, tokPos int) stateFn {
+	lex.next()
+
+	if lex.peek() == '=' {
+		lex.next()
+		lex.acceptRun(equal)
+		lex.emit("token68")
+
 		return lexAfterChallengeBody
 	}
 
-	// If no '=', it might be a token68 that doesn't use '=' or ends here.
-	// We need to re-read it as base68 to be sure it's valid.
-	// But according to RFC, if it's not a key, it must be token68.
-	l.pos = tokPos
-	// Optionally check base68 validity here if strictness is needed
-	l.emit("token68")
-	return lexAfterChallengeBody
-}
+	lex.acceptRun(unicode.Space)
 
-func lexValue(l *lexer) stateFn {
-	l.acceptRun(unicode.Space)
-	l.ignore()
+	peeked := lex.peek()
+	if peeked == ',' || peeked == -1 {
+		lex.emit("token68")
 
-	if l.peek() == '"' {
-		if err := emitQuotedString(l, "value"); err != nil {
-			return l.errorf("%v", err)
-		}
-	} else {
-		if !l.acceptRun(rfc7230TChar) {
-			return l.errorf("expected value")
-		}
-		l.emit("value")
+		return lexAfterChallengeBody
 	}
+
+	return lexKeyAfterScheme(lex, tokPos, peeked)
+}
+
+func lexKeyAfterScheme(lex *lexer, tokPos int, peeked rune) stateFn {
+	tokenVal := string(lex.input[lex.start:tokPos])
+
+	if !strings.Contains(tokenVal, "/") && (unicode.Is(rfc7230TChar, peeked) || peeked == '"') {
+		lex.pos = tokPos
+		lex.emit("key")
+		lex.acceptRun(unicode.Space)
+		lex.next() // consume the '='
+		lex.ignore()
+
+		return lexValue
+	}
+
+	lex.emit("token68")
+
 	return lexAfterChallengeBody
 }
 
-func lexAfterChallengeBody(l *lexer) stateFn {
-	l.acceptRun(unicode.Space)
-	l.ignore()
+func lexValue(lex *lexer) stateFn {
+	lex.acceptRun(unicode.Space)
+	lex.ignore()
 
-	if l.eof() {
+	if lex.peek() == '"' {
+		return lexQuotedValue(lex)
+	}
+
+	return lexTokenValue(lex)
+}
+
+func lexQuotedValue(lex *lexer) stateFn {
+	if err := emitQuotedString(lex, "value"); err != nil {
+		return lex.errorf("%v", err)
+	}
+
+	return lexAfterChallengeBody
+}
+
+func lexTokenValue(lex *lexer) stateFn {
+	if !lex.acceptRun(rfc7230TChar) {
+		return lex.errorf("expected value")
+	}
+
+	lex.emit("value")
+
+	return lexAfterChallengeBody
+}
+
+func lexAfterChallengeBody(lex *lexer) stateFn {
+	lex.acceptRun(unicode.Space)
+	lex.ignore()
+
+	if lex.eof() {
 		return nil
 	}
 
-	if l.peek() == ',' {
-		l.next()
-		l.ignore()
-
-		l.acceptRun(unicode.Space)
-		l.ignore()
-
-		if l.eof() {
-			return nil // trailing comma
-		}
-
-		// Distinguish next param vs next challenge
-		savePos := l.pos
-		l.acceptRun(rfc7230TChar)
-		l.acceptRun(unicode.Space)
-		if l.peek() == '=' {
-			// It's a key of next param
-			l.pos = savePos
-			return lexParam
-		}
-
-		// It's a new challenge
-		l.pos = savePos
-		return lexChallenge
+	if lex.peek() == ',' {
+		return handleCommaAfterChallengeBody(lex)
 	}
 
-	return l.errorf("unexpected character %q", l.peek())
+	return lex.errorf("unexpected character %q", lex.peek())
 }
 
-func lexParam(l *lexer) stateFn {
-	if !l.acceptRun(rfc7230TChar) {
-		return l.errorf("expected param key")
+func handleCommaAfterChallengeBody(lex *lexer) stateFn {
+	lex.next()
+	lex.ignore()
+
+	lex.acceptRun(unicode.Space)
+	lex.ignore()
+
+	if lex.eof() {
+		return nil // trailing comma
 	}
-	l.emit("key")
-	l.acceptRun(unicode.Space)
-	if l.peek() != '=' {
-		return l.errorf("expected = after key")
+
+	// Distinguish next param vs next challenge
+	savePos := lex.pos
+	lex.acceptRun(rfc7230TChar)
+	lex.acceptRun(unicode.Space)
+
+	if lex.peek() == '=' {
+		// It's a key of next param
+		lex.pos = savePos
+
+		return lexParam
 	}
-	l.next()
-	l.ignore()
+
+	// It's a new challenge
+	lex.pos = savePos
+
+	return lexChallenge
+}
+
+func lexParam(lex *lexer) stateFn {
+	if !lex.acceptRun(rfc7230TChar) {
+		return lex.errorf("expected param key")
+	}
+
+	lex.emit("key")
+	lex.acceptRun(unicode.Space)
+
+	if lex.peek() != '=' {
+		return lex.errorf("expected = after key")
+	}
+
+	lex.next()
+	lex.ignore()
+
 	return lexValue
 }
 
-func emitQuotedString(l *lexer, typ string) error {
-	if l.next() != '"' {
-		return errors.New("missed opening quote")
+func emitQuotedString(lex *lexer, typ string) error {
+	if lex.next() != '"' {
+		return ErrMissedOpeningQuote
 	}
-	l.ignore()
 
-	var b strings.Builder
+	lex.ignore()
+
+	var builder strings.Builder
+
+	return lexQuotedLoop(lex, &builder, typ)
+}
+
+func lexQuotedLoop(lex *lexer, builder *strings.Builder, typ string) error {
 	for {
-		r := l.next()
-		if r == -1 {
-			return errors.New("unclosed quote")
+		runeVal := lex.next()
+		if runeVal == -1 {
+			return ErrUnclosedQuote
 		}
-		if r == '\\' {
-			r = l.next()
-			if r == -1 {
-				return errors.New("unexpected EOF")
+
+		if runeVal == '\\' {
+			runeVal = lex.next()
+			if runeVal == -1 {
+				return ErrUnexpectedEOF
 			}
-			b.WriteRune(r)
+
+			builder.WriteRune(runeVal)
+
 			continue
 		}
-		if r == '"' {
-			l.emitValue(typ, b.String())
-			l.ignore()
+
+		if runeVal == '"' {
+			lex.emitValue(typ, builder.String())
+			lex.ignore()
+
 			return nil
 		}
-		b.WriteRune(r)
+
+		builder.WriteRune(runeVal)
 	}
 }

@@ -110,7 +110,7 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 	return res, nil
 }
 
-func ToolInfoToGenAI(tools []tools.RawToolInfo) (res []*genai.Tool) {
+func ToolInfoToGenAI(tools []tools.RawTool) (res []*genai.Tool) {
 	decls := make([]*genai.FunctionDeclaration, len(tools))
 	for i, tool := range tools {
 		decls[i] = &genai.FunctionDeclaration{

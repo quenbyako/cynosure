@@ -2,8 +2,11 @@ package mcp
 
 import (
 	"context"
-	"errors"
-	"fmt"
+)
+
+const (
+	disableMcpAccountName = "disable_mcp_account"
+	disableMcpAccountDesc = "Deactivates an MCP account, preventing tools from being used."
 )
 
 type (
@@ -12,12 +15,19 @@ type (
 	}
 )
 
-func (c *Controller) DisableMcpAccount(ctx context.Context, in DisableMcpAccountInput) (struct{}, error) {
+func (c *Controller) DisableMcpAccount(
+	ctx context.Context,
+	in DisableMcpAccountInput,
+) (
+	struct{},
+	error,
+) {
 	userID, ok := FromContext(ctx)
 	if !ok {
-		return struct{}{}, fmt.Errorf("missing user ID in context")
+		return struct{}{}, ErrUnauthorized
 	}
+
 	_ = userID
 
-	return struct{}{}, errors.New("unimplemented")
+	return struct{}{}, ErrUnimplemented
 }

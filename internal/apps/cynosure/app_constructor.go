@@ -202,12 +202,17 @@ func connectDependencies(
 	// TODO: each of controllers MUST be separated, like adapters and usecases.
 	p.telegramAddr(must(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability))))
 
-	p.mcpAddr(mcp.New(
+	handler, err := mcp.New(
 		accounts,
 		mcpImpl,
 		mcp.WithLogger(p.observability),
-		mcp.WithAllowedIssuers(p.oryEndpoint.String()),
-	))
+		mcp.WithAllowedIssuers(p.oryEndpoint.Host),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating mcp handler: %w", err)
+	}
+
+	p.mcpAddr(handler)
 
 	return &App{}, nil
 }

@@ -18,7 +18,8 @@ import (
 	. "github.com/quenbyako/cynosure/internal/adapters/mcp"
 )
 
-// TestTokenRefresh_RequestCancelled verifies that token refresh completes even when request context is cancelled
+// TestTokenRefresh_RequestCancelled verifies that token refresh completes
+// even when request context is cancelled
 func TestTokenRefresh_RequestCancelled(t *testing.T) {
 	t.Parallel()
 
@@ -36,13 +37,17 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 	serverID := ids.RandomServerID()
 	accountID, err := ids.RandomAccountID(userID, serverID)
 	require.NoError(t, err)
+
 	oldToken := &oauth2.Token{
 		AccessToken:  "old-access",
+		TokenType:    "Bearer",
 		RefreshToken: "refresh-token",
 		Expiry:       time.Now().Add(-1 * time.Hour),
+		ExpiresIn:    0,
 	}
 	newToken := &oauth2.Token{
 		AccessToken:  "new-access",
+		TokenType:    "Bearer",
 		RefreshToken: "refresh-token",
 		Expiry:       time.Now().Add(1 * time.Hour),
 	}
@@ -64,8 +69,13 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 			ClientID:     "client-id",
 			ClientSecret: "client-secret",
 			Endpoint: oauth2.Endpoint{
-				TokenURL: "https://example.com/token",
+				AuthURL:       "",
+				TokenURL:      "https://example.com/token",
+				DeviceAuthURL: "",
+				AuthStyle:     0,
 			},
+			RedirectURL: "",
+			Scopes:      nil,
 		}),
 	)
 	if err != nil {
@@ -101,6 +111,7 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 		account.ID(),
 		serverConfig.AuthConfig(),
 		10*time.Second,
+		mockAuth.RefreshToken,
 	)
 
 	// Cancel the request context BEFORE token refresh
@@ -148,10 +159,13 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 	serverID := ids.RandomServerID()
 	accountID, err := ids.RandomAccountID(userID, serverID)
 	require.NoError(t, err)
+
 	oldToken := &oauth2.Token{
 		AccessToken:  "old-access",
+		TokenType:    "Bearer",
 		RefreshToken: "refresh-token",
 		Expiry:       time.Now().Add(-1 * time.Hour),
+		ExpiresIn:    0,
 	}
 
 	account, err := entities.NewAccount(
@@ -169,8 +183,13 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 			ClientID:     "client-id",
 			ClientSecret: "client-secret",
 			Endpoint: oauth2.Endpoint{
-				TokenURL: "https://example.com/token",
+				AuthURL:       "",
+				TokenURL:      "https://example.com/token",
+				DeviceAuthURL: "",
+				AuthStyle:     0,
 			},
+			RedirectURL: "",
+			Scopes:      nil,
 		}),
 	)
 	if err != nil {
@@ -200,6 +219,7 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 		account.ID(),
 		serverConfig.AuthConfig(),
 		100*time.Millisecond,
+		mockAuth.RefreshToken,
 	)
 
 	// Token refresh should fail due to timeout
@@ -236,10 +256,10 @@ func TestTokenRefresh_NoRefreshToken(t *testing.T) {
 	serverID := ids.RandomServerID()
 	accountID, err := ids.RandomAccountID(userID, serverID)
 	require.NoError(t, err)
+
 	tokenWithoutRefresh := &oauth2.Token{
 		AccessToken: "access-only",
-		// No RefreshToken
-		Expiry: time.Now().Add(-1 * time.Hour),
+		Expiry:      time.Now().Add(-1 * time.Hour),
 	}
 
 	account, err := entities.NewAccount(
@@ -270,6 +290,7 @@ func TestTokenRefresh_NoRefreshToken(t *testing.T) {
 		account.ID(),
 		serverConfig.AuthConfig(),
 		10*time.Second,
+		mockAuth.RefreshToken,
 	)
 
 	// Should fail immediately without refresh token
@@ -289,9 +310,10 @@ func TestTokenRefresh_NoRefreshToken(t *testing.T) {
 
 // mustParseURL is a helper that panics if URL parsing fails
 func mustParseURL(rawURL string) *url.URL {
-	u, err := url.Parse(rawURL)
+	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		panic(err)
 	}
-	return u
+
+	return parsedURL
 }

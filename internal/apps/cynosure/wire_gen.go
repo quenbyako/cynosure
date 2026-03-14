@@ -28,23 +28,26 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	chatModel := ports.NewChatModel(geminiModel)
-	handler := newOAuthHandler(config)
-	portWrapped := oauthhandler.New(handler)
 	serverStorage := ports.NewServerStorage(adapter)
 	accountStorage := ports.NewAccountStorage(adapter)
-	mcpHandler := newMCPHandler(config, portWrapped, serverStorage, accountStorage)
-	toolclientPortWrapped := toolclient.New(mcpHandler)
+	handler, err := newMCPHandler(config, serverStorage, accountStorage)
+	if err != nil {
+		return nil, err
+	}
+	portWrapped := toolclient.New(handler)
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
 	toolStorage := ports.NewToolStorage(adapter)
 	agentStorage := ports.NewAgentStorage(adapter)
-	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, portWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	oauthHandler := newOAuthHandler(config)
+	oauthhandlerPortWrapped := oauthhandler.New(oauthHandler)
 	client, err := newOryClient(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 	identitymanagerPortWrapped := identitymanager.New(client)
-	usecase2 := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
-	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
+	usecase2 := newAccountsUsecase(config, serverStorage, oauthhandlerPortWrapped, accountStorage, toolStorage, toolSemanticIndex, portWrapped, identitymanagerPortWrapped)
+	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, portWrapped, toolSemanticIndex)
 	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, usecase3)
 	if err != nil {
 		return nil, err

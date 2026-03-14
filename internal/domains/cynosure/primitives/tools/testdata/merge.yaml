@@ -1,0 +1,67 @@
+cases:
+  - name: "success: merge same schemas"
+    tools:
+      - name: "send_message"
+        desc: "Desc"
+        params:
+          type: object
+          properties:
+            text:
+              type: string
+        response:
+          type: object
+        accountName: "main_bot"
+        accountDesc: "Main bot"
+      - name: "send_message"
+        desc: "Desc"
+        params:
+          type: object
+          properties:
+            text:
+              type: string
+        response:
+          type: object
+        accountName: "backup_bot"
+        accountDesc: "Backup bot"
+    expectErr: false
+    expectedCount: 2
+
+  - name: "error: different names"
+    tools:
+      - name: "msg1"
+        desc: "Desc"
+        params:
+          type: object
+        response:
+          type: object
+        accountName: "bot1"
+        accountDesc: "Bot"
+      - name: "msg2"
+        desc: "Desc"
+        params:
+          type: object
+        response:
+          type: object
+        accountName: "bot2"
+        accountDesc: "Bot"
+    expectErr: true
+
+  - name: "error: different descriptions"
+    tools:
+      - name: "msg"
+        desc: "Desc 1"
+        params:
+          type: object
+        response:
+          type: object
+        accountName: "bot"
+        accountDesc: "Bot"
+      - name: "msg"
+        desc: "Desc 2"
+        params:
+          type: object
+        response:
+          type: object
+        accountName: "bot"
+        accountDesc: "Bot"
+    expectErr: true

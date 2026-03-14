@@ -1,0 +1,35 @@
+package tools
+
+import (
+	"errors"
+)
+
+var (
+	ErrToolNameEmpty             = errors.New("tool name cannot be empty")
+	ErrToolDescriptionEmpty      = errors.New("tool description cannot be empty")
+	ErrToolNoAccounts            = errors.New("tool must be associated with at least one account")
+	ErrMergeDifferentNames       = errors.New("cannot merge tools with different names")
+	ErrMergeDifferentDescs       = errors.New("cannot merge tools with different descriptions")
+	ErrMergeDifferentParams      = errors.New("cannot merge tools with different parameters")
+	ErrMergeDifferentResps       = errors.New("cannot merge tools with different responses")
+	ErrInvalidToolID             = errors.New("invalid tool id")
+	ErrAccountSlugEmpty          = errors.New("account slug cannot be empty")
+	ErrInvalidInputSchema        = errors.New("invalid input schema")
+	ErrReservedPropertyUsed      = errors.New("reserved property used")
+	ErrDuplicateToolID           = errors.New("duplicate tool id")
+	ErrAccountNotFound           = errors.New("account not found")
+	ErrInvalidEnumFormat         = errors.New("invalid enum format")
+	ErrSchemaNil                 = errors.New("schema must not be nil")
+	ErrSchemaMustBeObject        = errors.New("schema type must be object")
+	ErrReservedPropertyCollision = errors.New("reserved property collision")
+	ErrAccountInjectKeyMissing   = errors.New("account inject key missing")
+	ErrToolNotFound              = errors.New("tool not found")
+	ErrToolboxNil                = errors.New("toolbox is nil")
+	ErrToolInvalid               = errors.New("tool is invalid")
+	ErrToolboxInvalid            = errors.New("toolbox is invalid")
+	ErrNoToolsToMerge            = errors.New("no tools to merge")
+	ErrSchemaParse               = errors.New("cannot parse schema")
+	ErrSchemaInvalid             = errors.New("invalid schema")
+	ErrUnreachable               = errors.New("unreachable code reached")
+	ErrSchemaCollistion          = errors.New("schema collision")
+)

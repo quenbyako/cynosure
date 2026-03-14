@@ -1,55 +1,79 @@
+// Package rfc9110 provides a parser for the WWW-Authenticate header as defined
+// in RFC 9110.
 package rfc9110
 
-import "strings"
+import (
+	"strings"
+)
 
 // AuthChallenge represents a single challenge in WWW-Authenticate header.
 type AuthChallenge struct {
+	Params map[string]string
 	Scheme string
 	Data   string
-	Params map[string]string
 }
 
 // ParseWWWAuthenticate parses WWW-Authenticate header according to RFC 9110.
 func ParseWWWAuthenticate(header string) ([]AuthChallenge, bool) {
-
 	header = strings.TrimSpace(header)
 	if header == "" {
 		return nil, false
 	}
 
 	items := lex(header, lexChallenge)
+
 	return collectChallenges(items)
 }
 
 func collectChallenges(items chan token) ([]AuthChallenge, bool) {
-	var challenges []AuthChallenge
-	var cur *AuthChallenge
-	var lastKey string
+	var (
+		challenges []AuthChallenge
+		cur        *AuthChallenge
+		lastKey    string
+	)
 
-	for it := range items {
-		switch it.typ {
-		case "error":
+	for item := range items {
+		if item.typ == "error" {
 			return nil, false
-		case "auth-scheme":
-			challenges = append(challenges, AuthChallenge{
-				Scheme: strings.ToLower(it.value),
-				Params: make(map[string]string),
-			})
-			cur = &challenges[len(challenges)-1]
-			lastKey = ""
-		case "token68":
-			if cur != nil {
-				cur.Data = it.value
-			}
-		case "key":
-			lastKey = strings.ToLower(it.value)
-		case "value":
-			if cur != nil && lastKey != "" {
-				cur.Params[lastKey] = it.value
-				lastKey = ""
-			}
 		}
+
+		if item.typ == "auth-scheme" {
+			cur = handleAuthScheme(&challenges, item.value)
+			lastKey = ""
+
+			continue
+		}
+
+		handleChallengeItem(item, cur, &lastKey)
 	}
 
 	return challenges, len(challenges) > 0
+}
+
+func handleAuthScheme(challenges *[]AuthChallenge, value string) *AuthChallenge {
+	*challenges = append(*challenges, AuthChallenge{
+		Params: make(map[string]string),
+		Scheme: strings.ToLower(value),
+		Data:   "",
+	})
+
+	return &(*challenges)[len(*challenges)-1]
+}
+
+func handleChallengeItem(item token, cur *AuthChallenge, lastKey *string) {
+	if cur == nil {
+		return
+	}
+
+	switch item.typ {
+	case "token68":
+		cur.Data = item.value
+	case "key":
+		*lastKey = strings.ToLower(item.value)
+	case "value":
+		if *lastKey != "" {
+			cur.Params[*lastKey] = item.value
+			*lastKey = ""
+		}
+	}
 }

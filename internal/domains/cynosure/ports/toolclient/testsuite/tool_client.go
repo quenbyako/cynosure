@@ -73,7 +73,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 
 	}
 
-	slug := "some-account"
+	name := "some-account"
 	desc := "Some Account Description"
 	for config := range configIterator() {
 		for testName, tokenMaker := range srvAccountMaker {
@@ -92,7 +92,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 
 				nameToID := map[string]ids.ToolID{}
 
-				tools, err := s.adapter.DiscoverTools(t.Context(), srv.MCPURL(), account, slug, desc, WithToolIDBuilder(func(account ids.AccountID, name string) (ids.ToolID, error) {
+				tools, err := s.adapter.DiscoverTools(t.Context(), srv.MCPURL(), account, name, desc, WithToolIDBuilder(func(account ids.AccountID, name string) (ids.ToolID, error) {
 					if _, ok := nameToID[name]; ok {
 						panic("unexpected tool name collision")
 					}
@@ -132,7 +132,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 					return
 				}
 
-				require.ElementsMatch(t, srv.Tools(desc, func(name string) ids.ToolID { return nameToID[name] }), tools)
+				require.ElementsMatch(t, srv.Tools(name, desc, func(name string) ids.ToolID { return nameToID[name] }), tools)
 			})
 		}
 	}

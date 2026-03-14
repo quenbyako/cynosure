@@ -70,7 +70,7 @@ func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL,
 
 	server, err := s.servers.LookupByURL(ctx, u) // just to see if it already exists
 	if errors.Is(err, ports.ErrNotFound) {
-		var anonTools []tools.RawToolInfo
+		var anonTools []tools.RawTool
 		server, anonTools, err = s.createServer(ctx, u, getAccountID, accName, accDescription)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create server: %w", err)
@@ -178,7 +178,7 @@ func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL,
 
 type makeAccountFunc func(ids.ServerID) (ids.AccountID, error)
 
-func (s *Usecase) createServer(ctx context.Context, u *url.URL, accountIDBuilder makeAccountFunc, slug, description string) (*entities.ServerConfig, []tools.RawToolInfo, error) {
+func (s *Usecase) createServer(ctx context.Context, u *url.URL, accountIDBuilder makeAccountFunc, slug, description string) (*entities.ServerConfig, []tools.RawTool, error) {
 	server, err := entities.NewServerConfig(ids.RandomServerID(), u)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating server config: %w", err)

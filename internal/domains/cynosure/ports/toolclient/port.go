@@ -11,6 +11,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
+// ToolIDBuilder is a function that creates a tool ID for newly creating tools.
+type ToolIDBuilder = func(account ids.AccountID, name string) (ids.ToolID, error)
+
 // ToolClient executes MCP (Model Context Protocol) operations: tool discovery
 // and tool execution. Abstracts MCP server connections, protocol handling, and
 // account-based access control.
@@ -33,7 +36,7 @@ type Port interface {
 	//  - [ErrInvalidCredentials] if OAuth token is invalid or expired.
 	//  - [RequiresAuthError] if server requires auth first, and there is no
 	//    data about mcp protocol yet.
-	DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawToolInfo, error)
+	DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawTool, error)
 
 	// ExecuteTool executes a tool call and returns the result. Implements the
 	// MCP tool execution phase. Does not validate argument schemas - validation

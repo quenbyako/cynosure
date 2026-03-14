@@ -10,9 +10,20 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
-// ErrNotMCPServer is returned when both Streamable and SSE protocols fail,
-// indicating the address is not an MCP server.
-var ErrNotMCPServer = errors.New("address is not an MCP server")
+var (
+	// ErrNotMCPServer is returned when both Streamable and SSE protocols fail,
+	// indicating the address is not an MCP server.
+	ErrNotMCPServer = errors.New("address is not an MCP server")
+
+	ErrURLIsNil           = errors.New("url is nil")
+	ErrTokenIsNil         = errors.New("token is nil")
+	ErrProtocolIsInvalid  = errors.New("protocol is invalid")
+	ErrAccountIDIsInvalid = errors.New("account id is invalid")
+	ErrServerIsNil        = errors.New("server is nil")
+	ErrAuthRequired       = errors.New("server requires auth, however, it's not provided")
+	ErrRefreshTokenNotSet = errors.New("token expired and refresh token is not set")
+	ErrUnknownProtocol    = errors.New("unknown protocol")
+)
 
 // TransportError categorizes errors from MCP transport attempts.
 type TransportError interface {
@@ -57,10 +68,10 @@ func (e *ProtocolError) Unwrap() error {
 // HTTPStatusError represents an HTTP error response.
 // This type is used internally for classification purposes.
 type HTTPStatusError struct {
-	StatusCode     int
-	Status         string
-	URL            string
 	ResponseHeader http.Header
+	URL            string
+	Status         string
+	StatusCode     int
 }
 
 func (e *HTTPStatusError) Error() string {
@@ -75,6 +86,7 @@ func extractAuthError(resp *http.Response) *ports.RequiresAuthError {
 	if resp.Header == nil {
 		return ports.ErrRequiresAuth(nil)
 	}
+
 	wwwAuth := resp.Header.Get("WWW-Authenticate")
 	if wwwAuth == "" {
 		return ports.ErrRequiresAuth(nil) // No metadata suggested
@@ -82,41 +94,47 @@ func extractAuthError(resp *http.Response) *ports.RequiresAuthError {
 
 	challenges, ok := rfc9110.ParseWWWAuthenticate(wwwAuth)
 	if !ok {
-		// fallback: some MCP servers returns just an URL link to this header.
-		// If it's a valid URL, we can use it
-		if metadataURL, err := url.Parse(wwwAuth); err == nil && metadataURL.IsAbs() {
-			return ports.ErrRequiresAuth(metadataURL)
-		}
-
-		return ports.ErrRequiresAuth(nil)
+		return ports.ErrRequiresAuth(tryParseMetadataURL(wwwAuth))
 	}
 
-	for _, ch := range challenges {
-		metadataURLStr, ok := ch.Params["resource_metadata"]
+	return ports.ErrRequiresAuth(extractMetadataURL(resp, challenges))
+}
 
+func tryParseMetadataURL(wwwAuth string) *url.URL {
+	// fallback: some MCP servers returns just an URL link to this header.
+	// If it's a valid URL, we can use it
+	if metadataURL, err := url.Parse(wwwAuth); err == nil && metadataURL.IsAbs() {
+		return metadataURL
+	}
+
+	return nil
+}
+
+func extractMetadataURL(resp *http.Response, challenges []rfc9110.AuthChallenge) *url.URL {
+	for _, challenge := range challenges {
+		metadataURLStr, ok := challenge.Params["resource_metadata"]
 		if !ok {
 			// NON-STANDARD: some servers are using "resource" instead of
 			// "resource_metadata"
-			metadataURLStr, ok = ch.Params["resource"]
+			metadataURLStr, ok = challenge.Params["resource"]
 		}
 
-		if ok {
-			metadataURL, err := url.Parse(metadataURLStr)
-			if err != nil {
-				continue
-			}
-
-			// Resolve relative URL against original request URL
-			if !metadataURL.IsAbs() {
-				baseURL, err := url.Parse(resp.Request.URL.String())
-				if err == nil {
-					metadataURL = baseURL.ResolveReference(metadataURL)
-				}
-			}
-
-			return ports.ErrRequiresAuth(metadataURL)
+		if !ok {
+			continue
 		}
+
+		metadataURL, err := url.Parse(metadataURLStr)
+		if err != nil {
+			continue
+		}
+
+		// Resolve relative URL against original request URL
+		if !metadataURL.IsAbs() && resp.Request != nil && resp.Request.URL != nil {
+			return resp.Request.URL.ResolveReference(metadataURL)
+		}
+
+		return metadataURL
 	}
 
-	return ports.ErrRequiresAuth(nil)
+	return nil
 }

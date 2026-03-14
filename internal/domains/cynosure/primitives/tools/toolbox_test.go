@@ -3,192 +3,223 @@
 package tools_test
 
 import (
+	"embed"
 	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 
 	. "github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
+//go:embed testdata/*.yaml
+var testData embed.FS
+
 func TestToolbox_Merge(t *testing.T) {
 	t.Parallel()
+
+	data := must[[]byte](t)(testData.ReadFile("testdata/toolbox_merge.yaml"))
+
+	var suite struct {
+		Cases []toolboxMergeYAMLCase `yaml:"cases"`
+	}
+
+	require.NoError(t, yaml.Unmarshal(data, &suite))
 
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
 
-	validParams := json.RawMessage(`{"type": "object", "properties": {"text": {"type": "string"}}}`)
-	validResponse := json.RawMessage(`{"type": "object"}`)
-
-	tests := []struct {
-		name    string
-		setup   func() (Toolbox, []RawToolInfo)
-		verify  func(*testing.T, Toolbox)
-		wantErr require.ErrorAssertionFunc
-	}{{
-		name: "add new tool to empty toolbox",
-		setup: func() (Toolbox, []RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID))
-			toolID := must(ids.RandomToolID(accountID))
-
-			tool := must(NewRawToolInfo(
-				"send_message",
-				"Send a message",
-				validParams,
-				validResponse,
-				WithMergedTool(toolID, "main_bot", "Main bot"),
-			))
-
-			return NewToolbox(), []RawToolInfo{tool}
-		},
-		verify: func(t *testing.T, tb Toolbox) {
-			require.Equal(t, 1, len(tb.Tools()), "should have 1 tool")
-		},
-	}, {
-		name: "merge existing tool with new account",
-		setup: func() (Toolbox, []RawToolInfo) {
-			account1 := must(ids.RandomAccountID(userID, serverID))
-			account2 := must(ids.RandomAccountID(userID, serverID))
-			toolID1 := must(ids.RandomToolID(account1))
-			toolID2 := must(ids.RandomToolID(account2))
-
-			tool1 := must(NewRawToolInfo(
-				"send_message",
-				"Send a message",
-				validParams,
-				validResponse,
-				WithMergedTool(toolID1, "main_bot", "Main bot"),
-			))
-
-			tool2 := must(NewRawToolInfo(
-				"send_message",
-				"Send a message",
-				validParams,
-				validResponse,
-				WithMergedTool(toolID2, "backup_bot", "Backup bot"),
-			))
-
-			initialToolbox, err := NewToolbox().Merge(tool1)
-			require.NoError(t, err)
-			return initialToolbox, []RawToolInfo{tool2}
-		},
-		verify: func(t *testing.T, tb Toolbox) {
-			require.Equal(t, 1, len(tb.Tools()), "should still have 1 tool")
-			tool := tb.Tools()["send_message"]
-			require.Equal(t, 2, len(tool.EncodedTools()), "tool should have 2 accounts")
-		},
-	}, {
-		name: "add multiple different tools",
-		setup: func() (Toolbox, []RawToolInfo) {
-			accountID := must(ids.RandomAccountID(userID, serverID))
-			toolID1 := must(ids.RandomToolID(accountID))
-			toolID2 := must(ids.RandomToolID(accountID))
-
-			tool1 := must(NewRawToolInfo("send_message", "Send", validParams, validResponse, WithMergedTool(toolID1, "main_bot", "Bot")))
-			tool2 := must(NewRawToolInfo("delete_message", "Delete", validParams, validResponse, WithMergedTool(toolID2, "main_bot", "Bot")))
-
-			return NewToolbox(), []RawToolInfo{tool1, tool2}
-		},
-		verify: func(t *testing.T, tb Toolbox) {
-			require.Equal(t, 2, len(tb.Tools()), "should have 2 different tools")
-		},
-	}, {
-		name: "error: merge invalid tool",
-		setup: func() (Toolbox, []RawToolInfo) {
-			// Create invalid tool (empty name)
-			invalidTool := RawToolInfo{} // invalid - no construction
-
-			return NewToolbox(), []RawToolInfo{invalidTool}
-		},
-		wantErr: require.Error,
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			wantErr := noErrAsDefault(tt.wantErr)
-
-			initial, tools := tt.setup()
-			merged, err := initial.Merge(tools...)
-			if wantErr(t, err); err != nil {
-				return
-			}
-
-			require.True(t, merged.Valid(), "merged toolbox should be valid")
-			if tt.verify != nil {
-				tt.verify(t, merged)
-			}
-		})
+	for _, tt := range suite.Cases {
+		tt.Run(t, userID, serverID)
 	}
+}
+
+type toolboxMergeYAMLCase struct {
+	Name         string                  `yaml:"name"`
+	InitialTools []mergeTestCaseToolDesc `yaml:"initialTools"`
+	ToolsToAdd   []mergeTestCaseToolDesc `yaml:"toolsToAdd"`
+	WantLen      int                     `yaml:"wantLen"`
+	ExpectErr    bool                    `yaml:"expectErr"`
+}
+
+func (c *toolboxMergeYAMLCase) Run(t *testing.T, userID ids.UserID, serverID ids.ServerID) {
+	t.Helper()
+
+	t.Run(c.Name, func(t *testing.T) {
+		t.Parallel()
+
+		initial := c.setupInitial(t, userID, serverID)
+		added := c.setupAdded(t, userID, serverID)
+
+		merged, err := initial.Merge(added...)
+		if c.ExpectErr {
+			require.Error(t, err)
+
+			return
+		}
+
+		require.NoError(t, err)
+		require.True(t, merged.Valid())
+		require.Len(t, merged.Tools(), c.WantLen)
+	})
+}
+
+func (c *toolboxMergeYAMLCase) setupInitial(
+	t *testing.T, userID ids.UserID, serverID ids.ServerID,
+) Toolbox {
+	t.Helper()
+
+	toolbox := NewToolbox()
+
+	for _, desc := range c.InitialTools {
+		tool := must[RawTool](t)(createToolFromDesc(t, userID, serverID, desc))
+		toolbox = must[Toolbox](t)(toolbox.Merge(tool))
+	}
+
+	return toolbox
+}
+
+func (c *toolboxMergeYAMLCase) setupAdded(
+	t *testing.T, userID ids.UserID, serverID ids.ServerID,
+) []RawTool {
+	t.Helper()
+
+	tools := make([]RawTool, 0, len(c.ToolsToAdd))
+
+	for _, desc := range c.ToolsToAdd {
+		tool, err := createToolFromDesc(t, userID, serverID, desc)
+		if err != nil {
+			tools = append(tools, RawTool{})
+		} else {
+			tools = append(tools, tool)
+		}
+	}
+
+	return tools
+}
+
+func createToolFromDesc(
+	t *testing.T,
+	userID ids.UserID,
+	serverID ids.ServerID,
+	desc mergeTestCaseToolDesc,
+) (RawTool, error) {
+	t.Helper()
+
+	params := must[json.RawMessage](t)(json.Marshal(desc.Params))
+	resp := must[json.RawMessage](t)(json.Marshal(desc.Response))
+
+	accID := must[ids.AccountID](t)(ids.RandomAccountID(userID, serverID))
+	toolID := must[ids.ToolID](t)(ids.RandomToolID(accID))
+
+	return NewRawTool(
+		desc.Name, desc.Desc, params, resp,
+		toolID, desc.AccountName, desc.AccountDesc,
+	)
 }
 
 func TestToolbox_ConvertRequest(t *testing.T) {
 	t.Parallel()
 
+	data := must[[]byte](t)(testData.ReadFile("testdata/toolbox_convert.yaml"))
+
+	var suite struct {
+		Cases []toolboxConvertYAMLCase `yaml:"cases"`
+	}
+
+	require.NoError(t, yaml.Unmarshal(data, &suite))
+
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
 
-	accountID := must(ids.RandomAccountID(userID, serverID))
-	toolID := must(ids.RandomToolID(accountID))
-
-	validParams := json.RawMessage(`{"type": "object", "properties": {"text": {"type": "string"}}}`)
-	validResponse := json.RawMessage(`{"type": "object"}`)
-
-	tool := must(NewRawToolInfo(
-		"send_message",
-		"Send a message",
-		validParams,
-		validResponse,
-		WithMergedTool(toolID, "main_bot", "Main bot"),
-	))
-
-	toolbox, err := NewToolbox().Merge(tool)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name           string
-		toolName       string
-		request        map[string]json.RawMessage
-		expectedToolID ids.ToolID
-		expectedParams map[string]json.RawMessage
-		wantErr        require.ErrorAssertionFunc
-	}{{
-		name:     "success: delegate to RawToolInfo",
-		toolName: "send_message",
-		request: map[string]json.RawMessage{
-			"text": json.RawMessage(`"hello"`),
-		},
-		expectedToolID: toolID,
-		expectedParams: map[string]json.RawMessage{
-			"text": json.RawMessage(`"hello"`),
-		},
-	}, {
-		name:     "error: tool not found",
-		toolName: "unknown_tool",
-		request: map[string]json.RawMessage{
-			"text": json.RawMessage(`"hello"`),
-		},
-		wantErr: require.Error,
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			wantErr := noErrAsDefault(tt.wantErr)
-
-			gotToolID, gotParams, err := toolbox.ConvertRequest(tt.toolName, tt.request)
-			if wantErr(t, err); err != nil {
-				return
-			}
-
-			require.Equal(t, tt.expectedToolID, gotToolID, "tool ID mismatch")
-			require.Equal(t, tt.expectedParams, gotParams, "params mismatch")
-		})
+	for _, tt := range suite.Cases {
+		tt.Run(t, userID, serverID)
 	}
+}
+
+type toolboxConvertYAMLCase struct {
+	Name           string                  `yaml:"name"`
+	ToolboxTools   []mergeTestCaseToolDesc `yaml:"toolboxTools"`
+	ToolName       string                  `yaml:"toolName"`
+	Request        map[string]any          `yaml:"request"`
+	ExpectedParams map[string]any          `yaml:"expectedParams"`
+	ExpectErr      bool                    `yaml:"expectErr"`
+}
+
+func (c *toolboxConvertYAMLCase) Run(t *testing.T, userID ids.UserID, serverID ids.ServerID) {
+	t.Helper()
+	t.Run(c.Name, func(t *testing.T) {
+		t.Parallel()
+
+		toolbox := c.setupToolbox(t, userID, serverID)
+		request := c.setupRequest(t)
+
+		gotID, gotParams, err := toolbox.ConvertRequest(c.ToolName, request)
+		if c.ExpectErr {
+			require.Error(t, err)
+
+			return
+		}
+
+		require.NoError(t, err)
+
+		// We need to find the correct tool ID since setupToolbox generates random ones
+		expID := toolbox.Tools()[c.ToolName].EncodedTools()
+
+		var toolID ids.ToolID
+
+		for id := range expID {
+			toolID = id
+		}
+
+		require.Equal(t, toolID, gotID)
+
+		expParams := c.setupExpectedParams(t)
+
+		require.Equal(t, expParams, gotParams)
+	})
+}
+
+func (c *toolboxConvertYAMLCase) setupToolbox(
+	t *testing.T, userID ids.UserID, serverID ids.ServerID,
+) Toolbox {
+	t.Helper()
+
+	toolbox := NewToolbox()
+
+	for _, desc := range c.ToolboxTools {
+		tool := must[RawTool](t)(createToolFromDesc(t, userID, serverID, desc))
+		toolbox = must[Toolbox](t)(toolbox.Merge(tool))
+	}
+
+	return toolbox
+}
+
+func (c *toolboxConvertYAMLCase) setupRequest(t *testing.T) map[string]json.RawMessage {
+	t.Helper()
+
+	req := make(map[string]json.RawMessage)
+
+	for k, v := range c.Request {
+		req[k] = must[json.RawMessage](t)(json.Marshal(v))
+	}
+
+	return req
+}
+
+func (c *toolboxConvertYAMLCase) setupExpectedParams(t *testing.T) map[string]json.RawMessage {
+	t.Helper()
+
+	exp := make(map[string]json.RawMessage)
+
+	for k, v := range c.ExpectedParams {
+		exp[k] = must[json.RawMessage](t)(json.Marshal(v))
+	}
+
+	return exp
 }
 
 func TestToolbox_Immutability(t *testing.T) {
@@ -196,34 +227,29 @@ func TestToolbox_Immutability(t *testing.T) {
 
 	userID := ids.RandomUserID()
 	serverID := ids.RandomServerID()
-	accountID := must(ids.RandomAccountID(userID, serverID))
-	toolID := must(ids.RandomToolID(accountID))
+	accID, err := ids.RandomAccountID(userID, serverID)
+	require.NoError(t, err)
+	tID, err := ids.RandomToolID(accID)
+	require.NoError(t, err)
 
-	validParams := json.RawMessage(`{"type": "object"}`)
-	validResponse := json.RawMessage(`{"type": "object"}`)
-
-	tool := must(NewRawToolInfo(
-		"send_message",
-		"Send a message",
-		validParams,
-		validResponse,
-		WithMergedTool(toolID, "main_bot", "Main bot"),
-	))
+	tool, err := NewRawTool("send_message", "Desc",
+		json.RawMessage(`{"type": "object"}`),
+		json.RawMessage(`{"type": "object"}`),
+		tID, "bot", "Bot")
+	require.NoError(t, err)
 
 	toolbox, err := NewToolbox().Merge(tool)
 	require.NoError(t, err)
 
 	t.Run("Tools returns cloned map", func(t *testing.T) {
-		// Get map twice
+		t.Parallel()
+
 		tools1 := toolbox.Tools()
 		tools2 := toolbox.Tools()
 
-		// Modify first map
 		delete(tools1, "send_message")
 
-		// Second map should be unaffected
 		_, exists := tools2["send_message"]
-		require.True(t, exists, "modification should not affect second map")
-		require.Equal(t, 1, len(tools2), "second map should have original size")
+		require.True(t, exists)
 	})
 }

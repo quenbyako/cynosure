@@ -2,29 +2,44 @@ package mcp
 
 import (
 	"context"
-	"fmt"
+)
+
+const (
+	searchMcpToolsName = "search_mcp_tools"
+	searchMcpToolsDesc = "Search for tools across all active MCP accounts by query."
 )
 
 type (
 	SearchMcpToolsInput struct {
-		Query string `json:"query" jsonschema:"Search query text"`
+		Query string `json:"query"           jsonschema:"Search query text"`
 		Limit int    `json:"limit,omitempty" jsonschema:"Max results"`
 	}
 
 	SearchMcpToolsOutput struct {
-		Tools []struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-		} `json:"tools"`
+		Tools []SearchMCPTool `json:"tools"`
+	}
+
+	SearchMCPTool struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 )
 
-func (c *Controller) SearchMcpTools(ctx context.Context, in SearchMcpToolsInput) (SearchMcpToolsOutput, error) {
+func (c *Controller) SearchMcpTools(
+	ctx context.Context,
+	in SearchMcpToolsInput,
+) (
+	SearchMcpToolsOutput,
+	error,
+) {
 	userID, ok := FromContext(ctx)
 	if !ok {
-		return SearchMcpToolsOutput{}, fmt.Errorf("missing user ID in context")
+		return SearchMcpToolsOutput{}, ErrUnauthorized
 	}
+
 	_ = userID
 
-	return SearchMcpToolsOutput{}, nil
+	return SearchMcpToolsOutput{
+		Tools: []SearchMCPTool{},
+	}, nil
 }
