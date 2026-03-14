@@ -37,6 +37,7 @@ func (s *Usecase) SetupAuthLink(
 	if err != nil {
 		return nil, ids.AccountID{}, time.Time{}, fmt.Errorf("checking user existence: %w", err)
 	}
+
 	if !exists {
 		return nil, ids.AccountID{}, time.Time{}, fmt.Errorf("user %q does not exist", user.ID())
 	}
@@ -49,6 +50,7 @@ func (s *Usecase) SetupAuthLink(
 	if _, err := rand.Read(verifier); err != nil {
 		panic(err)
 	}
+
 	verifierStr := base64.RawURLEncoding.EncodeToString(verifier)
 
 	account, err = ids.RandomAccountID(user, server)

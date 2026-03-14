@@ -53,13 +53,13 @@ func (f streamFunc) applyStream(p *streamParams) { f(p) }
 
 func (t traceWrapper) applyWrapThreadStorage(p *threadStorageWrapped) { p.trace = t.trace }
 
-//============================================================================//
-//                            [ChatModel.Stream]                             //
-//============================================================================//
+// ========================================================================== //
+//                            [ChatModel.Stream]                              //
+// ========================================================================== //
 
 type streamParams struct {
-	toolChoice tools.ToolChoice
 	tools      tools.Toolbox
+	toolChoice tools.ToolChoice
 }
 
 func StreamParams(opts ...StreamOption) *streamParams {

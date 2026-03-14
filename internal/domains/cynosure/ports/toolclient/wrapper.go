@@ -56,6 +56,7 @@ func (t *toolClientWrapped) ExecuteTool(ctx context.Context, tool entities.ToolR
 
 	res, err := t.w.ExecuteTool(ctx, tool, args, toolCallID)
 	span.recordError(err)
+
 	if res != nil {
 		span.recordResponse(res.Content())
 	}

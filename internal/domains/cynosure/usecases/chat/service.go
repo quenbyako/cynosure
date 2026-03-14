@@ -13,19 +13,17 @@ import (
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 
 type Usecase struct {
-	storage     ports.ThreadStorage
-	model       ports.ChatModel
-	tools       toolclient.Port
-	indexer     ports.ToolSemanticIndex
-	toolStorage ports.ToolStorage
-	servers     ports.ServerStorage
-	accounts    ports.AccountStorage
-	models      ports.AgentStorage
-
+	storage        ports.ThreadStorage
+	model          ports.ChatModel
+	tools          toolclient.Port
+	indexer        ports.ToolSemanticIndex
+	toolStorage    ports.ToolStorage
+	servers        ports.ServerStorage
+	accounts       ports.AccountStorage
+	models         ports.AgentStorage
+	log            LogCallbacks
+	trace          trace.Tracer
 	agentLoopTurns uint8
-
-	log   LogCallbacks
-	trace trace.Tracer
 }
 
 type newParams struct {
@@ -88,24 +86,31 @@ func (u *Usecase) validate() error {
 	if u.storage == nil {
 		return errors.New("storage repository is required")
 	}
+
 	if u.model == nil {
 		return errors.New("chat model is required")
 	}
+
 	if u.tools == nil {
 		return errors.New("tool manager is required")
 	}
+
 	if u.indexer == nil {
 		return errors.New("indexer is required")
 	}
+
 	if u.toolStorage == nil {
 		return errors.New("tool storage is required")
 	}
+
 	if u.servers == nil {
 		return errors.New("server storage is required")
 	}
+
 	if u.accounts == nil {
 		return errors.New("account storage is required")
 	}
+
 	if u.models == nil {
 		return errors.New("model settings storage is required")
 	}

@@ -3,26 +3,23 @@ package messages
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 type MessageAssistant struct {
-	mergeTag uint64
-
 	reasoning   string
 	content     string
-	agentID     ids.AgentID
 	attachments []ChatContent
-
 	// TODO: выпилить нахуй отсюда, это очень временное решение, просто чтоб
 	// попробовать. сюда запихивается thought sig от gemini, и не сохраняется в
 	// базу (и ни в коем случае не должен!)
 	protocolMetadata []byte
-
-	// Indicates that struct correctly initialized
-	valid bool
+	mergeTag         uint64
+	agentID          ids.AgentID
+	_valid           bool // Indicates that struct correctly initialized
 }
 
 func (am MessageAssistant) _Message() {}
@@ -62,16 +59,17 @@ func NewMessageAssistant(content string, opts ...NewMessageAssistantOpt) (Messag
 	if err := m.Validate(); err != nil {
 		return MessageAssistant{}, err
 	}
-	m.valid = true
+
+	m._valid = true
 
 	return m, nil
 }
 
-func (am MessageAssistant) Valid() bool { return am.valid || am.Validate() == nil }
+func (am MessageAssistant) Valid() bool { return am._valid || am.Validate() == nil }
 func (am MessageAssistant) Validate() error {
 	switch {
 	case am.content == "":
-		return fmt.Errorf("text cannot be empty")
+		return errors.New("text cannot be empty")
 	case len(am.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	default:
@@ -98,6 +96,6 @@ func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, format
 		agentID:          am.agentID,
 		attachments:      am.attachments,
 		protocolMetadata: am.protocolMetadata,
-		valid:            true,
+		_valid:           true,
 	}, nil
 }

@@ -25,6 +25,7 @@ func NewServerIDFromString(id string) (ServerID, error) {
 	if err != nil {
 		return ServerID{}, err
 	}
+
 	return NewServerID(serverID)
 }
 
@@ -44,8 +45,8 @@ func NewServerID(id uuid.UUID) (ServerID, error) {
 
 func (u ServerID) Valid() bool { return u.valid || u.validate() == nil }
 func (u ServerID) validate() error {
-	switch {
-	case u.id == uuid.Nil:
+	switch u.id {
+	case uuid.Nil:
 		return fmt.Errorf("invalid server ID: %s", u.id)
 	default:
 		return nil

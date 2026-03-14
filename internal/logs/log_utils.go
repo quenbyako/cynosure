@@ -23,10 +23,12 @@ type BaseLogger struct {
 	l slog.Handler
 }
 
-var _ chat.LogCallbacks = (*BaseLogger)(nil)
-var _ gemini.LogCallbacks = (*BaseLogger)(nil)
-var _ telegram.LogCallbacks = (*BaseLogger)(nil)
-var _ runtime.LogCallbacks = (*BaseLogger)(nil)
+var (
+	_ chat.LogCallbacks     = (*BaseLogger)(nil)
+	_ gemini.LogCallbacks   = (*BaseLogger)(nil)
+	_ telegram.LogCallbacks = (*BaseLogger)(nil)
+	_ runtime.LogCallbacks  = (*BaseLogger)(nil)
+)
 
 type eventBuilder struct {
 	ctx context.Context
@@ -77,6 +79,7 @@ func omitOK[T any](s T, ok bool) T {
 	if !ok {
 		return *new(T)
 	}
+
 	return s
 }
 
@@ -88,6 +91,7 @@ func attrsToSlog(attrs ...attribute.KeyValue) []slog.Attr {
 			Value: valueSlog(attr.Value),
 		}
 	}
+
 	return res
 }
 
@@ -119,5 +123,6 @@ func asEnvs(envs map[string]string) []attribute.KeyValue {
 	for k, v := range envs {
 		attrs = append(attrs, semconv.ProcessEnvironmentVariable(k, v))
 	}
+
 	return attrs
 }

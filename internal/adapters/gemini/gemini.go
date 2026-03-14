@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.opentelemetry.io/otel/trace"
@@ -23,8 +24,10 @@ type GeminiModel struct {
 	trace trace.Tracer
 }
 
-var _ ports.ChatModelFactory = (*GeminiModel)(nil)
-var _ ports.ToolSemanticIndexFactory = (*GeminiModel)(nil)
+var (
+	_ ports.ChatModelFactory         = (*GeminiModel)(nil)
+	_ ports.ToolSemanticIndexFactory = (*GeminiModel)(nil)
+)
 
 func (g *GeminiModel) ToolSemanticIndex() ports.ToolSemanticIndex { return g }
 func (g *GeminiModel) ChatModel() ports.ChatModel                 { return g }
@@ -45,6 +48,7 @@ func WithTrace(tp trace.TracerProvider) NewOption {
 		if tp == nil {
 			panic("tracer provider is nil")
 		}
+
 		g.trace = tp
 	}
 }
@@ -82,17 +86,21 @@ func New(ctx context.Context, cfg *ClientConfig, opts ...NewOption) (*GeminiMode
 
 func (g *GeminiModel) validate() error {
 	if g.client == nil {
-		return fmt.Errorf("client is nil")
+		return errors.New("client is nil")
 	}
+
 	if g.thinkingConfig == nil {
-		return fmt.Errorf("thinkingConfig is nil")
+		return errors.New("thinkingConfig is nil")
 	}
+
 	if g.log == nil {
-		return fmt.Errorf("log is nil")
+		return errors.New("log is nil")
 	}
+
 	if g.trace == nil {
-		return fmt.Errorf("trace is nil")
+		return errors.New("trace is nil")
 	}
+
 	return nil
 }
 

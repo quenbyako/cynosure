@@ -18,24 +18,21 @@ type ToolCallFunc func(ctx context.Context, params map[string]json.RawMessage) (
 
 // Tool is the information of a tool.
 type Tool struct {
-	id          ids.ToolID
-	accountName string
-	name        string
-	description string
-
-	inputSchema  json.RawMessage
-	outputSchema json.RawMessage
-
-	embedding [embeddingSize]float32
-
-	// meta fields
-
-	pendingEvents[ToolEvent]
-	_valid bool // indicates if the tool info is valid
+	accountName              string
+	name                     string
+	description              string
+	inputSchema              json.RawMessage
+	outputSchema             json.RawMessage
+	pendingEvents[ToolEvent] // meta field for tracking updates
+	embedding                [embeddingSize]float32
+	id                       ids.ToolID
+	_valid                   bool // indicates if the tool info is valid
 }
 
-var _ EventsReader[ToolEvent] = (*Tool)(nil)
-var _ ToolReadOnly = (*Tool)(nil)
+var (
+	_ EventsReader[ToolEvent] = (*Tool)(nil)
+	_ ToolReadOnly            = (*Tool)(nil)
+)
 
 type ToolOption func(*Tool)
 
@@ -48,6 +45,7 @@ func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, 
 	if err != nil {
 		return nil, err
 	}
+
 	normalizedOutput, err := normalizeOutputSchema(outputSchema)
 	if err != nil {
 		return nil, err
@@ -68,6 +66,7 @@ func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, 
 	if err := t.Validate(); err != nil {
 		return nil, err
 	}
+
 	t._valid = true
 
 	return &t, nil
@@ -76,6 +75,7 @@ func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, 
 // VALIDATION
 
 func (t *Tool) Valid() bool { return t._valid || t.Validate() == nil }
+
 func (t *Tool) Validate() error {
 	if t.description == "" {
 		return errors.New("description is required, but empty")
@@ -99,9 +99,11 @@ func normalizeSchema(schema json.RawMessage, verifyRoot string) (json.RawMessage
 	if err := json.Unmarshal(schema, &parsedSchema); err != nil {
 		return nil, fmt.Errorf("cannot parse schema: %w", err)
 	}
+
 	if verifyRoot != "" && !parsedSchema.Type.Is(verifyRoot) {
 		return nil, fmt.Errorf("invalid schema type: %s, must be only object", parsedSchema.Type)
 	}
+
 	schema, err := json.Marshal(&parsedSchema)
 	if err != nil {
 		panic(fmt.Errorf("cannot marshal schema back: %w", err))

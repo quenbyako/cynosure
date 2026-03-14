@@ -1,12 +1,13 @@
 package ory_test
 
 import (
-	_ "embed"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	_ "embed"
 
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager/testsuite"
@@ -24,6 +25,7 @@ type secrets struct {
 
 func TestOryIdentityManager(t *testing.T) {
 	var s secrets
+
 	err := yaml.Unmarshal(secretsRaw, &s)
 	require.NoError(t, err)
 

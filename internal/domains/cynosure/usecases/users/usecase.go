@@ -24,10 +24,8 @@ type Usecase struct {
 	tools      ports.ToolStorage
 	toolClient toolclient.Port
 	index      ports.ToolSemanticIndex
-
+	trace      trace.Tracer
 	adminMCPID ids.ServerID
-
-	trace trace.Tracer
 }
 
 type newParams struct {
@@ -82,25 +80,32 @@ func (s *Usecase) validate() error {
 	if s.users == nil {
 		return errors.New("user storage is required")
 	}
+
 	if s.agents == nil {
 		return errors.New("agent storage is required")
 	}
+
 	if s.accounts == nil {
 		return errors.New("account storage is required")
 	}
+
 	if s.servers == nil {
 		return errors.New("server storage is required")
 	}
+
 	if s.tools == nil {
 		return errors.New("tool storage is required")
 	}
+
 	if s.toolClient == nil {
 		return errors.New("tool client is required")
 	}
+
 	if s.index == nil {
 		return errors.New("tool semantic index is required")
 	}
-	if s.adminMCPID.Valid() == false {
+
+	if !s.adminMCPID.Valid() {
 		return errors.New("admin MCP ID is required")
 	}
 

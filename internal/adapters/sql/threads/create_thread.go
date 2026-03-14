@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 )
 
@@ -30,6 +31,7 @@ func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOn
 
 	for i, msg := range thread.Messages() {
 		pos := int64(i + 1)
+
 		err := t.insertMessage(ctx, qtx, id.String(), pos, msg)
 		if err != nil {
 			return fmt.Errorf("insert message %d: %w", i, err)

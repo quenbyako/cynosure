@@ -6,15 +6,15 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/quenbyako/core"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
 const (
-	eventOryRequestStarted = "cynosure.adapters.ory.request_started"
+	eventOryRequestStarted  = "cynosure.adapters.ory.request_started"
 	eventOryRequestFinished = "cynosure.adapters.ory.request_finished"
 )
 
@@ -128,6 +128,7 @@ func omitOK[T any](s T, ok bool) T {
 	if !ok {
 		return *new(T)
 	}
+
 	return s
 }
 
@@ -139,6 +140,7 @@ func attrsToSlog(attrs ...attribute.KeyValue) []slog.Attr {
 			Value: valueSlog(attr.Value),
 		}
 	}
+
 	return res
 }
 

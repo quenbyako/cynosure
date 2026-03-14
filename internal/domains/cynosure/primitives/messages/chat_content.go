@@ -14,15 +14,17 @@ type ChatContent interface {
 	_ChatContent()
 }
 
-var _ ChatContent = (*ChatContentText)(nil)
-var _ ChatContent = (*ChatContentAudioURL)(nil)
-var _ ChatContent = (*ChatContentVideoURL)(nil)
-var _ ChatContent = (*ChatContentFileURL)(nil)
-var _ ChatContent = (*ChatContentImageURL)(nil)
+var (
+	_ ChatContent = (*ChatContentText)(nil)
+	_ ChatContent = (*ChatContentAudioURL)(nil)
+	_ ChatContent = (*ChatContentVideoURL)(nil)
+	_ ChatContent = (*ChatContentFileURL)(nil)
+	_ ChatContent = (*ChatContentImageURL)(nil)
+)
 
 type ChatContentText struct {
-	text  string
 	extra map[string]json.RawMessage
+	text  string
 }
 
 func (c *ChatContentText) _ChatContent() {}
@@ -44,9 +46,9 @@ func (c *ChatContentText) Extra() map[string]json.RawMessage { return c.extra }
 func (c *ChatContentText) Text() string { return c.text }
 
 type ChatContentAudioURL struct {
-	url      url.URL
-	mimeType string
 	extra    map[string]json.RawMessage
+	mimeType string
+	url      url.URL
 }
 
 func (c *ChatContentAudioURL) _ChatContent() {}
@@ -60,9 +62,9 @@ func (c *ChatContentAudioURL) URL() *url.URL                     { u := new(url.
 func (c *ChatContentAudioURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentVideoURL struct {
-	url      url.URL
-	mimeType string
 	extra    map[string]json.RawMessage
+	mimeType string
+	url      url.URL
 }
 
 func (c *ChatContentVideoURL) _ChatContent() {}
@@ -76,10 +78,10 @@ func (c *ChatContentVideoURL) URL() *url.URL                     { u := new(url.
 func (c *ChatContentVideoURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentFileURL struct {
-	name     string
-	url      url.URL
-	mimeType string
 	extra    map[string]json.RawMessage
+	name     string
+	mimeType string
+	url      url.URL
 }
 
 func (c *ChatContentFileURL) _ChatContent() {}
@@ -93,10 +95,10 @@ func (c *ChatContentFileURL) URL() *url.URL                     { u := new(url.U
 func (c *ChatContentFileURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentImageURL struct {
+	extra    map[string]json.RawMessage
+	mimeType string
 	url      url.URL
 	detail   ImageURLDetail
-	mimeType string
-	extra    map[string]json.RawMessage
 }
 
 func (c *ChatContentImageURL) _ChatContent() {}

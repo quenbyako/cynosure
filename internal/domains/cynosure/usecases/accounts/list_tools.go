@@ -23,7 +23,6 @@ func (s *Usecase) ListTools(ctx context.Context, accountID ids.AccountID) ([]too
 			tool.OutputSchema(),
 			tool.ID(), tool.AccountName(), "",
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("converting %q: %w", tool.Name(), err)
 		}

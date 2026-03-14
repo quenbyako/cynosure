@@ -20,34 +20,30 @@ import (
 
 const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 
-var (
-	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
-)
+var ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
 
 type Usecase struct {
-	oauth      oauthhandler.Port
-	servers    ports.ServerStorage
-	accounts   ports.AccountStorage
-	tools      ports.ToolStorage
-	index      ports.ToolSemanticIndex
-	toolClient toolclient.Port
-	users      identitymanager.Port
-	clock      func() time.Time
-
-	key              [16]byte
-	stateExpiration  time.Duration
-	oauthClientName  string
+	users            identitymanager.Port
+	servers          ports.ServerStorage
+	accounts         ports.AccountStorage
+	tools            ports.ToolStorage
+	index            ports.ToolSemanticIndex
+	toolClient       toolclient.Port
+	oauth            oauthhandler.Port
+	trace            trace.Tracer
+	clock            func() time.Time
 	oauthRedirectURL *url.URL
-
-	trace trace.Tracer
+	oauthClientName  string
+	stateExpiration  time.Duration
+	key              [16]byte
 }
 
 type newParams struct {
-	clientName       string
-	fixedKey         [16]byte
-	stateExpiration  time.Duration
 	tracer           trace.TracerProvider
 	oauthRedirectURL *url.URL
+	clientName       string
+	stateExpiration  time.Duration
+	fixedKey         [16]byte
 }
 
 type NewOption func(*newParams)
@@ -123,33 +119,43 @@ func (s *Usecase) validate() error {
 	if s.toolClient == nil {
 		return errors.New("tool registry is required")
 	}
+
 	if s.servers == nil {
 		return errors.New("server storage is required")
 	}
+
 	if s.oauth == nil {
 		return errors.New("OAuth handler is required")
 	}
+
 	if s.accounts == nil {
 		return errors.New("account storage is required")
 	}
+
 	if s.tools == nil {
 		return errors.New("tool storage is required")
 	}
+
 	if s.index == nil {
 		return errors.New("tool semantic index is required")
 	}
+
 	if s.users == nil {
 		return errors.New("user storage is required")
 	}
+
 	if s.oauthRedirectURL == nil {
 		return errors.New("OAuth redirect URL is required")
 	}
+
 	if s.oauthClientName == "" {
 		return errors.New("OAuth client name is required")
 	}
+
 	if s.key == [16]byte{} {
 		return errors.New("OAuth key is required")
 	}
+
 	if s.stateExpiration == 0 {
 		return errors.New("state expiration is required")
 	}
@@ -167,5 +173,6 @@ func randomAuthKey() [16]byte {
 	if _, err := rand.Read(key[:]); err != nil {
 		panic(err)
 	}
+
 	return key
 }

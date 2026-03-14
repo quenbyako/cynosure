@@ -4,7 +4,7 @@ import (
 	"net/url"
 )
 
-// WithSuggestedLink suggests a link to use for oauth client registration.
+// WithSuggestedProtectedResource suggests a link to use for oauth client registration.
 //
 // Applies to:
 //
@@ -19,15 +19,13 @@ type (
 	registerClientFunc func(*registerClientParams)
 )
 
-var (
-	_ RegisterClientOption = (registerClientFunc)(nil)
-)
+var _ RegisterClientOption = (registerClientFunc)(nil)
 
 func (f registerClientFunc) applyRegisterClient(p *registerClientParams) { f(p) }
 
-//============================================================================//
+// ========================================================================== //
 //                        [OAuthHandler.RegisterClient]                       //
-//============================================================================//
+// ========================================================================== //
 
 type registerClientParams struct {
 	suggestedProtectedResource *url.URL

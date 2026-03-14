@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -39,21 +40,19 @@ import (
 // Service manually juggles history updates and RAG calls, increasing the risk
 // of inconsistent state (e.g., history updated but tools not refreshed).
 type Chat struct {
-	thread  *entities.Thread
-	toolbox tools.Toolbox // Immutable collection of relevant tools
-	// tools caches the actual entities.Tool objects for execution after model
-	// picks them
-	tools map[ids.ToolID]*entities.Tool
-	// list of active tool calls that didn't get response yet.
-	activeCalls map[string]struct{}
-
 	storage     ports.ThreadStorage
 	indexer     ports.ToolSemanticIndex
 	toolStorage ports.ToolStorage
 	accounts    ports.AccountStorage
 	agents      ports.AgentStorage
-
-	mu sync.RWMutex
+	thread      *entities.Thread
+	// tools caches the actual entities.Tool objects for execution after model
+	// picks them
+	tools map[ids.ToolID]*entities.Tool
+	// list of active tool calls that didn't get response yet.
+	activeCalls map[string]struct{}
+	toolbox     tools.Toolbox // Immutable collection of relevant tools
+	mu          sync.RWMutex
 }
 
 func New(
@@ -105,7 +104,7 @@ func newChatAggregate(
 	accounts ports.AccountStorage,
 	agents ports.AgentStorage,
 ) (*Chat, error) {
-	c := &Chat{
+	chat := &Chat{
 		thread:      thread,
 		toolbox:     tools.NewToolbox(),
 		tools:       make(map[ids.ToolID]*entities.Tool),
@@ -119,37 +118,43 @@ func newChatAggregate(
 
 		mu: sync.RWMutex{},
 	}
-	if err := c.validate(); err != nil {
+	if err := chat.validate(); err != nil {
 		return nil, err
 	}
 
 	var err error
-	c.toolbox, err = c.buildToolbox(ctx)
+
+	chat.toolbox, err = chat.buildToolbox(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("building toolbox: %w", err)
 	}
 
-	return c, nil
+	return chat, nil
 }
 
 func (c *Chat) validate() error {
 	if c.storage == nil {
-		return fmt.Errorf("storage is nil")
+		return errors.New("storage is nil")
 	}
+
 	if c.indexer == nil {
-		return fmt.Errorf("indexer is nil")
+		return errors.New("indexer is nil")
 	}
+
 	if c.toolStorage == nil {
-		return fmt.Errorf("toolStorage is nil")
+		return errors.New("toolStorage is nil")
 	}
+
 	if c.accounts == nil {
-		return fmt.Errorf("accounts is nil")
+		return errors.New("accounts is nil")
 	}
+
 	if c.agents == nil {
-		return fmt.Errorf("models is nil")
+		return errors.New("models is nil")
 	}
+
 	if !c.thread.Valid() {
-		return fmt.Errorf("userthread is invalid")
+		return errors.New("userthread is invalid")
 	}
 
 	return nil
@@ -161,24 +166,28 @@ func (c *Chat) validate() error {
 func (c *Chat) RelevantTools() tools.Toolbox {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.toolbox
 }
 
 func (c *Chat) ThreadID() ids.ThreadID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thread.ID()
 }
 
 func (c *Chat) Messages() []messages.Message {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thread.Messages()
 }
 
 func (c *Chat) AgentID() ids.AgentID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thread.AgentID()
 }
 
@@ -195,5 +204,6 @@ func (c *Chat) SetAgent(ctx context.Context, agentID ids.AgentID) error {
 	}
 
 	c.thread.ClearEvents()
+
 	return nil
 }

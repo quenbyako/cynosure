@@ -26,30 +26,25 @@ type SecretGetter interface {
 }
 
 type appParams struct {
-	geminiKey          SecretGetter
-	telegramKey        SecretGetter
-	telegramPublicAddr *url.URL
-	oryAdminKey        SecretGetter
+	oryClientSecret SecretGetter
+	telegramKey     SecretGetter
+	observability   core.Metrics
+	oryAdminKey     SecretGetter
+	geminiKey       SecretGetter
+	grpcAddr        grpc.ServiceRegistrar
+	// TODO: join into one handler all https
+	httpAddr           func(http.Handler)
 	oryEndpoint        *url.URL
+	telegramAddr       func(http.Handler)
+	mcpAddr            func(http.Handler)
+	telegramPublicAddr *url.URL
+	databaseURL        *url.URL
+	oauthCallback      *url.URL
 	oryClientID        string
-	oryClientSecret    SecretGetter
-
-	grpcAddr grpc.ServiceRegistrar
-	// TODO: join into one handler
-	httpAddr     func(http.Handler)
-	telegramAddr func(http.Handler)
-	mcpAddr      func(http.Handler)
-
-	oryScopes      []string
-	oryRedirectURL string
-
-	observability core.Metrics
-
-	databaseURL   *url.URL
-	oauthScopes   []string
-	oauthCallback *url.URL
-
-	adminMCPID ids.ServerID
+	oryRedirectURL     string
+	oryScopes          []string
+	oauthScopes        []string
+	adminMCPID         ids.ServerID
 }
 
 func (p *appParams) validate() error {
@@ -57,34 +52,44 @@ func (p *appParams) validate() error {
 	if p.geminiKey == nil {
 		errs = append(errs, errors.New("missing geminiKey"))
 	}
+
 	if p.telegramKey == nil {
 		errs = append(errs, errors.New("missing telegramKey"))
 	}
+
 	if p.telegramPublicAddr == nil || p.telegramPublicAddr.Scheme == "" {
 		errs = append(errs, errors.New("missing telegramPublicAddr"))
 	}
+
 	if p.oryAdminKey == nil {
 		errs = append(errs, errors.New("missing oryAdminKey"))
 	}
+
 	if p.oryEndpoint == nil || p.oryEndpoint.Scheme == "" {
 		errs = append(errs, errors.New("missing oryEndpoint"))
 	}
+
 	if p.oryClientID == "" {
 		errs = append(errs, errors.New("missing oryClientID"))
 	}
+
 	if p.oryClientSecret == nil {
 		errs = append(errs, errors.New("missing oryClientSecret"))
 	}
+
 	if len(p.oryScopes) == 0 {
 		errs = append(errs, errors.New("missing oryScopes"))
 	}
+
 	if p.oryRedirectURL == "" {
 		errs = append(errs, errors.New("missing oryRedirectURL"))
 	}
+
 	if p.databaseURL == nil || p.databaseURL.Scheme == "" {
 		errs = append(errs, errors.New("missing database URL"))
 	}
-	if p.adminMCPID.Valid() == false {
+
+	if !p.adminMCPID.Valid() {
 		errs = append(errs, errors.New("missing adminMCPID"))
 	}
 
@@ -166,6 +171,7 @@ func Build(ctx context.Context, opts ...AppOpts) *App {
 	for _, opt := range opts {
 		opt(&p)
 	}
+
 	if err := p.validate(); err != nil {
 		panic(err)
 	}
@@ -221,5 +227,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

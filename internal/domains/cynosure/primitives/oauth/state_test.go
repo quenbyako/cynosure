@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+
 	. "github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
 
@@ -24,7 +25,7 @@ func TestState(t *testing.T) {
 		time.Now(),
 	))
 
-	var key = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	key := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 
 	token := state.State("", key)
 

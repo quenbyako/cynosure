@@ -643,6 +643,17 @@ linters:
     rules:
       - path: '(.+)_test\.go'
         linters:
+          - err113
+          - exhaustruct
+          - forbidigo
+          - funlen
           - govet
           - gosec
-          - funlen
+          - ireturn
+      - path: 'cmd/(.+).go'
+        linters:
+          # reason: gci configured to use internal, not cmd. It's easier to just
+          # ignore that linter in cmd, cause it doesn't make a lot of sense in
+          # that specific usecase.
+          - gci
+

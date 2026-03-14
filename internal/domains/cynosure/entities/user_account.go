@@ -1,15 +1,14 @@
 package entities
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 type UserAccount struct {
-	userID ids.UserID
-
 	pendingEvents []UserAccountEvent
+	userID        ids.UserID
 	valid         bool
 }
 
@@ -29,7 +28,7 @@ func (u *UserAccount) Valid() bool { return u.valid || u.validate() == nil }
 func (u *UserAccount) validate() error {
 	switch {
 	case !u.userID.Valid():
-		return fmt.Errorf("user ID is invalid")
+		return errors.New("user ID is invalid")
 
 	default:
 		u.valid = true

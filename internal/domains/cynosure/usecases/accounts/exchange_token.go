@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"golang.org/x/oauth2"
@@ -17,11 +18,11 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 	defer span.End()
 
 	if stateStr == "" {
-		return fmt.Errorf("state parameter is required")
+		return errors.New("state parameter is required")
 	}
 
 	if exchangeToken == "" {
-		return fmt.Errorf("exchange token is required")
+		return errors.New("exchange token is required")
 	}
 
 	state, err := oauth.StateFromToken(stateStr, s.key)
@@ -60,6 +61,7 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 	// todo: replace to EDA.
 	go func() {
 		defer discoverToolsSpan.End()
+
 		err := s.saveAccountAndTools(bgCtx, server, account, token)
 		if err != nil {
 			// todo: add logging? or replace to EDA?
@@ -100,7 +102,6 @@ func (s *Usecase) saveAccountAndTools(ctx context.Context, server entities.Serve
 			rawTool.Params(),
 			rawTool.Response(),
 		)
-
 		if err != nil {
 			return fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 		}

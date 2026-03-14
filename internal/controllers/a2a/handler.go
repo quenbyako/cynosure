@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/k0kubun/pp/v3"
 	"google.golang.org/a2a"
@@ -20,10 +21,8 @@ import (
 
 type Handler struct {
 	a2a.UnsafeA2AServiceServer
-
+	srv           *chat.Usecase
 	anonymousUser ids.UserID
-
-	srv *chat.Usecase
 }
 
 var _ a2a.A2AServiceServer = (*Handler)(nil)
@@ -76,10 +75,16 @@ func (h *Handler) ListTaskPushNotificationConfig(context.Context, *a2a.ListTaskP
 
 // SendMessage implements a2a.A2AServiceServer.
 func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) (*a2a.SendMessageResponse, error) {
-	var text string
-	for _, c := range req.Request.GetContent() {
-		text += c.GetText()
+	var (
+		text     string
+		textSb80 strings.Builder
+	)
+
+	for _, c := range req.GetRequest().GetContent() {
+		textSb80.WriteString(c.GetText())
 	}
+
+	text += textSb80.String()
 
 	if len(text) == 0 {
 		return nil, errors.New("message content cannot be empty")
@@ -105,6 +110,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 	}
 
 	parts := make([]*a2a.Part, 0) // len(content))
+
 	for msg := range content {
 		switch m := msg.(type) {
 		case messages.MessageAssistant:
@@ -120,6 +126,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 				if err := json.Unmarshal(v, &x); err != nil {
 					return nil, fmt.Errorf("unmarshalling arg %q: %w", k, err)
 				}
+
 				argsRaw[k] = x
 			}
 
@@ -167,15 +174,20 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 			},
 		},
 	}, nil
-
 }
 
 // SendStreamingMessage implements a2a.A2AServiceServer.
 func (h *Handler) SendStreamingMessage(req *a2a.SendMessageRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse]) error {
-	var text string
-	for _, c := range req.Request.GetContent() {
-		text += c.GetText()
+	var (
+		text      string
+		textSb176 strings.Builder
+	)
+
+	for _, c := range req.GetRequest().GetContent() {
+		textSb176.WriteString(c.GetText())
 	}
+
+	text += textSb176.String()
 
 	if len(text) == 0 {
 		return errors.New("message content cannot be empty")
@@ -229,5 +241,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

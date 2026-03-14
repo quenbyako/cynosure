@@ -31,6 +31,7 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 	}
 
 	const topK = 10 // TODO: make configurable. Through agent config maybe?
+
 	relevantTools, err := c.toolStorage.LookupTools(ctx, c.thread.ID().User(), embedding, topK)
 	if err != nil {
 		return tools.Toolbox{}, fmt.Errorf("looking up tools: %w", err)
@@ -63,7 +64,6 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 			tool.OutputSchema(),
 			tool.ID(), desc.slug, desc.desc,
 		)
-
 		if err != nil {
 			return tools.Toolbox{}, fmt.Errorf("creating raw tool %q: %w", tool.Name(), err)
 		}
@@ -114,5 +114,6 @@ func extractUniqueAccounts(tools []*entities.Tool) []ids.AccountID {
 	for _, tool := range tools {
 		accountSet[tool.ID().Account()] = struct{}{}
 	}
+
 	return slices.Collect(maps.Keys(accountSet))
 }

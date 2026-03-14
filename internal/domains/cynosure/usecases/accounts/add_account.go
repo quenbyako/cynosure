@@ -10,26 +10,29 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/oauth2"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
-	"golang.org/x/oauth2"
 )
 
 type AddAccountResponse interface {
 	_AddAccountResponse()
 }
 
-var _ AddAccountResponse = (*AddAccountResponseAuthRequired)(nil)
-var _ AddAccountResponse = (*AddAccountResponseOK)(nil)
+var (
+	_ AddAccountResponse = (*AddAccountResponseAuthRequired)(nil)
+	_ AddAccountResponse = (*AddAccountResponseOK)(nil)
+)
 
 type AddAccountResponseAuthRequired struct {
+	validUntil time.Time
 	link       *url.URL
 	account    ids.AccountID
-	validUntil time.Time
 }
 
 func (AddAccountResponseAuthRequired) _AddAccountResponse() {}
@@ -71,10 +74,12 @@ func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL,
 	server, err := s.servers.LookupByURL(ctx, u) // just to see if it already exists
 	if errors.Is(err, ports.ErrNotFound) {
 		var anonTools []tools.RawTool
+
 		server, anonTools, err = s.createServer(ctx, u, getAccountID, accName, accDescription)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create server: %w", err)
 		}
+
 		if len(anonTools) > 0 {
 			accountID, err := getAccountID(server.ID())
 			if err != nil {
@@ -140,6 +145,7 @@ func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL,
 	if err != nil {
 		return nil, fmt.Errorf("checking user existence: %w", err)
 	}
+
 	if !exists {
 		return nil, fmt.Errorf("user %q does not exist", userID.ID().String())
 	}
@@ -148,6 +154,7 @@ func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL,
 	if _, err := rand.Read(verifier); err != nil {
 		panic(err)
 	}
+
 	verifierStr := base64.RawURLEncoding.EncodeToString(verifier)
 
 	account, err := getAccountID(server.ID())
@@ -173,7 +180,7 @@ func (s *Usecase) AddAccount(ctx context.Context, userID ids.UserID, u *url.URL,
 		return nil, fmt.Errorf("parsing auth URL: %w", err)
 	}
 
-	return AddAccountResponseAuthRequired{u, account, validUntil}, nil
+	return AddAccountResponseAuthRequired{link: u, account: account, validUntil: validUntil}, nil
 }
 
 type makeAccountFunc func(ids.ServerID) (ids.AccountID, error)
@@ -237,6 +244,7 @@ func (s *Usecase) createServer(ctx context.Context, u *url.URL, accountIDBuilder
 
 	// we created server from complete scratch, so it should not have any events
 	server.ClearEvents()
+
 	if err := s.servers.SetServer(ctx, server); err != nil {
 		return nil, nil, fmt.Errorf("failed to set server: %w", err)
 	}
@@ -245,19 +253,23 @@ func (s *Usecase) createServer(ctx context.Context, u *url.URL, accountIDBuilder
 }
 
 func accountBuilder(userID ids.UserID) func(ids.ServerID) (ids.AccountID, error) {
-	var once sync.Once
-	var previousServerID ids.ServerID
-	var accountID ids.AccountID
-	var err error
+	var (
+		once             sync.Once
+		previousServerID ids.ServerID
+		accountID        ids.AccountID
+		err              error
+	)
 
 	return func(serverID ids.ServerID) (ids.AccountID, error) {
 		once.Do(func() {
 			previousServerID = serverID
 			accountID, err = ids.RandomAccountID(userID, serverID)
 		})
+
 		if previousServerID != serverID {
-			return ids.AccountID{}, fmt.Errorf("account ID is already set")
+			return ids.AccountID{}, errors.New("account ID is already set")
 		}
+
 		return accountID, err
 	}
 }

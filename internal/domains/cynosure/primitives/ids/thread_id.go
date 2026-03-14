@@ -29,6 +29,7 @@ func NewThreadIDFromString(s string) (ThreadID, error) {
 	if err != nil {
 		return ThreadID{}, err
 	}
+
 	u, err := NewUserID(uRaw)
 	if err != nil {
 		return ThreadID{}, err
@@ -49,6 +50,7 @@ func NewThreadID(user UserID, id string) (ThreadID, error) {
 	if err := u.validate(); err != nil {
 		return ThreadID{}, err
 	}
+
 	u._valid = true
 
 	return u, nil

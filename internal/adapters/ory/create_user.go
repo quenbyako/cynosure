@@ -2,11 +2,13 @@ package ory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/quenbyako/cynosure/contrib/ory-openapi/gen/go/ory"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -20,6 +22,7 @@ func (a *Client) CreateUser(ctx context.Context, externalID, username, firstName
 	}
 
 	state := "active"
+
 	resp, err := a.api.CreateIdentityWithResponse(ctx, ory.CreateIdentity{
 		SchemaId: registredIdentitySchema,
 		State:    &state,
@@ -39,7 +42,7 @@ func (a *Client) CreateUser(ctx context.Context, externalID, username, firstName
 	}
 
 	if resp.JSON201 == nil {
-		return ids.UserID{}, fmt.Errorf("invalid response from ory: missing identity")
+		return ids.UserID{}, errors.New("invalid response from ory: missing identity")
 	}
 
 	userID, err := ids.NewUserIDFromString(resp.JSON201.Id.String())

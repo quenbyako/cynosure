@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,13 +17,12 @@ import (
 )
 
 type State struct {
-	account   ids.AccountID
+	expireAt  time.Time
 	name      string
 	desc      string
 	challenge []byte
-	expireAt  time.Time
-
-	valid bool
+	account   ids.AccountID
+	valid     bool
 }
 
 func NewState(
@@ -42,6 +42,7 @@ func NewState(
 	if err := s.validate(); err != nil {
 		return State{}, err
 	}
+
 	s.valid = true
 
 	return s, nil
@@ -86,24 +87,24 @@ func (s *State) Valid() bool { return s.valid || s.validate() == nil }
 func (s *State) validate() error {
 	switch {
 	case s.name == "":
-		return fmt.Errorf("name is required")
+		return errors.New("name is required")
 	case s.desc == "":
-		return fmt.Errorf("description is required")
+		return errors.New("description is required")
 	case len(s.desc) > 100:
-		return fmt.Errorf("description must be 100 characters or less")
+		return errors.New("description must be 100 characters or less")
 	}
+
 	return nil
 }
 
 type claims struct {
 	cwt.Claims
-
-	AccountID   uuid.UUID `cbor:"-1,keyasint,omitempty" json:"acc,omitempty"`
 	AccountName string    `cbor:"-2,keyasint,omitempty" json:"name,omitempty"`
 	AccountDesc string    `cbor:"-3,keyasint,omitempty" json:"desc,omitempty"`
+	Challenge   []byte    `cbor:"-6,keyasint,omitempty" json:"ch,omitempty"`
+	AccountID   uuid.UUID `cbor:"-1,keyasint,omitempty" json:"acc,omitempty"`
 	UserID      uuid.UUID `cbor:"-4,keyasint,omitempty" json:"uid,omitempty"`
 	ServerID    uuid.UUID `cbor:"-5,keyasint,omitempty" json:"srv,omitempty"`
-	Challenge   []byte    `cbor:"-6,keyasint,omitempty" json:"ch,omitempty"`
 }
 
 func (s *State) Account() ids.AccountID { return s.account }
@@ -152,5 +153,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

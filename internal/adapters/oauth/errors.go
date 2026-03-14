@@ -6,9 +6,7 @@ import (
 	"fmt"
 )
 
-var (
-	errNotFound = errors.New("not found")
-)
+var errNotFound = errors.New("not found")
 
 // OAuthError represents a standard OAuth 2.0 error response
 type OAuthError struct {
@@ -23,7 +21,7 @@ func (e OAuthError) Error() string {
 		return fmt.Sprintf("OAuth error: %s - %s", e.ErrorCode, e.ErrorDescription)
 	}
 
-	return fmt.Sprintf("OAuth error: %s", e.ErrorCode)
+	return "OAuth error: " + e.ErrorCode
 }
 
 // extractOAuthError attempts to parse an OAuth error response from the response body

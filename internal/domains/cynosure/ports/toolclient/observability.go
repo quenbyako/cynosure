@@ -48,6 +48,7 @@ func (o *observable) discoverTools(ctx context.Context, accountID, serverURL str
 			connHasToken.Bool(hasToken),
 		),
 	)
+
 	return ctx, &spanCallback{span: span}
 }
 

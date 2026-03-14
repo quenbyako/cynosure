@@ -1,7 +1,7 @@
 package entities
 
 import (
-	"fmt"
+	"errors"
 	"net/url"
 	"slices"
 	"time"
@@ -13,24 +13,25 @@ import (
 )
 
 type ServerConfig struct {
-	id         ids.ServerID
-	sseLink    *url.URL
-	authConfig *oauth2.Config
 	// If expiration of OAuth config is empty — probably config works
 	// indefinitely. usually it's temporary when client creates
 	// pseudo-application through oauth process.
 	configExpiration time.Time
+	sseLink          *url.URL
+	authConfig       *oauth2.Config
+	pendingEvents[ServerConfigEvent]
+	id ids.ServerID
 
 	// default protocol is a type of protocol that vas detected on server.
 	// Value MAY be empty (invalid)
 	protocol tools.Protocol
-
-	pendingEvents[ServerConfigEvent]
-	_valid bool
+	_valid   bool
 }
 
-var _ EventsReader[ServerConfigEvent] = (*ServerConfig)(nil)
-var _ ServerConfigReadOnly = (*ServerConfig)(nil)
+var (
+	_ EventsReader[ServerConfigEvent] = (*ServerConfig)(nil)
+	_ ServerConfigReadOnly            = (*ServerConfig)(nil)
+)
 
 type ServerConfigOption func(*ServerConfig)
 
@@ -61,6 +62,7 @@ func NewServerConfig(id ids.ServerID, link *url.URL, opts ...ServerConfigOption)
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
+
 	c._valid = true
 
 	return c, nil
@@ -69,11 +71,13 @@ func NewServerConfig(id ids.ServerID, link *url.URL, opts ...ServerConfigOption)
 func (c *ServerConfig) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *ServerConfig) Validate() error {
 	if !c.id.Valid() {
-		return fmt.Errorf("invalid server ID")
+		return errors.New("invalid server ID")
 	}
+
 	if c.sseLink == nil {
-		return fmt.Errorf("SSE link is nil")
+		return errors.New("SSE link is nil")
 	}
+
 	if err := c.validateConfig(c.authConfig); err != nil {
 		return err
 	}
@@ -121,6 +125,7 @@ func (c *ServerConfig) SSELink() *url.URL {
 	}
 
 	cloned := *c.sseLink
+
 	return &cloned
 }
 
@@ -142,6 +147,7 @@ func (c *ServerConfig) SetOAuthConfig(cfg *oauth2.Config) error {
 	if err := c.validateConfig(cfg); err != nil {
 		return err
 	}
+
 	previous := c.authConfig
 	c.authConfig = cloneConfig(cfg)
 
@@ -153,7 +159,7 @@ func (c *ServerConfig) SetOAuthConfig(cfg *oauth2.Config) error {
 	return nil
 }
 
-// UpdateSupportedProtocols updates the list of protocols the server supports.
+// SetProtocol updates the list of protocols the server supports.
 // The order matters: first element is the preferred protocol.
 // Valid values: "streamable", "sse"
 func (c *ServerConfig) SetProtocol(protocol tools.Protocol) bool {
@@ -186,8 +192,10 @@ func (c *ServerConfig) UnsetProcotocol() {
 
 type ServerConfigEvent interface{ undo(c *ServerConfig) }
 
-var _ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
-var _ ServerConfigEvent = ServerConfigEventProtocolUpdated{}
+var (
+	_ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
+	_ ServerConfigEvent = ServerConfigEventProtocolUpdated{}
+)
 
 type ServerConfigEventOauthConfigUpdated struct {
 	previous *oauth2.Config

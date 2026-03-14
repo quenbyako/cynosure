@@ -26,6 +26,7 @@ func NewAgentIDFromString(user UserID, id string) (AgentID, error) {
 	if err != nil {
 		return AgentID{}, err
 	}
+
 	return NewAgentID(user, modelConfigID)
 }
 

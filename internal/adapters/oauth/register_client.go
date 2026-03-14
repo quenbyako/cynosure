@@ -20,13 +20,15 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	p := oauthhandler.RegisterClientParams(opts...)
 
 	if originURL == nil {
-		return nil, time.Time{}, fmt.Errorf("origin url is nil")
+		return nil, time.Time{}, errors.New("origin url is nil")
 	}
+
 	if clientName == "" {
-		return nil, time.Time{}, fmt.Errorf("client name is empty")
+		return nil, time.Time{}, errors.New("client name is empty")
 	}
+
 	if redirect == nil {
-		return nil, time.Time{}, fmt.Errorf("redirect url is nil")
+		return nil, time.Time{}, errors.New("redirect url is nil")
 	}
 
 	client, err := oauth.NewClientWithResponses("", oauth.WithHTTPClient(h.client))
@@ -56,20 +58,24 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 
 	if metadata, err := discoverProtectedResourceMetadata(ctx, client, originURL, p.SuggestedProtectedResource()); err == nil {
 		if metadata == nil {
-			return nil, time.Time{}, fmt.Errorf("empty metadata response")
+			return nil, time.Time{}, errors.New("empty metadata response")
 		}
+
 		if authSrv := metadata.AuthorizationServers; authSrv != nil {
 			for _, srvRaw := range *authSrv {
 				srv, parseErr := url.Parse(srvRaw)
 				if parseErr != nil {
 					return nil, time.Time{}, fmt.Errorf("failed to parse authorization server URL: %w", parseErr)
 				}
+
 				authServers = append(authServers, srv)
 			}
 		}
+
 		if name := metadata.ResourceName; name != nil {
 			serviceServerShortName = *name
 		}
+
 		if doc := metadata.ResourceDocumentation; doc != nil {
 			if resourceDocumentationURL, err = url.Parse(*doc); err != nil {
 				return nil, time.Time{}, fmt.Errorf("failed to parse resource documentation URL: %w", err)
@@ -107,18 +113,21 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	)
 
 	var authMetadataErr error
+
 	for _, authServer := range authServers {
 		var metadataResp *oauth.GetAuthServerMetadataResponse
+
 		metadataResp, authMetadataErr = client.GetAuthServerMetadataWithResponse(ctx, func(ctx context.Context, req *http.Request) error {
 			cloned := *authServer
 			if !strings.HasPrefix(cloned.Path, "/.well-known/oauth-authorization-server") {
 				cloned.Path = path.Join("/.well-known/oauth-authorization-server", cloned.Path)
 			}
+
 			req.URL = &cloned
 			req.Host = cloned.Host
+
 			return nil
 		})
-
 		if authMetadataErr != nil {
 			continue // try next
 		}
@@ -130,7 +139,7 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 
 		m := metadataResp.JSON200
 		if m == nil {
-			authMetadataErr = fmt.Errorf("empty metadata response")
+			authMetadataErr = errors.New("empty metadata response")
 			continue
 		}
 
@@ -152,6 +161,7 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 				continue
 			}
 		}
+
 		if m.TokenEndpoint != nil {
 			tokenEndpoint, err = url.Parse(*m.TokenEndpoint)
 			if err != nil {
@@ -159,11 +169,13 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 				continue
 			}
 		}
+
 		if m.ScopesSupported != nil {
 			authScopes = *m.ScopesSupported
 		}
 
 		authMetadataErr = nil
+
 		break
 	}
 
@@ -209,14 +221,15 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	if registerResp.StatusCode() != http.StatusCreated && registerResp.StatusCode() != http.StatusOK {
 		errStr := fmt.Sprintf("unexpected status code %d when registering client at %s", registerResp.StatusCode(), registrationEndpoint)
 		if len(registerResp.Body) > 0 {
-			errStr += fmt.Sprintf(": %s", string(registerResp.Body))
+			errStr += ": " + string(registerResp.Body)
 		}
+
 		return nil, time.Time{}, errors.New(errStr)
 	}
 
 	clientData := registerResp.JSONDefault
 	if clientData == nil {
-		return nil, time.Time{}, fmt.Errorf("empty response when registering client")
+		return nil, time.Time{}, errors.New("empty response when registering client")
 	}
 
 	if clientData.ClientSecretExpiresAt != nil && *clientData.ClientSecretExpiresAt > 0 {
@@ -232,6 +245,7 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	if authorizationEndpoint != nil {
 		authURL = authorizationEndpoint.String()
 	}
+
 	if tokenEndpoint != nil {
 		tokenURL = tokenEndpoint.String()
 	}
@@ -250,7 +264,7 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	}, expiresAt, nil
 }
 
-// TODO: immideately return error, if we stuck with infrastructure error, and not "not found" or "forbidden"
+// TODO: immediately return error, if we stuck with infrastructure error, and not "not found" or "forbidden"
 func discoverProtectedResourceMetadata(ctx context.Context, client oauth.ClientWithResponsesInterface, originURL, suggestedURL *url.URL) (*oauth.ProtectedResourceMetadata, error) {
 	if suggestedURL != nil {
 		resp, err := client.GetResourceMetadataWithResponse(ctx, useExactURI(suggestedURL))
@@ -258,12 +272,13 @@ func discoverProtectedResourceMetadata(ctx context.Context, client oauth.ClientW
 			if resp.JSONDefault == nil {
 				return nil, fmt.Errorf("empty response when discovering protected resource metadata at %q", resp.HTTPResponse.Request.URL.String())
 			}
+
 			return resp.JSONDefault, nil
 		}
 	}
 
 	if originURL == nil {
-		return nil, fmt.Errorf("origin URL is required to discover metadata")
+		return nil, errors.New("origin URL is required to discover metadata")
 	}
 
 	resp, err := client.GetResourceMetadataWithResponse(ctx, useGranularProtectedResourceEndpoint(originURL))
@@ -271,6 +286,7 @@ func discoverProtectedResourceMetadata(ctx context.Context, client oauth.ClientW
 		if resp.JSONDefault == nil {
 			return nil, fmt.Errorf("empty response when discovering protected resource metadata at %q", resp.HTTPResponse.Request.URL.String())
 		}
+
 		return resp.JSONDefault, nil
 	}
 
@@ -279,6 +295,7 @@ func discoverProtectedResourceMetadata(ctx context.Context, client oauth.ClientW
 		if resp.JSONDefault == nil {
 			return nil, fmt.Errorf("empty response when discovering protected resource metadata at %q", resp.HTTPResponse.Request.URL.String())
 		}
+
 		return resp.JSONDefault, nil
 	}
 
@@ -289,6 +306,7 @@ func useExactURI(uri *url.URL) oauth.RequestEditorFn {
 	return func(ctx context.Context, req *http.Request) error {
 		req.URL = uri
 		req.Host = uri.Host
+
 		return nil
 	}
 }

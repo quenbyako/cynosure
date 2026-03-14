@@ -29,8 +29,10 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 			if err := json.Unmarshal(v, &x); err != nil {
 				return nil, fmt.Errorf("unmarshalling arg %q: %w", k, err)
 			}
+
 			argsRaw[k] = x
 		}
+
 		args, err := structpb.NewStruct(argsRaw)
 		if err != nil {
 			return nil, fmt.Errorf("creating struct for args: %w", err)
@@ -54,6 +56,7 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 		if err := json.Unmarshal(m.Content(), &content); err != nil {
 			return nil, fmt.Errorf("unmarshalling arg: %w", err)
 		}
+
 		value, err := structpb.NewValue(content)
 		if err != nil {
 			return nil, fmt.Errorf("creating struct for content: %w", err)

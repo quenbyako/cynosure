@@ -31,6 +31,7 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 		if err != nil {
 			return err
 		}
+
 		if d.IsDir() {
 			return nil
 		}

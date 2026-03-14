@@ -22,7 +22,6 @@ type testError struct{}
 
 func (*testError) Error() string { return "error value" }
 
-//nolint:forbidigo // This test specifically examines panic behavior.
 func TestSingleflight_PanicErrorUnwrap(t *testing.T) {
 	t.Parallel()
 
@@ -212,7 +211,6 @@ func TestSingleflight_Forget(t *testing.T) {
 	require.Equal(t, 2, finalResult)
 }
 
-//nolint:forbidigo // Specifically testing panic behavior.
 func TestSingleflight_PanicDo(t *testing.T) {
 	var group Group[struct{}]
 

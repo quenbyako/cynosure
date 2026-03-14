@@ -62,25 +62,27 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 			}
 		},
 		//TODO: test this too.
-		//"invalid_token_valid_refresh": func(srv *mcpmock.MockServer) *oauth2.Token {
+		// "invalid_token_valid_refresh": func(srv *mcpmock.MockServer) *oauth2.Token {
 		//	token := "someValidToken=="
 		//	srv.IssueToken(token)
 		//
 		//	return &oauth2.Token{
 		//		AccessToken: "wrongToken==",
 		//	}
-		//},
+		// },
 
 	}
 
 	name := "some-account"
 	desc := "Some Account Description"
+
 	for config := range configIterator() {
 		for testName, tokenMaker := range srvAccountMaker {
 			t.Run(config.String()+"/"+testName, func(t *testing.T) {
 				t.Parallel()
 
 				account := dummyAccount()
+
 				srv := mcpmock.New(config)
 				defer srv.Close()
 
@@ -99,6 +101,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 
 					id := must(ids.RandomToolID(account))
 					nameToID[name] = id
+
 					return id, nil
 				}), WithAuthToken(token))
 				expectError := config.Auth == mcpmock.AuthRequired || config.Auth == mcpmock.AuthNoHeader
@@ -125,6 +128,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 						require.NotNil(t, e.Endpoint())
 						require.NotEmpty(t, e.Endpoint().String())
 					}
+
 					return
 				}
 
@@ -142,6 +146,7 @@ func dummyAccount() ids.AccountID {
 	user := ids.RandomUserID()
 	server, _ := ids.NewServerID(uuid.New())
 	account, _ := ids.NewAccountID(user, server, uuid.New())
+
 	return account
 }
 

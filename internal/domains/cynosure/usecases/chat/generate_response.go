@@ -56,6 +56,7 @@ func (s *Usecase) GenerateResponse(ctx context.Context, threadID ids.ThreadID, m
 		if err != nil {
 			return nil, fmt.Errorf("listing user agents: %w", err)
 		}
+
 		if len(agents) == 0 {
 			return nil, fmt.Errorf("no agents found for user %v", threadID.User())
 		}
@@ -142,6 +143,7 @@ func (s *Usecase) callModel(ctx context.Context, c *chat.Chat, config entities.A
 	if toolChoice != tools.ToolChoiceForbidden {
 		opts = append(opts, ports.WithStreamToolbox(c.RelevantTools()))
 	}
+
 	return s.model.Stream(ctx, c.Messages(), config, opts...)
 }
 
@@ -160,6 +162,7 @@ func (s *Usecase) handleModelError(ctx context.Context, c *chat.Chat, err error,
 	}
 
 	yield(errorMsg, err)
+
 	return false
 }
 
@@ -182,6 +185,7 @@ func (s *Usecase) streamModelMessages(ctx context.Context, c *chat.Chat, stream 
 
 func (s *Usecase) saveAndYieldMessage(ctx context.Context, c *chat.Chat, msg messages.Message, toolRequests *[]messages.MessageToolRequest, yield func(messages.Message, error) bool) bool {
 	var err error
+
 	switch v := msg.(type) {
 	case messages.MessageAssistant:
 		err = c.AcceptAssistantMessage(ctx, v)
@@ -206,6 +210,7 @@ func (s *Usecase) executeTools(ctx context.Context, c *chat.Chat, toolRequests [
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -235,6 +240,7 @@ func (s *Usecase) executeTool(ctx context.Context, c *chat.Chat, req messages.Me
 
 func yieldToolError(ctx context.Context, c *chat.Chat, req messages.MessageToolRequest, errMsg string, yield func(messages.Message, error) bool) bool {
 	content, _ := json.Marshal(map[string]string{"error": errMsg})
+
 	toolErr, err := messages.NewMessageToolError(
 		content,
 		req.ToolName(),

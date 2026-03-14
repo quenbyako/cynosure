@@ -24,11 +24,13 @@ type Message interface {
 	_Message()
 }
 
-var _ Message = MessageToolRequest{}
-var _ Message = MessageToolResponse{}
-var _ Message = MessageToolError{}
-var _ Message = MessageAssistant{}
-var _ Message = MessageUser{}
+var (
+	_ Message = MessageToolRequest{}
+	_ Message = MessageToolResponse{}
+	_ Message = MessageToolError{}
+	_ Message = MessageAssistant{}
+	_ Message = MessageUser{}
+)
 
 // Implemented by these types:
 //
@@ -43,8 +45,10 @@ type MessageTool interface {
 	_MessageTool()
 }
 
-var _ MessageTool = MessageToolResponse{}
-var _ MessageTool = MessageToolError{}
+var (
+	_ MessageTool = MessageToolResponse{}
+	_ MessageTool = MessageToolError{}
+)
 
 func validateExtra(extra map[string]json.RawMessage) bool {
 	for _, v := range extra {
@@ -59,6 +63,7 @@ func validateExtra(extra map[string]json.RawMessage) bool {
 func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Message, error] {
 	return func(yield func(Message, error) bool) {
 		var current Message
+
 		for next, err := range messages {
 			if err != nil {
 				if current != nil && !yield(current, err) {
@@ -66,6 +71,7 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 				}
 
 				yield(next, err)
+
 				return
 			}
 
@@ -80,6 +86,7 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 				}
 
 				current = next
+
 				continue
 			}
 
@@ -110,6 +117,7 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 					yield(nil, fmt.Errorf("expected previous MessageAssistant, got %T", next))
 					return
 				}
+
 				metadata := next.ProtocolMetadata()
 				if metadata == nil {
 					metadata = currentMsg.ProtocolMetadata()
@@ -133,6 +141,7 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 				}
 
 				current = next
+
 				continue
 			}
 		}

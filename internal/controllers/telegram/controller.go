@@ -19,22 +19,21 @@ import (
 const pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
 
 type Handler struct {
+	lifecycleCtx   context.Context
+	log            LogCallbacks
+	tracer         trace.Tracer
 	srv            *chat.Usecase
 	users          *users.Usecase
 	client         *botapi.ClientWithResponses
 	updateInterval time.Duration
-	lifecycleCtx   context.Context
-
-	log    LogCallbacks
-	tracer trace.Tracer
 }
 
 var _ botapi.StrictWebhookInterface = (*Handler)(nil)
 
 type newParams struct {
-	updateInterval time.Duration
 	log            LogCallbacks
 	tracer         trace.TracerProvider
+	updateInterval time.Duration
 }
 
 type NewOption func(*newParams)
@@ -76,7 +75,8 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 	if err != nil {
 		return nil, fmt.Errorf("setting telegram webhook: %w", err)
 	}
-	if resp.JSON200 == nil || !(resp.JSON200.Ok && resp.JSON200.Result) {
+
+	if resp.JSON200 == nil || (!resp.JSON200.Ok || !resp.JSON200.Result) {
 		return nil, fmt.Errorf("failed to set telegram webhook: %s", resp.Status())
 	}
 

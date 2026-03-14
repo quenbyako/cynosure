@@ -12,14 +12,16 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/quenbyako/ext/syncmap"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
-	"github.com/quenbyako/ext/syncmap"
 )
 
 func randomString(prefix string, n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
+
 	return fmt.Sprintf("%s-%s", prefix, hex.EncodeToString(b))
 }
 
@@ -47,22 +49,19 @@ func (c MockServerConfig) String() string {
 // MockServer wraps httptest.Server and manages its states.
 type MockServer struct {
 	*httptest.Server
-	cfg MockServerConfig
-
-	// authTypeString is the actual string used in headers (e.g. "Bearer" or "Random-X")
-	authTypeString string
-
 	// tokens maps token string to its status (valid/invalid)
 	tokens syncmap.Map[string, struct{}]
 	// authCodes maps code to token (simulating auth flow)
 	authCodes syncmap.Map[string, string]
-
-	mcpPath      string
-	metadataPath string
+	// authTypeString is the actual string used in headers (e.g. "Bearer" or "Random-X")
+	authTypeString string
+	mcpPath        string
+	metadataPath   string
+	cfg            MockServerConfig
 }
 
 func (m *MockServer) MCPURL() *url.URL {
-	return must(url.Parse(m.Server.URL + m.mcpPath))
+	return must(url.Parse(m.URL + m.mcpPath))
 }
 
 func (m *MockServer) IssueToken(token string) {
@@ -74,7 +73,7 @@ func (m *MockServer) RevokeToken(token string) {
 }
 
 func (m *MockServer) DropConnections() {
-	m.Server.CloseClientConnections()
+	m.CloseClientConnections()
 }
 
 func (m *MockServer) Tools(accountName, accountDesc string, toolID func(string) ids.ToolID) []tools.RawTool {
@@ -88,6 +87,7 @@ func (m *MockServer) Tools(accountName, accountDesc string, toolID func(string) 
 		)),
 	}
 }
+
 func mockMCPServer() *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "mock-mcp-server",
@@ -118,6 +118,7 @@ func New(cfg MockServerConfig) *MockServer {
 	regPath := randomPath("reg")
 
 	var authTypeStr string
+
 	switch cfg.AuthType {
 	case AuthTypeNone:
 		authTypeStr = ""
@@ -145,6 +146,7 @@ func New(cfg MockServerConfig) *MockServer {
 	mcpServer := mockMCPServer()
 
 	var mcpHandler http.Handler
+
 	switch cfg.Transport {
 	case TransportSSE:
 		mcpHandler = mcp.NewSSEHandler(func(*http.Request) *mcp.Server { return mcpServer }, nil)
@@ -153,13 +155,15 @@ func New(cfg MockServerConfig) *MockServer {
 	default:
 		panic(fmt.Sprintf("unknown transport type: %v", cfg.Transport))
 	}
+
 	mux.Handle(mcpPath, mcpHandler)
 	mux.Handle(mcpPath+"/", mcpHandler)
 
 	// 3. Discovery Helpers
 	getDiscoveryData := func() map[string]any {
 		// Use srv.Server.URL because srv.URL is only available after httptest.NewServer
-		baseURL := srv.Server.URL
+		baseURL := srv.URL
+
 		res := map[string]any{
 			"issuer":                 baseURL,
 			"authorization_endpoint": baseURL + authPath,
@@ -168,6 +172,7 @@ func New(cfg MockServerConfig) *MockServer {
 		if cfg.Discovery == OAuthDiscoveryFull && cfg.Registration == OAuthRegistrationSupported {
 			res["registration_endpoint"] = srv.URL + regPath
 		}
+
 		return res
 	}
 
@@ -176,6 +181,7 @@ func New(cfg MockServerConfig) *MockServer {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(getDiscoveryData())
 	}
@@ -201,6 +207,7 @@ func New(cfg MockServerConfig) *MockServer {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
 		redirectURI := r.URL.Query().Get("redirect_uri")
 		state := r.URL.Query().Get("state")
 		code := "mock_code_" + state
@@ -212,6 +219,7 @@ func New(cfg MockServerConfig) *MockServer {
 
 	mux.HandleFunc(tokenPath, func(w http.ResponseWriter, r *http.Request) {
 		code := r.FormValue("code")
+
 		token, ok := srv.authCodes.Load(code)
 		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -253,6 +261,7 @@ func New(cfg MockServerConfig) *MockServer {
 	)(mux)
 
 	srv.Server = httptest.NewServer(finalHandler)
+
 	return srv
 }
 
@@ -279,6 +288,7 @@ func authMiddleware(
 
 			// Required Auth
 			authHeader := r.Header.Get("Authorization")
+
 			prefix := authType + " "
 			if strings.HasPrefix(authHeader, prefix) {
 				token := strings.TrimPrefix(authHeader, prefix)
@@ -288,7 +298,6 @@ func authMiddleware(
 				} else {
 					w.WriteHeader(http.StatusForbidden)
 					return
-
 				}
 			}
 
@@ -298,7 +307,7 @@ func authMiddleware(
 			}
 
 			// Default Response with WWW-Authenticate
-			wwwAuthHeader := fmt.Sprintf(`%s error="invalid_token"`, authType)
+			wwwAuthHeader := authType + " error=\"invalid_token\""
 			if customMetadataPath != "" {
 				wwwAuthHeader += fmt.Sprintf(`, resource_metadata="%s"`, customMetadataPath)
 			}
@@ -313,5 +322,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

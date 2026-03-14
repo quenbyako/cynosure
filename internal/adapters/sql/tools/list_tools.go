@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -19,7 +20,6 @@ func (t *Tools) ListTools(ctx context.Context, account ids.AccountID) ([]*entiti
 	for _, row := range rows {
 		// Construct tool from row
 		// Row type is ListToolsForAccountsRow
-
 		id, err := ids.NewToolID(account, row.ID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid tool id: %w", err)
@@ -44,7 +44,6 @@ func (t *Tools) ListTools(ctx context.Context, account ids.AccountID) ([]*entiti
 			row.Output,
 			entities.WithEmbedding(embedding),
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("map tool: %w", err)
 		}

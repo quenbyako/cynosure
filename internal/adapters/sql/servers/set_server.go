@@ -34,6 +34,7 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 		if err := tx.Commit(ctx); err != nil {
 			return fmt.Errorf("commit tx: %w", err)
 		}
+
 		return nil
 	}
 	// Convert scopes array (may be nil)
@@ -67,5 +68,6 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
+
 	return nil
 }

@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -9,16 +10,17 @@ import (
 )
 
 type Thread struct {
-	id       ids.ThreadID
-	agentID  ids.AgentID
 	messages []messages.Message
-
 	pendingEvents[ThreadEvent]
-	valid bool
+	id      ids.ThreadID
+	agentID ids.AgentID
+	_valid  bool
 }
 
-var _ EventsReader[ThreadEvent] = (*Thread)(nil)
-var _ ThreadReadOnly = (*Thread)(nil)
+var (
+	_ EventsReader[ThreadEvent] = (*Thread)(nil)
+	_ ThreadReadOnly            = (*Thread)(nil)
+)
 
 type ThreadOption func(*Thread)
 
@@ -38,18 +40,20 @@ func NewThread(id ids.ThreadID, messages []messages.Message, opts ...ThreadOptio
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	c.valid = true
+
+	c._valid = true
 
 	return c, nil
 }
 
-func (c *Thread) Valid() bool { return c.valid || c.Validate() == nil }
+func (c *Thread) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *Thread) Validate() error {
 	if !c.id.Valid() {
-		return fmt.Errorf("thread ID is invalid")
+		return errors.New("thread ID is invalid")
 	}
+
 	if len(c.messages) == 0 {
-		return fmt.Errorf("messages cannot be empty")
+		return errors.New("messages cannot be empty")
 	}
 
 	return nil
@@ -57,8 +61,9 @@ func (c *Thread) Validate() error {
 
 func (c *Thread) validateMessages(messages []messages.Message) error {
 	if len(messages) == 0 {
-		return fmt.Errorf("messages cannot be empty")
+		return errors.New("messages cannot be empty")
 	}
+
 	for i, msg := range messages {
 		if !msg.Valid() {
 			return fmt.Errorf("message %d is invalid", i)
@@ -103,6 +108,7 @@ func (c *Thread) AddMessage(message messages.Message) error {
 	if err := c.validateMessages(messages); err != nil {
 		return err
 	}
+
 	c.messages = messages
 
 	c.pendingEvents = append(c.pendingEvents, ThreadEventMessageAdded{

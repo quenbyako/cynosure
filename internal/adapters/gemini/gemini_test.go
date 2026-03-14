@@ -1,18 +1,19 @@
 package gemini_test
 
 import (
-	_ "embed"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
 
+	_ "embed"
+
+	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 
 	. "github.com/quenbyako/cynosure/internal/adapters/gemini"
-	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 )
 
 //go:embed .gemini.secret
@@ -63,5 +64,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

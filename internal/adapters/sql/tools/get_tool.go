@@ -27,6 +27,7 @@ func (t *Tools) GetTool(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ports.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("query tool: %w", err)
 	}
 

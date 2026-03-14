@@ -2,6 +2,7 @@ package datatransfer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
@@ -15,7 +16,7 @@ import (
 // It assumes rows are ordered by position ascending.
 func ThreadFromRows(rows []db.GetThreadWithMessagesRow) (*entities.Thread, error) {
 	if len(rows) == 0 {
-		return nil, fmt.Errorf("empty result set")
+		return nil, errors.New("empty result set")
 	}
 
 	first := rows[0]
@@ -29,6 +30,7 @@ func ThreadFromRows(rows []db.GetThreadWithMessagesRow) (*entities.Thread, error
 	// We construct messages and validate the sequence.
 
 	var msgs []messages.Message
+
 	for i, row := range rows {
 		if row.Position == nil {
 			// This row represents the thread itself but without messages.
@@ -58,7 +60,7 @@ func ThreadFromRows(rows []db.GetThreadWithMessagesRow) (*entities.Thread, error
 
 func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 	if row.MsgType == nil {
-		return nil, fmt.Errorf("message type is nil")
+		return nil, errors.New("message type is nil")
 	}
 
 	mergeTag := uint64(0)
@@ -70,7 +72,7 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 	switch *row.MsgType {
 	case "user":
 		if row.UserContent == nil {
-			return nil, fmt.Errorf("user content is nil")
+			return nil, errors.New("user content is nil")
 		}
 
 		msg, err := messages.NewMessageUser(
@@ -121,7 +123,7 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 
 	case "tool_request":
 		if row.ReqToolName == nil || row.ReqToolCallID == nil || row.ReqArguments == nil {
-			return nil, fmt.Errorf("tool request fields missing")
+			return nil, errors.New("tool request fields missing")
 		}
 
 		var args map[string]json.RawMessage
@@ -151,10 +153,11 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 
 	case "tool_result":
 		if row.ResultContent == nil {
-			return nil, fmt.Errorf("tool result content missing")
+			return nil, errors.New("tool result content missing")
 		}
+
 		if row.ResultToolCallID == nil {
-			return nil, fmt.Errorf("tool result call id missing")
+			return nil, errors.New("tool result call id missing")
 		}
 
 		var toolName string
@@ -162,7 +165,7 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 			toolName = *row.ResultToolName
 		} else {
 			// This happens if the referenced request is missing (data inconsistency)
-			return nil, fmt.Errorf("tool result origin request missing (tool name unknown)")
+			return nil, errors.New("tool result origin request missing (tool name unknown)")
 		}
 
 		isError := false
@@ -182,6 +185,7 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 			if err != nil {
 				return nil, fmt.Errorf("new tool error: %w", err)
 			}
+
 			return msg, nil
 		}
 
@@ -194,6 +198,7 @@ func messageFromRow(row db.GetThreadWithMessagesRow) (messages.Message, error) {
 		if err != nil {
 			return nil, fmt.Errorf("new tool response: %w", err)
 		}
+
 		return msg, nil
 
 	default:

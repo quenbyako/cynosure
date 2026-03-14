@@ -22,9 +22,9 @@ import (
 type GenAIInputMessagesAttribute []ChatMessage
 
 type ChatMessage struct {
+	Name  *string                           `json:"name,omitempty"`
 	Role  Role                              `json:"role"`
 	Parts []GenAIInputMessagesAttributePart `json:"parts"`
-	Name  *string                           `json:"name,omitempty"`
 }
 
 type GenAIInputMessagesAttributePart interface {
@@ -72,15 +72,18 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 	}
 
 	var this *ChatMessage
+
 	for _, msg := range msgs {
 		switch msg := msg.(type) {
 		case messages.MessageAssistant:
 			if this != nil && this.Role != RoleAssistant {
 				res, this = append(res, *this), nil
 			}
+
 			if this == nil {
 				this = &ChatMessage{Role: RoleAssistant}
 			}
+
 			this.Parts = append(this.Parts, &TextPart{
 				Type:    "text",
 				Content: msg.Content(),
@@ -89,6 +92,7 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			if this != nil && this.Role != RoleTool {
 				res, this = append(res, *this), nil
 			}
+
 			if this == nil {
 				this = &ChatMessage{Role: RoleTool}
 			}
@@ -103,9 +107,11 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			if this != nil && this.Role != RoleAssistant {
 				res, this = append(res, *this), nil
 			}
+
 			if this == nil {
 				this = &ChatMessage{Role: RoleAssistant}
 			}
+
 			this.Parts = append(this.Parts, &ToolCallRequestPart{
 				Type:      "tool_call",
 				Id:        ptr(msg.ToolCallID()),
@@ -116,9 +122,11 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			if this != nil && this.Role != RoleUser {
 				res, this = append(res, *this), nil
 			}
+
 			if this == nil {
 				this = &ChatMessage{Role: RoleUser}
 			}
+
 			this.Parts = append(this.Parts, &TextPart{
 				Type:    "text",
 				Content: msg.Content(),
@@ -147,6 +155,7 @@ const (
 // Stream implements [ports.ChatModel].
 func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...ports.StreamOption) (iter.Seq2[messages.Message, error], error) {
 	msgsJSON := string(must(json.Marshal(otelMessageFromMessage(settings.SystemMessage(), input))))
+
 	attrs := []attribute.KeyValue{
 		semconv.GenAIOperationNameGenerateContent,
 		semconv.GenAIProviderNameGCPGemini,
@@ -157,6 +166,7 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 	if v, ok := settings.TopP(); ok {
 		attrs = append(attrs, semconv.GenAIRequestTopP(float64(v)))
 	}
+
 	if v, ok := settings.Temperature(); ok {
 		attrs = append(attrs, semconv.GenAIRequestTemperature(float64(v)))
 	}
@@ -180,6 +190,7 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 	toolList := p.Toolbox().List()
 	if len(toolList) > 0 {
 		var mode genai.FunctionCallingConfigMode
+
 		switch toolChoice := p.ToolChoice(); toolChoice {
 		case tools.ToolChoiceAllowed:
 			mode = genai.FunctionCallingConfigModeAuto
@@ -199,6 +210,7 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 
 		genConfig.Tools = datatransfer.ToolInfoToGenAI(toolList)
 	}
+
 	g.log.GeminiStreamStarted(ctx, settings.Model(), len(toolList))
 
 	converted, err := datatransfer.MessagesToGenAIContent(input)
@@ -211,8 +223,10 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 	mergeTag := rand.Uint64()
 
 	return func(yield func(messages.Message, error) bool) {
-		var thoughtBuffer string
-		var metadataBuffer []byte
+		var (
+			thoughtBuffer  string
+			metadataBuffer []byte
+		)
 
 		mapper := func(msg *genai.GenerateContentResponse, err error) (res []messages.Message, _ error) {
 			if err != nil {
@@ -261,6 +275,7 @@ func IterExtract[K1 any](seq iter.Seq2[[]K1, error]) iter.Seq2[K1, error] {
 					return false
 				}
 			}
+
 			return true
 		})
 	}
@@ -270,5 +285,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

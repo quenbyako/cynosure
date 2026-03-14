@@ -33,6 +33,7 @@ func RunOAuthHandlerTests(
 	for _, opt := range opts {
 		opt(s)
 	}
+
 	if err := s.validate(); err != nil {
 		panic(err)
 	}
@@ -64,6 +65,7 @@ func (s *OAuthHandlerTestSuite) validate() error {
 
 func (s *OAuthHandlerTestSuite) afterTest(t *testing.T) {
 	t.Helper()
+
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
@@ -73,13 +75,13 @@ func (s *OAuthHandlerTestSuite) afterTest(t *testing.T) {
 
 func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 	type testCase struct {
-		name         string
 		setupServer  func(t *testing.T) *httptest.Server
 		originURL    func(srv *httptest.Server) *url.URL
 		redirectURL  *url.URL
 		opts         func(srv *httptest.Server) []RegisterClientOption
 		assertErr    func(t *testing.T, err error)
 		assertResult func(t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time)
+		name         string
 	}
 
 	tests := []testCase{
@@ -88,6 +90,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			setupServer: func(t *testing.T) *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
+
 					switch r.URL.Path {
 					case "/.well-known/oauth-protected-resource":
 						// Return authorization server metadata
@@ -132,6 +135,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			setupServer: func(t *testing.T) *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
+
 					switch r.URL.Path {
 					case "/.well-known/oauth-authorization-server":
 						_ = json.NewEncoder(w).Encode(map[string]any{
@@ -163,6 +167,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			setupServer: func(t *testing.T) *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
+
 					switch r.URL.Path {
 					case "/custom-protected-resource":
 						_ = json.NewEncoder(w).Encode(map[string]any{
@@ -201,6 +206,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			setupServer: func(t *testing.T) *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
+
 					switch r.URL.Path {
 					case "/.well-known/oauth-protected-resource":
 						_ = json.NewEncoder(w).Encode(map[string]any{
@@ -224,6 +230,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			redirectURL: must(url.Parse("http://localhost/callback")),
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
+
 				var expectedErr *DynamicClientRegistrationNotSupportedError
 				require.ErrorAs(t, err, &expectedErr)
 				require.NotNil(t, expectedErr.Documentation())
@@ -288,6 +295,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			setupServer: func(t *testing.T) *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
+
 					switch r.URL.Path {
 					case "/.well-known/oauth-authorization-server":
 						_ = json.NewEncoder(w).Encode(map[string]any{
@@ -319,6 +327,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			setupServer: func(t *testing.T) *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
+
 					switch r.URL.Path {
 					case "/.well-known/oauth-authorization-server":
 						_ = json.NewEncoder(w).Encode(map[string]any{
@@ -347,6 +356,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			if tc.setupServer != nil {
 				srv = tc.setupServer(t)
 			}
+
 			if srv != nil {
 				defer srv.Close()
 			}

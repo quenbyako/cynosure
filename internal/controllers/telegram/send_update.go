@@ -23,7 +23,7 @@ func (h *Handler) SendUpdate(ctx context.Context, request botapi.SendUpdateReque
 
 	update := request.Body
 	if update == nil {
-		return nil, fmt.Errorf("update is nil")
+		return nil, errors.New("update is nil")
 	}
 
 	updateID := update.UpdateId
@@ -38,7 +38,6 @@ func (h *Handler) SendUpdate(ctx context.Context, request botapi.SendUpdateReque
 		// Unknown update type, ignore
 		return noContentResponse{}, nil
 	}
-
 }
 
 func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.Message) (botapi.SendUpdateResponseObject, error) {
@@ -55,6 +54,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 	if msg.From.Username != nil {
 		nickname = *msg.From.Username
 	}
+
 	firstName = msg.From.FirstName
 	if msg.From.LastName != nil {
 		lastName = *msg.From.LastName
@@ -64,6 +64,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 	if err != nil {
 		if errors.Is(err, identitymanager.ErrRateLimited) {
 			traceID := trace.SpanFromContext(requestCtx).SpanContext().TraceID()
+
 			text := "Sorry, I'm currently overwhelmed with requests. Please try again in a moment."
 			if traceID.IsValid() {
 				text += fmt.Sprintf(" (trace id: %s)", traceID.String())
@@ -77,9 +78,12 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 			if err != nil {
 				h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("sending error message: %w", err))
 			}
+
 			return noContentResponse{}, nil
 		}
+
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making user id: %w", err))
+
 		return noContentResponse{}, nil
 	}
 
@@ -98,6 +102,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 	if msg.Text != nil && *msg.Text != "" {
 		text = *msg.Text
 	}
+
 	if text == "" {
 		return noContentResponse{}, nil
 	}
@@ -111,6 +116,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 	// Detach processing to avoid Telegram timeout (and subsequent retries)
 	go func(ctx context.Context) {
 		h.log.ProcessMessageStart(ctx, chatID, text)
+
 		startTime := time.Now()
 
 		response, err := h.srv.GenerateResponse(ctx, threadID, userMessage)
@@ -136,11 +142,11 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 			case messages.MessageAssistant:
 				accumulated = res.Content()
 			case messages.MessageToolError:
-				accumulated += fmt.Sprintf("\n\nTool error: %s", string(res.Content()))
+				accumulated += "\n\nTool error: " + string(res.Content())
 			case messages.MessageToolRequest:
-				accumulated += fmt.Sprintf("\n\nTool request: %s", res.ToolName())
+				accumulated += "\n\nTool request: " + res.ToolName()
 			case messages.MessageToolResponse:
-				accumulated += fmt.Sprintf("\n\nTool response: %s", string(res.Content()))
+				accumulated += "\n\nTool response: " + string(res.Content())
 			case messages.MessageUser:
 				// ignoring user messages
 			default:
@@ -171,6 +177,7 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 					h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("send initial message: %v", resp.JSONDefault.Description))
 					break
 				}
+
 				continue
 			}
 
@@ -181,9 +188,10 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 					Text:      accumulated,
 				})
 				if err != nil {
-					h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("edit message: %v", err))
+					h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("edit message: %w", err))
 					continue
 				}
+
 				lastSentText = accumulated
 			}
 		}
@@ -223,5 +231,6 @@ func (d *merged) Value(k any) any {
 	if val := d.valuesOnly.Value(k); val != nil {
 		return val
 	}
+
 	return d.Context.Value(k)
 }

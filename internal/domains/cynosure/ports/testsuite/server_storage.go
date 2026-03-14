@@ -28,6 +28,7 @@ func RunServerStorageTests(a ports.ServerStorage, opts ...ServerStorageTestSuite
 	for _, opt := range opts {
 		opt(s)
 	}
+
 	if err := s.validate(); err != nil {
 		panic(err)
 	}

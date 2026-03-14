@@ -28,15 +28,13 @@ type (
 	discoverToolsFunc func(*discoverToolsParams)
 )
 
-var (
-	_ DiscoverToolsOption = (discoverToolsFunc)(nil)
-)
+var _ DiscoverToolsOption = discoverToolsFunc(nil)
 
 func (f discoverToolsFunc) applyDiscoverTools(p *discoverToolsParams) { f(p) }
 
-//============================================================================//
+// ========================================================================== //
 //                          [ToolClient.DiscoverTools]                        //
-//============================================================================//
+// ========================================================================== //
 
 type discoverToolsParams struct {
 	toolIDBuilder ToolIDBuilder

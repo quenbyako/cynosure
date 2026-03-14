@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
-
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -88,7 +88,6 @@ func (t *Tools) LookupTools(
 			row.Output,
 			entities.WithEmbedding(toolEmbedding),
 		)
-
 		if err != nil {
 			return nil, fmt.Errorf("map tool: %w", err)
 		}

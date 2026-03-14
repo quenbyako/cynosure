@@ -32,6 +32,7 @@ func (a *Accounts) GetAccountsBatch(ctx context.Context, accounts []ids.AccountI
 		if err != nil {
 			return nil, fmt.Errorf("mapping account %s: %w", row.ID, err)
 		}
+
 		result[i] = acc
 	}
 

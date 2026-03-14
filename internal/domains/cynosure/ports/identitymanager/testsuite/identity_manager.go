@@ -3,6 +3,7 @@ package testsuite
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ func RunIdentityManagerTests(a identitymanager.Port, opts ...IdentityManagerTest
 	for _, opt := range opts {
 		opt(s)
 	}
+
 	if err := s.validate(); err != nil {
 		panic(err)
 	}
@@ -60,7 +62,7 @@ func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
 func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
 	id := time.Now().UnixNano() / 1000
 
-	externalID := fmt.Sprintf("%d", id)
+	externalID := strconv.FormatInt(id, 10)
 	nickname := fmt.Sprintf("go-test-user-%d", id)
 	firstName := "Test"
 	lastName := "User"

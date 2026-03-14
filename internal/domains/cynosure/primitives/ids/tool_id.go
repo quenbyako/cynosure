@@ -44,6 +44,7 @@ func NewToolID(account AccountID, id uuid.UUID, opts ...ToolIDOption) (ToolID, e
 	if err := u.validate(); err != nil {
 		return ToolID{}, err
 	}
+
 	u._valid = true
 
 	return u, nil

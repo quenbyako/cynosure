@@ -2,6 +2,7 @@ package testsuite
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/k0kubun/pp/v3"
@@ -57,17 +58,26 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	seq, err := s.adapter.Stream(t.Context(), msgs, settings)
 	require.NoError(t, err, "Stream should not fail on a simple prompt")
 
-	var thought string
-	var responseText string
+	var (
+		thought          string
+		responseText     string
+		responseTextSb62 strings.Builder
+		thoughtSb62      strings.Builder
+	)
+
 	for msg, err := range seq {
 		pp.Println("Received message:", msg)
 
 		require.NoError(t, err, "Streaming should not produce an error")
+
 		if assistantMsg, ok := msg.(messages.MessageAssistant); ok {
-			responseText += assistantMsg.Content()
-			thought += assistantMsg.Reasoning()
+			responseTextSb62.WriteString(assistantMsg.Content())
+			thoughtSb62.WriteString(assistantMsg.Reasoning())
 		}
 	}
+
+	responseText += responseTextSb62.String()
+	thought += thoughtSb62.String()
 
 	require.NotEmpty(t, responseText, "Model should have provided a non-empty response")
 	pp.Println("Response from model:", responseText)

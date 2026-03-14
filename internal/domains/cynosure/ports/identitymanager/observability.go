@@ -62,7 +62,7 @@ type createUserCallback interface {
 	span
 }
 
-func (o *observable) createUser(ctx context.Context, telegramID string, nickname string, firstName string, lastName string) (context.Context, createUserCallback) {
+func (o *observable) createUser(ctx context.Context, telegramID, nickname, firstName, lastName string) (context.Context, createUserCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.identity.create_user",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(

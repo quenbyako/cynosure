@@ -19,6 +19,7 @@ func (a *Accounts) GetAccount(ctx context.Context, account ids.AccountID) (*enti
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ports.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("getting account: %w", err)
 	}
 
@@ -26,5 +27,6 @@ func (a *Accounts) GetAccount(ctx context.Context, account ids.AccountID) (*enti
 	if err != nil {
 		return nil, fmt.Errorf("map account: %w", err)
 	}
+
 	return acc, nil
 }

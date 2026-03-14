@@ -19,6 +19,7 @@ func (s *Servers) GetServerInfo(ctx context.Context, id ids.ServerID) (*entities
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ports.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("failed to get server info: %w", err)
 	}
 

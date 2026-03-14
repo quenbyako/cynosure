@@ -37,6 +37,7 @@ func NewUserID(id uuid.UUID) (UserID, error) {
 	if err := u.validate(); err != nil {
 		return UserID{}, err
 	}
+
 	u.valid = true
 
 	return u, nil
@@ -44,8 +45,8 @@ func NewUserID(id uuid.UUID) (UserID, error) {
 
 func (u UserID) Valid() bool { return u.valid || u.validate() == nil }
 func (u UserID) validate() error {
-	switch {
-	case u.id == uuid.Nil:
+	switch u.id {
+	case uuid.Nil:
 		return errors.New("invalid user ID")
 	default:
 		return nil

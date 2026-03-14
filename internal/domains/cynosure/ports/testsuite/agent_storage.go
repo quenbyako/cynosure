@@ -20,6 +20,7 @@ func RunModelSettingsStorageTests(a ports.AgentStorage, opts ...ModelSettingsSto
 	for _, opt := range opts {
 		opt(s)
 	}
+
 	if err := s.validate(); err != nil {
 		panic(err)
 	}
@@ -62,7 +63,7 @@ func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 // creating two users with two ids and retrieving models for each of them.
 func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 	userID := ids.RandomUserID()
-	modelID:= must(ids.RandomAgentID(userID))
+	modelID := must(ids.RandomAgentID(userID))
 
 	model := must(entities.NewModelSettings(
 		modelID,

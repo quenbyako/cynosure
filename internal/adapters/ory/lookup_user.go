@@ -32,6 +32,7 @@ func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID,
 		}
 
 		var currentID string
+
 		switch v := tgID.(type) {
 		case float64:
 			currentID = strconv.FormatFloat(v, 'f', -1, 64)
@@ -48,6 +49,7 @@ func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID,
 			if err != nil {
 				return ids.UserID{}, fmt.Errorf("parsing user id from ory: %w", err)
 			}
+
 			return userID, nil
 		}
 	}

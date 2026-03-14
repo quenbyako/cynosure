@@ -2,6 +2,7 @@ package sql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -33,12 +34,14 @@ type Adapter struct {
 	trace trace.Tracer
 }
 
-var _ ports.AccountStorageFactory = (*Adapter)(nil)
-var _ ports.AgentStorageFactory = (*Adapter)(nil)
-var _ ports.ServerStorageFactory = (*Adapter)(nil)
-var _ ports.ThreadStorageFactory = (*Adapter)(nil)
-var _ ports.ToolStorageFactory = (*Adapter)(nil)
-var _ io.Closer = (*Adapter)(nil)
+var (
+	_ ports.AccountStorageFactory = (*Adapter)(nil)
+	_ ports.AgentStorageFactory   = (*Adapter)(nil)
+	_ ports.ServerStorageFactory  = (*Adapter)(nil)
+	_ ports.ThreadStorageFactory  = (*Adapter)(nil)
+	_ ports.ToolStorageFactory    = (*Adapter)(nil)
+	_ io.Closer                   = (*Adapter)(nil)
+)
 
 type newParams struct {
 	tracer trace.TracerProvider
@@ -51,6 +54,7 @@ func WithTrace(tp trace.TracerProvider) NewOption {
 		if tp == nil {
 			panic("tracer provider is nil")
 		}
+
 		p.tracer = tp
 	}
 }
@@ -67,6 +71,7 @@ func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter,
 	if err != nil {
 		return nil, fmt.Errorf("parsing connection string: %w", err)
 	}
+
 	config.ConnConfig.Tracer = otelpgx.NewTracer(
 		otelpgx.WithTracerProvider(p.tracer),
 	)
@@ -99,11 +104,13 @@ func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter,
 
 func (a *Adapter) validate() error {
 	if a.pool == nil {
-		return fmt.Errorf("pool is nil")
+		return errors.New("pool is nil")
 	}
+
 	if a.trace == nil {
-		return fmt.Errorf("trace is nil")
+		return errors.New("trace is nil")
 	}
+
 	return nil
 }
 

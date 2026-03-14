@@ -3,19 +3,16 @@ package messages
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 )
 
 type MessageUser struct {
+	extra    map[string]json.RawMessage
+	content  string
 	mergeTag uint64
-
-	content string
-
-	extra map[string]json.RawMessage
-
-	// Indicates that struct correctly initialized
-	valid bool
+	_valid   bool // Indicates that struct correctly initialized
 }
 
 func (m MessageUser) _Message() {}
@@ -41,20 +38,21 @@ func NewMessageUser(content string, opts ...NewMessageUserOpt) (MessageUser, err
 	if err := m.Validate(); err != nil {
 		return MessageUser{}, err
 	}
-	m.valid = true
+
+	m._valid = true
 
 	return m, nil
 }
 
-func (m MessageUser) Valid() bool { return m.valid || m.Validate() == nil }
+func (m MessageUser) Valid() bool { return m._valid || m.Validate() == nil }
 func (m MessageUser) Validate() error {
 	switch {
 	case m.content == "":
-		return fmt.Errorf("content cannot be empty")
+		return errors.New("content cannot be empty")
 	case len(m.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	case !validateExtra(m.extra):
-		return fmt.Errorf("extra must be valid JSON")
+		return errors.New("extra must be valid JSON")
 	default:
 		return nil
 	}
@@ -73,6 +71,6 @@ func (m MessageUser) Format(ctx context.Context, vs map[string]any, formatType F
 		mergeTag: m.mergeTag,
 		content:  changed,
 		extra:    maps.Clone(m.extra),
-		valid:    true,
+		_valid:   true,
 	}, nil
 }

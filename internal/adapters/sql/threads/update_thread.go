@@ -53,6 +53,7 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
+
 	return nil
 }
 
@@ -72,8 +73,9 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return fmt.Errorf("concurrent modification")
+				return errors.New("concurrent modification")
 			}
+
 			return err
 		}
 
@@ -91,8 +93,9 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return fmt.Errorf("concurrent modification")
+				return errors.New("concurrent modification")
 			}
+
 			return err
 		}
 
@@ -112,8 +115,9 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return fmt.Errorf("concurrent modification")
+				return errors.New("concurrent modification")
 			}
+
 			return err
 		}
 
@@ -138,8 +142,9 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return fmt.Errorf("concurrent modification")
+				return errors.New("concurrent modification")
 			}
+
 			return err
 		}
 
@@ -164,8 +169,9 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return fmt.Errorf("concurrent modification")
+				return errors.New("concurrent modification")
 			}
+
 			return err
 		}
 	}

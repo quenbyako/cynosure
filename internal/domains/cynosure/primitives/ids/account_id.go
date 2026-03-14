@@ -45,6 +45,7 @@ func NewAccountID(user UserID, server ServerID, id uuid.UUID, opts ...AccountIDO
 	if err := u.validate(); err != nil {
 		return AccountID{}, err
 	}
+
 	u._valid = true
 
 	return u, nil

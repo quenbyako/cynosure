@@ -8,8 +8,6 @@ import (
 )
 
 type Agent struct {
-	id ids.AgentID
-
 	// Model is the model name.
 	//
 	// TODO: есть такая штука как model-card.json, и это буквально реестр
@@ -25,6 +23,10 @@ type Agent struct {
 
 	// system message for model
 	systemMessage string
+	// Stop is the stop words for the model, which controls the stopping
+	// condition of the model.
+	stopWords     []string
+	pendingEvents []AgentEvent
 	// Temperature is the temperature for the model, which controls the
 	// randomness of the model.
 	//
@@ -34,17 +36,15 @@ type Agent struct {
 	// TopP is the top p for the model, which controls the diversity of the model.
 	//
 	// If topP is <= 0, then it's not set.
-	topP float32
-	// Stop is the stop words for the model, which controls the stopping
-	// condition of the model.
-	stopWords []string
-
-	pendingEvents []AgentEvent
-	valid         bool
+	topP  float32
+	id    ids.AgentID
+	valid bool
 }
 
-var _ AgentReadOnly = (*Agent)(nil)
-var _ EventsReader[AgentEvent] = (*Agent)(nil)
+var (
+	_ AgentReadOnly            = (*Agent)(nil)
+	_ EventsReader[AgentEvent] = (*Agent)(nil)
+)
 
 type NewModelSettingsOption func(*Agent)
 
@@ -80,6 +80,7 @@ func NewModelSettings(id ids.AgentID, model string, opts ...NewModelSettingsOpti
 	if err := m.Validate(); err != nil {
 		return nil, err
 	}
+
 	m.valid = true
 
 	return m, nil
@@ -87,9 +88,10 @@ func NewModelSettings(id ids.AgentID, model string, opts ...NewModelSettingsOpti
 
 func (m *Agent) Valid() bool { return m.valid || m.Validate() == nil }
 func (m *Agent) Validate() error {
-	if m.id.Valid() == false {
+	if !m.id.Valid() {
 		return errors.New("ID is invalid")
 	}
+
 	if m.model == "" {
 		return errors.New("model is required")
 	}
@@ -133,6 +135,7 @@ func (c *Agent) SetSystemMessage(message string) error {
 	c.pendingEvents = append(c.pendingEvents, &AgentEventSystemMessageUpdated{
 		msg: message,
 	})
+
 	return nil
 }
 

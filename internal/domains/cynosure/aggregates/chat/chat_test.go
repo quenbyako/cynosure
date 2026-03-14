@@ -56,6 +56,7 @@ type chatFixture struct {
 func newChatFixture(t *testing.T) *chatFixture {
 	user := ids.RandomUserID()
 	tid, _ := ids.NewThreadID(user, "test-thread-id")
+
 	return &chatFixture{
 		t:              t,
 		user:           user,
@@ -79,6 +80,7 @@ func (f *chatFixture) tool(name string) *entities.Tool {
 	schema := json.RawMessage(`{"type":"object","properties":{}}`)
 	tool, err := entities.NewTool(tID, "test-account", name, "desc", schema, schema)
 	require.NoError(f.t, err)
+
 	return tool
 }
 
@@ -93,13 +95,16 @@ func (f *chatFixture) expectRAG(tools map[string][]*entities.Tool) {
 	f.toolStorage.EXPECT().LookupTools(mock.Anything, f.user, emb, 10).Return(allTools, nil).Twice()
 
 	var accounts []*entities.Account
+
 	for accountSlug, tools := range tools {
 		for _, t := range tools {
 			acc, err := entities.NewAccount(t.ID().Account(), accountSlug, accountSlug+" account")
 			require.NoError(f.t, err)
+
 			accounts = append(accounts, acc)
 		}
 	}
+
 	f.accountStorage.EXPECT().GetAccountsBatch(mock.Anything, mock.Anything).Return(accounts, nil).Twice()
 }
 
@@ -107,6 +112,7 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 	if f._chat != nil {
 		return f._chat
 	}
+
 	msg1, err := messages.NewMessageUser("init")
 	require.NoError(f.t, err)
 
@@ -119,27 +125,33 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 	c, err := chat.New(ctx, f.threadStorage, f.indexer, f.toolStorage, f.accountStorage, f.agentStorage, f.threadID)
 	require.NoError(f.t, err)
 	f._chat = c
+
 	return c
 }
 
 func (f *chatFixture) msg(content string) messages.MessageUser {
 	m, err := messages.NewMessageUser(content)
 	require.NoError(f.t, err)
+
 	return m
 }
 
 func (f *chatFixture) assertToolbox(expected ...*entities.Tool) {
 	toolbox := f._chat.RelevantTools()
 	assert.Len(f.t, toolbox.Tools(), len(expected))
+
 	for _, exp := range expected {
 		info, ok := toolbox.Tools()[exp.Name()]
 		assert.True(f.t, ok)
+
 		found := false
+
 		for _, acc := range info.EncodedTools() {
 			if strings.Contains(strings.ToLower(acc.Desc), strings.ToLower(acc.Name)) {
 				found = true
 			}
 		}
+
 		assert.True(f.t, found)
 	}
 }

@@ -2,6 +2,4 @@ package messages
 
 import "errors"
 
-var (
-	ErrMessageTooLarge = errors.New("message is too large")
-)
+var ErrMessageTooLarge = errors.New("message is too large")

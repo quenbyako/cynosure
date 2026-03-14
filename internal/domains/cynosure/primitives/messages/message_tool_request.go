@@ -3,12 +3,12 @@ package messages
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
 type MessageToolRequest struct {
-	mergeTag uint64
-
+	arguments map[string]json.RawMessage
 	reasoning string
 	// TODO: очень неочевидное поведение: вообще-то, просто тула не может
 	// существовать без аккаунта. Но как это запихнуть в структуру — не очень
@@ -17,15 +17,12 @@ type MessageToolRequest struct {
 	// об аккаунте). Пока непонятно как с этим жить, придется как нибудь.
 	toolName   string
 	toolCallID string
-	arguments  map[string]json.RawMessage
-
 	// TODO: выпилить нахуй отсюда, это очень временное решение, просто чтоб
 	// попробовать. сюда запихивается thought sig от gemini, и не сохраняется в
 	// базу (и ни в коем случае не должен!)
 	protocolMetadata []byte
-
-	// Indicates that struct correctly initialized
-	_valid bool
+	mergeTag         uint64
+	_valid           bool // Indicates that struct correctly initialized
 }
 
 func (tm MessageToolRequest) _Message() {}
@@ -57,6 +54,7 @@ func NewMessageToolRequest(arguments map[string]json.RawMessage, toolName, toolC
 	if err := m.Validate(); err != nil {
 		return MessageToolRequest{}, err
 	}
+
 	m._valid = true
 
 	return m, nil
@@ -71,10 +69,10 @@ func (tm MessageToolRequest) Validate() error {
 
 	switch {
 	case tm.toolName == "":
-		return fmt.Errorf("tool name cannot be empty")
+		return errors.New("tool name cannot be empty")
 
 	case tm.toolCallID == "":
-		return fmt.Errorf("tool call ID cannot be empty")
+		return errors.New("tool call ID cannot be empty")
 
 	case len(encodedArgs) > maxMessageLength:
 		return ErrMessageTooLarge

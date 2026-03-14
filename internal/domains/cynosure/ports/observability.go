@@ -13,8 +13,8 @@ type ObserveStack interface {
 }
 
 type observeStack struct {
-	name string
 	m    core.Metrics
+	name string
 }
 
 func (o *observeStack) Logger() slog.Handler { return o.m }

@@ -55,8 +55,8 @@ func (s *ToolSemanticIndexTestSuite) validate() error {
 // TestIndexTool verifies that IndexTool generates valid embeddings for various tool configurations.
 func (s *ToolSemanticIndexTestSuite) TestIndexTool(t *testing.T) {
 	tests := []struct {
-		name      string
 		buildTool func(t *testing.T) entities.ToolReadOnly
+		name      string
 	}{{
 		name:      "simple_tool",
 		buildTool: s.buildSimpleTool,
@@ -177,16 +177,18 @@ func (s *ToolSemanticIndexTestSuite) assertValidEmbedding(t *testing.T, embeddin
 
 	// Check that at least some values are non-zero (embedding is not all zeros)
 	hasNonZero := false
-	for _, v := range embedding {
+
+	for _, v := range &embedding {
 		if v != 0 {
 			hasNonZero = true
 			break
 		}
 	}
+
 	require.True(t, hasNonZero, "should have at least some non-zero values")
 
 	// Check that all values are finite (not NaN or Inf)
-	for i, v := range embedding {
+	for i, v := range &embedding {
 		require.False(t, math.IsNaN(float64(v)), "value at index %d is NaN", i)
 		require.False(t, math.IsInf(float64(v), 0), "value at index %d is Inf", i)
 	}

@@ -20,6 +20,7 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ports.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("failed to lookup server: %w", err)
 	}
 

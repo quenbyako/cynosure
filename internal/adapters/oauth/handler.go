@@ -7,24 +7,20 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/quenbyako/core"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 
-	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
 type Handler struct {
+	tracer ports.ObserveStack
 	client *http.Client
-
-	serviceName string
-
 	// default scopes are using when there is no information about required
 	// scopes for getting data from specificed endpoint.
 	defaultScopes []string
-
-	tracer ports.ObserveStack
 }
 
 var _ oauthhandler.Factory = (*Handler)(nil)

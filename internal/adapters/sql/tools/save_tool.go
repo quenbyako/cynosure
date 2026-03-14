@@ -25,7 +25,6 @@ func (t *Tools) SaveTool(ctx context.Context, tool entities.ToolReadOnly) error 
 		Output:      tool.OutputSchema(),
 		Embedding:   &embedVec,
 	})
-
 	if err != nil {
 		return fmt.Errorf("upsert tool: %w", err)
 	}

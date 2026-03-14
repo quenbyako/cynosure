@@ -5,9 +5,7 @@ import (
 	"fmt"
 )
 
-var (
-	ErrNilObject = errors.New("nil value is not allowed")
-)
+var ErrNilObject = errors.New("nil value is not allowed")
 
 type InvalidEnumError struct {
 	Value string

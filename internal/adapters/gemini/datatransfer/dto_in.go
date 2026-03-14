@@ -2,6 +2,7 @@ package datatransfer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -13,7 +14,7 @@ import (
 
 func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer string, metadataBuffer []byte, mergeTag uint64, agentID ids.AgentID) (res []messages.Message, thoughtsLeft string, metadataLeft []byte, err error) {
 	if resp == nil || len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, "", nil, fmt.Errorf("received empty response from model")
+		return nil, "", nil, errors.New("received empty response from model")
 	}
 
 	if len(resp.Candidates) > 1 {
@@ -22,17 +23,18 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 
 	candidate := resp.Candidates[0]
 	if candidate.Content == nil {
-		return nil, "", nil, fmt.Errorf("candidate content is nil")
+		return nil, "", nil, errors.New("candidate content is nil")
 	}
 
 	switch candidate.Content.Role {
 	case genai.RoleModel, "":
 		parts := candidate.Content.Parts
 		if len(parts) == 0 {
-			return nil, "", nil, fmt.Errorf("candidate content has no parts")
+			return nil, "", nil, errors.New("candidate content has no parts")
 		}
 
 		currentMetadata := metadataBuffer
+
 		for _, part := range parts {
 			// Extract thought signature if present in this part.
 			// Gemini often includes this in the same part as the function call or reasoning.
@@ -45,6 +47,7 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 				if err != nil {
 					return nil, "", nil, fmt.Errorf("failed to marshal thought signature: %w", err)
 				}
+
 				currentMetadata = sig
 			}
 
@@ -62,6 +65,7 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 					if err != nil {
 						return nil, "", nil, fmt.Errorf("failed to create assistant message: %w", err)
 					}
+
 					res = append(res, msg)
 					thoughtBuffer = "" // reset thought buffer after sending a message
 				}
@@ -75,8 +79,9 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 						return nil, "", nil, fmt.Errorf("failed to marshal function call argument %q: %w", k, err)
 					}
 				}
+
 				if call.Name == "" {
-					return nil, "", nil, fmt.Errorf("function call has no name")
+					return nil, "", nil, errors.New("function call has no name")
 				}
 
 				if call.ID == "" {
@@ -92,6 +97,7 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 				if err != nil {
 					return nil, "", nil, fmt.Errorf("failed to create tool request message: %w", err)
 				}
+
 				res = append(res, msg)
 
 			case part.FunctionResponse != nil:
@@ -111,19 +117,20 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 				if err != nil {
 					return nil, "", nil, fmt.Errorf("failed to create tool response message: %w", err)
 				}
+
 				res = append(res, msg)
 
 			case part.FileData != nil:
-				return nil, "", nil, fmt.Errorf("file data is not yet supported, unfortunately")
+				return nil, "", nil, errors.New("file data is not yet supported, unfortunately")
 
 			case part.ExecutableCode != nil, part.CodeExecutionResult != nil, part.VideoMetadata != nil:
-				return nil, "", nil, fmt.Errorf("content is not supported")
+				return nil, "", nil, errors.New("content is not supported")
 
 			case part.ThoughtSignature != nil && part.Text == "" && !part.Thought && part.FunctionCall == nil:
 				// This part only contained a signature, which we already handled above.
 				continue
 
-			//TODO: handle artifacts through default.
+			// TODO: handle artifacts through default.
 			case part.Text == "" && part.FunctionCall == nil && part.FunctionResponse == nil:
 				// Skip empty parts (metadata or stream artifacts)
 				continue
@@ -141,7 +148,7 @@ func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer 
 		return res, thoughtBuffer, currentMetadata, nil
 
 	case genai.RoleUser:
-		return nil, "", nil, fmt.Errorf("user role is not expected in candidate content")
+		return nil, "", nil, errors.New("user role is not expected in candidate content")
 	default:
 		return nil, "", nil, fmt.Errorf("unexpected role %q in candidate content", candidate.Content.Role)
 	}

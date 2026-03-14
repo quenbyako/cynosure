@@ -2,7 +2,6 @@ package oauthhandler
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 )
 
@@ -43,7 +42,8 @@ func (e *RequiresAuthError) Error() string {
 	if e.suggestedMetadataEndpoint == nil {
 		return "requires authentication, no metadata endpoint suggested"
 	}
-	return fmt.Sprintf("requires authentication, should use metadata endpoint: %s", e.suggestedMetadataEndpoint.String())
+
+	return "requires authentication, should use metadata endpoint: " + e.suggestedMetadataEndpoint.String()
 }
 
 func (e *RequiresAuthError) Endpoint() *url.URL { return e.suggestedMetadataEndpoint }
@@ -64,7 +64,8 @@ func (e *DynamicClientRegistrationNotSupportedError) Error() string {
 	if e.resourceDocumentationEndpoint == nil {
 		return "server does not support dynamic client registration"
 	}
-	return fmt.Sprintf("server does not support dynamic client registration. Check resource documentation: %s", e.resourceDocumentationEndpoint.String())
+
+	return "server does not support dynamic client registration. Check resource documentation: " + e.resourceDocumentationEndpoint.String()
 }
 
 func (e *DynamicClientRegistrationNotSupportedError) Documentation() *url.URL {

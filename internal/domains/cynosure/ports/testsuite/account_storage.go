@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -26,6 +25,7 @@ func RunAccountStorageTests(a ports.AccountStorage, opts ...AccountStorageTestSu
 	for _, opt := range opts {
 		opt(s)
 	}
+
 	if err := s.validate(); err != nil {
 		panic(err)
 	}
@@ -69,9 +69,9 @@ func (s *AccountStorageTestSuite) afterTest(t *testing.T) {
 }
 
 type SaveAccountFixture struct {
-	AccountID   ids.AccountID
 	Name        string
 	Description string
+	AccountID   ids.AccountID
 }
 
 func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {

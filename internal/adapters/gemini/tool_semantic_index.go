@@ -3,6 +3,7 @@ package gemini
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -21,19 +22,20 @@ const (
 func (g *GeminiModel) BuildToolEmbedding(ctx context.Context, msgs []messages.Message) ([embeddingSize]float32, error) {
 	// Construct query from messages
 	var sb strings.Builder
+
 	for _, msg := range msgs {
 		// Extract text content from different message types
 		switch m := msg.(type) {
 		case messages.MessageUser:
-			sb.WriteString(fmt.Sprintf("User: %s\n\n", m.Content()))
+			fmt.Fprintf(&sb, "User: %s\n\n", m.Content())
 		case messages.MessageAssistant:
-			sb.WriteString(fmt.Sprintf("Model: %s\n\n", m.Content()))
+			fmt.Fprintf(&sb, "Model: %s\n\n", m.Content())
 		case messages.MessageToolRequest:
-			sb.WriteString(fmt.Sprintf("Tool Request: %s\n\n", m.ToolName()))
+			fmt.Fprintf(&sb, "Tool Request: %s\n\n", m.ToolName())
 		case messages.MessageToolResponse:
-			sb.WriteString(fmt.Sprintf("Tool Response: %s\n\n", string(m.Content())))
+			fmt.Fprintf(&sb, "Tool Response: %s\n\n", string(m.Content()))
 		case messages.MessageToolError:
-			sb.WriteString(fmt.Sprintf("Tool Error: %s\n\n", string(m.Content())))
+			fmt.Fprintf(&sb, "Tool Error: %s\n\n", string(m.Content()))
 		}
 	}
 
@@ -62,7 +64,7 @@ func (g *GeminiModel) IndexTool(ctx context.Context, tool entities.ToolReadOnly)
 	return g.embed(ctx, content, "RETRIEVAL_DOCUMENT")
 }
 
-func (g *GeminiModel) embed(ctx context.Context, content string, taskType string) ([embeddingSize]float32, error) {
+func (g *GeminiModel) embed(ctx context.Context, content, taskType string) ([embeddingSize]float32, error) {
 	ctx, span := g.trace.Start(ctx, "Gemini.embed")
 	defer span.End()
 
@@ -77,7 +79,7 @@ func (g *GeminiModel) embed(ctx context.Context, content string, taskType string
 	}
 
 	if len(res.Embeddings) == 0 {
-		return [embeddingSize]float32{}, fmt.Errorf("no embeddings returned")
+		return [embeddingSize]float32{}, errors.New("no embeddings returned")
 	}
 
 	values := res.Embeddings[0].Values

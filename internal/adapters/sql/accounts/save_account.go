@@ -41,6 +41,7 @@ func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnl
 		if token.TokenType != "" {
 			tokenType = ptr(token.TokenType)
 		}
+
 		var refreshToken *string
 
 		if token.RefreshToken != "" {

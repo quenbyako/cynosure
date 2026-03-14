@@ -61,7 +61,11 @@ func (l *BaseLogger) MaxTurnsReached(ctx context.Context, threadID string) {
 		Msg("Model reached max turns with tool calls, consider adjusting settings")
 }
 
-func (l *BaseLogger) ToolCalled(ctx context.Context, threadID string, toolRequests []messages.MessageToolRequest) {
+func (l *BaseLogger) ToolCalled(
+	ctx context.Context,
+	threadID string,
+	toolRequests []messages.MessageToolRequest,
+) {
 	names := make([]string, len(toolRequests))
 	for i, req := range toolRequests {
 		names[i] = req.ToolName()
