@@ -22,18 +22,19 @@ import (
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
 func RunServerStorageTests(a ports.ServerStorage, opts ...ServerStorageTestSuiteOption) func(t *testing.T) {
-	s := &ServerStorageTestSuite{
+	suite := &ServerStorageTestSuite{
 		adapter: a,
+		cleanup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	if err := s.validate(); err != nil {
+	if err := suite.validate(); err != nil {
 		panic(err)
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 type ServerStorageTestSuite struct {
@@ -74,9 +75,14 @@ func (s *ServerStorageTestSuite) TestSaveServer(t *testing.T) {
 		entities.WithAuthConfig(&oauth2.Config{
 			ClientID: "client-id",
 			Endpoint: oauth2.Endpoint{
-				AuthURL:  "https://example.com/auth",
-				TokenURL: "https://example.com/token",
+				AuthURL:       "https://example.com/auth",
+				TokenURL:      "https://example.com/token",
+				DeviceAuthURL: "",
+				AuthStyle:     0,
 			},
+			ClientSecret: "",
+			RedirectURL:  "",
+			Scopes:       nil,
 		}),
 	}
 	server := must(entities.NewServerConfig(serverID, link, opts...))

@@ -82,10 +82,11 @@ func New(
 	error,
 ) {
 	p := newParams{
-		clientName:      "test-client",
-		fixedKey:        randomAuthKey(),
-		stateExpiration: 5 * time.Minute,
-		tracer:          noop.NewTracerProvider(),
+		clientName:       "test-client",
+		fixedKey:         randomAuthKey(),
+		stateExpiration:  5 * time.Minute,
+		tracer:           noop.NewTracerProvider(),
+		oauthRedirectURL: nil,
 	}
 	for _, opt := range opts {
 		opt(&p)

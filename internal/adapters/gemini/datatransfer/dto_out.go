@@ -26,7 +26,19 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 			var parts []*genai.Part
 
 			if m.Reasoning() != "" {
-				parts = append(parts, &genai.Part{Thought: true, Text: m.Reasoning()})
+				parts = append(parts, &genai.Part{
+					Thought:             true,
+					Text:                m.Reasoning(),
+					MediaResolution:     nil,
+					CodeExecutionResult: nil,
+					ExecutableCode:      nil,
+					FileData:            nil,
+					FunctionCall:        nil,
+					FunctionResponse:    nil,
+					InlineData:          nil,
+					ThoughtSignature:    nil,
+					VideoMetadata:       nil,
+				})
 			}
 
 			parts = append(parts, genai.NewPartFromText(m.Content()))
@@ -46,7 +58,8 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 				// it's okay, if model has not anything to say
 				// we just add empty content
 				res = append(res, &genai.Content{
-					Role: genai.RoleModel,
+					Role:  genai.RoleModel,
+					Parts: nil,
 				})
 				lastContent = res[len(res)-1]
 			}
@@ -76,7 +89,8 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 
 			if lastContent == nil || lastContent.Role != genai.RoleUser {
 				lastContent = &genai.Content{
-					Role: genai.RoleUser,
+					Role:  genai.RoleUser,
+					Parts: nil,
 				}
 				res = append(res, lastContent)
 			}
@@ -93,7 +107,8 @@ func MessagesToGenAIContent(msg []messages.Message) (res []*genai.Content, err e
 
 			if lastContent == nil || lastContent.Role != genai.RoleUser {
 				lastContent = &genai.Content{
-					Role: genai.RoleUser,
+					Role:  genai.RoleUser,
+					Parts: nil,
 				}
 				res = append(res, lastContent)
 			}
@@ -118,6 +133,9 @@ func ToolInfoToGenAI(tools []tools.RawTool) (res []*genai.Tool) {
 			Description:          tool.Desc(),
 			ParametersJsonSchema: tool.ConvertedSchema(),
 			ResponseJsonSchema:   tool.Response(),
+			Parameters:           nil,
+			Response:             nil,
+			Behavior:             "",
 		}
 	}
 

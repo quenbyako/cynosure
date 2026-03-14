@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -13,7 +12,7 @@ import (
 func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
 	id := thread.ID()
 
-	tx, err := t.tx.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := t.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}

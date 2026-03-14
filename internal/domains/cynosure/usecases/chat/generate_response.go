@@ -35,6 +35,7 @@ func (s *Usecase) GenerateResponse(ctx context.Context, threadID ids.ThreadID, m
 
 	p := generateResponseParams{
 		toolChoice: tools.ToolChoiceAllowed,
+		model:      ids.AgentID{},
 	}
 	for _, opt := range opts {
 		opt(&p)

@@ -51,7 +51,13 @@ func (siw *WebhookInterfaceWrapper) SendUpdate(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Telegram-Bot-Api-Secret-Token", valueList[0], &XTelegramBotApiSecretToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Telegram-Bot-Api-Secret-Token", valueList[0], &XTelegramBotApiSecretToken, runtime.BindStyledParameterOptions{
+			ParamLocation: runtime.ParamLocationHeader,
+			Explode:       false,
+			Required:      false,
+			Type:          "string",
+			Format:        "",
+		})
 		if err != nil {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Telegram-Bot-Api-Secret-Token", Err: err})
 			return
@@ -73,7 +79,12 @@ func (siw *WebhookInterfaceWrapper) SendUpdate(w http.ResponseWriter, r *http.Re
 
 // WebhookHandler creates http.Handler with routing matching OpenAPI spec.
 func WebhookHandler(si WebhookInterface) http.Handler {
-	return WebhookHandlerWithOptions(si, WebhookServerOptions{})
+	return WebhookHandlerWithOptions(si, WebhookServerOptions{
+		BaseRouter:       nil,
+		ErrorHandlerFunc: nil,
+		BaseURL:          "",
+		Middlewares:      nil,
+	})
 }
 
 type WebhookServerOptions struct {
@@ -83,17 +94,23 @@ type WebhookServerOptions struct {
 	Middlewares      []MiddlewareFunc
 }
 
-// WebhookHandlerFromMux creates http.Handler with routing matching OpenAPI spec based on the provided mux.
+// WebhookHandlerFromMux creates http.Handler with routing matching OpenAPI spec
+// based on the provided mux.
 func WebhookHandlerFromMux(si WebhookInterface, m ServeMux) http.Handler {
 	return WebhookHandlerWithOptions(si, WebhookServerOptions{
-		BaseRouter: m,
+		BaseRouter:       m,
+		ErrorHandlerFunc: nil,
+		BaseURL:          "",
+		Middlewares:      nil,
 	})
 }
 
 func WebhookHandlerFromMuxWithBaseURL(si WebhookInterface, m ServeMux, baseURL string) http.Handler {
 	return WebhookHandlerWithOptions(si, WebhookServerOptions{
-		BaseURL:    baseURL,
-		BaseRouter: m,
+		BaseURL:          baseURL,
+		BaseRouter:       m,
+		ErrorHandlerFunc: nil,
+		Middlewares:      nil,
 	})
 }
 

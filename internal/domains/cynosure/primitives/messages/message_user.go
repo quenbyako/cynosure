@@ -28,20 +28,23 @@ func WithMessageUserMergeTag(mergeTag uint64) NewMessageUserOpt {
 }
 
 func NewMessageUser(content string, opts ...NewMessageUserOpt) (MessageUser, error) {
-	m := MessageUser{
-		content: content,
+	message := MessageUser{
+		content:  content,
+		extra:    nil,
+		mergeTag: 0,
+		_valid:   false,
 	}
 	for _, opt := range opts {
-		opt(&m)
+		opt(&message)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := message.Validate(); err != nil {
 		return MessageUser{}, err
 	}
 
-	m._valid = true
+	message._valid = true
 
-	return m, nil
+	return message, nil
 }
 
 func (m MessageUser) Valid() bool { return m._valid || m.Validate() == nil }

@@ -11,8 +11,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 )
 
+var emptyTxOptions pgx.TxOptions
+
 func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnly) error {
-	tx, err := a.tx.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := a.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
@@ -26,6 +28,7 @@ func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnl
 		ServerID:    info.ID().Server().ID(),
 		Name:        info.Name(),
 		Description: info.Description(),
+		Embedding:   nil,
 	})
 	if err != nil {
 		return fmt.Errorf("upserting account: %w", err)
@@ -54,8 +57,9 @@ func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnl
 			AccessToken:  token.AccessToken,
 			RefreshToken: refreshToken,
 			Expiry: pgtype.Timestamptz{
-				Time:  token.Expiry,
-				Valid: !token.Expiry.IsZero(),
+				Time:             token.Expiry,
+				Valid:            !token.Expiry.IsZero(),
+				InfinityModifier: pgtype.Finite,
 			},
 		}); err != nil {
 			return fmt.Errorf("adding oauth token: %w", err)

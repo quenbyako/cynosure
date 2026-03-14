@@ -4,32 +4,33 @@ import (
 	"iter"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/quenbyako/cynosure/contrib/mcpmock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-
-	. "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
 // RunToolClientTests runs tests for the given adapter. These tests are
 // predefined and recommended to be used for ANY adapter implementation.
-func RunToolClientTests(a Port, opts ...ToolClientTestSuiteOpts) func(t *testing.T) {
-	s := &ToolClientTestSuite{
-		adapter: a,
+func RunToolClientTests(a toolclient.Port, opts ...ToolClientTestSuiteOpts) func(t *testing.T) {
+	suite := &ToolClientTestSuite{
+		adapter:          a,
+		afterServerSetup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 type ToolClientTestSuite struct {
-	adapter Port
+	adapter toolclient.Port
 
 	afterServerSetup func(u *url.URL)
 }
@@ -49,17 +50,13 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 			token := "someValidToken=="
 			srv.IssueToken(token)
 
-			return &oauth2.Token{
-				AccessToken: token,
-			}
+			return accessTokenOnly(token)
 		},
 		"invalid_account": func(srv *mcpmock.MockServer) *oauth2.Token {
 			token := "someValidToken=="
 			srv.IssueToken(token)
 
-			return &oauth2.Token{
-				AccessToken: "wrongToken==",
-			}
+			return accessTokenOnly("wrongToken==")
 		},
 		//TODO: test this too.
 		// "invalid_token_valid_refresh": func(srv *mcpmock.MockServer) *oauth2.Token {
@@ -94,7 +91,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 
 				nameToID := map[string]ids.ToolID{}
 
-				tools, err := s.adapter.DiscoverTools(t.Context(), srv.MCPURL(), account, name, desc, WithToolIDBuilder(func(account ids.AccountID, name string) (ids.ToolID, error) {
+				tools, err := s.adapter.DiscoverTools(t.Context(), srv.MCPURL(), account, name, desc, toolclient.WithToolIDBuilder(func(account ids.AccountID, name string) (ids.ToolID, error) {
 					if _, ok := nameToID[name]; ok {
 						panic("unexpected tool name collision")
 					}
@@ -103,7 +100,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 					nameToID[name] = id
 
 					return id, nil
-				}), WithAuthToken(token))
+				}), toolclient.WithAuthToken(token))
 				expectError := config.Auth == mcpmock.AuthRequired || config.Auth == mcpmock.AuthNoHeader
 				// If we have a valid account and the server uses Bearer (which oauth defaults to), it will succeed.
 				if testName == "valid_account" && (config.AuthType == mcpmock.AuthTypeNone || config.AuthType == mcpmock.AuthTypeBearer) {
@@ -115,11 +112,11 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 						// when we have invalid account, we are throwing generic
 						// errors. adapter MUST implement automatic refresh at
 						// least once.
-						require.ErrorIs(t, err, ErrInvalidCredentials)
+						require.ErrorIs(t, err, toolclient.ErrInvalidCredentials)
 						return
 					}
 
-					e := new(RequiresAuthError)
+					e := new(toolclient.RequiresAuthError)
 					require.ErrorAs(t, err, &e)
 
 					// Endpoint is only provided by server if it sends WWW-Authenticate header.
@@ -191,5 +188,15 @@ func configIterator() iter.Seq[mcpmock.MockServerConfig] {
 				}
 			}
 		}
+	}
+}
+
+func accessTokenOnly(accessToken string) *oauth2.Token {
+	return &oauth2.Token{
+		AccessToken:  accessToken,
+		TokenType:    "",
+		RefreshToken: "",
+		Expiry:       time.Time{},
+		ExpiresIn:    0,
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/goforj/wire"
 	"golang.org/x/oauth2"
+	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
@@ -101,10 +102,18 @@ func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) 
 		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
 	}
 
+	var emptyHTTPOptions genai.HTTPOptions
+
 	return gemini.New(
 		ctx,
 		&gemini.ClientConfig{
-			APIKey: string(geminiKey),
+			APIKey:      string(geminiKey),
+			Backend:     0,
+			Project:     "",
+			Location:    "",
+			Credentials: nil,
+			HTTPClient:  nil,
+			HTTPOptions: emptyHTTPOptions,
 		},
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(p.observability),

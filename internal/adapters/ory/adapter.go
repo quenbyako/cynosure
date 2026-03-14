@@ -63,50 +63,56 @@ func WithRedirectURL(url string) NewOption {
 }
 
 func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
-	p := newParams{
-		metrics: core.NoopMetrics(),
+	params := newParams{
+		metrics:      core.NoopMetrics(),
+		clientID:     "",
+		clientSecret: "",
+		redirectURL:  "",
+		scopes:       nil,
 	}
 
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
 	// TODO: validate config
 	conf := oauth2.Config{
-		ClientID:     p.clientID,
-		ClientSecret: p.clientSecret,
+		ClientID:     params.clientID,
+		ClientSecret: params.clientSecret,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   endpoint.String() + "/oauth2/auth",
-			TokenURL:  endpoint.String() + "/oauth2/token",
-			AuthStyle: oauth2.AuthStyleInHeader,
+			AuthURL:       endpoint.String() + "/oauth2/auth",
+			TokenURL:      endpoint.String() + "/oauth2/token",
+			AuthStyle:     oauth2.AuthStyleInHeader,
+			DeviceAuthURL: "",
 		},
-		RedirectURL: p.redirectURL,
-		Scopes:      p.scopes,
+		RedirectURL: params.redirectURL,
+		Scopes:      params.scopes,
 	}
 
-	c := &Client{
+	client := &Client{
 		baseURL:  endpoint.String(),
 		adminKey: adminKey,
 		config:   conf,
-		obs:      newObservable(ports.StackFromCore(p.metrics, pkgName)),
-		trace:    ports.StackFromCore(p.metrics, pkgName),
+		obs:      newObservable(ports.StackFromCore(params.metrics, pkgName)),
+		trace:    ports.StackFromCore(params.metrics, pkgName),
+		api:      nil,
 	}
 
-	apiClient, err := ory.NewClientWithResponses(c.baseURL, ory.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer "+c.adminKey)
+	apiClient, err := ory.NewClientWithResponses(client.baseURL, ory.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
+		req.Header.Set("Authorization", "Bearer "+client.adminKey)
 		return nil
 	}))
 	if err != nil {
 		panic(fmt.Errorf("creating ory api client: %w", err))
 	}
 
-	c.api = apiClient
+	client.api = apiClient
 
-	if err := c.validate(); err != nil {
+	if err := client.validate(); err != nil {
 		panic(err)
 	}
 
-	return c
+	return client
 }
 
 func (a *Client) Valid() bool { return a != nil && a.validate() == nil }

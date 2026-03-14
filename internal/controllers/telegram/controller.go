@@ -62,7 +62,10 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
 		botapi.WithHTTPClient(&http.Client{
-			Transport: otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(p.tracer)),
+			Transport:     otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(p.tracer)),
+			Timeout:       0,
+			CheckRedirect: nil,
+			Jar:           nil,
 		}),
 	)
 	if err != nil {
@@ -70,7 +73,12 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 	}
 
 	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
-		Url: serverPublicAddress.String(),
+		Url:                serverPublicAddress.String(),
+		AllowedUpdates:     nil,
+		DropPendingUpdates: nil,
+		IpAddress:          nil,
+		MaxConnections:     nil,
+		SecretToken:        nil,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("setting telegram webhook: %w", err)

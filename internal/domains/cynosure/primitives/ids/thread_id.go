@@ -43,17 +43,18 @@ func RandomThreadID(user UserID) (ThreadID, error) {
 }
 
 func NewThreadID(user UserID, id string) (ThreadID, error) {
-	u := ThreadID{
-		id:   id,
-		user: user,
+	thread := ThreadID{
+		id:     id,
+		user:   user,
+		_valid: false,
 	}
-	if err := u.validate(); err != nil {
+	if err := thread.validate(); err != nil {
 		return ThreadID{}, err
 	}
 
-	u._valid = true
+	thread._valid = true
 
-	return u, nil
+	return thread, nil
 }
 
 func (u ThreadID) Valid() bool { return u._valid || u.validate() == nil }

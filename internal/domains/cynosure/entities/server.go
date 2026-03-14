@@ -49,23 +49,26 @@ func WithProtocol(protocol tools.Protocol) ServerConfigOption {
 }
 
 func NewServerConfig(id ids.ServerID, link *url.URL, opts ...ServerConfigOption) (*ServerConfig, error) {
-	c := &ServerConfig{
+	serverConfig := ServerConfig{
 		id:               id,
 		sseLink:          link,
 		authConfig:       nil,
 		configExpiration: time.Time{},
+		pendingEvents:    nil,
+		protocol:         0,
+		_valid:           false,
 	}
 	for _, opt := range opts {
-		opt(c)
+		opt(&serverConfig)
 	}
 
-	if err := c.Validate(); err != nil {
+	if err := serverConfig.Validate(); err != nil {
 		return nil, err
 	}
 
-	c._valid = true
+	serverConfig._valid = true
 
-	return c, nil
+	return &serverConfig, nil
 }
 
 func (c *ServerConfig) Valid() bool { return c._valid || c.Validate() == nil }
@@ -192,6 +195,7 @@ func (c *ServerConfig) UnsetProcotocol() {
 
 type ServerConfigEvent interface{ undo(c *ServerConfig) }
 
+//nolint:exhaustruct // interface check
 var (
 	_ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
 	_ ServerConfigEvent = ServerConfigEventProtocolUpdated{}

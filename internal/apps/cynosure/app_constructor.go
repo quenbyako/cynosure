@@ -159,24 +159,35 @@ func WithAdminMCPID(id string) AppOpts {
 }
 
 func Build(ctx context.Context, opts ...AppOpts) *App {
-	p := appParams{
-		observability: core.NoopMetrics(),
-
-		oauthScopes:   []string{"mcp.read", "mcp.write"},
-		oauthCallback: must(url.Parse("http://localhost:5002/oauth/callback")),
-
-		oryScopes:      []string{"mcp:read", "mcp:write", "offline_access"},
-		oryRedirectURL: "http://localhost:5001",
+	params := appParams{
+		observability:      core.NoopMetrics(),
+		oauthScopes:        []string{"mcp.read", "mcp.write"},
+		oauthCallback:      must(url.Parse("http://localhost:5002/oauth/callback")),
+		oryScopes:          []string{"mcp:read", "mcp:write", "offline_access"},
+		oryRedirectURL:     "http://localhost:5001",
+		oryClientSecret:    nil,
+		telegramKey:        nil,
+		oryAdminKey:        nil,
+		geminiKey:          nil,
+		grpcAddr:           nil,
+		httpAddr:           nil,
+		oryEndpoint:        nil,
+		telegramAddr:       nil,
+		mcpAddr:            nil,
+		telegramPublicAddr: nil,
+		databaseURL:        nil,
+		oryClientID:        "",
+		adminMCPID:         ids.ServerID{},
 	}
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
-	if err := p.validate(); err != nil {
+	if err := params.validate(); err != nil {
 		panic(err)
 	}
 
-	return must(buildApp(ctx, &p))
+	return must(buildApp(ctx, &params))
 }
 
 var mcpImpl = mcpraw.Implementation{
@@ -184,6 +195,7 @@ var mcpImpl = mcpraw.Implementation{
 	Title:      "Admin MCP Server",
 	Version:    "1.0.0",
 	WebsiteURL: "https://t.me/zhopakotabot",
+	Icons:      nil,
 }
 
 func connectDependencies(

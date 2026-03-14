@@ -33,22 +33,23 @@ func NewAccountIDFromString(user UserID, server ServerID, id string, opts ...Acc
 }
 
 func NewAccountID(user UserID, server ServerID, id uuid.UUID, opts ...AccountIDOption) (AccountID, error) {
-	u := AccountID{
+	account := AccountID{
 		id:     id,
 		user:   user,
 		server: server,
+		_valid: false,
 	}
 	for _, opt := range opts {
-		opt.applyAccountID(&u)
+		opt.applyAccountID(&account)
 	}
 
-	if err := u.validate(); err != nil {
+	if err := account.validate(); err != nil {
 		return AccountID{}, err
 	}
 
-	u._valid = true
+	account._valid = true
 
-	return u, nil
+	return account, nil
 }
 
 func (u AccountID) Valid() bool { return u._valid || u.validate() == nil }

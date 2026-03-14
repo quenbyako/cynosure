@@ -22,7 +22,7 @@ type State struct {
 	desc      string
 	challenge []byte
 	account   ids.AccountID
-	valid     bool
+	_valid    bool
 }
 
 func NewState(
@@ -32,20 +32,21 @@ func NewState(
 	challenge []byte,
 	expireAt time.Time,
 ) (State, error) {
-	s := State{
+	state := State{
 		account:   account,
 		name:      name,
 		desc:      desc,
 		challenge: challenge,
 		expireAt:  expireAt,
+		_valid:    false,
 	}
-	if err := s.validate(); err != nil {
+	if err := state.validate(); err != nil {
 		return State{}, err
 	}
 
-	s.valid = true
+	state._valid = true
 
-	return s, nil
+	return state, nil
 }
 
 func StateFromToken(token string, k [16]byte) (State, error) {
@@ -67,23 +68,24 @@ func StateFromToken(token string, k [16]byte) (State, error) {
 	user := must(ids.NewUserID(res.Payload.UserID))
 	server := must(ids.NewServerID(res.Payload.ServerID))
 
-	s := State{
+	state := State{
 		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID)),
 		name:      res.Payload.AccountName,
 		desc:      res.Payload.AccountDesc,
 		challenge: res.Payload.Challenge,
 		expireAt:  time.Unix(int64(res.Payload.Expiration), 0).UTC(),
+		_valid:    false,
 	}
-	if err := s.validate(); err != nil {
+	if err := state.validate(); err != nil {
 		return State{}, err
 	}
 
-	s.valid = true
+	state._valid = true
 
-	return s, nil
+	return state, nil
 }
 
-func (s *State) Valid() bool { return s.valid || s.validate() == nil }
+func (s *State) Valid() bool { return s._valid || s.validate() == nil }
 func (s *State) validate() error {
 	switch {
 	case s.name == "":
@@ -142,6 +144,7 @@ func (s *State) State(kid string, k [16]byte) string {
 			ServerID:    s.account.Server().ID(),
 			Challenge:   s.challenge,
 		},
+		Unprotected: nil,
 	}
 
 	data := must(msg.EncryptAndEncode(must(kk.Encryptor()), nil))

@@ -20,6 +20,11 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 					Text: m.Content(),
 				},
 			}},
+			MessageId:  "",
+			ContextId:  "",
+			TaskId:     "",
+			Metadata:   nil,
+			Extensions: nil,
 		}, nil
 
 	case messages.MessageToolRequest:
@@ -49,6 +54,10 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 				"tool":   structpb.NewStringValue(m.ToolName()),
 				"reason": structpb.NewStringValue("Invoking tool"),
 			}},
+			MessageId:  "",
+			ContextId:  "",
+			TaskId:     "",
+			Extensions: nil,
 		}, nil
 
 	case messages.MessageToolResponse:
@@ -77,6 +86,10 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 				"tool":   structpb.NewStringValue(m.ToolName()),
 				"reason": structpb.NewStringValue("Invoking tool"),
 			}},
+			MessageId:  "",
+			ContextId:  "",
+			TaskId:     "",
+			Extensions: nil,
 		}, nil
 
 	default:

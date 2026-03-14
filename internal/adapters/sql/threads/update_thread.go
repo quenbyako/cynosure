@@ -14,6 +14,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
+var emptyTxOptions pgx.TxOptions
+
 func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
 	pending := thread.PendingEvents()
 	if len(pending) == 0 {
@@ -25,7 +27,7 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 	pendingCount := len(pending)
 	startPos := int64(totalMessages - pendingCount) // 0-based count of committed messages
 
-	tx, err := t.tx.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := t.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
@@ -56,6 +58,8 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 
 	return nil
 }
+
+var emptyUUID = pgtype.UUID{Valid: false, Bytes: [16]byte{}}
 
 func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID string, pos int64, msg messages.Message) error {
 	occPos := pos - 1
@@ -103,7 +107,7 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		argsBytes, _ := json.Marshal(m.Arguments())
 
 		_, err := q.InsertMessageToolRequest(ctx, db.InsertMessageToolRequestParams{
-			ToolID:                pgtype.UUID{Valid: false}, // Always NULL now as we don't look up IDs
+			ToolID:                emptyUUID, // Always NULL now as we don't look up IDs
 			ToolName:              m.ToolName(),
 			ToolCallID:            m.ToolCallID(),
 			Reasoning:             m.Reasoning(),

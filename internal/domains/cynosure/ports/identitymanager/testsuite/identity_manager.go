@@ -15,18 +15,19 @@ import (
 // RunIdentityManagerTests runs tests for the given adapter. These tests are
 // predefined and REQUIRED to be used for ANY adapter implementation.
 func RunIdentityManagerTests(a identitymanager.Port, opts ...IdentityManagerTestSuiteOption) func(t *testing.T) {
-	s := &IdentityManagerTestSuite{
+	suite := &IdentityManagerTestSuite{
 		adapter: a,
+		cleanup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	if err := s.validate(); err != nil {
+	if err := suite.validate(); err != nil {
 		panic(err)
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 type IdentityManagerTestSuite struct {

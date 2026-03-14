@@ -43,9 +43,9 @@ type (
 	traceWrapper struct{ trace trace.Tracer }
 )
 
+//nolint:exhaustruct // interface check
 var (
-	_ StreamOption = (streamFunc)(nil)
-
+	_ StreamOption            = streamFunc(nil)
 	_ WrapThreadStorageOption = traceWrapper{}
 )
 

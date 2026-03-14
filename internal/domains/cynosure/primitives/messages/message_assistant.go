@@ -49,20 +49,26 @@ func WithMessageAssistantProtocolMetadata(metadata []byte) NewMessageAssistantOp
 // NewMessageAssistant creates a new assistant message with reasoning, text, and
 // optional attachments.
 func NewMessageAssistant(content string, opts ...NewMessageAssistantOpt) (MessageAssistant, error) {
-	m := MessageAssistant{
-		content: content,
+	message := MessageAssistant{
+		content:          content,
+		reasoning:        "",
+		attachments:      nil,
+		protocolMetadata: nil,
+		mergeTag:         0,
+		agentID:          ids.AgentID{},
+		_valid:           false,
 	}
 	for _, opt := range opts {
-		opt(&m)
+		opt(&message)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := message.Validate(); err != nil {
 		return MessageAssistant{}, err
 	}
 
-	m._valid = true
+	message._valid = true
 
-	return m, nil
+	return message, nil
 }
 
 func (am MessageAssistant) Valid() bool { return am._valid || am.Validate() == nil }

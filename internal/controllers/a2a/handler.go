@@ -29,8 +29,9 @@ var _ a2a.A2AServiceServer = (*Handler)(nil)
 
 func Register(srv *chat.Usecase, anonUser ids.UserID) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
-		anonymousUser: anonUser,
-		srv:           srv,
+		UnsafeA2AServiceServer: nil,
+		anonymousUser:          anonUser,
+		srv:                    srv,
 	}
 
 	return func(server grpc.ServiceRegistrar) {
@@ -169,8 +170,13 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 	return &a2a.SendMessageResponse{
 		Payload: &a2a.SendMessageResponse_Msg{
 			Msg: &a2a.Message{
-				Role:    a2a.Role_ROLE_AGENT,
-				Content: parts,
+				Role:       a2a.Role_ROLE_AGENT,
+				Content:    parts,
+				MessageId:  "",
+				ContextId:  "",
+				TaskId:     "",
+				Metadata:   nil,
+				Extensions: nil,
 			},
 		},
 	}, nil

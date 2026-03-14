@@ -50,7 +50,12 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 	tracer := ports.StackFromCore(p.metrics, pkgName)
 
 	return &Handler{
-		client:        &http.Client{Transport: otelhttp.NewTransport(p.client, otelhttp.WithTracerProvider(p.metrics))},
+		client: &http.Client{
+			Transport:     otelhttp.NewTransport(p.client, otelhttp.WithTracerProvider(p.metrics)),
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       0,
+		},
 		defaultScopes: defaultScopes,
 		tracer:        tracer,
 	}

@@ -29,6 +29,8 @@ func NewHandler(srv *accounts.Usecase) http.Handler {
 	return inner
 }
 
+var emptyBool = httpapi.OptBool{Value: false, Set: false}
+
 // GetAgentCard implements httpapi.Handler.
 func (h *Handler) GetAgentCard(ctx context.Context, params httpapi.GetAgentCardParams) (httpapi.GetAgentCardRes, error) {
 	return &httpapi.GetAgentCardOK{
@@ -40,15 +42,21 @@ func (h *Handler) GetAgentCard(ctx context.Context, params httpapi.GetAgentCardP
 		PreferredTransport: httpapi.NewOptGetAgentCardOKPreferredTransport(httpapi.GetAgentCardOKPreferredTransportJSONRPC),
 		DefaultInputModes:  []string{"text/plain"},
 		DefaultOutputModes: []string{"text/plain"},
-		Skills: []httpapi.AgentSkill{
-			{
-				Name:        "TestSkill",
-				Description: "A skill for testing purposes",
-			},
-		},
+		Skills: []httpapi.AgentSkill{{
+			Name:        "TestSkill",
+			Description: "A skill for testing purposes",
+			Examples:    nil,
+			ID:          "",
+			InputModes:  nil,
+			OutputModes: nil,
+			Security:    nil,
+			Tags:        nil,
+		}},
 		Capabilities: httpapi.AgentCapabilities{
-			PushNotifications: httpapi.NewOptBool(false),
-			Streaming:         httpapi.NewOptBool(true),
+			PushNotifications:      httpapi.NewOptBool(false),
+			Streaming:              httpapi.NewOptBool(true),
+			StateTransitionHistory: emptyBool,
+			Extensions:             nil,
 		},
 	}, nil
 }

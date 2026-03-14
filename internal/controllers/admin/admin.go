@@ -22,9 +22,10 @@ type Handler struct {
 
 var _ admin.AdminServiceServer = (*Handler)(nil)
 
-func Register(accounts *accounts.Usecase) func(server grpc.ServiceRegistrar) {
+func Register(usecase *accounts.Usecase) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
-		accounts: accounts,
+		UnsafeAdminServiceServer: nil,
+		accounts:                 usecase,
 	}
 
 	return func(server grpc.ServiceRegistrar) {

@@ -68,6 +68,7 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 					Content: systemMsg,
 				},
 			},
+			Name: nil,
 		})
 	}
 
@@ -81,7 +82,7 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			}
 
 			if this == nil {
-				this = &ChatMessage{Role: RoleAssistant}
+				this = &ChatMessage{Role: RoleAssistant, Name: nil, Parts: nil}
 			}
 
 			this.Parts = append(this.Parts, &TextPart{
@@ -94,7 +95,7 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			}
 
 			if this == nil {
-				this = &ChatMessage{Role: RoleTool}
+				this = &ChatMessage{Role: RoleTool, Name: nil, Parts: nil}
 			}
 
 			this.Parts = append(this.Parts, &ToolCallResponsePart{
@@ -109,7 +110,7 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			}
 
 			if this == nil {
-				this = &ChatMessage{Role: RoleAssistant}
+				this = &ChatMessage{Role: RoleAssistant, Name: nil, Parts: nil}
 			}
 
 			this.Parts = append(this.Parts, &ToolCallRequestPart{
@@ -124,7 +125,7 @@ func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMes
 			}
 
 			if this == nil {
-				this = &ChatMessage{Role: RoleUser}
+				this = &ChatMessage{Role: RoleUser, Name: nil, Parts: nil}
 			}
 
 			this.Parts = append(this.Parts, &TextPart{
@@ -174,10 +175,40 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 	ctx, span := g.trace.Start(ctx, "GeminiModel.Stream", trace.WithAttributes(attrs...))
 	defer span.End()
 
-	p := ports.StreamParams(opts...)
+	params := ports.StreamParams(opts...)
 
 	genConfig := &genai.GenerateContentConfig{
-		ThinkingConfig: g.thinkingConfig,
+		ThinkingConfig:             g.thinkingConfig,
+		HTTPOptions:                nil,
+		SystemInstruction:          nil,
+		Temperature:                nil,
+		TopP:                       nil,
+		TopK:                       nil,
+		CandidateCount:             0,
+		MaxOutputTokens:            0,
+		StopSequences:              nil,
+		ResponseLogprobs:           false,
+		Logprobs:                   nil,
+		PresencePenalty:            nil,
+		FrequencyPenalty:           nil,
+		Seed:                       nil,
+		ResponseMIMEType:           "",
+		ResponseSchema:             nil,
+		ResponseJsonSchema:         nil,
+		RoutingConfig:              nil,
+		ModelSelectionConfig:       nil,
+		SafetySettings:             nil,
+		Tools:                      nil,
+		ToolConfig:                 nil,
+		Labels:                     nil,
+		CachedContent:              "",
+		ResponseModalities:         nil,
+		MediaResolution:            "",
+		SpeechConfig:               nil,
+		AudioTimestamp:             false,
+		ImageConfig:                nil,
+		EnableEnhancedCivicAnswers: nil,
+		ModelArmorConfig:           nil,
 	}
 
 	if systemMessage := settings.SystemMessage(); systemMessage != "" {
@@ -187,11 +218,11 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 		}
 	}
 
-	toolList := p.Toolbox().List()
+	toolList := params.Toolbox().List()
 	if len(toolList) > 0 {
 		var mode genai.FunctionCallingConfigMode
 
-		switch toolChoice := p.ToolChoice(); toolChoice {
+		switch toolChoice := params.ToolChoice(); toolChoice {
 		case tools.ToolChoiceAllowed:
 			mode = genai.FunctionCallingConfigModeAuto
 		case tools.ToolChoiceForced:
@@ -204,8 +235,11 @@ func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, sett
 
 		genConfig.ToolConfig = &genai.ToolConfig{
 			FunctionCallingConfig: &genai.FunctionCallingConfig{
-				Mode: mode,
+				Mode:                        mode,
+				AllowedFunctionNames:        nil,
+				StreamFunctionCallArguments: nil,
 			},
+			RetrievalConfig: nil,
 		}
 
 		genConfig.Tools = datatransfer.ToolInfoToGenAI(toolList)

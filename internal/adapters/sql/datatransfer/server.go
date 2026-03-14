@@ -139,8 +139,10 @@ func buildOAuthConfig(
 		RedirectURL:  deref(redirectUrl),
 		Scopes:       scopes,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  *authUrl,
-			TokenURL: *tokenUrl,
+			AuthURL:       *authUrl,
+			TokenURL:      *tokenUrl,
+			DeviceAuthURL: "",
+			AuthStyle:     0,
 		},
 	}, nil
 }

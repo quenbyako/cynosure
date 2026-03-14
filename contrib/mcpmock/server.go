@@ -90,19 +90,34 @@ func (m *MockServer) Tools(accountName, accountDesc string, toolID func(string) 
 
 func mockMCPServer() *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "mock-mcp-server",
-		Version: "1.0.0",
+		Name:       "mock-mcp-server",
+		Version:    "1.0.0",
+		Title:      "",
+		WebsiteURL: "",
+		Icons:      nil,
 	}, nil)
 
 	srv.AddTool(&mcp.Tool{
-		Name:        "mock_tool",
-		Description: "A mock tool",
-		InputSchema: map[string]any{"type": "object"},
+		Name:         "mock_tool",
+		Description:  "A mock tool",
+		InputSchema:  map[string]any{"type": "object"},
+		Meta:         nil,
+		Annotations:  nil,
+		OutputSchema: nil,
+		Title:        "",
+		Icons:        nil,
 	}, func(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
-				&mcp.TextContent{Text: "mock response"},
+				&mcp.TextContent{
+					Text:        "mock response",
+					Meta:        nil,
+					Annotations: nil,
+				},
 			},
+			Meta:              nil,
+			StructuredContent: nil,
+			IsError:           false,
 		}, nil
 	})
 
@@ -134,9 +149,14 @@ func New(cfg MockServerConfig) *MockServer {
 		cfg:            cfg,
 		authTypeString: authTypeStr,
 		mcpPath:        mcpPath,
+		Server:         nil,
+		tokens:         syncmap.Map[string, struct{}]{},
+		authCodes:      syncmap.Map[string, string]{},
+		metadataPath:   "",
 	}
 
-	// For middleware, we need a prefix. If AuthTypeNone, we assume Bearer for the actual header check.
+	// For middleware, we need a prefix. If AuthTypeNone, we assume Bearer for
+	// the actual header check.
 	effectiveAuthType := authTypeStr
 	if effectiveAuthType == "" {
 		effectiveAuthType = "Bearer"

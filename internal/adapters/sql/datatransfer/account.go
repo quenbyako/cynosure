@@ -2,6 +2,7 @@ package datatransfer
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
@@ -89,6 +90,8 @@ func buildAccount(
 			AccessToken:  *accessToken,
 			TokenType:    deref(tokenType),
 			RefreshToken: deref(refreshToken),
+			Expiry:       time.Time{},
+			ExpiresIn:    0,
 		}
 		if expiry.Valid {
 			token.Expiry = expiry.Time

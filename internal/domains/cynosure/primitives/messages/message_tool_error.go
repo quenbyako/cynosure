@@ -24,23 +24,25 @@ func WithMessageToolErrorMergeTag(mergeTag uint64) NewMessageToolErrorOpt {
 }
 
 func NewMessageToolError(content json.RawMessage, toolName, toolCallID string, opts ...NewMessageToolErrorOpt) (MessageToolError, error) {
-	m := MessageToolError{
+	message := MessageToolError{
 		toolName:   toolName,
 		toolCallID: toolCallID,
-		content:    json.RawMessage(content),
+		content:    content,
+		mergeTag:   0,
+		_valid:     false,
 	}
 
 	for _, opt := range opts {
-		opt(&m)
+		opt(&message)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := message.Validate(); err != nil {
 		return MessageToolError{}, err
 	}
 
-	m._valid = true
+	message._valid = true
 
-	return m, nil
+	return message, nil
 }
 
 func (tm MessageToolError) Valid() bool { return tm._valid || tm.Validate() == nil }

@@ -36,9 +36,9 @@ type Agent struct {
 	// TopP is the top p for the model, which controls the diversity of the model.
 	//
 	// If topP is <= 0, then it's not set.
-	topP  float32
-	id    ids.AgentID
-	valid bool
+	topP   float32
+	id     ids.AgentID
+	_valid bool
 }
 
 var (
@@ -65,28 +65,30 @@ func WithStopWords(stopWords []string) NewModelSettingsOption {
 }
 
 func NewModelSettings(id ids.AgentID, model string, opts ...NewModelSettingsOption) (*Agent, error) {
-	m := &Agent{
+	agent := &Agent{
 		id:            id,
 		model:         model,
 		systemMessage: "",
 		temperature:   -1,
 		topP:          -1,
-		stopWords:     []string{},
+		stopWords:     nil,
+		pendingEvents: nil,
+		_valid:        false,
 	}
 	for _, opt := range opts {
-		opt(m)
+		opt(agent)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := agent.Validate(); err != nil {
 		return nil, err
 	}
 
-	m.valid = true
+	agent._valid = true
 
-	return m, nil
+	return agent, nil
 }
 
-func (m *Agent) Valid() bool { return m.valid || m.Validate() == nil }
+func (m *Agent) Valid() bool { return m._valid || m.Validate() == nil }
 func (m *Agent) Validate() error {
 	if !m.id.Valid() {
 		return errors.New("ID is invalid")

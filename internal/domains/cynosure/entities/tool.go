@@ -51,25 +51,28 @@ func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, 
 		return nil, err
 	}
 
-	t := Tool{
-		id:           id,
-		accountName:  accountName,
-		name:         name,
-		description:  description,
-		inputSchema:  normalizedInput,
-		outputSchema: normalizedOutput,
+	tool := Tool{
+		id:            id,
+		accountName:   accountName,
+		name:          name,
+		description:   description,
+		inputSchema:   normalizedInput,
+		outputSchema:  normalizedOutput,
+		_valid:        false,
+		pendingEvents: nil,
+		embedding:     [embeddingSize]float32{},
 	}
 	for _, opt := range opts {
-		opt(&t)
+		opt(&tool)
 	}
 
-	if err := t.Validate(); err != nil {
+	if err := tool.Validate(); err != nil {
 		return nil, err
 	}
 
-	t._valid = true
+	tool._valid = true
 
-	return &t, nil
+	return &tool, nil
 }
 
 // VALIDATION

@@ -9,29 +9,31 @@ import (
 type UserAccount struct {
 	pendingEvents []UserAccountEvent
 	userID        ids.UserID
-	valid         bool
+	_valid        bool
 }
 
 func NewUser(userID ids.UserID) (*UserAccount, error) {
-	u := &UserAccount{
-		userID: userID,
+	userAccount := &UserAccount{
+		userID:        userID,
+		pendingEvents: nil,
+		_valid:        false,
 	}
 
-	if err := u.validate(); err != nil {
+	if err := userAccount.validate(); err != nil {
 		return nil, err
 	}
 
-	return u, nil
+	return userAccount, nil
 }
 
-func (u *UserAccount) Valid() bool { return u.valid || u.validate() == nil }
+func (u *UserAccount) Valid() bool { return u._valid || u.validate() == nil }
 func (u *UserAccount) validate() error {
 	switch {
 	case !u.userID.Valid():
 		return errors.New("user ID is invalid")
 
 	default:
-		u.valid = true
+		u._valid = true
 		return nil
 	}
 }

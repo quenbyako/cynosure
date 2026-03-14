@@ -33,21 +33,22 @@ func NewToolIDFromString(account AccountID, id string, opts ...ToolIDOption) (To
 }
 
 func NewToolID(account AccountID, id uuid.UUID, opts ...ToolIDOption) (ToolID, error) {
-	u := ToolID{
+	tool := ToolID{
 		id:      id,
 		account: account,
+		_valid:  false,
 	}
 	for _, opt := range opts {
-		opt.applyToolID(&u)
+		opt.applyToolID(&tool)
 	}
 
-	if err := u.validate(); err != nil {
+	if err := tool.validate(); err != nil {
 		return ToolID{}, err
 	}
 
-	u._valid = true
+	tool._valid = true
 
-	return u, nil
+	return tool, nil
 }
 
 func (u ToolID) Valid() bool { return u._valid || u.validate() == nil }

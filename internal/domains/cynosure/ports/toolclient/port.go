@@ -14,8 +14,8 @@ import (
 // ToolIDBuilder is a function that creates a tool ID for newly creating tools.
 type ToolIDBuilder = func(account ids.AccountID, name string) (ids.ToolID, error)
 
-// ToolClient executes MCP (Model Context Protocol) operations: tool discovery
-// and tool execution. Abstracts MCP server connections, protocol handling, and
+// Port executes MCP (Model Context Protocol) operations: tool discovery and
+// tool execution. Abstracts MCP server connections, protocol handling, and
 // account-based access control.
 type Port interface {
 	// DiscoverTools retrieves available tools from an MCP server. Implements
@@ -51,7 +51,8 @@ type Port interface {
 	//  - [ErrServerUnreachable] if server connection fails.
 	//  - [ErrInvalidCredentials] if tool execution requires auth and token is
 	//    invalid.
-	//  - [RequiresAuthError] if server requires auth first, and there is no data about mcp protocol yet.
+	//  - [RequiresAuthError] if server requires auth first, and there is no
+	//    data about mcp protocol yet.
 	ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
 }
 
@@ -60,5 +61,6 @@ func defaultDiscoverToolsParams() discoverToolsParams {
 		toolIDBuilder: func(account ids.AccountID, name string) (ids.ToolID, error) {
 			return ids.RandomToolID(account)
 		},
+		token: nil,
 	}
 }

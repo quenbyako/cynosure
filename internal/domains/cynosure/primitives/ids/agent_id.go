@@ -10,7 +10,7 @@ type AgentID struct {
 	user UserID
 	id   uuid.UUID
 
-	valid bool
+	_valid bool
 }
 
 func RandomAgentID(user UserID) (AgentID, error) {
@@ -31,21 +31,22 @@ func NewAgentIDFromString(user UserID, id string) (AgentID, error) {
 }
 
 func NewAgentID(user UserID, id uuid.UUID) (AgentID, error) {
-	t := AgentID{
-		user: user,
-		id:   id,
+	agent := AgentID{
+		user:   user,
+		id:     id,
+		_valid: false,
 	}
 
-	if err := t.validate(); err != nil {
+	if err := agent.validate(); err != nil {
 		return AgentID{}, err
 	}
 
-	t.valid = true
+	agent._valid = true
 
-	return t, nil
+	return agent, nil
 }
 
-func (u AgentID) Valid() bool { return u.valid || u.validate() == nil }
+func (u AgentID) Valid() bool { return u._valid || u.validate() == nil }
 func (u AgentID) validate() error {
 	if u.id == uuid.Nil {
 		return fmt.Errorf("invalid model config ID: %s", u.id)

@@ -9,7 +9,7 @@ import (
 type UserID struct {
 	id uuid.UUID
 
-	valid bool
+	_valid bool
 }
 
 func RandomUserID() UserID {
@@ -30,20 +30,21 @@ func NewUserIDFromString(id string) (UserID, error) {
 }
 
 func NewUserID(id uuid.UUID) (UserID, error) {
-	u := UserID{
-		id: id,
+	user := UserID{
+		id:     id,
+		_valid: false,
 	}
 
-	if err := u.validate(); err != nil {
+	if err := user.validate(); err != nil {
 		return UserID{}, err
 	}
 
-	u.valid = true
+	user._valid = true
 
-	return u, nil
+	return user, nil
 }
 
-func (u UserID) Valid() bool { return u.valid || u.validate() == nil }
+func (u UserID) Valid() bool { return u._valid || u.validate() == nil }
 func (u UserID) validate() error {
 	switch u.id {
 	case uuid.Nil:

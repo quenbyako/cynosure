@@ -129,6 +129,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				assert.Equal(t, "http://"+srv.Listener.Addr().String()+"/auth", cfg.Endpoint.AuthURL)
 				assert.Equal(t, "http://"+srv.Listener.Addr().String()+"/token", cfg.Endpoint.TokenURL)
 			},
+			opts:      nil,
+			assertErr: nil,
 		},
 		{
 			name: "fallback to domain if protected resource is missing",
@@ -161,6 +163,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				assert.Equal(t, "fallback-client", cfg.ClientID)
 				assert.Empty(t, cfg.ClientSecret)
 			},
+			opts:      nil,
+			assertErr: nil,
 		},
 		{
 			name: "success with suggested protected resource option",
@@ -200,6 +204,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				require.NotNil(t, cfg)
 				assert.Equal(t, "suggested-client", cfg.ClientID)
 			},
+			assertErr: nil,
 		},
 		{
 			name: "error dynamic client registration not supported",
@@ -236,6 +241,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				require.NotNil(t, expectedErr.Documentation())
 				assert.Equal(t, "https://developer.example.com", expectedErr.Documentation().String())
 			},
+			opts:         nil,
+			assertResult: nil,
 		},
 		{
 			name: "error formatting invalid server URL",
@@ -250,6 +257,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 			},
+			opts:         nil,
+			assertResult: nil,
 		},
 		{
 			name: "error origin url is nil",
@@ -260,6 +269,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "origin url is nil")
 			},
+			opts:         nil,
+			setupServer:  nil,
+			assertResult: nil,
 		},
 		{
 			name: "error redirect url is nil",
@@ -271,6 +283,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.ErrorContains(t, err, "redirect url is nil")
 			},
+			setupServer:  nil,
+			opts:         nil,
+			assertResult: nil,
 		},
 		{
 			name: "error broken server response on metadata",
@@ -289,6 +304,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				require.Error(t, err)
 				require.ErrorContains(t, err, "failed to get authorization server metadata")
 			},
+			opts:         nil,
+			assertResult: nil,
 		},
 		{
 			name: "error returned during registration (403)",
@@ -321,6 +338,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				require.ErrorContains(t, err, "unexpected status code 403")
 				require.ErrorContains(t, err, "insufficient_permissions")
 			},
+			opts:         nil,
+			assertResult: nil,
 		},
 		{
 			name: "error broken urls inside metadata",
@@ -347,6 +366,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				require.Error(t, err)
 				require.ErrorContains(t, err, "failed to parse registration endpoint")
 			},
+			opts:         nil,
+			assertResult: nil,
 		},
 	}
 
@@ -361,7 +382,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				defer srv.Close()
 			}
 
-			origin := &url.URL{}
+			origin := new(url.URL)
 			if tc.originURL != nil {
 				origin = tc.originURL(srv)
 			}

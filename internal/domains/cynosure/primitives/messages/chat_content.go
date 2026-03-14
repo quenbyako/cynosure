@@ -40,6 +40,7 @@ func (c *ChatContentText) Type() (mediaType string, params map[string]string) {
 	return "text/plain", nil
 }
 
+// TODO: fix it: need to make a embed url data, not just a scheme
 func (c *ChatContentText) URL() *url.URL                     { return &url.URL{Scheme: "text"} }
 func (c *ChatContentText) Extra() map[string]json.RawMessage { return c.extra }
 

@@ -72,6 +72,7 @@ func New(ctx context.Context, cfg *ClientConfig, opts ...NewOption) (*GeminiMode
 		thinkingConfig: &genai.ThinkingConfig{
 			IncludeThoughts: true,
 			ThinkingBudget:  ptr[int32](32),
+			ThinkingLevel:   "",
 		},
 
 		log:   p.log,

@@ -85,8 +85,8 @@ type eventBuilder struct {
 	r   slog.Record
 }
 
-func (l *observable) event(ctx context.Context, level slog.Level, eventType string) *eventBuilder {
-	if !l.l.Enabled(ctx, level) {
+func (o *observable) event(ctx context.Context, level slog.Level, eventType string) *eventBuilder {
+	if !o.l.Enabled(ctx, level) {
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (l *observable) event(ctx context.Context, level slog.Level, eventType stri
 		)
 	}
 
-	return &eventBuilder{ctx: ctx, h: l.l, r: event}
+	return &eventBuilder{ctx: ctx, h: o.l, r: event}
 }
 
 func (e *eventBuilder) Context(attrs ...attribute.KeyValue) *eventBuilder {

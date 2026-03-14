@@ -62,6 +62,8 @@ func (a *Client) issueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, 
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+		Transport: nil,
+		Timeout:   0,
 	}
 
 	// 3. Initiate Auth
@@ -158,7 +160,9 @@ func (a *Client) acceptLogin(ctx context.Context, challenge, subject string) (st
 	defer span.end()
 
 	resp, err := a.api.AcceptLoginRequestWithResponse(ctx, ory.AcceptOAuth2LoginRequest{
-		Subject: subject,
+		Subject:     subject,
+		Remember:    nil,
+		RememberFor: nil,
 	}, func(ctx context.Context, req *http.Request) error {
 		q := req.URL.Query()
 		q.Set("login_challenge", challenge)
@@ -230,7 +234,9 @@ func (a *Client) acceptConsent(ctx context.Context, challenge string) (string, e
 	defer span.end()
 
 	resp, err := a.api.AcceptConsentRequestWithResponse(ctx, ory.AcceptOAuth2ConsentRequest{
-		GrantScope: &a.config.Scopes,
+		GrantScope:  &a.config.Scopes,
+		Remember:    nil,
+		RememberFor: nil,
 	}, func(ctx context.Context, req *http.Request) error {
 		q := req.URL.Query()
 		q.Set("consent_challenge", challenge)

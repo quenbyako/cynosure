@@ -207,19 +207,49 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	scope := strings.Join(finalScopes, " ")
 
 	registerResp, err := client.RegisterOauthClientWithResponse(ctx, "", oauth.RegisterOauthClientJSONRequestBody{
-		ClientName:              clientName,
-		RedirectUris:            []string{redirect.String()},
-		TokenEndpointAuthMethod: &tokenEndpointAuthMethod,
-		GrantTypes:              &grantTypes,
-		ResponseTypes:           &responseTypes,
-		Scope:                   &scope,
+		ClientName:                            clientName,
+		RedirectUris:                          []string{redirect.String()},
+		TokenEndpointAuthMethod:               &tokenEndpointAuthMethod,
+		GrantTypes:                            &grantTypes,
+		ResponseTypes:                         &responseTypes,
+		Scope:                                 &scope,
+		AuthorizationDetailsTypes:             nil,
+		ClientId:                              nil,
+		ClientIdIssuedAt:                      nil,
+		ClientSecret:                          nil,
+		ClientSecretExpiresAt:                 nil,
+		ClientUri:                             nil,
+		Contacts:                              nil,
+		DpopBoundAccessTokens:                 nil,
+		IntrospectionEncryptedResponseAlg:     nil,
+		IntrospectionEncryptedResponseEnc:     nil,
+		IntrospectionSignedResponseAlg:        nil,
+		Jwks:                                  nil,
+		JwksUri:                               nil,
+		LogoUri:                               nil,
+		PolicyUri:                             nil,
+		RegistrationAccessToken:               nil,
+		RegistrationClientUri:                 nil,
+		RequirePushedAuthorizationRequests:    nil,
+		RequireSignedRequestObject:            nil,
+		SoftwareId:                            nil,
+		SoftwareStatement:                     nil,
+		SoftwareVersion:                       nil,
+		TlsClientAuthSanDns:                   nil,
+		TlsClientAuthSanEmail:                 nil,
+		TlsClientAuthSanIp:                    nil,
+		TlsClientAuthSanUri:                   nil,
+		TlsClientAuthSubjectDn:                nil,
+		TlsClientCertificateBoundAccessTokens: nil,
+		TosUri:                                nil,
+		AdditionalProperties:                  nil,
 	}, useExactURI(registrationEndpoint))
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("failed to register client: %w", err)
 	}
 
-	if registerResp.StatusCode() != http.StatusCreated && registerResp.StatusCode() != http.StatusOK {
-		errStr := fmt.Sprintf("unexpected status code %d when registering client at %s", registerResp.StatusCode(), registrationEndpoint)
+	if code := registerResp.StatusCode(); code != http.StatusCreated && code != http.StatusOK {
+		errStr := fmt.Sprintf("unexpected status code %d when registering client at %s", code, registrationEndpoint)
 		if len(registerResp.Body) > 0 {
 			errStr += ": " + string(registerResp.Body)
 		}

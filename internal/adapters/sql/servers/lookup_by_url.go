@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 
 	"github.com/quenbyako/cynosure/internal/adapters/sql/datatransfer"
@@ -24,6 +25,8 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		return nil, fmt.Errorf("failed to lookup server: %w", err)
 	}
 
+	var emptyTimestamp pgtype.Timestamptz
+
 	info, err := datatransfer.ServerInfoFromDB(db.GetServerInfoRow{
 		ID:           row.ID,
 		Url:          row.Url,
@@ -34,6 +37,8 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		TokenUrl:     row.TokenUrl,
 		Expiration:   row.Expiration,
 		Scopes:       row.Scopes,
+		DeletedAt:    emptyTimestamp,
+		Embedding:    nil,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert server info: %w", err)

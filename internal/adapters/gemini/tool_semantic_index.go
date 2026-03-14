@@ -73,6 +73,10 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string) ([emb
 	}, &genai.EmbedContentConfig{
 		TaskType:             taskType,
 		OutputDimensionality: ptr(int32(embeddingSize)),
+		HTTPOptions:          nil,
+		Title:                "",
+		MIMEType:             "",
+		AutoTruncate:         false,
 	})
 	if err != nil {
 		return [embeddingSize]float32{}, fmt.Errorf("embedding generation failed: %w", err)

@@ -11,8 +11,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 )
 
+var emptyOptions pgx.TxOptions
+
 func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigReadOnly) error {
-	tx, err := s.tx.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.tx.BeginTx(ctx, emptyOptions)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
@@ -47,8 +49,9 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 	var expiration pgtype.Timestamptz
 	if !server.ConfigExpiration().IsZero() {
 		expiration = pgtype.Timestamptz{
-			Time:  server.ConfigExpiration(),
-			Valid: true,
+			Time:             server.ConfigExpiration(),
+			InfinityModifier: pgtype.Finite,
+			Valid:            true,
 		}
 	}
 

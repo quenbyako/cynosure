@@ -29,21 +29,24 @@ func WithAgent(id ids.AgentID) ThreadOption {
 }
 
 func NewThread(id ids.ThreadID, messages []messages.Message, opts ...ThreadOption) (*Thread, error) {
-	c := &Thread{
-		id:       id,
-		messages: messages,
+	thread := &Thread{
+		id:            id,
+		messages:      messages,
+		pendingEvents: nil,
+		agentID:       ids.AgentID{},
+		_valid:        false,
 	}
 	for _, opt := range opts {
-		opt(c)
+		opt(thread)
 	}
 
-	if err := c.Validate(); err != nil {
+	if err := thread.Validate(); err != nil {
 		return nil, err
 	}
 
-	c._valid = true
+	thread._valid = true
 
-	return c, nil
+	return thread, nil
 }
 
 func (c *Thread) Valid() bool { return c._valid || c.Validate() == nil }
@@ -138,6 +141,7 @@ func (c *Thread) SetAgent(agentID ids.AgentID) bool {
 
 type ThreadEvent interface{ undo(c *Thread) }
 
+//nolint:exhaustruct // interface check
 var _ ThreadEvent = ThreadEventMessageAdded{}
 
 type ThreadEventMessageAdded struct {

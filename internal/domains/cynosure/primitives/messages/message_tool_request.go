@@ -42,22 +42,26 @@ func WithMessageToolRequestProtocolMetadata(metadata []byte) NewMessageToolReque
 }
 
 func NewMessageToolRequest(arguments map[string]json.RawMessage, toolName, toolCallID string, opts ...NewMessageToolRequestOpt) (MessageToolRequest, error) {
-	m := MessageToolRequest{
-		toolName:   toolName,
-		toolCallID: toolCallID,
-		arguments:  arguments,
+	message := MessageToolRequest{
+		toolName:         toolName,
+		toolCallID:       toolCallID,
+		arguments:        arguments,
+		reasoning:        "",
+		protocolMetadata: nil,
+		mergeTag:         0,
+		_valid:           false,
 	}
 	for _, opt := range opts {
-		opt(&m)
+		opt(&message)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := message.Validate(); err != nil {
 		return MessageToolRequest{}, err
 	}
 
-	m._valid = true
+	message._valid = true
 
-	return m, nil
+	return message, nil
 }
 
 func (tm MessageToolRequest) Valid() bool { return tm._valid || tm.Validate() == nil }
