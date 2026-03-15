@@ -7,7 +7,9 @@ import (
 	"maps"
 )
 
-const maxMessageLength = 8192
+const (
+	maxMessageLength = 8192
+)
 
 // Implemented by these message types:
 //

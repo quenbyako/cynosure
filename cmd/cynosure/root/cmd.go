@@ -37,7 +37,10 @@ func Cmd(ctx context.Context, appCtx core.AppContext[*Config]) core.ExitCode {
 		opts = append(opts, cynosure.WithObservability(metrics))
 	}
 
-	_ = cynosure.Build(ctx, opts...)
+	_, err := cynosure.Build(ctx, opts...)
+	if err != nil {
+		panic(err) //nolint:forbidigo // safe to use here.
+	}
 
 	jobs := []func(context.Context) error{
 		cfg.Port.Serve,

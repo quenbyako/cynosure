@@ -41,7 +41,11 @@ func WithMessageToolRequestProtocolMetadata(metadata []byte) NewMessageToolReque
 	return func(m *MessageToolRequest) { m.protocolMetadata = metadata }
 }
 
-func NewMessageToolRequest(arguments map[string]json.RawMessage, toolName, toolCallID string, opts ...NewMessageToolRequestOpt) (MessageToolRequest, error) {
+func NewMessageToolRequest(
+	arguments map[string]json.RawMessage,
+	toolName, toolCallID string,
+	opts ...NewMessageToolRequestOpt,
+) (MessageToolRequest, error) {
 	message := MessageToolRequest{
 		toolName:         toolName,
 		toolCallID:       toolCallID,
@@ -91,4 +95,6 @@ func (tm MessageToolRequest) MergeTag() uint64                      { return tm.
 func (tm MessageToolRequest) ToolName() string                      { return tm.toolName }
 func (tm MessageToolRequest) ToolCallID() string                    { return tm.toolCallID }
 func (tm MessageToolRequest) Arguments() map[string]json.RawMessage { return tm.arguments }
-func (tm MessageToolRequest) ProtocolMetadata() []byte              { return bytes.Clone(tm.protocolMetadata) }
+func (tm MessageToolRequest) ProtocolMetadata() []byte {
+	return bytes.Clone(tm.protocolMetadata)
+}

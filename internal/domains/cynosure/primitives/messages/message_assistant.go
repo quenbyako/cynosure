@@ -88,7 +88,11 @@ func (am MessageAssistant) Reasoning() string        { return am.reasoning }
 func (am MessageAssistant) Content() string          { return am.content }
 func (am MessageAssistant) AgentID() ids.AgentID     { return am.agentID }
 func (am MessageAssistant) ProtocolMetadata() []byte { return bytes.Clone(am.protocolMetadata) }
-func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
+func (am MessageAssistant) Format(
+	ctx context.Context,
+	vs map[string]any,
+	formatType FormatType,
+) (Message, error) {
 	changedText, err := formatContent(am.content, vs, formatType)
 	if err != nil {
 		return nil, fmt.Errorf("format assistant message text: %w", err)

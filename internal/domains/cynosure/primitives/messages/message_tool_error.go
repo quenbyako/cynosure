@@ -23,7 +23,14 @@ func WithMessageToolErrorMergeTag(mergeTag uint64) NewMessageToolErrorOpt {
 	return func(m *MessageToolError) { m.mergeTag = mergeTag }
 }
 
-func NewMessageToolError(content json.RawMessage, toolName, toolCallID string, opts ...NewMessageToolErrorOpt) (MessageToolError, error) {
+func NewMessageToolError(
+	content json.RawMessage,
+	toolName, toolCallID string,
+	opts ...NewMessageToolErrorOpt,
+) (
+	MessageToolError,
+	error,
+) {
 	message := MessageToolError{
 		toolName:   toolName,
 		toolCallID: toolCallID,
@@ -69,6 +76,13 @@ func (tm MessageToolError) MergeTag() uint64         { return tm.mergeTag }
 func (tm MessageToolError) ToolName() string         { return tm.toolName }
 func (tm MessageToolError) ToolCallID() string       { return tm.toolCallID }
 func (tm MessageToolError) Content() json.RawMessage { return tm.content }
-func (tm MessageToolError) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
+func (tm MessageToolError) Format(
+	ctx context.Context,
+	vs map[string]any,
+	formatType FormatType,
+) (
+	Message,
+	error,
+) {
 	return nil, errors.New("tool message cannot be formatted")
 }

@@ -200,3 +200,11 @@ func accessTokenOnly(accessToken string) *oauth2.Token {
 		ExpiresIn:    0,
 	}
 }
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}

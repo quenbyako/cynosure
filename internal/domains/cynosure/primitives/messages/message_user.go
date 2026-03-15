@@ -64,8 +64,15 @@ func (m MessageUser) Validate() error {
 func (m MessageUser) MergeTag() uint64                  { return m.mergeTag }
 func (m MessageUser) Content() string                   { return m.content }
 func (m MessageUser) Extra() map[string]json.RawMessage { return m.extra }
-func (m MessageUser) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
-	changed, err := formatContent(m.content, vs, formatType)
+func (m MessageUser) Format(
+	ctx context.Context,
+	properties map[string]any,
+	formatType FormatType,
+) (
+	Message,
+	error,
+) {
+	changed, err := formatContent(m.content, properties, formatType)
 	if err != nil {
 		return MessageUser{}, fmt.Errorf("format user message content: %w", err)
 	}

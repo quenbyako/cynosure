@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/goforj/wire"
 	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 
@@ -15,41 +14,46 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-var (
-	sqlAdapter = wire.NewSet(newSQLAdapter,
-		wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)),
-		wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)),
-		wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)),
-		wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)),
-		wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)),
-	)
-	geminiAdapter = wire.NewSet(newGeminiModel,
-		wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)),
-		wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)),
-	)
-	oauthAdapter = wire.NewSet(newOAuthHandler,
-		wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)),
-	)
-	mcpAdapter = wire.NewSet(newMCPHandler,
-		wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)),
-	)
-	oryAdapter = wire.NewSet(newOryClient,
-		wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)),
-	)
-)
-
 func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
-	return sql.New(ctx, p.databaseURL, sql.WithTrace(p.observability))
+	adapter, err := sql.New(ctx, p.storage.databaseURL, sql.WithTrace(p.observability))
+	if err != nil {
+		return nil, fmt.Errorf("initializing sql adapter: %w", err)
+	}
+
+	return adapter, nil
+}
+
+func tokenFuncFromAccountStorage(
+	accounts ports.AccountStorage,
+	servers ports.ServerStorage,
+) mcp.AccountTokenFunc {
+	return func(
+		ctx context.Context,
+		accountID ids.AccountID,
+	) (
+		entities.ServerConfigReadOnly,
+		*oauth2.Token,
+		error,
+	) {
+		account, err := accounts.GetAccount(ctx, accountID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("getting account: %w", err)
+		}
+
+		server, err := servers.GetServerInfo(ctx, accountID.Server())
+		if err != nil {
+			return nil, nil, fmt.Errorf("getting server info: %w", err)
+		}
+
+		return server, account.Token(), nil
+	}
 }
 
 func newMCPHandler(
-	p *appParams,
+	params *appParams,
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
 ) (*mcp.Handler, error) {
@@ -71,23 +75,8 @@ func newMCPHandler(
 		return nil
 	}
 
-	// Create account token callback
-	accountToken := func(ctx context.Context, accountID ids.AccountID) (entities.ServerConfigReadOnly, *oauth2.Token, error) {
-		account, err := accounts.GetAccount(ctx, accountID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting account: %w", err)
-		}
-
-		server, err := servers.GetServerInfo(ctx, accountID.Server())
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting server info: %w", err)
-		}
-
-		return server, account.Token(), nil
-	}
-
-	handler, err := mcp.New(saveToken, accountToken,
-		mcp.WithObservability(p.observability),
+	handler, err := mcp.New(saveToken, tokenFuncFromAccountStorage(accounts, servers),
+		mcp.WithObservability(params.observability),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing mcp handler: %w", err)
@@ -96,15 +85,19 @@ func newMCPHandler(
 	return handler, nil
 }
 
-func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) (*gemini.GeminiModel, error) {
-	geminiKey, err := p.geminiKey.Get(ctx)
+func newGeminiModel(
+	ctx context.Context, params *appParams, log gemini.LogCallbacks,
+) (
+	*gemini.GeminiModel, error,
+) {
+	geminiKey, err := params.gemini.key.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
 	}
 
 	var emptyHTTPOptions genai.HTTPOptions
 
-	return gemini.New(
+	model, err := gemini.New(
 		ctx,
 		&gemini.ClientConfig{
 			APIKey:      string(geminiKey),
@@ -116,32 +109,37 @@ func newGeminiModel(ctx context.Context, p *appParams, log gemini.LogCallbacks) 
 			HTTPOptions: emptyHTTPOptions,
 		},
 		gemini.WithLogCallbacks(log),
-		gemini.WithTrace(p.observability),
+		gemini.WithTrace(params.observability),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("initializing gemini model: %w", err)
+	}
+
+	return model, nil
 }
 
 func newOAuthHandler(p *appParams) *oauth.Handler {
 	return oauth.New(
-		p.oauthScopes,
+		p.ory.oauthScopes,
 		oauth.WithObservability(p.observability),
 	)
 }
 
-func newOryClient(ctx context.Context, p *appParams) (*ory.Client, error) {
-	adminKey, err := p.oryAdminKey.Get(ctx)
+func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
+	adminKey, err := params.ory.adminKey.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting ory admin key: %w", err)
 	}
 
-	clientSecret, err := p.oryClientSecret.Get(ctx)
+	clientSecret, err := params.ory.clientSecret.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting ory client secret: %w", err)
 	}
 
-	return ory.New(p.oryEndpoint, string(adminKey),
-		ory.WithObservability(p.observability),
-		ory.WithClientCredentials(p.oryClientID, string(clientSecret)),
-		ory.WithScopes(p.oryScopes...),
-		ory.WithRedirectURL(p.oryRedirectURL),
+	return ory.New(params.ory.endpoint, string(adminKey),
+		ory.WithObservability(params.observability),
+		ory.WithClientCredentials(params.ory.clientID, string(clientSecret)),
+		ory.WithScopes(params.ory.scopes...),
+		ory.WithRedirectURL(params.ory.redirectURL),
 	), nil
 }

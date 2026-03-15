@@ -59,7 +59,7 @@ func (c *ChatContentAudioURL) Type() (mediaType string, params map[string]string
 	return mediaType, params
 }
 
-func (c *ChatContentAudioURL) URL() *url.URL                     { u := new(url.URL); *u = c.url; return u }
+func (c *ChatContentAudioURL) URL() *url.URL                     { return clone(&c.url) }
 func (c *ChatContentAudioURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentVideoURL struct {
@@ -75,7 +75,7 @@ func (c *ChatContentVideoURL) Type() (mediaType string, params map[string]string
 	return mediaType, params
 }
 
-func (c *ChatContentVideoURL) URL() *url.URL                     { u := new(url.URL); *u = c.url; return u }
+func (c *ChatContentVideoURL) URL() *url.URL                     { return clone(&c.url) }
 func (c *ChatContentVideoURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentFileURL struct {
@@ -92,8 +92,9 @@ func (c *ChatContentFileURL) Type() (mediaType string, params map[string]string)
 	return mediaType, params
 }
 
-func (c *ChatContentFileURL) URL() *url.URL                     { u := new(url.URL); *u = c.url; return u }
+func (c *ChatContentFileURL) URL() *url.URL                     { return clone(&c.url) }
 func (c *ChatContentFileURL) Extra() map[string]json.RawMessage { return c.extra }
+func (c *ChatContentFileURL) Name() string                      { return c.name }
 
 type ChatContentImageURL struct {
 	extra    map[string]json.RawMessage
@@ -109,8 +110,9 @@ func (c *ChatContentImageURL) Type() (mediaType string, params map[string]string
 	return mediaType, params
 }
 
-func (c *ChatContentImageURL) URL() *url.URL                     { u := new(url.URL); *u = c.url; return u }
+func (c *ChatContentImageURL) URL() *url.URL                     { return clone(&c.url) }
 func (c *ChatContentImageURL) Extra() map[string]json.RawMessage { return c.extra }
+func (c *ChatContentImageURL) Detail() ImageURLDetail            { return c.detail }
 
 type ImageURLDetail uint8
 
@@ -120,3 +122,10 @@ const (
 	ImageURLDetailLow                    // low
 	ImageURLDetailAuto                   // auto
 )
+
+func clone[T any](v *T) *T {
+	t := new(T)
+	*t = *v
+
+	return t
+}

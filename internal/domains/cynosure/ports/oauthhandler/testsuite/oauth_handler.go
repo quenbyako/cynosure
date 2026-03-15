@@ -418,3 +418,11 @@ func (s *OAuthHandlerTestSuite) TestRefreshToken(t *testing.T) {
 func (s *OAuthHandlerTestSuite) TestExchange(t *testing.T) {
 	// TODO: implement tests for Exchange
 }
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}

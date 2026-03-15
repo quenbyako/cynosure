@@ -7,93 +7,149 @@ import (
 	"net/http"
 	"net/url"
 
-	mcpraw "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/quenbyako/core"
 	"google.golang.org/grpc"
 
-	"github.com/quenbyako/cynosure/internal/controllers/admin"
-	"github.com/quenbyako/cynosure/internal/controllers/mcp"
-	"github.com/quenbyako/cynosure/internal/controllers/oauth"
-	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
+)
+
+var (
+	ErrOryAdminKey     = errors.New("missing oryAdminKey")
+	ErrOryEndpoint     = errors.New("missing oryEndpoint")
+	ErrOryClientID     = errors.New("missing oryClientID")
+	ErrOryClientSecret = errors.New("missing oryClientSecret")
+	ErrOryScopes       = errors.New("missing oryScopes")
+	ErrOryRedirectURL  = errors.New("missing oryRedirectURL")
+	ErrTelegramKey     = errors.New("missing telegramKey")
+	ErrTelegramPublic  = errors.New("missing telegramPublicAddr")
+	ErrGeminiKey       = errors.New("missing geminiKey")
+	ErrDatabaseURL     = errors.New("missing database URL")
+	ErrAdminMCPID      = errors.New("missing adminMCPID")
 )
 
 type SecretGetter interface {
 	Get(ctx context.Context) ([]byte, error)
 }
 
-type appParams struct {
-	oryClientSecret SecretGetter
-	telegramKey     SecretGetter
-	observability   core.Metrics
-	oryAdminKey     SecretGetter
-	geminiKey       SecretGetter
-	grpcAddr        grpc.ServiceRegistrar
-	// TODO: join into one handler all https
-	httpAddr           func(http.Handler)
-	oryEndpoint        *url.URL
-	telegramAddr       func(http.Handler)
-	mcpAddr            func(http.Handler)
-	telegramPublicAddr *url.URL
-	databaseURL        *url.URL
-	oauthCallback      *url.URL
-	oryClientID        string
-	oryRedirectURL     string
-	oryScopes          []string
-	oauthScopes        []string
-	adminMCPID         ids.ServerID
-}
+type (
+	appParams struct {
+		ory      oryParams
+		telegram telegramParams
+		gemini   geminiParams
+		storage  storageParams
+
+		observability      core.Metrics
+		grpcAddr           grpc.ServiceRegistrar
+		httpAddr           func(http.Handler)
+		mcpAddr            func(http.Handler)
+		constructionErrors []error
+		adminMCPID         ids.ServerID
+	}
+
+	oryParams struct {
+		endpoint     *url.URL
+		adminKey     SecretGetter
+		clientID     string
+		clientSecret SecretGetter
+		redirectURL  string
+		scopes       []string
+		callback     *url.URL
+		oauthScopes  []string
+	}
+
+	telegramParams struct {
+		key        SecretGetter
+		publicAddr *url.URL
+		addr       func(http.Handler)
+	}
+
+	geminiParams struct {
+		key SecretGetter
+	}
+
+	storageParams struct {
+		databaseURL *url.URL
+	}
+)
 
 func (p *appParams) validate() error {
+	if len(p.constructionErrors) > 0 {
+		return errors.Join(p.constructionErrors...)
+	}
+
+	return errors.Join(
+		p.validateOry(),
+		p.validateTelegram(),
+		p.validateGemini(),
+		p.validateStorage(),
+		p.validateInfra(),
+	)
+}
+
+func (p *appParams) validateOry() error {
 	var errs []error
-	if p.geminiKey == nil {
-		errs = append(errs, errors.New("missing geminiKey"))
+	if p.ory.adminKey == nil {
+		errs = append(errs, ErrOryAdminKey)
 	}
 
-	if p.telegramKey == nil {
-		errs = append(errs, errors.New("missing telegramKey"))
+	if p.ory.endpoint == nil || p.ory.endpoint.Scheme == "" {
+		errs = append(errs, ErrOryEndpoint)
 	}
 
-	if p.telegramPublicAddr == nil || p.telegramPublicAddr.Scheme == "" {
-		errs = append(errs, errors.New("missing telegramPublicAddr"))
+	if p.ory.clientID == "" {
+		errs = append(errs, ErrOryClientID)
 	}
 
-	if p.oryAdminKey == nil {
-		errs = append(errs, errors.New("missing oryAdminKey"))
+	if p.ory.clientSecret == nil {
+		errs = append(errs, ErrOryClientSecret)
 	}
 
-	if p.oryEndpoint == nil || p.oryEndpoint.Scheme == "" {
-		errs = append(errs, errors.New("missing oryEndpoint"))
+	if len(p.ory.scopes) == 0 {
+		errs = append(errs, ErrOryScopes)
 	}
 
-	if p.oryClientID == "" {
-		errs = append(errs, errors.New("missing oryClientID"))
-	}
-
-	if p.oryClientSecret == nil {
-		errs = append(errs, errors.New("missing oryClientSecret"))
-	}
-
-	if len(p.oryScopes) == 0 {
-		errs = append(errs, errors.New("missing oryScopes"))
-	}
-
-	if p.oryRedirectURL == "" {
-		errs = append(errs, errors.New("missing oryRedirectURL"))
-	}
-
-	if p.databaseURL == nil || p.databaseURL.Scheme == "" {
-		errs = append(errs, errors.New("missing database URL"))
-	}
-
-	if !p.adminMCPID.Valid() {
-		errs = append(errs, errors.New("missing adminMCPID"))
+	if p.ory.redirectURL == "" {
+		errs = append(errs, ErrOryRedirectURL)
 	}
 
 	return errors.Join(errs...)
+}
+
+func (p *appParams) validateTelegram() error {
+	var errs []error
+	if p.telegram.key == nil {
+		errs = append(errs, ErrTelegramKey)
+	}
+
+	if p.telegram.publicAddr == nil || p.telegram.publicAddr.Scheme == "" {
+		errs = append(errs, ErrTelegramPublic)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (p *appParams) validateGemini() error {
+	if p.gemini.key == nil {
+		return ErrGeminiKey
+	}
+
+	return nil
+}
+
+func (p *appParams) validateStorage() error {
+	if p.storage.databaseURL == nil || p.storage.databaseURL.Scheme == "" {
+		return ErrDatabaseURL
+	}
+
+	return nil
+}
+
+func (p *appParams) validateInfra() error {
+	if !p.adminMCPID.Valid() {
+		return ErrAdminMCPID
+	}
+
+	return nil
 }
 
 type AppOpts func(*appParams)
@@ -107,19 +163,19 @@ func WithHTTPServer(registrar func(http.Handler)) AppOpts {
 }
 
 func WithTelegramServer(registrar func(http.Handler)) AppOpts {
-	return func(p *appParams) { p.telegramAddr = registrar }
+	return func(p *appParams) { p.telegram.addr = registrar }
 }
 
 func WithTelegramPublicAddr(addr *url.URL) AppOpts {
-	return func(p *appParams) { p.telegramPublicAddr = addr }
+	return func(p *appParams) { p.telegram.publicAddr = addr }
 }
 
 func WithTelegramKey(key SecretGetter) AppOpts {
-	return func(p *appParams) { p.telegramKey = key }
+	return func(p *appParams) { p.telegram.key = key }
 }
 
 func WithGeminiKey(key SecretGetter) AppOpts {
-	return func(p *appParams) { p.geminiKey = key }
+	return func(p *appParams) { p.gemini.key = key }
 }
 
 func WithObservability(metrics core.Metrics) AppOpts {
@@ -127,27 +183,33 @@ func WithObservability(metrics core.Metrics) AppOpts {
 }
 
 func WithDatabaseURL(addr *url.URL) AppOpts {
-	return func(p *appParams) { p.databaseURL = addr }
+	return func(p *appParams) { p.storage.databaseURL = addr }
 }
 
 func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
-	return func(p *appParams) { p.oryEndpoint, p.oryAdminKey = endpoint, adminKey }
+	return func(p *appParams) {
+		p.ory.endpoint = endpoint
+		p.ory.adminKey = adminKey
+	}
 }
 
 func WithOryClientCredentials(clientID string, clientSecret SecretGetter) AppOpts {
-	return func(p *appParams) { p.oryClientID, p.oryClientSecret = clientID, clientSecret }
+	return func(p *appParams) {
+		p.ory.clientID = clientID
+		p.ory.clientSecret = clientSecret
+	}
 }
 
 func WithOryScopes(scopes ...string) AppOpts {
-	return func(p *appParams) { p.oryScopes = scopes }
+	return func(p *appParams) { p.ory.scopes = scopes }
 }
 
-func WithOryRedirectURL(url string) AppOpts {
-	return func(p *appParams) { p.oryRedirectURL = url }
+func WithOryRedirectURL(oryRedirectURL string) AppOpts {
+	return func(p *appParams) { p.ory.redirectURL = oryRedirectURL }
 }
 
 func WithOAuthCallbackURL(u *url.URL) AppOpts {
-	return func(p *appParams) { p.oauthCallback = u }
+	return func(p *appParams) { p.ory.callback = u }
 }
 
 func WithMCP(registrar func(http.Handler)) AppOpts {
@@ -155,90 +217,77 @@ func WithMCP(registrar func(http.Handler)) AppOpts {
 }
 
 func WithAdminMCPID(id string) AppOpts {
-	return func(p *appParams) { p.adminMCPID = must(ids.NewServerIDFromString(id)) }
+	return func(p *appParams) {
+		var err error
+
+		p.adminMCPID, err = ids.NewServerIDFromString(id)
+		if err != nil {
+			p.constructionErrors = append(p.constructionErrors, err)
+		}
+	}
 }
 
-func Build(ctx context.Context, opts ...AppOpts) *App {
-	params := appParams{
+func defaultOryParams() oryParams {
+	callbackURL, err := url.Parse("http://localhost:5002/oauth/callback")
+	if err != nil {
+		panic("invalid default oauth callback url") //nolint:forbidigo // safe for constant
+	}
+
+	return oryParams{
+		endpoint:     nil,
+		adminKey:     nil,
+		clientID:     "",
+		clientSecret: nil,
+		redirectURL:  "http://localhost:5001",
+		scopes:       []string{"mcp:read", "mcp:write", "offline_access"},
+		callback:     callbackURL,
+		oauthScopes:  []string{"mcp.read", "mcp.write"},
+	}
+}
+
+func defaultParams() appParams {
+	return appParams{
+		ory: defaultOryParams(),
+		telegram: telegramParams{
+			key:        nil,
+			publicAddr: nil,
+			addr:       nil,
+		},
+		gemini: geminiParams{
+			key: nil,
+		},
+		storage: storageParams{
+			databaseURL: nil,
+		},
 		observability:      core.NoopMetrics(),
-		oauthScopes:        []string{"mcp.read", "mcp.write"},
-		oauthCallback:      must(url.Parse("http://localhost:5002/oauth/callback")),
-		oryScopes:          []string{"mcp:read", "mcp:write", "offline_access"},
-		oryRedirectURL:     "http://localhost:5001",
-		oryClientSecret:    nil,
-		telegramKey:        nil,
-		oryAdminKey:        nil,
-		geminiKey:          nil,
 		grpcAddr:           nil,
 		httpAddr:           nil,
-		oryEndpoint:        nil,
-		telegramAddr:       nil,
 		mcpAddr:            nil,
-		telegramPublicAddr: nil,
-		databaseURL:        nil,
-		oryClientID:        "",
+		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
 	}
+}
+
+func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
+	params := defaultParams()
+
 	for _, opt := range opts {
 		opt(&params)
 	}
 
 	if err := params.validate(); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("validating params: %w", err)
 	}
 
-	return must(buildApp(ctx, &params))
-}
-
-var mcpImpl = mcpraw.Implementation{
-	Name:       "admin-mcp-server",
-	Title:      "Admin MCP Server",
-	Version:    "1.0.0",
-	WebsiteURL: "https://t.me/zhopakotabot",
-	Icons:      nil,
+	return buildApp(ctx, &params)
 }
 
 func connectDependencies(
-	ctx context.Context,
-	p *appParams,
-	log telegram.LogCallbacks,
-	chat *chat.Usecase,
-	accounts *accounts.Usecase,
-	users *users.Usecase,
+	params *appParams,
+	_ adminControllerWireBind,
+	_ oauthControllerWireBind,
+	_ telegramControllerWireBind,
+	_ mcpControllerWireBind,
 ) (*App, error) {
-	telegramKey, err := p.telegramKey.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get telegram key: %w", err)
-	}
-
-	// grpc controllers
-	admin.Register(accounts)(p.grpcAddr)
-
-	// http controllers
-	p.httpAddr(oauth.NewHandler(accounts))
-
-	// TODO: each of controllers MUST be separated, like adapters and usecases.
-	p.telegramAddr(must(telegram.New(ctx, chat, users, p.telegramPublicAddr, telegramKey, telegram.WithLogCallbacks(log), telegram.WithTracer(p.observability))))
-
-	handler, err := mcp.New(
-		accounts,
-		mcpImpl,
-		mcp.WithLogger(p.observability),
-		mcp.WithAllowedIssuers(p.oryEndpoint.Host),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating mcp handler: %w", err)
-	}
-
-	p.mcpAddr(handler)
-
 	return &App{}, nil
-}
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-
-	return v
 }

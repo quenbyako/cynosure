@@ -8,49 +8,99 @@ package cynosure
 
 import (
 	"context"
+	"github.com/goforj/wire"
+	"github.com/quenbyako/core/contrib/runtime"
+	"github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/mcp"
+	"github.com/quenbyako/cynosure/internal/adapters/oauth"
+	"github.com/quenbyako/cynosure/internal/adapters/ory"
+	"github.com/quenbyako/cynosure/internal/adapters/sql"
+	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
+	"github.com/quenbyako/cynosure/internal/logs"
 )
 
 // Injectors from wire.go:
 
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
-	baseLogger := newLogger(config)
 	adapter, err := newSQLAdapter(ctx, config)
 	if err != nil {
 		return nil, err
 	}
-	threadStorageWrapped := ports.NewThreadStorage(adapter)
+	serverStorage := ports.NewServerStorage(adapter)
+	handler := newOAuthHandler(config)
+	portWrapped := oauthhandler.New(handler)
+	accountStorage := ports.NewAccountStorage(adapter)
+	toolStorage := ports.NewToolStorage(adapter)
+	baseLogger := newLogger(config)
 	geminiModel, err := newGeminiModel(ctx, config, baseLogger)
 	if err != nil {
 		return nil, err
 	}
-	chatModel := ports.NewChatModel(geminiModel)
-	serverStorage := ports.NewServerStorage(adapter)
-	accountStorage := ports.NewAccountStorage(adapter)
-	handler, err := newMCPHandler(config, serverStorage, accountStorage)
+	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
+	mcpHandler, err := newMCPHandler(config, serverStorage, accountStorage)
 	if err != nil {
 		return nil, err
 	}
-	portWrapped := toolclient.New(handler)
-	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
-	toolStorage := ports.NewToolStorage(adapter)
-	agentStorage := ports.NewAgentStorage(adapter)
-	usecase := newChatUsecase(config, threadStorageWrapped, chatModel, portWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
-	oauthHandler := newOAuthHandler(config)
-	oauthhandlerPortWrapped := oauthhandler.New(oauthHandler)
+	toolclientPortWrapped := toolclient.New(mcpHandler)
 	client, err := newOryClient(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 	identitymanagerPortWrapped := identitymanager.New(client)
-	usecase2 := newAccountsUsecase(config, serverStorage, oauthhandlerPortWrapped, accountStorage, toolStorage, toolSemanticIndex, portWrapped, identitymanagerPortWrapped)
-	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, portWrapped, toolSemanticIndex)
-	app, err := connectDependencies(ctx, config, baseLogger, usecase, usecase2, usecase3)
+	usecase, err := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
+	if err != nil {
+		return nil, err
+	}
+	cynosureAdminControllerWireBind := bindAdminController(config, usecase)
+	cynosureOauthControllerWireBind := bindOAuthController(config, usecase)
+	threadStorageWrapped := ports.NewThreadStorage(adapter)
+	chatModel := ports.NewChatModel(geminiModel)
+	agentStorage := ports.NewAgentStorage(adapter)
+	usecase2 := newChatUsecase(config, threadStorageWrapped, chatModel, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
+	cynosureTelegramControllerWireBind, err := bindTelegramController(ctx, config, baseLogger, usecase2, usecase3)
+	if err != nil {
+		return nil, err
+	}
+	cynosureMcpControllerWireBind, err := bindMCPController(config, usecase)
+	if err != nil {
+		return nil, err
+	}
+	app, err := connectDependencies(config, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind)
 	if err != nil {
 		return nil, err
 	}
 	return app, nil
 }
+
+// wire.go:
+
+var loggerConstructor = wire.NewSet(
+	newLogger, wire.Bind(new(chat.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(gemini.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(telegram.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(runtime.LogCallbacks), new(*logs.BaseLogger)),
+)
+
+var (
+	sqlAdapter    = wire.NewSet(newSQLAdapter, wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)))
+	geminiAdapter = wire.NewSet(newGeminiModel, wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
+	oauthAdapter  = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
+	mcpAdapter    = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
+	oryAdapter    = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)))
+)
+
+var (
+	chatUsecase     = wire.NewSet(newChatUsecase)
+	accountsUsecase = wire.NewSet(newAccountsUsecase)
+	usersUsecase    = wire.NewSet(newUsersUsecase)
+)
+
+var controllersSet = wire.NewSet(
+	bindAdminController,
+	bindOAuthController,
+	bindTelegramController,
+	bindMCPController,
+)

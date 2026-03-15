@@ -22,7 +22,14 @@ func WithMessageToolResponseMergeTag(mergeTag uint64) NewMessageToolResponseOpt 
 	return func(m *MessageToolResponse) { m.mergeTag = mergeTag }
 }
 
-func NewMessageToolResponse(content json.RawMessage, toolName, toolCallID string, opts ...NewMessageToolResponseOpt) (MessageToolResponse, error) {
+func NewMessageToolResponse(
+	content json.RawMessage,
+	toolName, toolCallID string,
+	opts ...NewMessageToolResponseOpt,
+) (
+	MessageToolResponse,
+	error,
+) {
 	message := MessageToolResponse{
 		toolName:   toolName,
 		toolCallID: toolCallID,
