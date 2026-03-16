@@ -2,323 +2,165 @@ package gemini
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"iter"
-	"math/rand/v2"
 
-	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-type GenAIInputMessagesAttribute []ChatMessage
+// Stream implements ports.ChatModel.
+func (g *GeminiModel) Stream(
+	ctx context.Context,
+	input []messages.Message,
+	settings entities.AgentReadOnly,
+	opts ...chatmodel.StreamOption,
+) (iter.Seq2[messages.Message, error], error) {
+	params := chatmodel.StreamParams(opts...)
 
-type ChatMessage struct {
-	Name  *string                           `json:"name,omitempty"`
-	Role  Role                              `json:"role"`
-	Parts []GenAIInputMessagesAttributePart `json:"parts"`
-}
-
-type GenAIInputMessagesAttributePart interface {
-	_GenAIInputMessagesAttributePart()
-}
-
-type TextPart struct {
-	Type    string `json:"type"` // always "text"
-	Content string `json:"content"`
-}
-
-func (*TextPart) _GenAIInputMessagesAttributePart() {}
-
-type ToolCallRequestPart struct {
-	Type      string          `json:"type"` // always "tool_call"
-	Id        *string         `json:"id,omitempty"`
-	Name      string          `json:"name"`
-	Arguments json.RawMessage `json:"arguments,omitempty"`
-}
-
-func (*ToolCallRequestPart) _GenAIInputMessagesAttributePart() {}
-
-type ToolCallResponsePart struct {
-	Type     string          `json:"type"` // always "tool_call_response"
-	Id       *string         `json:"id,omitempty"`
-	Name     string          `json:"name"`
-	Response json.RawMessage `json:"response,omitempty"`
-}
-
-func (*ToolCallResponsePart) _GenAIInputMessagesAttributePart() {}
-
-func otelMessageFromMessage(systemMsg string, msgs []messages.Message) []ChatMessage {
-	res := make([]ChatMessage, 0, len(msgs))
-
-	if systemMsg != "" {
-		res = append(res, ChatMessage{
-			Role: RoleSystem,
-			Parts: []GenAIInputMessagesAttributePart{
-				&TextPart{
-					Type:    "text",
-					Content: systemMsg,
-				},
-			},
-			Name: nil,
-		})
+	genConfig, err := g.buildGenConfig(settings, &params)
+	if err != nil {
+		return nil, err
 	}
 
-	var this *ChatMessage
-
-	for _, msg := range msgs {
-		switch msg := msg.(type) {
-		case messages.MessageAssistant:
-			if this != nil && this.Role != RoleAssistant {
-				res, this = append(res, *this), nil
-			}
-
-			if this == nil {
-				this = &ChatMessage{Role: RoleAssistant, Name: nil, Parts: nil}
-			}
-
-			this.Parts = append(this.Parts, &TextPart{
-				Type:    "text",
-				Content: msg.Content(),
-			})
-		case messages.MessageTool:
-			if this != nil && this.Role != RoleTool {
-				res, this = append(res, *this), nil
-			}
-
-			if this == nil {
-				this = &ChatMessage{Role: RoleTool, Name: nil, Parts: nil}
-			}
-
-			this.Parts = append(this.Parts, &ToolCallResponsePart{
-				Type:     "tool_call_response",
-				Id:       ptr(msg.ToolCallID()),
-				Name:     msg.ToolName(),
-				Response: msg.Content(),
-			})
-		case messages.MessageToolRequest:
-			if this != nil && this.Role != RoleAssistant {
-				res, this = append(res, *this), nil
-			}
-
-			if this == nil {
-				this = &ChatMessage{Role: RoleAssistant, Name: nil, Parts: nil}
-			}
-
-			this.Parts = append(this.Parts, &ToolCallRequestPart{
-				Type:      "tool_call",
-				Id:        ptr(msg.ToolCallID()),
-				Name:      msg.ToolName(),
-				Arguments: must(json.Marshal(msg.Arguments())),
-			})
-		case messages.MessageUser:
-			if this != nil && this.Role != RoleUser {
-				res, this = append(res, *this), nil
-			}
-
-			if this == nil {
-				this = &ChatMessage{Role: RoleUser, Name: nil, Parts: nil}
-			}
-
-			this.Parts = append(this.Parts, &TextPart{
-				Type:    "text",
-				Content: msg.Content(),
-			})
-		default:
-			panic(fmt.Sprintf("unexpected messages.Message: %#v", msg))
-		}
-	}
-
-	if this != nil {
-		res = append(res, *this)
-	}
-
-	return res
-}
-
-type Role string
-
-const (
-	RoleSystem    Role = "system"
-	RoleUser      Role = "user"
-	RoleAssistant Role = "assistant"
-	RoleTool      Role = "tool"
-)
-
-// Stream implements [ports.ChatModel].
-func (g *GeminiModel) Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...ports.StreamOption) (iter.Seq2[messages.Message, error], error) {
-	msgsJSON := string(must(json.Marshal(otelMessageFromMessage(settings.SystemMessage(), input))))
-
-	attrs := []attribute.KeyValue{
-		semconv.GenAIOperationNameGenerateContent,
-		semconv.GenAIProviderNameGCPGemini,
-		semconv.GenAIConversationID("TODO"),
-		semconv.GenAIRequestModel(settings.Model()),
-		semconv.GenAIInputMessagesKey.String(msgsJSON),
-	}
-	if v, ok := settings.TopP(); ok {
-		attrs = append(attrs, semconv.GenAIRequestTopP(float64(v)))
-	}
-
-	if v, ok := settings.Temperature(); ok {
-		attrs = append(attrs, semconv.GenAIRequestTemperature(float64(v)))
-	}
-
-	ctx, span := g.trace.Start(ctx, "GeminiModel.Stream", trace.WithAttributes(attrs...))
-	defer span.End()
-
-	params := ports.StreamParams(opts...)
-
-	genConfig := &genai.GenerateContentConfig{
-		ThinkingConfig:             g.thinkingConfig,
-		HTTPOptions:                nil,
-		SystemInstruction:          nil,
-		Temperature:                nil,
-		TopP:                       nil,
-		TopK:                       nil,
-		CandidateCount:             0,
-		MaxOutputTokens:            0,
-		StopSequences:              nil,
-		ResponseLogprobs:           false,
-		Logprobs:                   nil,
-		PresencePenalty:            nil,
-		FrequencyPenalty:           nil,
-		Seed:                       nil,
-		ResponseMIMEType:           "",
-		ResponseSchema:             nil,
-		ResponseJsonSchema:         nil,
-		RoutingConfig:              nil,
-		ModelSelectionConfig:       nil,
-		SafetySettings:             nil,
-		Tools:                      nil,
-		ToolConfig:                 nil,
-		Labels:                     nil,
-		CachedContent:              "",
-		ResponseModalities:         nil,
-		MediaResolution:            "",
-		SpeechConfig:               nil,
-		AudioTimestamp:             false,
-		ImageConfig:                nil,
-		EnableEnhancedCivicAnswers: nil,
-		ModelArmorConfig:           nil,
-	}
-
-	if systemMessage := settings.SystemMessage(); systemMessage != "" {
-		genConfig.SystemInstruction = &genai.Content{
-			Role:  "", // role is not used for system instructions
-			Parts: []*genai.Part{genai.NewPartFromText(systemMessage)},
-		}
-	}
-
-	toolList := params.Toolbox().List()
-	if len(toolList) > 0 {
-		var mode genai.FunctionCallingConfigMode
-
-		switch toolChoice := params.ToolChoice(); toolChoice {
-		case tools.ToolChoiceAllowed:
-			mode = genai.FunctionCallingConfigModeAuto
-		case tools.ToolChoiceForced:
-			mode = genai.FunctionCallingConfigModeAny
-		case tools.ToolChoiceForbidden:
-			mode = genai.FunctionCallingConfigModeNone
-		default:
-			return nil, fmt.Errorf("unknown tool choice: %v", toolChoice)
-		}
-
-		genConfig.ToolConfig = &genai.ToolConfig{
-			FunctionCallingConfig: &genai.FunctionCallingConfig{
-				Mode:                        mode,
-				AllowedFunctionNames:        nil,
-				StreamFunctionCallArguments: nil,
-			},
-			RetrievalConfig: nil,
-		}
-
-		genConfig.Tools = datatransfer.ToolInfoToGenAI(toolList)
-	}
-
-	g.log.GeminiStreamStarted(ctx, settings.Model(), len(toolList))
+	g.log.GeminiStreamStarted(ctx, settings.Model(), len(params.Toolbox().List()))
 
 	converted, err := datatransfer.MessagesToGenAIContent(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert messages: %w", err)
 	}
 
-	s := g.client.Models.GenerateContentStream(ctx, settings.Model(), converted, genConfig)
-
-	mergeTag := rand.Uint64()
+	stream := g.client.Models.GenerateContentStream(ctx, settings.Model(), converted, genConfig)
+	tag := randomUint64()
 
 	return func(yield func(messages.Message, error) bool) {
-		var (
-			thoughtBuffer  string
-			metadataBuffer []byte
-		)
-
-		mapper := func(msg *genai.GenerateContentResponse, err error) (res []messages.Message, _ error) {
-			if err != nil {
-				return nil, err
-			}
-
-			res, thoughtBuffer, metadataBuffer, err = datatransfer.MessageFromGenAIContent(msg, thoughtBuffer, metadataBuffer, mergeTag, settings.ID())
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert message from Gemini: %w", err)
-			}
-
-			return res, nil
-		}
-
-		IterExtract(SafeMap(s, mapper))(yield)
+		g.streamIter(yield, stream, tag, settings)
 	}, nil
 }
 
-// SafeMap wraps an iterator with a mapper function and ensures that yield
-// is never called again after it returns false, or after an error occurs.
-func SafeMap[K1, V1, K2 any](seq iter.Seq2[K1, V1], mapper func(K1, V1) (K2, error)) iter.Seq2[K2, error] {
-	return func(yield func(K2, error) bool) {
-		seq(func(k1 K1, v1 V1) bool {
-			k2, err := mapper(k1, v1)
-			if err != nil {
-				yield(k2, err)
-				return false
-			}
+func (g *GeminiModel) streamIter(
+	yield func(messages.Message, error) bool,
+	stream iter.Seq2[*genai.GenerateContentResponse, error],
+	tag uint64,
+	settings entities.AgentReadOnly,
+) {
+	var (
+		thought  string
+		metadata []byte
+	)
 
-			return yield(k2, err)
-		})
+	mapper := func(msg *genai.GenerateContentResponse, err error) ([]messages.Message, error) {
+		if err != nil {
+			return nil, err
+		}
+
+		var res []messages.Message
+
+		res, thought, metadata, err = datatransfer.MessageFromGenAIContent(
+			msg, thought, metadata, tag, settings.ID(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert message from Gemini: %w", err)
+		}
+
+		return res, nil
+	}
+
+	IterExtract(SafeMap(stream, mapper))(yield)
+}
+
+func (g *GeminiModel) buildGenConfig(
+	settings entities.AgentReadOnly,
+	params streamParamsProxy,
+) (*genai.GenerateContentConfig, error) {
+	config := emptyConfig(g.thinkingConfig)
+
+	if msg := settings.SystemMessage(); msg != "" {
+		config.SystemInstruction = systemInstruction(msg)
+	}
+
+	toolList := params.Toolbox().List()
+	if len(toolList) > 0 {
+		mode, err := convertToolChoice(params.ToolChoice())
+		if err != nil {
+			return nil, err
+		}
+
+		config.ToolConfig = toolConfig(mode)
+		config.Tools = datatransfer.ToolInfoToGenAI(toolList)
+	}
+
+	return config, nil
+}
+
+func emptyConfig(thinking *genai.ThinkingConfig) *genai.GenerateContentConfig {
+	var config genai.GenerateContentConfig
+
+	config.ThinkingConfig = thinking
+
+	return &config
+}
+
+func systemInstruction(msg string) *genai.Content {
+	return &genai.Content{
+		Parts: []*genai.Part{{
+			Text:                msg,
+			MediaResolution:     nil,
+			CodeExecutionResult: nil,
+			ExecutableCode:      nil,
+			FileData:            nil,
+			FunctionCall:        nil,
+			FunctionResponse:    nil,
+			InlineData:          nil,
+			Thought:             false,
+			ThoughtSignature:    nil,
+			VideoMetadata:       nil,
+		}},
+		Role: "",
 	}
 }
 
-// IterExtract flattens an iterator of slices into an iterator of elements.
-func IterExtract[K1 any](seq iter.Seq2[[]K1, error]) iter.Seq2[K1, error] {
-	return func(yield func(K1, error) bool) {
-		seq(func(k1 []K1, err error) bool {
-			if err != nil {
-				yield(*new(K1), err)
-				return false
-			}
-
-			for _, item := range k1 {
-				if !yield(item, nil) {
-					return false
-				}
-			}
-
-			return true
-		})
+func toolConfig(mode genai.FunctionCallingConfigMode) *genai.ToolConfig {
+	return &genai.ToolConfig{
+		FunctionCallingConfig: &genai.FunctionCallingConfig{
+			Mode:                        mode,
+			AllowedFunctionNames:        nil,
+			StreamFunctionCallArguments: nil,
+		},
+		RetrievalConfig: nil,
 	}
 }
 
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
+type streamParamsProxy interface {
+	Toolbox() tools.Toolbox
+	ToolChoice() tools.ToolChoice
+}
+
+func convertToolChoice(choice tools.ToolChoice) (genai.FunctionCallingConfigMode, error) {
+	switch choice {
+	case tools.ToolChoiceAllowed:
+		return genai.FunctionCallingConfigModeAuto, nil
+	case tools.ToolChoiceForced:
+		return genai.FunctionCallingConfigModeAny, nil
+	case tools.ToolChoiceForbidden:
+		return genai.FunctionCallingConfigModeNone, nil
+	default:
+		return "", fmt.Errorf("%w: %v", ErrUnknownToolChoice, choice)
+	}
+}
+
+func randomUint64() uint64 {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0
 	}
 
-	return v
+	return binary.LittleEndian.Uint64(b[:])
 }

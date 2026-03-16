@@ -15,6 +15,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
@@ -39,7 +40,7 @@ var (
 		wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)),
 	)
 	geminiAdapter = wire.NewSet(newGeminiModel,
-		wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)),
+		wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)),
 		wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)),
 	)
 	oauthAdapter = wire.NewSet(newOAuthHandler,
@@ -69,9 +70,10 @@ var controllersSet = wire.NewSet(
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	panic(wire.Build(
 		ports.WirePorts,
-		toolclient.New,
-		oauthhandler.New,
+		chatmodel.New,
 		identitymanager.New,
+		oauthhandler.New,
+		toolclient.New,
 
 		loggerConstructor,
 

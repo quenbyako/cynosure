@@ -13,6 +13,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -140,9 +141,9 @@ func (s *Usecase) askModel(ctx context.Context, c *chat.Chat, config entities.Ag
 }
 
 func (s *Usecase) callModel(ctx context.Context, c *chat.Chat, config entities.AgentReadOnly, toolChoice tools.ToolChoice) (iter.Seq2[messages.Message, error], error) {
-	var opts []ports.StreamOption
+	var opts []chatmodel.StreamOption
 	if toolChoice != tools.ToolChoiceForbidden {
-		opts = append(opts, ports.WithStreamToolbox(c.RelevantTools()))
+		opts = append(opts, chatmodel.WithStreamToolbox(c.RelevantTools()))
 	}
 
 	return s.model.Stream(ctx, c.Messages(), config, opts...)

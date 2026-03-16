@@ -99,7 +99,7 @@ func newGeminiModel(
 
 	model, err := gemini.New(
 		ctx,
-		&gemini.ClientConfig{
+		&genai.ClientConfig{
 			APIKey:      string(geminiKey),
 			Backend:     0,
 			Project:     "",

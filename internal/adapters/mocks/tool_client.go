@@ -135,8 +135,8 @@ func (_c *ToolClient_DiscoverTools_Call) Run(run func(ctx context.Context, u *ur
 	return _c
 }
 
-func (_c *ToolClient_DiscoverTools_Call) Return(rawToolInfos []tools.RawTool, err error) *ToolClient_DiscoverTools_Call {
-	_c.Call.Return(rawToolInfos, err)
+func (_c *ToolClient_DiscoverTools_Call) Return(rawTools []tools.RawTool, err error) *ToolClient_DiscoverTools_Call {
+	_c.Call.Return(rawTools, err)
 	return _c
 }
 

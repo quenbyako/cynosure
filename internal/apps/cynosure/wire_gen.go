@@ -17,6 +17,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
@@ -59,9 +60,9 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	cynosureAdminControllerWireBind := bindAdminController(config, usecase)
 	cynosureOauthControllerWireBind := bindOAuthController(config, usecase)
 	threadStorageWrapped := ports.NewThreadStorage(adapter)
-	chatModel := ports.NewChatModel(geminiModel)
+	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	agentStorage := ports.NewAgentStorage(adapter)
-	usecase2 := newChatUsecase(config, threadStorageWrapped, chatModel, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	usecase2 := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
 	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
 	cynosureTelegramControllerWireBind, err := bindTelegramController(ctx, config, baseLogger, usecase2, usecase3)
 	if err != nil {
@@ -86,7 +87,7 @@ var loggerConstructor = wire.NewSet(
 
 var (
 	sqlAdapter    = wire.NewSet(newSQLAdapter, wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)))
-	geminiAdapter = wire.NewSet(newGeminiModel, wire.Bind(new(ports.ChatModelFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
+	geminiAdapter = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
 	oauthAdapter  = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
 	mcpAdapter    = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
 	oryAdapter    = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)))

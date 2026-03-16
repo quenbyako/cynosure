@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
@@ -21,7 +21,7 @@ import (
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunChatModelTests(a ports.ChatModel, opts ...ChatModelTestSuiteOpts) func(t *testing.T) {
+func RunChatModelTests(a chatmodel.Port, opts ...ChatModelTestSuiteOpts) func(t *testing.T) {
 	s := &ChatModelTestSuite{
 		adapter: a,
 	}
@@ -33,7 +33,7 @@ func RunChatModelTests(a ports.ChatModel, opts ...ChatModelTestSuiteOpts) func(t
 }
 
 type ChatModelTestSuite struct {
-	adapter ports.ChatModel
+	adapter chatmodel.Port
 }
 
 type ChatModelTestSuiteOpts func(*ChatModelTestSuite)
@@ -82,4 +82,12 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	require.NotEmpty(t, responseText, "Model should have provided a non-empty response")
 	pp.Println("Response from model:", responseText)
 	pp.Println("Thoughts from model:", thought)
+}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+
+	return v
 }

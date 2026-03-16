@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
@@ -15,7 +16,7 @@ import (
 func newChatUsecase(
 	params *appParams,
 	storage ports.ThreadStorageWrapped,
-	model ports.ChatModel,
+	model chatmodel.PortWrapped,
 	tool toolclient.PortWrapped,
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
