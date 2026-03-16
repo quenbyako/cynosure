@@ -1,3 +1,4 @@
+// Package primitives defines domain primitives.
 package primitives
 
 import (

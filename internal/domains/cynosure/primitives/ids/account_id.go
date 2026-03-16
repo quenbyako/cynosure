@@ -14,9 +14,7 @@ type AccountID struct {
 	_valid bool
 }
 
-// Implements:
-//
-// - [WithSlug]
+// AccountIDOption defines optional parameters for AccountID.
 type AccountIDOption interface{ applyAccountID(*AccountID) }
 
 func RandomAccountID(user UserID, server ServerID, opts ...AccountIDOption) (AccountID, error) {

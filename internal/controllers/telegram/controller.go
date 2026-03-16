@@ -1,3 +1,4 @@
+// Package telegram implements Telegram controller.
 package telegram
 
 import (

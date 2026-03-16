@@ -1,3 +1,4 @@
+// Package testsuite provides tests for tool client.
 package testsuite
 
 import (

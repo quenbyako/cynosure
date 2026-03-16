@@ -1,3 +1,4 @@
+// Package testsuite provides tests for identity manager.
 package testsuite
 
 import (

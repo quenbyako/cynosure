@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
-	. "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
 // RunOAuthHandlerTests runs tests for the given adapter. These tests are predefined
@@ -23,7 +23,7 @@ import (
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
 func RunOAuthHandlerTests(
-	a Port, opts ...OAuthHandlerTestSuiteOption,
+	a oauthhandler.Port, opts ...OAuthHandlerTestSuiteOption,
 ) func(t *testing.T) {
 	suite := &OAuthHandlerTestSuite{
 		adapter: a,
@@ -41,7 +41,7 @@ func RunOAuthHandlerTests(
 }
 
 type OAuthHandlerTestSuite struct {
-	adapter Port
+	adapter oauthhandler.Port
 
 	cleanup func() error
 }
@@ -77,7 +77,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		setupServer  func(t *testing.T) *httptest.Server
 		originURL    func(srv *httptest.Server) *url.URL
 		redirectURL  *url.URL
-		opts         func(srv *httptest.Server) []RegisterClientOption
+		opts         func(srv *httptest.Server) []oauthhandler.RegisterClientOption
 		assertErr    func(t *testing.T, err error)
 		assertResult func(
 			t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
@@ -89,6 +89,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "success with complete dynamic flow",
 			setupServer: func(t *testing.T) *httptest.Server {
+				t.Helper()
+
 				return httptest.NewServer(http.HandlerFunc(func(
 					w http.ResponseWriter, r *http.Request,
 				) {
@@ -144,6 +146,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "fallback to domain if protected resource is missing",
 			setupServer: func(t *testing.T) *httptest.Server {
+				t.Helper()
+
 				return httptest.NewServer(http.HandlerFunc(func(
 					w http.ResponseWriter, r *http.Request,
 				) {
@@ -182,6 +186,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "success with suggested protected resource option",
 			setupServer: func(t *testing.T) *httptest.Server {
+				t.Helper()
+
 				return httptest.NewServer(http.HandlerFunc(func(
 					w http.ResponseWriter, r *http.Request,
 				) {
@@ -212,9 +218,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				return u
 			},
 			redirectURL: must(url.Parse("http://localhost/callback")),
-			opts: func(srv *httptest.Server) []RegisterClientOption {
+			opts: func(srv *httptest.Server) []oauthhandler.RegisterClientOption {
 				u, _ := url.Parse(srv.URL + "/custom-protected-resource")
-				return []RegisterClientOption{WithSuggestedProtectedResource(u)}
+				return []oauthhandler.RegisterClientOption{oauthhandler.WithSuggestedProtectedResource(u)}
 			},
 			assertResult: func(
 				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
@@ -227,6 +233,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "error dynamic client registration not supported",
 			setupServer: func(t *testing.T) *httptest.Server {
+				t.Helper()
+
 				return httptest.NewServer(http.HandlerFunc(func(
 					w http.ResponseWriter, r *http.Request,
 				) {
@@ -256,7 +264,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			assertErr: func(t *testing.T, err error) {
 				require.Error(t, err)
 
-				var expectedErr *DynamicClientRegistrationNotSupportedError
+				var expectedErr *oauthhandler.DynamicClientRegistrationNotSupportedError
 				require.ErrorAs(t, err, &expectedErr)
 				require.NotNil(t, expectedErr.Documentation())
 				require.Equal(t, "https://developer.example.com",
@@ -416,7 +424,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 
 			redirect := tc.redirectURL
 
-			var opts []RegisterClientOption
+			var opts []oauthhandler.RegisterClientOption
 			if tc.opts != nil {
 				opts = tc.opts(srv)
 			}

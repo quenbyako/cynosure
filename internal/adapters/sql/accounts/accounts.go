@@ -1,3 +1,4 @@
+// Package accounts implements SQL account storage.
 package accounts
 
 import (

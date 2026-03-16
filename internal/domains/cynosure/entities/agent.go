@@ -49,19 +49,19 @@ var (
 type NewModelSettingsOption func(*Agent)
 
 func WithSystemMessage(message string) NewModelSettingsOption {
-	return func(m *Agent) { m.systemMessage = message }
+	return func(a *Agent) { a.systemMessage = message }
 }
 
 func WithTemperature(temperature float32) NewModelSettingsOption {
-	return func(m *Agent) { m.temperature = temperature }
+	return func(a *Agent) { a.temperature = temperature }
 }
 
 func WithTopP(topP float32) NewModelSettingsOption {
-	return func(m *Agent) { m.topP = topP }
+	return func(a *Agent) { a.topP = topP }
 }
 
 func WithStopWords(stopWords []string) NewModelSettingsOption {
-	return func(m *Agent) { m.stopWords = stopWords }
+	return func(a *Agent) { a.stopWords = stopWords }
 }
 
 func NewModelSettings(
@@ -92,13 +92,13 @@ func NewModelSettings(
 	return agent, nil
 }
 
-func (m *Agent) Valid() bool { return m._valid || m.Validate() == nil }
-func (m *Agent) Validate() error {
-	if !m.id.Valid() {
+func (c *Agent) Valid() bool { return c._valid || c.Validate() == nil }
+func (c *Agent) Validate() error {
+	if !c.id.Valid() {
 		return errors.New("ID is invalid")
 	}
 
-	if m.model == "" {
+	if c.model == "" {
 		return errors.New("model is required")
 	}
 
@@ -107,9 +107,9 @@ func (m *Agent) Validate() error {
 
 // CHANGES
 
-func (m *Agent) Synchronized() bool          { return len(m.pendingEvents) == 0 }
-func (m *Agent) PendingEvents() []AgentEvent { return slices.Clone(m.pendingEvents) }
-func (m *Agent) ClearEvents()                { m.pendingEvents = m.pendingEvents[:0] }
+func (c *Agent) Synchronized() bool          { return len(c.pendingEvents) == 0 }
+func (c *Agent) PendingEvents() []AgentEvent { return slices.Clone(c.pendingEvents) }
+func (c *Agent) ClearEvents()                { c.pendingEvents = c.pendingEvents[:0] }
 
 // READ
 

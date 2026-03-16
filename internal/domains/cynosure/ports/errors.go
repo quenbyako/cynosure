@@ -1,3 +1,4 @@
+// Package ports defines domain ports.
 package ports
 
 import (

@@ -1,3 +1,4 @@
+// Package oauth defines OAuth primitives.
 package oauth
 
 import (

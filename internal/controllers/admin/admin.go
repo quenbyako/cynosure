@@ -1,3 +1,4 @@
+// Package admin implements admin controller.
 package admin
 
 import (
@@ -42,7 +43,7 @@ func (h *Handler) AddServer(
 func (h *Handler) Authorize(
 	ctx context.Context, req *admin.AuthorizeRequest,
 ) (*admin.AuthorizeResponse, error) {
-	mcpUrl, err := url.Parse(req.GetServerId())
+	mcpURL, err := url.Parse(req.GetServerId())
 	if err != nil {
 		return nil, fmt.Errorf("invalid server URL: %w", err)
 	}
@@ -53,7 +54,7 @@ func (h *Handler) Authorize(
 	}
 
 	link, err := h.accounts.AddAccount(
-		ctx, userID, mcpUrl, req.GetAccountName(), req.GetAccountDesc(),
+		ctx, userID, mcpURL, req.GetAccountName(), req.GetAccountDesc(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup auth link: %w", err)

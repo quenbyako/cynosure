@@ -156,7 +156,11 @@ func (t *Tool) SetEmbedding(embedding [embeddingSize]float32) {
 
 // EVENTS
 
-// [ToolEventEmbeddingUpdated]
+// ToolEvent defines event for tool entity.
+//
+// Implements by:
+//
+//   - [ToolEventEmbeddingUpdated]
 type ToolEvent interface {
 	_ToolEvent()
 }

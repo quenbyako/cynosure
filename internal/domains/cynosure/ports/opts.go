@@ -4,8 +4,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Unlike common option that expects TracerProvider, this option expects
-// initialized metrics provider, that will be converted into Observable.
+// WithTrace expects initialized metrics provider, that will be converted into Observable.
 //
 // Applies to:
 //

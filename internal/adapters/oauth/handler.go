@@ -1,3 +1,4 @@
+// Package oauth implements OAuth adapter.
 package oauth
 
 import (

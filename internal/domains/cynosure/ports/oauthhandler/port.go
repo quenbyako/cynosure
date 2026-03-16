@@ -1,3 +1,4 @@
+// Package oauthhandler defines OAuth handler port.
 package oauthhandler
 
 import (

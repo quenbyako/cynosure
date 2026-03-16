@@ -1,3 +1,4 @@
+// Package chat implements chat usecases.
 package chat
 
 import (

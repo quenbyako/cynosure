@@ -1,3 +1,4 @@
+// Package oauth implements OAuth controller.
 package oauth
 
 import (
@@ -36,11 +37,11 @@ func (h *Handler) GetAgentCard(
 	ctx context.Context, params httpapi.GetAgentCardParams,
 ) (httpapi.GetAgentCardRes, error) {
 	return &httpapi.GetAgentCardOK{
-		ProtocolVersion:    "0.3.0",
-		Name:               "TestAgent",
-		Description:        "Some test agent, idk",
-		Version:            "0.1.0",
-		URL:                "https://af9f40da2e5e.ngrok-free.app/agent",
+		ProtocolVersion: "0.3.0",
+		Name:            "TestAgent",
+		Description:     "Some test agent, idk",
+		Version:         "0.1.0",
+		URL:             "https://af9f40da2e5e.ngrok-free.app/agent",
 		PreferredTransport: httpapi.NewOptGetAgentCardOKPreferredTransport(
 			httpapi.GetAgentCardOKPreferredTransportJSONRPC,
 		),

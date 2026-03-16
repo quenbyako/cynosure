@@ -1,3 +1,4 @@
+// Package identitymanager defines identity manager port.
 package identitymanager
 
 import (

@@ -61,6 +61,8 @@ func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 	}
 }
 
+// TestSaveModel tests saving, retrieving and listing agents.
+//
 // TODO: this test is poorly formatted, it's extremely necessary to refactor it
 // TODO: need to verify that adapters understand filtering by user id, by
 // creating two users with two ids and retrieving models for each of them.

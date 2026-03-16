@@ -1,3 +1,4 @@
+// Package users implements user usecases.
 package users
 
 import (

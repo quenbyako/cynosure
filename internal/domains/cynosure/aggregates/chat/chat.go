@@ -1,3 +1,4 @@
+// Package chat implements chat aggregate.
 package chat
 
 import (

@@ -150,6 +150,7 @@ func (h *Handler) RegisterClient(
 				"unexpected status code %d when requesting %s",
 				metadataResp.StatusCode(), authServer.String(),
 			)
+
 			continue
 		}
 

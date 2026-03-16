@@ -117,7 +117,7 @@ func ServerInfoListFromDB(row db.ListServersRow) (*entities.ServerConfig, error)
 
 // buildOAuthConfig builds OAuth2 config from database row fields.
 func buildOAuthConfig(
-	clientID, clientSecret, redirectUrl, authUrl, tokenUrl *string,
+	clientID, clientSecret, redirectURL, authURL, tokenURL *string,
 	scopes []string,
 ) (*oauth2.Config, error) {
 	if clientID == nil || *clientID == "" {
@@ -125,22 +125,22 @@ func buildOAuthConfig(
 		return nil, nil
 	}
 
-	if authUrl == nil || *authUrl == "" {
+	if authURL == nil || *authURL == "" {
 		return nil, errors.New("invalid oauth config: auth URL is empty")
 	}
 
-	if tokenUrl == nil || *tokenUrl == "" {
+	if tokenURL == nil || *tokenURL == "" {
 		return nil, errors.New("invalid oauth config: token URL is empty")
 	}
 
 	return &oauth2.Config{
 		ClientID:     *clientID,
 		ClientSecret: deref(clientSecret),
-		RedirectURL:  deref(redirectUrl),
+		RedirectURL:  deref(redirectURL),
 		Scopes:       scopes,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:       *authUrl,
-			TokenURL:      *tokenUrl,
+			AuthURL:       *authURL,
+			TokenURL:      *tokenURL,
 			DeviceAuthURL: "",
 			AuthStyle:     0,
 		},

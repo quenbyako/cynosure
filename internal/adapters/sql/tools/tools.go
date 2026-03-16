@@ -1,3 +1,4 @@
+// Package tools implements SQL tool storage.
 package tools
 
 import (

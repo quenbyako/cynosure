@@ -1,3 +1,4 @@
+// Package testsuite provides shared test utilities.
 package testsuite
 
 import (

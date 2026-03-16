@@ -149,7 +149,7 @@ func (h *Handler) processMessage(
 		}
 
 		var (
-			tgMsgId      *int
+			tgMsgID      *int
 			accumulated  string
 			lastSentText string
 			limiter      = rate.NewLimiter(rate.Every(h.updateInterval), 1)
@@ -180,7 +180,7 @@ func (h *Handler) processMessage(
 				continue
 			}
 
-			if tgMsgId == nil {
+			if tgMsgID == nil {
 				// First update: send new message
 				resp, err := h.client.SendMessageWithResponse(
 					ctx, botapi.SendMessageJSONRequestBody{
@@ -205,12 +205,13 @@ func (h *Handler) processMessage(
 					h.log.ProcessMessageIssue(
 						ctx, chatID, fmt.Errorf("send initial message: %w", err),
 					)
+
 					continue
 				}
 
 				if resp.JSON200 != nil && resp.JSON200.Result.MessageId != 0 {
 					id := resp.JSON200.Result.MessageId
-					tgMsgId = &id
+					tgMsgID = &id
 					lastSentText = accumulated
 				} else if resp.JSONDefault != nil {
 					h.log.ProcessMessageIssue(
@@ -228,7 +229,7 @@ func (h *Handler) processMessage(
 				_, err := h.client.EditMessageTextWithResponse(
 					ctx, botapi.EditMessageTextJSONRequestBody{
 						ChatId:               &chatID,
-						MessageId:            tgMsgId,
+						MessageId:            tgMsgID,
 						Text:                 accumulated,
 						BusinessConnectionId: nil,
 						Entities:             nil,
@@ -247,10 +248,10 @@ func (h *Handler) processMessage(
 			}
 		}
 
-		if tgMsgId != nil && accumulated != lastSentText {
+		if tgMsgID != nil && accumulated != lastSentText {
 			_, _ = h.client.EditMessageTextWithResponse(ctx, botapi.EditMessageTextJSONRequestBody{
 				ChatId:               &chatID,
-				MessageId:            tgMsgId,
+				MessageId:            tgMsgID,
 				Text:                 accumulated,
 				BusinessConnectionId: nil,
 				Entities:             nil,

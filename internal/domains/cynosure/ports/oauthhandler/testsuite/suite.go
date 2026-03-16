@@ -1,3 +1,4 @@
+// Package testsuite provides tests for OAuth handler.
 package testsuite
 
 import (

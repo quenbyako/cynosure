@@ -1,3 +1,4 @@
+// Package ids defines domain identifiers.
 package ids
 
 import (

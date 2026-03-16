@@ -1,3 +1,4 @@
+// Package sql implements SQL database adapter.
 package sql
 
 import (

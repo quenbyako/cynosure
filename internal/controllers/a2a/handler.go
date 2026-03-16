@@ -1,3 +1,4 @@
+// Package a2a implements A2A controller.
 package a2a
 
 import (

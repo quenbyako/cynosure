@@ -55,6 +55,8 @@ func (s *IdentityManagerTestSuite) validate() error {
 }
 
 func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
+	t.Helper()
+
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
