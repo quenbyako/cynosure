@@ -9,17 +9,19 @@ import (
 // Applies to:
 //
 //   - [Port.RegisterClient]
+//
+//nolint:ireturn // option pattern
 func WithSuggestedProtectedResource(link *url.URL) RegisterClientOption {
 	return registerClientFunc(func(p *registerClientParams) { p.suggestedProtectedResource = link })
 }
 
 type (
-	RegisterClientOption interface{ applyRegisterClient(*registerClientParams) }
+	RegisterClientOption interface{ applyRegisterClient(p *registerClientParams) }
 
 	registerClientFunc func(*registerClientParams)
 )
 
-var _ RegisterClientOption = (registerClientFunc)(nil)
+var _ RegisterClientOption = registerClientFunc(nil)
 
 func (f registerClientFunc) applyRegisterClient(p *registerClientParams) { f(p) }
 

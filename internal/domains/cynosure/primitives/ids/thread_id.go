@@ -8,7 +8,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const threadIDFormat = "users/%v/threads/%v"
+const (
+	threadIDFormat = "users/%v/threads/%v"
+)
 
 type ThreadID struct {
 	// unlike other ids, thread id is a string due to compatibility with

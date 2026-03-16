@@ -53,6 +53,8 @@ type chatFixture struct {
 }
 
 func newChatFixture(t *testing.T) *chatFixture {
+	t.Helper()
+
 	user := ids.RandomUserID()
 	tid, _ := ids.NewThreadID(user, "test-thread-id")
 

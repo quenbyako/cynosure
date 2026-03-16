@@ -1,7 +1,9 @@
 // Package entities defines domain entities.
 package entities
 
-import "slices"
+import (
+	"slices"
+)
 
 type EventsReader[T any] interface {
 	Synchronized() bool

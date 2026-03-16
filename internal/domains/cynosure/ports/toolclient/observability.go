@@ -36,15 +36,12 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-type discoverToolsCallback interface {
-	span
-}
-
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) discoverTools(
 	ctx context.Context,
 	accountID, serverURL string,
 	hasToken bool,
-) (context.Context, discoverToolsCallback) {
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.tool.discover_tools",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -58,7 +55,7 @@ func (o *observable) discoverTools(
 }
 
 type executeToolCallback interface {
-	recordResponse(json.RawMessage)
+	recordResponse(response json.RawMessage)
 	span
 }
 
@@ -72,6 +69,7 @@ func (c *executeToolSpan) recordResponse(response json.RawMessage) {
 	}
 }
 
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) executeTool(
 	ctx context.Context,
 	toolName string,

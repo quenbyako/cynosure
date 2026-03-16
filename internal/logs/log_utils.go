@@ -95,6 +95,7 @@ func attrsToSlog(attrs ...attribute.KeyValue) []slog.Attr {
 	return res
 }
 
+//nolint:cyclop // come on, it's a single switch case!
 func valueSlog(attrs attribute.Value) slog.Value {
 	switch attrs.Type() {
 	case attribute.BOOL:
@@ -113,6 +114,8 @@ func valueSlog(attrs attribute.Value) slog.Value {
 		return slog.StringValue(attrs.AsString())
 	case attribute.STRINGSLICE:
 		return slog.AnyValue(attrs.AsStringSlice())
+	case attribute.INVALID:
+		return slog.AnyValue(attrs)
 	default:
 		return slog.AnyValue(attrs)
 	}

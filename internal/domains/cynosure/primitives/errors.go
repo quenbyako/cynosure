@@ -19,5 +19,5 @@ func ErrInvalidEnum(value string) *InvalidEnumError {
 }
 
 func (e *InvalidEnumError) Error() string {
-	return fmt.Sprintf("value %q is not valid", string(e.Value))
+	return fmt.Sprintf("value %q is not valid", e.Value)
 }

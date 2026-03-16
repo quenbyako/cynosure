@@ -15,7 +15,7 @@ type AccountID struct {
 }
 
 // AccountIDOption defines optional parameters for AccountID.
-type AccountIDOption interface{ applyAccountID(*AccountID) }
+type AccountIDOption interface{ applyAccountID(p *AccountID) }
 
 func RandomAccountID(user UserID, server ServerID, opts ...AccountIDOption) (AccountID, error) {
 	return NewAccountID(user, server, uuid.New(), opts...)

@@ -12,7 +12,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
 type ToolCallFunc func(
 	ctx context.Context, params map[string]json.RawMessage,
@@ -38,6 +40,7 @@ var (
 
 type ToolOption func(*Tool)
 
+//noling:gocritic // hugeparam, architecture mistake.
 func WithEmbedding(embedding [embeddingSize]float32) ToolOption {
 	return func(t *Tool) { t.embedding = embedding }
 }
@@ -144,6 +147,7 @@ func (t *Tool) Embedding() [embeddingSize]float32 { return t.embedding }
 
 // WRITE
 
+//noling:gocritic // hugeparam, architecture mistake.
 func (t *Tool) SetEmbedding(embedding [embeddingSize]float32) {
 	previous := t.embedding
 	t.embedding = embedding
@@ -170,6 +174,8 @@ type ToolEventEmbeddingUpdated struct {
 	embedding [embeddingSize]float32
 }
 
+//nolint:gocritic // hugeparam, architecture mistake.
 func (e ToolEventEmbeddingUpdated) _ToolEvent() {}
 
+//nolint:gocritic // hugeparam, architecture mistake.
 func (e ToolEventEmbeddingUpdated) Embedding() [embeddingSize]float32 { return e.embedding }

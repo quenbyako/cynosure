@@ -29,13 +29,10 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-type registerClientCallback interface {
-	span
-}
-
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) registerClient(
 	ctx context.Context, resourceURL, clientName string,
-) (context.Context, registerClientCallback) {
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.register_client",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -47,13 +44,10 @@ func (o *observable) registerClient(
 	return ctx, &spanCallback{span: span}
 }
 
-type refreshTokenCallback interface {
-	span
-}
-
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) refreshToken(
 	ctx context.Context, clientID, authURL string,
-) (context.Context, refreshTokenCallback) {
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.refresh_token",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -65,13 +59,10 @@ func (o *observable) refreshToken(
 	return ctx, &spanCallback{span: span}
 }
 
-type exchangeCallback interface {
-	span
-}
-
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) exchange(
 	ctx context.Context, clientID, authURL string,
-) (context.Context, exchangeCallback) {
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.exchange",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -80,6 +71,7 @@ func (o *observable) exchange(
 		),
 	)
 
+	//nolint:spancheck // isolated in a wrapper
 	return ctx, &spanCallback{span: span}
 }
 

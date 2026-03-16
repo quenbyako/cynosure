@@ -68,6 +68,10 @@ func (s *AccountStorageTestSuite) validate() error {
 }
 
 func (s *AccountStorageTestSuite) afterTest(t *testing.T) {
+	t.Helper()
+
+	t.Helper()
+
 	if s.cleanup != nil {
 		if err := s.cleanup(t.Context()); err != nil {
 			t.Fatalf("cleanup failed: %v", err)

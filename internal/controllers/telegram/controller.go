@@ -17,7 +17,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
+const (
+	pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
+)
 
 type Handler struct {
 	lifecycleCtx   context.Context

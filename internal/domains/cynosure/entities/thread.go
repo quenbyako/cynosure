@@ -111,12 +111,12 @@ func (c *Thread) Messages() []messages.Message { return c.messages }
 // WRITE
 
 func (c *Thread) AddMessage(message messages.Message) error {
-	messages := append(c.messages, message)
-	if err := c.validateMessages(messages); err != nil {
+	msgs := cloneWithAppend(c.messages, message)
+	if err := c.validateMessages(msgs); err != nil {
 		return err
 	}
 
-	c.messages = messages
+	c.messages = msgs
 
 	c.pendingEvents = append(c.pendingEvents, ThreadEventMessageAdded{
 		message: message,
@@ -169,3 +169,11 @@ type ThreadEventAgentSet struct {
 func (e ThreadEventAgentSet) AgentID() ids.AgentID { return e.agentID }
 
 func (e ThreadEventAgentSet) undo(c *Thread) { c.agentID = e.previous }
+
+func cloneWithAppend[S ~[]T, T any](other S, others ...T) S {
+	res := make([]T, len(other), len(other)+len(others))
+	copy(res, other)
+	res = append(res, others...)
+
+	return res
+}

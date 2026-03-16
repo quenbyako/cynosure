@@ -12,7 +12,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
+const (
+	pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
+)
 
 type Usecase struct {
 	storage        ports.ThreadStorage

@@ -14,7 +14,7 @@ func WithTrace(trace trace.Tracer) traceWrapper {
 }
 
 type (
-	WrapThreadStorageOption interface{ applyWrapThreadStorage(*threadStorageWrapped) }
+	WrapThreadStorageOption interface{ applyWrapThreadStorage(p *threadStorageWrapped) }
 
 	traceWrapper struct{ trace trace.Tracer }
 )

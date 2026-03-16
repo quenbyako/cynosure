@@ -90,16 +90,18 @@ func (h *Handler) OAuthCallbackGet(
 	}, nil
 }
 
-const errorPage = `<html>
+const (
+	errorPage = `<html>
 				<body>
 					<h1>Oopsie</h1>
 					<p>The 'state' parameter is missing or invalid.</p>
 				</body>
 			</html>`
 
-const successPage = `<html>
+	successPage = `<html>
 				<body>
 					<h1>Authorization Successful</h1>
 					<p>You can now close this window and return to the chat.</p>
 				</body>
 			</html>`
+)

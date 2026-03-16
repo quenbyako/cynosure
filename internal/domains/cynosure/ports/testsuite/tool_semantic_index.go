@@ -14,7 +14,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
 type ToolSemanticIndexTestSuite struct {
 	adapter ports.ToolSemanticIndex
@@ -174,6 +176,8 @@ func (s *ToolSemanticIndexTestSuite) TestBuildToolEmbedding(t *testing.T) {
 }
 
 // Helper: assertValidEmbedding checks that embedding is valid (correct size, non-zero).
+//
+//nolint:gocritic // hugeparam, architecture mistake.
 func (s *ToolSemanticIndexTestSuite) assertValidEmbedding(
 	t *testing.T, embedding [embeddingSize]float32,
 ) {

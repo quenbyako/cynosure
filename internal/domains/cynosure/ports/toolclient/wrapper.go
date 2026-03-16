@@ -25,6 +25,7 @@ type toolClientWrapped struct {
 
 func (t *toolClientWrapped) _PortWrapped() {}
 
+//nolint:ireturn // returns interface for hiding implementation details
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
 		panic("required observable stack")
@@ -60,6 +61,7 @@ func (t *toolClientWrapped) DiscoverTools(
 	return res, err
 }
 
+//nolint:ireturn // returns interface for polimorphism
 func (t *toolClientWrapped) ExecuteTool(
 	ctx context.Context,
 	tool entities.ToolReadOnly,

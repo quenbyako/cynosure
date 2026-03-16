@@ -61,6 +61,7 @@ func (s *Usecase) InitializeAccount(ctx context.Context, userID ids.UserID) erro
 	return nil
 }
 
+//nolint:ireturn // returns interface for make entity read-only.
 func (s *Usecase) addAdminMCP(
 	ctx context.Context,
 	userID ids.UserID,

@@ -7,7 +7,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
 // ToolStorage manages persistence of MCP tools with their semantic embeddings.
 // Each tool represents a callable function exposed by an MCP server account,
