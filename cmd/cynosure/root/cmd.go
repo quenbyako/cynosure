@@ -42,6 +42,10 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		panic(err) //nolint:forbidigo // safe to use here.
 	}
 
+	return runJobs(ctx, &cfg)
+}
+
+func runJobs(ctx context.Context, cfg *Config) core.ExitCode {
 	jobs := []func(context.Context) error{
 		cfg.Port.Serve,
 		cfg.HTTPPort.Serve,

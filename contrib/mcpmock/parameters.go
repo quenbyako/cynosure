@@ -1,3 +1,4 @@
+// Package mcpmock provides parameters for the mock MCP server.
 package mcpmock
 
 // Parameters for EACH test:

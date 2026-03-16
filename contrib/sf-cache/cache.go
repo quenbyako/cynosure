@@ -85,27 +85,8 @@ func (c *Cache[K, V]) Get(ctx context.Context, key K) (V, error) {
 		return zero, ErrClosed
 	}
 
-	// Retry loop to handle race conditions between Get and LRU eviction.
 	for range c.maxAttempts {
-		c.mu.Lock()
-
-		entry, ok := c.lru.Get(key)
-		if !ok {
-			// Create new single-flight entry for this key.
-			entry = &cacheEntry[K, V]{
-				constructor: c.constructor,
-				key:         key,
-				group: group[V]{
-					current: nil,
-					mu:      sync.Mutex{},
-				},
-				mu:         sync.RWMutex{},
-				destructed: atomic.Bool{},
-			}
-			c.lru.Add(key, entry)
-		}
-
-		c.mu.Unlock()
+		entry := c.getOrCreateEntry(key)
 
 		val, err := entry.retrieve(ctx)
 		if errors.Is(err, ErrEvicted) {
@@ -116,6 +97,26 @@ func (c *Cache[K, V]) Get(ctx context.Context, key K) (V, error) {
 	}
 
 	return *new(V), fmt.Errorf("key %v repeatedly evicted: %w", key, ErrEvicted)
+}
+
+func (c *Cache[K, V]) getOrCreateEntry(key K) *cacheEntry[K, V] {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	entry, ok := c.lru.Get(key)
+	if !ok {
+		entry = &cacheEntry[K, V]{ //nolint:exhaustruct
+			constructor: c.constructor,
+			key:         key,
+			group: group[V]{ //nolint:exhaustruct
+				mu: sync.Mutex{},
+			},
+			mu: sync.RWMutex{},
+		}
+		c.lru.Add(key, entry)
+	}
+
+	return entry
 }
 
 // cacheEntry wraps a single-flight Group to ensure that concurrent requests for the

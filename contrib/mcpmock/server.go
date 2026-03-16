@@ -1,3 +1,4 @@
+// Package mcpmock provides a mock MCP server for testing purposes.
 package mcpmock
 
 import (
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/quenbyako/ext/syncmap"
@@ -26,7 +28,9 @@ func randomString(prefix string, n int) string {
 }
 
 func randomPath(prefix string) string {
-	return "/" + randomString(prefix, 4)
+	const randomPathLenHex = 4
+
+	return "/" + randomString(prefix, randomPathLenHex)
 }
 
 // MockServerConfig defines the behavior and features of the Mock MCP Server.
@@ -111,22 +115,24 @@ func mockMCPServer() *mcp.Server {
 		OutputSchema: nil,
 		Title:        "",
 		Icons:        nil,
-	}, func(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{
-					Text:        "mock response",
-					Meta:        nil,
-					Annotations: nil,
-				},
-			},
-			Meta:              nil,
-			StructuredContent: nil,
-			IsError:           false,
-		}, nil
-	})
+	}, handleMockTool)
 
 	return srv
+}
+
+func handleMockTool(_ context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{
+				Text:        "mock response",
+				Meta:        nil,
+				Annotations: nil,
+			},
+		},
+		Meta:              nil,
+		StructuredContent: nil,
+		IsError:           false,
+	}, nil
 }
 
 func New(cfg MockServerConfig) *MockServer {
@@ -137,20 +143,28 @@ func New(cfg MockServerConfig) *MockServer {
 	tokenPath := randomPath("token")
 	regPath := randomPath("reg")
 
-	var authTypeStr string
+	authTypeStr := resolveAuthType(cfg.AuthType)
 
-	switch cfg.AuthType {
-	case AuthTypeNone:
-		authTypeStr = ""
-	case AuthTypeBearer:
-		authTypeStr = "Bearer"
-	case AuthTypeRandomized:
-		authTypeStr = randomString("Auth", 2)
-	default:
-		panic(fmt.Sprintf("unknown auth type: %v", cfg.AuthType))
-	}
+	srv := newMockServer(cfg, mcpPath, authTypeStr)
 
-	srv := &MockServer{
+	effectiveAuthType := srv.resolveEffectiveAuthType()
+	mcpHandler := srv.setupMCPHandler()
+
+	mux.Handle(mcpPath, mcpHandler)
+	mux.Handle(mcpPath+"/", mcpHandler)
+
+	srv.setupDiscoveryRoutes(mux, authPath, tokenPath, regPath)
+	srv.setupOAuthRoutes(mux, authPath, tokenPath)
+
+	srv.Server = httptest.NewServer(srv.wrapWithMiddleware(
+		mux, effectiveAuthType, authPath, tokenPath, regPath,
+	))
+
+	return srv
+}
+
+func newMockServer(cfg MockServerConfig, mcpPath, authTypeStr string) *MockServer {
+	return &MockServer{
 		cfg:            cfg,
 		authTypeString: authTypeStr,
 		mcpPath:        mcpPath,
@@ -159,79 +173,98 @@ func New(cfg MockServerConfig) *MockServer {
 		authCodes:      syncmap.Map[string, string]{},
 		metadataPath:   "",
 	}
+}
 
-	// For middleware, we need a prefix. If AuthTypeNone, we assume Bearer for
-	// the actual header check.
-	effectiveAuthType := authTypeStr
-	if effectiveAuthType == "" {
-		effectiveAuthType = "Bearer"
+func resolveAuthType(authType AuthType) string {
+	switch authType {
+	case AuthTypeNone:
+		return ""
+	case AuthTypeBearer:
+		return "Bearer"
+	case AuthTypeRandomized:
+		const randomBytes = 2
+
+		return randomString("Auth", randomBytes)
+	default:
+		//nolint:forbidigo // Fatal error in mock server initialization
+		panic(fmt.Sprintf("unknown auth type: %v", authType))
+	}
+}
+
+func (m *MockServer) resolveEffectiveAuthType() string {
+	if m.authTypeString == "" {
+		return "Bearer"
 	}
 
-	// 2. Setup MCP Server (internal logic)
+	return m.authTypeString
+}
+
+func (m *MockServer) setupMCPHandler() http.Handler {
 	mcpServer := mockMCPServer()
 
-	var mcpHandler http.Handler
-
-	switch cfg.Transport {
+	switch m.cfg.Transport {
 	case TransportSSE:
-		mcpHandler = mcp.NewSSEHandler(func(*http.Request) *mcp.Server { return mcpServer }, nil)
+		return mcp.NewSSEHandler(func(*http.Request) *mcp.Server { return mcpServer }, nil)
 	case TransportHTTP:
-		mcpHandler = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 			return mcpServer
 		}, nil)
 	default:
-		panic(fmt.Sprintf("unknown transport type: %v", cfg.Transport))
+		//nolint:forbidigo // Fatal error in mock server initialization
+		panic(fmt.Sprintf("unknown transport type: %v", m.cfg.Transport))
 	}
+}
 
-	mux.Handle(mcpPath, mcpHandler)
-	mux.Handle(mcpPath+"/", mcpHandler)
-
-	// 3. Discovery Helpers
-	getDiscoveryData := func() map[string]any {
-		// Use srv.Server.URL because srv.URL is only available after httptest.NewServer
-		baseURL := srv.URL
-
-		res := map[string]any{
-			"issuer":                 baseURL,
-			"authorization_endpoint": baseURL + authPath,
-			"token_endpoint":         baseURL + tokenPath,
-		}
-		if cfg.Discovery == OAuthDiscoveryFull && cfg.Registration == OAuthRegistrationSupported {
-			res["registration_endpoint"] = srv.URL + regPath
-		}
-
-		return res
-	}
-
+func (m *MockServer) setupDiscoveryRoutes(mux *http.ServeMux, authPath, tokenPath, regPath string) {
 	discoveryHandler := func(w http.ResponseWriter, r *http.Request) {
-		if cfg.Discovery == OAuthDiscoveryNone {
+		if m.cfg.Discovery == OAuthDiscoveryNone {
 			w.WriteHeader(http.StatusNotFound)
+
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(getDiscoveryData())
+
+		//nolint:errcheck // In mock server we don't care about Encode failing
+		_ = json.NewEncoder(w).Encode(m.getDiscoveryData(authPath, tokenPath, regPath))
 	}
 
-	// 4. Randomized Metadata (Resource Metadata)
-	switch cfg.Protected {
+	switch m.cfg.Protected {
 	case MetadataDiscoveryRoot:
 		mux.HandleFunc("/.well-known/oauth-authorization-server", discoveryHandler)
 	case MetadataDiscoveryPathSpecific:
-		mux.HandleFunc("/.well-known/oauth-authorization-server"+srv.mcpPath, discoveryHandler)
+		mux.HandleFunc("/.well-known/oauth-authorization-server"+m.mcpPath, discoveryHandler)
 	case MetadataDiscoveryPathExplicit:
-		srv.metadataPath = randomPath("oauth-metadata")
-		mux.HandleFunc(srv.metadataPath, discoveryHandler)
+		m.metadataPath = randomPath("oauth-metadata")
+		mux.HandleFunc(m.metadataPath, discoveryHandler)
 	case MetadataDiscoveryNone:
-		// No discovery endpoints
 	default:
-		panic(fmt.Sprintf("unexpected mcpmock.MetadataDiscovery: %#v", cfg.Protected))
+		//nolint:forbidigo // Fatal error in mock server initialization
+		panic(fmt.Sprintf("unexpected mcpmock.MetadataDiscovery: %#v", m.cfg.Protected))
+	}
+}
+
+func (m *MockServer) getDiscoveryData(authPath, tokenPath, regPath string) map[string]any {
+	baseURL := m.URL
+
+	res := map[string]any{
+		"issuer":                 baseURL,
+		"authorization_endpoint": baseURL + authPath,
+		"token_endpoint":         baseURL + tokenPath,
 	}
 
-	// 5. Randomized OAuth Routes
+	if m.cfg.Discovery == OAuthDiscoveryFull && m.cfg.Registration == OAuthRegistrationSupported {
+		res["registration_endpoint"] = m.URL + regPath
+	}
+
+	return res
+}
+
+func (m *MockServer) setupOAuthRoutes(mux *http.ServeMux, authPath, tokenPath string) {
 	mux.HandleFunc(authPath, func(w http.ResponseWriter, r *http.Request) {
-		if cfg.Flow == OAuthFlowAuthLinkError {
+		if m.cfg.Flow == OAuthFlowAuthLinkError {
 			w.WriteHeader(http.StatusInternalServerError)
+
 			return
 		}
 
@@ -239,57 +272,68 @@ func New(cfg MockServerConfig) *MockServer {
 		state := r.URL.Query().Get("state")
 		code := "mock_code_" + state
 
-		srv.authCodes.Store(code, "mock_token_"+state)
+		m.authCodes.Store(code, "mock_token_"+state)
 
 		http.Redirect(w, r, redirectURI+"?code="+code+"&state="+state, http.StatusFound)
 	})
 
-	mux.HandleFunc(tokenPath, func(w http.ResponseWriter, r *http.Request) {
-		code := r.FormValue("code")
+	mux.HandleFunc(tokenPath, m.handleTokenRequest)
+}
 
-		token, ok := srv.authCodes.Load(code)
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+func (m *MockServer) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
+	const maxBodySize = 1 << 20 // 1 MiB
 
-		srv.tokens.Store(token, struct{}{})
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 
-		resp := map[string]any{
-			"access_token": token,
-			"expires_in":   3600,
-		}
-		if srv.authTypeString != "" {
-			resp["token_type"] = srv.authTypeString
-		}
+	code := r.FormValue("code")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	})
+	token, ok := m.authCodes.Load(code)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
 
-	// 6. Final Wiring with Middleware
+		return
+	}
+
+	m.tokens.Store(token, struct{}{})
+
+	const expirationSeconds = int(1 * time.Hour / time.Second)
+
+	resp := map[string]any{
+		"access_token": token,
+		"expires_in":   expirationSeconds,
+	}
+
+	if m.authTypeString != "" {
+		resp["token_type"] = m.authTypeString
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(resp) //nolint:errcheck,gosec // makes no sense
+}
+
+func (m *MockServer) wrapWithMiddleware(
+	mux *http.ServeMux, authType, authPath, tokenPath, regPath string,
+) http.Handler {
 	checkTokenFunc := func(token string) bool {
-		_, ok := srv.tokens.Load(token)
+		_, ok := m.tokens.Load(token)
+
 		return ok
 	}
 
-	finalHandler := authMiddleware(
-		cfg.Auth,
-		effectiveAuthType,
-		srv.metadataPath,
+	return authMiddleware(
+		m.cfg.Auth,
+		authType,
+		m.metadataPath,
 		func(path string) bool {
 			return strings.HasPrefix(path, "/.well-known/") ||
 				path == authPath ||
 				path == tokenPath ||
 				(regPath != "" && path == regPath) ||
-				(srv.metadataPath != "" && path == srv.metadataPath)
+				(m.metadataPath != "" && path == m.metadataPath)
 		},
 		checkTokenFunc,
 	)(mux)
-
-	srv.Server = httptest.NewServer(finalHandler)
-
-	return srv
 }
 
 func authMiddleware(
@@ -301,54 +345,64 @@ func authMiddleware(
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-
-			if bypassAuth(path) {
+			if bypassAuth(r.URL.Path) || auth == AuthNone || auth == AuthOptional {
 				next.ServeHTTP(w, r)
+
 				return
 			}
 
-			if auth == AuthNone || auth == AuthOptional {
+			if checkAuthHeader(w, r, authType, checkToken) {
 				next.ServeHTTP(w, r)
+
 				return
-			}
-
-			// Required Auth
-			authHeader := r.Header.Get("Authorization")
-
-			prefix := authType + " "
-			if strings.HasPrefix(authHeader, prefix) {
-				token := strings.TrimPrefix(authHeader, prefix)
-				if checkToken(token) {
-					next.ServeHTTP(w, r)
-					return
-				} else {
-					w.WriteHeader(http.StatusForbidden)
-					return
-				}
 			}
 
 			if auth == AuthNoHeader {
 				w.WriteHeader(http.StatusUnauthorized)
+
 				return
 			}
 
-			// Default Response with WWW-Authenticate
-			wwwAuthHeader := authType + " error=\"invalid_token\""
-			if customMetadataPath != "" {
-				wwwAuthHeader += fmt.Sprintf(`, resource_metadata="%s"`, customMetadataPath)
-			}
-
-			w.Header().Set("WWW-Authenticate", wwwAuthHeader)
-			w.WriteHeader(http.StatusUnauthorized)
+			writeAuthFailure(w, authType, customMetadataPath)
 		})
 	}
 }
 
-func must[T any](v T, err error) T {
+func checkAuthHeader(
+	w http.ResponseWriter, r *http.Request, authType string, checkToken func(string) bool,
+) bool {
+	authHeader := r.Header.Get("Authorization")
+	prefix := authType + " "
+
+	if strings.HasPrefix(authHeader, prefix) {
+		token := strings.TrimPrefix(authHeader, prefix)
+		if checkToken(token) {
+			return true
+		}
+
+		w.WriteHeader(http.StatusForbidden)
+
+		return false // Handled, but failed
+	}
+
+	return false
+}
+
+func writeAuthFailure(w http.ResponseWriter, authType, customMetadataPath string) {
+	wwwAuthHeader := authType + " error=\"invalid_token\""
+	if customMetadataPath != "" {
+		wwwAuthHeader += fmt.Sprintf(`, resource_metadata=%q`, customMetadataPath)
+	}
+
+	w.Header().Set("WWW-Authenticate", wwwAuthHeader)
+	w.WriteHeader(http.StatusUnauthorized)
+}
+
+func must[T any](value T, err error) T {
 	if err != nil {
+		//nolint:forbidigo // Fatal error in mock server initialization
 		panic(err)
 	}
 
-	return v
+	return value
 }

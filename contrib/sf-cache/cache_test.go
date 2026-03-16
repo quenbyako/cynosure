@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/quenbyako/cynosure/contrib/sf-cache"
@@ -58,15 +59,17 @@ func TestCache_ConcurrentGet(t *testing.T) {
 	for id := range numGoroutines {
 		wg.Add(1)
 
-		go func(id int) {
+		go func(t *testing.T, id int) {
+			t.Helper()
+
 			defer wg.Done()
 
 			currentKey := id % numKeys
 
 			obtainedVal, err := testCache.Get(ctx, currentKey)
-			require.NoError(t, err)
-			require.Equal(t, testValue, obtainedVal)
-		}(id)
+			assert.NoError(t, err)
+			assert.Equal(t, testValue, obtainedVal)
+		}(t, id)
 	}
 
 	wg.Wait()
@@ -110,13 +113,15 @@ func TestCache_ConcurrentGetWithLRUEviction(t *testing.T) {
 	for id := range numGoroutines {
 		wg.Add(1)
 
-		go func(id int) {
+		go func(t *testing.T, id int) {
+			t.Helper()
+
 			defer wg.Done()
 
 			currentKey := id % testKeyAmount
 			_, err := testCache.Get(ctx, currentKey)
-			require.NoError(t, err)
-		}(id)
+			assert.NoError(t, err)
+		}(t, id)
 	}
 
 	wg.Wait()
@@ -157,12 +162,14 @@ func TestCache_ConstructorError(t *testing.T) {
 	for range numGoroutines {
 		wg.Add(1)
 
-		go func() {
+		go func(t *testing.T) {
+			t.Helper()
+
 			defer wg.Done()
 
 			_, err := testCache.Get(ctx, 1)
-			require.ErrorIs(t, err, errConstructorFailed)
-		}()
+			assert.ErrorIs(t, err, errConstructorFailed)
+		}(t)
 	}
 
 	wg.Wait()
