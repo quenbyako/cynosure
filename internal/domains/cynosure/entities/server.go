@@ -191,6 +191,16 @@ func (c *ServerConfig) UnsetProcotocol() {
 	})
 }
 
+func (c *ServerConfig) SetConfigExpiration(t time.Time) {
+	previous := c.configExpiration
+	c.configExpiration = t
+
+	c.pendingEvents = append(c.pendingEvents, ServerConfigEventConfigExpirationUpdated{
+		previous: previous,
+		value:    c.configExpiration,
+	})
+}
+
 // EVENTS
 
 type ServerConfigEvent interface{ undo(c *ServerConfig) }
@@ -199,6 +209,7 @@ type ServerConfigEvent interface{ undo(c *ServerConfig) }
 var (
 	_ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
 	_ ServerConfigEvent = ServerConfigEventProtocolUpdated{}
+	_ ServerConfigEvent = ServerConfigEventConfigExpirationUpdated{}
 )
 
 type ServerConfigEventOauthConfigUpdated struct {
@@ -221,6 +232,17 @@ func (e ServerConfigEventProtocolUpdated) Value() tools.Protocol { return e.valu
 
 func (e ServerConfigEventProtocolUpdated) undo(c *ServerConfig) {
 	c.protocol = e.previous
+}
+
+type ServerConfigEventConfigExpirationUpdated struct {
+	previous time.Time
+	value    time.Time
+}
+
+func (e ServerConfigEventConfigExpirationUpdated) Value() time.Time { return e.value }
+
+func (e ServerConfigEventConfigExpirationUpdated) undo(c *ServerConfig) {
+	c.configExpiration = e.previous
 }
 
 func cloneConfig(cfg *oauth2.Config) *oauth2.Config {

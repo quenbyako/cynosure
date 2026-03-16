@@ -2,7 +2,6 @@ package accounts
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"golang.org/x/oauth2"
@@ -11,18 +10,15 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr string) error {
 	ctx, span := s.trace.Start(ctx, "Usecase.ExchangeToken")
 	defer span.End()
 
-	if stateStr == "" {
-		return errors.New("state parameter is required")
-	}
-
-	if exchangeToken == "" {
-		return errors.New("exchange token is required")
+	if err := s.validateExchangeParams(exchangeToken, stateStr); err != nil {
+		return err
 	}
 
 	state, err := oauth.StateFromToken(stateStr, s.key)
@@ -40,6 +36,27 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 		return fmt.Errorf("exchanging token: %w", err)
 	}
 
+	return s.saveExchangedAccountAndQueueTools(ctx, state, token, server)
+}
+
+func (s *Usecase) validateExchangeParams(exchangeToken, stateStr string) error {
+	if stateStr == "" {
+		return fmt.Errorf("%w", ErrStateRequired)
+	}
+
+	if exchangeToken == "" {
+		return fmt.Errorf("%w", ErrExchangeTokenRequired)
+	}
+
+	return nil
+}
+
+func (s *Usecase) saveExchangedAccountAndQueueTools(
+	ctx context.Context,
+	state oauth.State,
+	token *oauth2.Token,
+	server entities.ServerConfigReadOnly,
+) error {
 	account, err := entities.NewAccount(
 		state.Account(),
 		state.Name(),
@@ -50,77 +67,128 @@ func (s *Usecase) ExchangeToken(ctx context.Context, exchangeToken, stateStr str
 		return fmt.Errorf("constructing account entity: %w", err)
 	}
 
-	err = s.accounts.SaveAccount(ctx, account)
-	if err != nil {
+	if err := s.accounts.SaveAccount(ctx, account); err != nil {
 		return fmt.Errorf("saving account: %w", err)
 	}
 
 	bgCtx := context.WithoutCancel(ctx)
-	bgCtx, discoverToolsSpan := s.trace.Start(bgCtx, "Usecase.ExchangeToken.DiscoverTools")
 
 	// todo: replace to EDA.
-	go func() {
-		defer discoverToolsSpan.End()
-
-		err := s.saveAccountAndTools(bgCtx, server, account, token)
-		if err != nil {
-			// todo: add logging? or replace to EDA?
-			fmt.Println("Error saving account and tools:", err)
-			discoverToolsSpan.RecordError(err)
-		}
-	}()
+	go s.runSaveToolsBackground(bgCtx, server, account, token)
 
 	return nil
 }
 
-func (s *Usecase) saveAccountAndTools(ctx context.Context, server entities.ServerConfigReadOnly, account entities.AccountReadOnly, token *oauth2.Token) error {
+func (s *Usecase) runSaveToolsBackground(
+	ctx context.Context,
+	server entities.ServerConfigReadOnly,
+	account entities.AccountReadOnly,
+	token *oauth2.Token,
+) {
+	ctx, span := s.trace.Start(ctx, "Usecase.ExchangeToken.Discover")
+	defer span.End()
+
+	if err := s.saveAccountAndTools(ctx, server, account, token); err != nil {
+		span.RecordError(err)
+	}
+}
+
+func (s *Usecase) saveAccountAndTools(
+	ctx context.Context,
+	server entities.ServerConfigReadOnly,
+	account entities.AccountReadOnly,
+	token *oauth2.Token,
+) error {
+	rawTools, err := s.discoverTools(ctx, server, account, token)
+	if err != nil {
+		return err
+	}
+
+	for _, rawTool := range rawTools {
+		if err := s.processAndSaveTool(ctx, account, rawTool); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Usecase) discoverTools(
+	ctx context.Context,
+	server entities.ServerConfigReadOnly,
+	account entities.AccountReadOnly,
+	token *oauth2.Token,
+) ([]tools.RawTool, error) {
 	var opts []toolclient.DiscoverToolsOption
 	if token != nil {
 		opts = append(opts, toolclient.WithAuthToken(token))
 	}
 
-	rawTools, err := s.toolClient.DiscoverTools(ctx, server.SSELink(), account.ID(), account.Name(), account.Description(), opts...)
+	rawTools, err := s.toolClient.DiscoverTools(
+		ctx,
+		server.SSELink(),
+		account.ID(),
+		account.Name(),
+		account.Description(),
+		opts...,
+	)
 	if err != nil {
-		return fmt.Errorf("discovering tools: %w", err)
+		return nil, fmt.Errorf("discovering tools: %w", err)
 	}
 
-	for _, rawTool := range rawTools {
-		var toolID ids.ToolID
-		for id := range rawTool.EncodedTools() {
-			toolID = id
-			break
-		}
+	return rawTools, nil
+}
 
-		// Create tool entity
-		// Note: we can't use a closure that captures 'tool' before it exists,
-		// so we'll need to refactor this to pass toolID to ExecuteTool instead
-		tool, err := entities.NewTool(
-			toolID,
-			account.Name(),
-			rawTool.Name(),
-			rawTool.Desc(),
-			rawTool.Params(),
-			rawTool.Response(),
-		)
-		if err != nil {
-			return fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
-		}
+func (s *Usecase) processAndSaveTool(
+	ctx context.Context,
+	account entities.AccountReadOnly,
+	rawTool tools.RawTool,
+) error {
+	toolID := s.extractToolID(rawTool)
 
-		// Index the tool and set embedding
-		embedding, err := s.index.IndexTool(ctx, tool)
-		if err != nil {
-			return fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
-		}
-
-		tool.SetEmbedding(embedding)
-
-		err = s.tools.SaveTool(ctx, tool)
-		if err != nil {
-			return fmt.Errorf("saving tool %q: %w", tool.Name(), err)
-		}
-
-		tool.ClearEvents()
+	tool, err := entities.NewTool(
+		toolID,
+		account.Name(),
+		rawTool.Name(),
+		rawTool.Desc(),
+		rawTool.Params(),
+		rawTool.Response(),
+	)
+	if err != nil {
+		return fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 	}
+
+	return s.indexAndSaveTool(ctx, tool)
+}
+
+func (s *Usecase) indexAndSaveTool(
+	ctx context.Context,
+	tool *entities.Tool,
+) error {
+	embedding, err := s.index.IndexTool(ctx, tool)
+	if err != nil {
+		return fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
+	}
+
+	tool.SetEmbedding(embedding)
+
+	if err := s.tools.SaveTool(ctx, tool); err != nil {
+		return fmt.Errorf("saving tool %q: %w", tool.Name(), err)
+	}
+
+	tool.ClearEvents()
 
 	return nil
+}
+
+func (s *Usecase) extractToolID(rawTool tools.RawTool) ids.ToolID {
+	var toolID ids.ToolID
+
+	for id := range rawTool.EncodedTools() {
+		toolID = id
+
+		break
+	}
+
+	return toolID
 }

@@ -9,13 +9,13 @@ import (
 )
 
 func (s *Usecase) ListTools(ctx context.Context, accountID ids.AccountID) ([]tools.RawTool, error) {
-	t, err := s.tools.ListTools(ctx, accountID)
+	toolsList, err := s.tools.ListTools(ctx, accountID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing tools: %w", err)
 	}
 
-	res := make([]tools.RawTool, len(t))
-	for i, tool := range t {
+	res := make([]tools.RawTool, len(toolsList))
+	for i, tool := range toolsList {
 		res[i], err = tools.NewRawTool(
 			tool.Name(),
 			tool.Description(),

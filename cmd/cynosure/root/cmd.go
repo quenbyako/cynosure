@@ -10,9 +10,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/apps/cynosure"
 )
 
-var _ core.ActionFunc[*Config] = Cmd
+var _ core.ActionFunc[Config] = Cmd
 
-func Cmd(ctx context.Context, appCtx core.AppContext[*Config]) core.ExitCode {
+func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 	cfg := appCtx.Config()
 
 	opts := []cynosure.AppOpts{

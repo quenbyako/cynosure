@@ -3,7 +3,10 @@ package accounts
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -18,9 +21,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
-
-var ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
+//nolint:lll // makes no sense actually.
+var (
+	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
+)
 
 type Usecase struct {
 	users            identitymanager.Port
@@ -68,6 +72,10 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
+const (
+	stateExpiration = 5 * time.Minute
+)
+
 func New(
 	servers ports.ServerStorage,
 	oauth oauthhandler.Port,
@@ -77,22 +85,29 @@ func New(
 	toolClient toolclient.Port,
 	users identitymanager.Port,
 	opts ...NewOption,
-) (
-	*Usecase,
-	error,
-) {
-	p := newParams{
-		clientName:       "test-client",
-		fixedKey:         randomAuthKey(),
-		stateExpiration:  5 * time.Minute,
-		tracer:           noop.NewTracerProvider(),
-		oauthRedirectURL: nil,
-	}
-	for _, opt := range opts {
-		opt(&p)
+) (*Usecase, error) {
+	params := buildNewParams(opts...)
+
+	usecase := newUsecase(servers, oauth, accounts, tools, index, toolClient, users, &params)
+
+	if err := usecase.validate(); err != nil {
+		return nil, fmt.Errorf("usecase validation: %w", err)
 	}
 
-	s := &Usecase{
+	return usecase, nil
+}
+
+func newUsecase(
+	servers ports.ServerStorage,
+	oauth oauthhandler.Port,
+	accounts ports.AccountStorage,
+	tools ports.ToolStorage,
+	index ports.ToolSemanticIndex,
+	toolClient toolclient.Port,
+	users identitymanager.Port,
+	params *newParams,
+) *Usecase {
+	return &Usecase{
 		toolClient: toolClient,
 		oauth:      oauth,
 		servers:    servers,
@@ -102,78 +117,120 @@ func New(
 		users:      users,
 		clock:      time.Now,
 
-		oauthRedirectURL: p.oauthRedirectURL,
-		oauthClientName:  p.clientName,
-		key:              p.fixedKey,
-		stateExpiration:  p.stateExpiration,
+		oauthRedirectURL: params.oauthRedirectURL,
+		oauthClientName:  params.clientName,
+		key:              params.fixedKey,
+		stateExpiration:  params.stateExpiration,
 
-		trace: p.tracer.Tracer(pkgName),
+		trace: params.tracer.Tracer(pkgName),
 	}
-	if err := s.validate(); err != nil {
-		return nil, err
+}
+
+func buildNewParams(opts ...NewOption) newParams {
+	params := newParams{
+		clientName:       "test-client",
+		fixedKey:         randomAuthKey(),
+		stateExpiration:  stateExpiration,
+		tracer:           noop.NewTracerProvider(),
+		oauthRedirectURL: nil,
 	}
 
-	return s, nil
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return params
 }
 
 func (s *Usecase) validate() error {
+	if err := s.validatePorts(); err != nil {
+		return err
+	}
+
+	return s.validateConfig()
+}
+
+func (s *Usecase) validatePorts() error {
 	if s.toolClient == nil {
-		return errors.New("tool registry is required")
+		return ErrInternalValidation("tool registry is required")
 	}
 
 	if s.servers == nil {
-		return errors.New("server storage is required")
+		return ErrInternalValidation("server storage is required")
 	}
 
 	if s.oauth == nil {
-		return errors.New("OAuth handler is required")
+		return ErrInternalValidation("OAuth handler is required")
 	}
 
 	if s.accounts == nil {
-		return errors.New("account storage is required")
+		return ErrInternalValidation("account storage is required")
 	}
 
 	if s.tools == nil {
-		return errors.New("tool storage is required")
+		return ErrInternalValidation("tool storage is required")
 	}
 
 	if s.index == nil {
-		return errors.New("tool semantic index is required")
+		return ErrInternalValidation("tool semantic index is required")
 	}
 
 	if s.users == nil {
-		return errors.New("user storage is required")
-	}
-
-	if s.oauthRedirectURL == nil {
-		return errors.New("OAuth redirect URL is required")
-	}
-
-	if s.oauthClientName == "" {
-		return errors.New("OAuth client name is required")
-	}
-
-	if s.key == [16]byte{} {
-		return errors.New("OAuth key is required")
-	}
-
-	if s.stateExpiration == 0 {
-		return errors.New("state expiration is required")
+		return ErrInternalValidation("user storage is required")
 	}
 
 	return nil
 }
 
-func (s *Usecase) GetServerInfo(ctx context.Context, id ids.ServerID) (entities.ServerConfigReadOnly, error) {
-	return s.servers.GetServerInfo(ctx, id)
+func (s *Usecase) validateConfig() error {
+	if s.oauthRedirectURL == nil {
+		return ErrInternalValidation("OAuth redirect URL is required")
+	}
+
+	if s.oauthClientName == "" {
+		return ErrInternalValidation("OAuth client name is required")
+	}
+
+	if s.key == [16]byte{} {
+		return ErrInternalValidation("OAuth key is required")
+	}
+
+	if s.stateExpiration == 0 {
+		return ErrInternalValidation("state expiration is required")
+	}
+
+	return nil
+}
+
+//nolint:ireturn // ReadOnly interface is intentional for domain boundary
+func (s *Usecase) GetServerInfo(
+	ctx context.Context,
+	id ids.ServerID,
+) (entities.ServerConfigReadOnly, error) {
+	info, err := s.servers.GetServerInfo(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("getting server info: %w", err)
+	}
+
+	return info, nil
 }
 
 func randomAuthKey() [16]byte {
 	var key [16]byte
 
 	if _, err := rand.Read(key[:]); err != nil {
+		//nolint:forbidigo // system-wide failure, absolutely unsafe to ignore
 		panic(err)
 	}
 
 	return key
+}
+
+func generateVerifier() (verifier []byte, verifierStr string, err error) {
+	verifier = make([]byte, sha256.Size)
+	if _, err = rand.Read(verifier); err != nil {
+		return nil, "", fmt.Errorf("failed to generate verifier: %w", err)
+	}
+
+	return verifier, base64.RawURLEncoding.EncodeToString(verifier), nil
 }

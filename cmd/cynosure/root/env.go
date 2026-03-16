@@ -44,12 +44,20 @@ type Config struct {
 	OtlpMetadata map[string]string `env:"CYNOSURE_OTLP_METADATA"         default:"" envSeparator:","`
 }
 
-var _ core.ActionConfig = (*Config)(nil)
+//nolint:exhaustruct // interface check
+var _ core.ActionConfig = Config{}
 
-func (f *Config) GetLogLevel() slog.Level             { return f.LogLevel }
-func (f *Config) GetCertPaths() []string              { return f.CACerts }
-func (f *Config) ClientCertPaths() (cert, key string) { return f.TLSCert, f.TLSKey }
-func (f *Config) GetObservabilityConfig() core.ObservabilityConfig {
+//nolint:gocritic // calls once
+func (f Config) GetLogLevel() slog.Level { return f.LogLevel }
+
+//nolint:gocritic // calls once
+func (f Config) GetCertPaths() []string { return f.CACerts }
+
+//nolint:gocritic // calls once
+func (f Config) ClientCertPaths() (cert, key string) { return f.TLSCert, f.TLSKey }
+
+//nolint:gocritic // calls once
+func (f Config) GetObservabilityConfig() core.ObservabilityConfig {
 	var metricsPort *url.URL
 	// TODO: какой-то баг с портом: если не указывать, то он пихает нулевое НЕ NIL значение
 	if f.MetricsPort != nil && f.MetricsPort.Host != "" {
@@ -63,7 +71,8 @@ func (f *Config) GetObservabilityConfig() core.ObservabilityConfig {
 	}
 }
 
-func (f *Config) GetSecretDSNs() map[string]*url.URL {
+//nolint:gocritic // calls once
+func (f Config) GetSecretDSNs() map[string]*url.URL {
 	return map[string]*url.URL{
 		"file":  f.FileSecret,
 		"vault": f.VaultAddress,
