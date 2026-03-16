@@ -2,7 +2,6 @@ package messages
 
 import (
 	"encoding/json"
-	"errors"
 )
 
 type MessageToolResponse struct {
@@ -55,11 +54,11 @@ func (tm MessageToolResponse) Valid() bool { return tm._valid || tm.Validate() =
 func (tm MessageToolResponse) Validate() error {
 	switch {
 	case tm.toolName == "":
-		return errors.New("tool name cannot be empty")
+		return ErrInternalValidation("tool name cannot be empty")
 	case tm.toolCallID == "":
-		return errors.New("tool call ID cannot be empty")
+		return ErrInternalValidation("tool call ID cannot be empty")
 	case !json.Valid(tm.content):
-		return errors.New("content must be valid JSON")
+		return ErrInternalValidation("content must be valid JSON")
 	case len(tm.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	default:

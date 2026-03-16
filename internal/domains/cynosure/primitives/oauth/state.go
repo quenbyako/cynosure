@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,12 +69,17 @@ func StateFromToken(token string, key [16]byte) (State, error) {
 	user := must(ids.NewUserID(res.Payload.UserID))
 	server := must(ids.NewServerID(res.Payload.ServerID))
 
+	expirationUnix := res.Payload.Expiration
+	if expirationUnix > math.MaxInt64 {
+		expirationUnix = math.MaxInt64
+	}
+
 	state := State{
 		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID)),
 		name:      res.Payload.AccountName,
 		desc:      res.Payload.AccountDesc,
 		challenge: res.Payload.Challenge,
-		expireAt:  time.Unix(int64(res.Payload.Expiration), 0).UTC(),
+		expireAt:  time.Unix(int64(expirationUnix), 0).UTC(),
 		_valid:    false,
 	}
 	if err := state.validate(); err != nil {
@@ -132,7 +138,7 @@ func (s *State) State(kid string, k [16]byte) string {
 				Issuer:     "",
 				Subject:    "",
 				Audience:   "",
-				Expiration: uint64(s.expireAt.Unix()),
+				Expiration: uint64(max(0, s.expireAt.Unix())),
 				NotBefore:  0,
 				IssuedAt:   0,
 				CWTID:      key.ByteStr(nil),

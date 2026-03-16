@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"mime"
 	"net/url"
@@ -40,8 +41,15 @@ func (c *ChatContentText) Type() (mediaType string, params map[string]string) {
 	return "text/plain", nil
 }
 
-// TODO: fix it: need to make a embed url data, not just a scheme
-func (c *ChatContentText) URL() *url.URL                     { return &url.URL{Scheme: "text"} }
+// URL of content.
+func (c *ChatContentText) URL() *url.URL {
+	//nolint:exhaustruct // intentional data URL
+	return &url.URL{
+		Scheme: "data",
+		Opaque: "text/plain;charset=utf-8;base64," +
+			base64.StdEncoding.EncodeToString([]byte(c.text)),
+	}
+}
 func (c *ChatContentText) Extra() map[string]json.RawMessage { return c.extra }
 
 func (c *ChatContentText) Text() string { return c.text }
@@ -49,68 +57,72 @@ func (c *ChatContentText) Text() string { return c.text }
 type ChatContentAudioURL struct {
 	extra    map[string]json.RawMessage
 	mimeType string
-	url      url.URL
+	address  url.URL
 }
 
 func (c *ChatContentAudioURL) _ChatContent() {}
 
 func (c *ChatContentAudioURL) Type() (mediaType string, params map[string]string) {
+	//nolint:errcheck // handled via default values
 	mediaType, params, _ = mime.ParseMediaType(c.mimeType)
 	return mediaType, params
 }
 
-func (c *ChatContentAudioURL) URL() *url.URL                     { return clone(&c.url) }
+func (c *ChatContentAudioURL) URL() *url.URL                     { return clone(&c.address) }
 func (c *ChatContentAudioURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentVideoURL struct {
 	extra    map[string]json.RawMessage
 	mimeType string
-	url      url.URL
+	address  url.URL
 }
 
 func (c *ChatContentVideoURL) _ChatContent() {}
 
 func (c *ChatContentVideoURL) Type() (mediaType string, params map[string]string) {
+	//nolint:errcheck // handled via default values
 	mediaType, params, _ = mime.ParseMediaType(c.mimeType)
 	return mediaType, params
 }
 
-func (c *ChatContentVideoURL) URL() *url.URL                     { return clone(&c.url) }
+func (c *ChatContentVideoURL) URL() *url.URL                     { return clone(&c.address) }
 func (c *ChatContentVideoURL) Extra() map[string]json.RawMessage { return c.extra }
 
 type ChatContentFileURL struct {
 	extra    map[string]json.RawMessage
 	name     string
 	mimeType string
-	url      url.URL
+	address  url.URL
 }
 
 func (c *ChatContentFileURL) _ChatContent() {}
 
 func (c *ChatContentFileURL) Type() (mediaType string, params map[string]string) {
+	//nolint:errcheck // handled via default values
 	mediaType, params, _ = mime.ParseMediaType(c.mimeType)
 	return mediaType, params
 }
 
-func (c *ChatContentFileURL) URL() *url.URL                     { return clone(&c.url) }
+func (c *ChatContentFileURL) URL() *url.URL                     { return clone(&c.address) }
 func (c *ChatContentFileURL) Extra() map[string]json.RawMessage { return c.extra }
 func (c *ChatContentFileURL) Name() string                      { return c.name }
 
 type ChatContentImageURL struct {
 	extra    map[string]json.RawMessage
 	mimeType string
-	url      url.URL
+	address  url.URL
 	detail   ImageURLDetail
 }
 
 func (c *ChatContentImageURL) _ChatContent() {}
 
 func (c *ChatContentImageURL) Type() (mediaType string, params map[string]string) {
+	//nolint:errcheck // handled via default values
 	mediaType, params, _ = mime.ParseMediaType(c.mimeType)
 	return mediaType, params
 }
 
-func (c *ChatContentImageURL) URL() *url.URL                     { return clone(&c.url) }
+func (c *ChatContentImageURL) URL() *url.URL                     { return clone(&c.address) }
 func (c *ChatContentImageURL) Extra() map[string]json.RawMessage { return c.extra }
 func (c *ChatContentImageURL) Detail() ImageURLDetail            { return c.detail }
 

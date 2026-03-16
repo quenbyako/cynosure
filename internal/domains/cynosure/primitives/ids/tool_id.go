@@ -2,6 +2,7 @@ package ids
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -13,33 +14,24 @@ type ToolID struct {
 	_valid bool
 }
 
-// Implelements:
-// - [WithSlug]
-type ToolIDOption interface {
-	applyToolID(*ToolID)
+func RandomToolID(account AccountID) (ToolID, error) {
+	return NewToolID(account, uuid.New())
 }
 
-func RandomToolID(account AccountID, opts ...ToolIDOption) (ToolID, error) {
-	return NewToolID(account, uuid.New(), opts...)
-}
-
-func NewToolIDFromString(account AccountID, id string, opts ...ToolIDOption) (ToolID, error) {
+func NewToolIDFromString(account AccountID, id string) (ToolID, error) {
 	toolID, err := uuid.Parse(id)
 	if err != nil {
-		return ToolID{}, err
+		return ToolID{}, fmt.Errorf("parsing tool id: %w", err)
 	}
 
-	return NewToolID(account, toolID, opts...)
+	return NewToolID(account, toolID)
 }
 
-func NewToolID(account AccountID, id uuid.UUID, opts ...ToolIDOption) (ToolID, error) {
+func NewToolID(account AccountID, id uuid.UUID) (ToolID, error) {
 	tool := ToolID{
 		id:      id,
 		account: account,
 		_valid:  false,
-	}
-	for _, opt := range opts {
-		opt.applyToolID(&tool)
 	}
 
 	if err := tool.validate(); err != nil {

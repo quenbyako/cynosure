@@ -3,7 +3,6 @@ package messages
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -75,7 +74,7 @@ func (am MessageAssistant) Valid() bool { return am._valid || am.Validate() == n
 func (am MessageAssistant) Validate() error {
 	switch {
 	case am.content == "":
-		return errors.New("text cannot be empty")
+		return ErrInternalValidation("assistant message content cannot be empty")
 	case len(am.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	default:
@@ -88,6 +87,8 @@ func (am MessageAssistant) Reasoning() string        { return am.reasoning }
 func (am MessageAssistant) Content() string          { return am.content }
 func (am MessageAssistant) AgentID() ids.AgentID     { return am.agentID }
 func (am MessageAssistant) ProtocolMetadata() []byte { return bytes.Clone(am.protocolMetadata) }
+
+//nolint:ireturn // assistant message format
 func (am MessageAssistant) Format(
 	ctx context.Context,
 	vs map[string]any,

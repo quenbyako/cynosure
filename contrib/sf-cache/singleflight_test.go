@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/quenbyako/cynosure/contrib/sf-cache"
@@ -133,8 +132,8 @@ func TestSingleflight_DoDupSuppress(t *testing.T) {
 			firstCallStarted.Done()
 
 			val, err, _ := group.Do(t.Context(), constructor)
-			assert.NoError(t, err)
-			assert.Equal(t, "bar", val)
+			require.NoError(t, err)
+			require.Equal(t, "bar", val)
 		}()
 	}
 

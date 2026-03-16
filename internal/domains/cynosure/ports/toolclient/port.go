@@ -1,3 +1,5 @@
+// Package toolclient defines tool client port, commonly for MCP (Model Context
+// Protocol) operations.
 package toolclient
 
 import (
@@ -23,7 +25,8 @@ type Port interface {
 	//
 	// Options:
 	//
-	//  - [WithToolIDBuilder] — sets the tool ID builder for newly creating tools.
+	//  - [WithToolIDBuilder] — sets the tool ID builder for newly creating
+	//    tools.
 	//
 	// See next test suites to find how it works:
 	//

@@ -45,14 +45,14 @@ func (t *toolClientWrapped) DiscoverTools(
 	accountSlug, accountDesc string,
 	opts ...DiscoverToolsOption,
 ) ([]tools.RawTool, error) {
-	p := DiscoverToolsParams(opts...)
+	params := DiscoverToolsParams(opts...)
 
-	hasToken := p.Token() != nil
+	hasToken := params.Token() != nil
 
 	ctx, span := t.t.discoverTools(ctx, account.ID().String(), serverAddr.String(), hasToken)
 	defer span.end()
 
-	resolved := resolvedDiscoverToolsParams(p)
+	resolved := resolvedDiscoverToolsParams(params)
 
 	res, err := t.w.DiscoverTools(ctx, serverAddr, account, accountSlug, accountDesc, resolved)
 	span.recordError(err)

@@ -12,6 +12,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
+//nolint:gosec // lmao, it's not a credential
 const (
 	attrAccountID attribute.Key = "cynosure.account.id"
 	connHasToken  attribute.Key = "cynosure.mcp.has_token"

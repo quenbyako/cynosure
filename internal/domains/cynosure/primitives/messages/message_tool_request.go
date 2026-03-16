@@ -3,7 +3,6 @@ package messages
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 )
 
@@ -77,10 +76,10 @@ func (tm MessageToolRequest) Validate() error {
 
 	switch {
 	case tm.toolName == "":
-		return errors.New("tool name cannot be empty")
+		return ErrInternalValidation("tool name cannot be empty")
 
 	case tm.toolCallID == "":
-		return errors.New("tool call ID cannot be empty")
+		return ErrInternalValidation("tool call ID cannot be empty")
 
 	case len(encodedArgs) > maxMessageLength:
 		return ErrMessageTooLarge

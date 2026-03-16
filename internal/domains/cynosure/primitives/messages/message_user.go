@@ -3,7 +3,6 @@ package messages
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 )
@@ -51,11 +50,11 @@ func (m MessageUser) Valid() bool { return m._valid || m.Validate() == nil }
 func (m MessageUser) Validate() error {
 	switch {
 	case m.content == "":
-		return errors.New("content cannot be empty")
+		return ErrInternalValidation("user message content cannot be empty")
 	case len(m.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	case !validateExtra(m.extra):
-		return errors.New("extra must be valid JSON")
+		return ErrInternalValidation("extra must be valid JSON")
 	default:
 		return nil
 	}
@@ -64,8 +63,10 @@ func (m MessageUser) Validate() error {
 func (m MessageUser) MergeTag() uint64                  { return m.mergeTag }
 func (m MessageUser) Content() string                   { return m.content }
 func (m MessageUser) Extra() map[string]json.RawMessage { return m.extra }
+
+//nolint:ireturn // user message format
 func (m MessageUser) Format(
-	ctx context.Context,
+	_ context.Context,
 	properties map[string]any,
 	formatType FormatType,
 ) (

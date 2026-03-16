@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +32,7 @@ func TestChat_AcceptUserMessage_RAG_Orchestration(t *testing.T) {
 	err := fixture.instance(ctx).AcceptUserMessage(ctx, fixture.msg("What is the weather?"))
 
 	// Assert: Check toolbox consistency and account enrichment
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	fixture.assertToolbox(tool1, tool2)
 }
 
@@ -144,11 +143,11 @@ func (f *chatFixture) msg(content string) messages.MessageUser {
 
 func (f *chatFixture) assertToolbox(expected ...*entities.Tool) {
 	toolbox := f._chat.RelevantTools()
-	assert.Len(f.t, toolbox.Tools(), len(expected))
+	require.Len(f.t, toolbox.Tools(), len(expected))
 
 	for _, exp := range expected {
 		info, ok := toolbox.Tools()[exp.Name()]
-		assert.True(f.t, ok)
+		require.True(f.t, ok)
 
 		found := false
 
@@ -158,6 +157,6 @@ func (f *chatFixture) assertToolbox(expected ...*entities.Tool) {
 			}
 		}
 
-		assert.True(f.t, found)
+		require.True(f.t, found)
 	}
 }

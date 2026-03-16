@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/quenbyako/cynosure/contrib/sf-cache"
@@ -65,8 +64,8 @@ func TestCache_ConcurrentGet(t *testing.T) {
 			currentKey := id % numKeys
 
 			obtainedVal, err := testCache.Get(ctx, currentKey)
-			assert.NoError(t, err)
-			assert.Equal(t, testValue, obtainedVal)
+			require.NoError(t, err)
+			require.Equal(t, testValue, obtainedVal)
 		}(id)
 	}
 
@@ -116,7 +115,7 @@ func TestCache_ConcurrentGetWithLRUEviction(t *testing.T) {
 
 			currentKey := id % testKeyAmount
 			_, err := testCache.Get(ctx, currentKey)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}(id)
 	}
 
@@ -162,7 +161,7 @@ func TestCache_ConstructorError(t *testing.T) {
 			defer wg.Done()
 
 			_, err := testCache.Get(ctx, 1)
-			assert.ErrorIs(t, err, errConstructorFailed)
+			require.ErrorIs(t, err, errConstructorFailed)
 		}()
 	}
 

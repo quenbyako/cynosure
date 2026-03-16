@@ -67,6 +67,7 @@ func (i *portWrapped) CreateUser(
 	res, err := i.w.CreateUser(ctx, telegramID, nickname, firstName, lastName)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }
 
@@ -77,5 +78,6 @@ func (i *portWrapped) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.To
 	res, err := i.w.IssueToken(ctx, id)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }

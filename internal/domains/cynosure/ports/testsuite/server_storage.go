@@ -76,7 +76,7 @@ func (s *ServerStorageTestSuite) TestSaveServer(t *testing.T) {
 		entities.WithExpiration(time.Now().Add(24 * time.Hour)),
 		entities.WithAuthConfig(&oauth2.Config{
 			ClientID: "client-id",
-			Endpoint: oauth2.Endpoint{
+			Endpoint: oauth2.Endpoint{ //nolint:gosec // not a credential
 				AuthURL:       "https://example.com/auth",
 				TokenURL:      "https://example.com/token",
 				DeviceAuthURL: "",

@@ -1,7 +1,6 @@
 package messages
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -23,50 +22,63 @@ func formatContent(
 ) (string, error) {
 	switch formatType {
 	case FString:
-		return pyfmt.Fmt(content, properties)
+		res, err := pyfmt.Fmt(content, properties)
+		if err != nil {
+			return "", fmt.Errorf("pyfmt: %w", err)
+		}
+
+		return res, nil
 	case GoTemplate:
-		parsedTmpl, err := template.New("template").
-			Option("missingkey=error").
-			Parse(content)
-		if err != nil {
-			return "", err
-		}
-
-		builder := new(strings.Builder)
-
-		err = parsedTmpl.Execute(builder, properties)
-		if err != nil {
-			return "", err
-		}
-
-		return builder.String(), nil
+		return formatGoTemplate(content, properties)
 	case Jinja2:
-		env, err := getJinjaEnv()
-		if err != nil {
-			return "", err
-		}
-
-		tpl, err := env.FromString(content)
-		if err != nil {
-			return "", err
-		}
-
-		out, err := tpl.Execute(properties)
-		if err != nil {
-			return "", err
-		}
-
-		return out, nil
+		return formatJinja2(content, properties)
 	default:
-		return "", fmt.Errorf("unknown format type: %v", formatType)
+		return "", ErrInternalValidation("unknown format type: %v", formatType)
 	}
+}
+
+func formatGoTemplate(content string, properties map[string]any) (string, error) {
+	parsedTmpl, err := template.New("template").
+		Option("missingkey=error").
+		Parse(content)
+	if err != nil {
+		return "", fmt.Errorf("parse go template: %w", err)
+	}
+
+	builder := new(strings.Builder)
+
+	err = parsedTmpl.Execute(builder, properties)
+	if err != nil {
+		return "", fmt.Errorf("execute go template: %w", err)
+	}
+
+	return builder.String(), nil
+}
+
+func formatJinja2(content string, properties map[string]any) (string, error) {
+	env, err := getJinjaEnv()
+	if err != nil {
+		return "", err
+	}
+
+	tpl, err := env.FromString(content)
+	if err != nil {
+		return "", fmt.Errorf("parse jinja2 template: %w", err)
+	}
+
+	out, err := tpl.Execute(properties)
+	if err != nil {
+		return "", fmt.Errorf("execute jinja2 template: %w", err)
+	}
+
+	return out, nil
 }
 
 // custom jinja env
 var (
 	jinjaEnvOnce sync.Once
 	jinjaEnv     *gonja.Environment
-	envInitErr   error
+	errEnvInit   error
 )
 
 const (
@@ -77,7 +89,7 @@ const (
 )
 
 func staticErr(err error) parser.StatementParser {
-	return func(parser, args *parser.Parser) (nodes.Statement, error) {
+	return func(_, _ *parser.Parser) (nodes.Statement, error) {
 		return nil, err
 	}
 }
@@ -85,49 +97,23 @@ func staticErr(err error) parser.StatementParser {
 func getJinjaEnv() (*gonja.Environment, error) {
 	jinjaEnvOnce.Do(func() {
 		jinjaEnv = gonja.NewEnvironment(config.DefaultConfig, gonja.DefaultLoader)
-		formatInitError := "init jinja env fail: %w"
-
-		var err error
-		if jinjaEnv.Statements.Exists(jinjaInclude) {
-			err = jinjaEnv.Statements.Replace(jinjaInclude,
-				staticErr(errors.New("keyword[include] has been disabled")),
-			)
-			if err != nil {
-				envInitErr = fmt.Errorf(formatInitError, err)
-				return
-			}
-		}
-
-		if jinjaEnv.Statements.Exists(jinjaExtends) {
-			err = jinjaEnv.Statements.Replace(jinjaExtends,
-				staticErr(errors.New("keyword[extends] has been disabled")),
-			)
-			if err != nil {
-				envInitErr = fmt.Errorf(formatInitError, err)
-				return
-			}
-		}
-
-		if jinjaEnv.Statements.Exists(jinjaFrom) {
-			err = jinjaEnv.Statements.Replace(jinjaFrom,
-				staticErr(errors.New("keyword[from] has been disabled")),
-			)
-			if err != nil {
-				envInitErr = fmt.Errorf(formatInitError, err)
-				return
-			}
-		}
-
-		if jinjaEnv.Statements.Exists(jinjaImport) {
-			err = jinjaEnv.Statements.Replace(jinjaImport,
-				staticErr(errors.New("keyword[import] has been disabled")),
-			)
-			if err != nil {
-				envInitErr = fmt.Errorf(formatInitError, err)
-				return
-			}
-		}
+		disableJinjaKeywords(jinjaEnv)
 	})
 
-	return jinjaEnv, envInitErr
+	return jinjaEnv, errEnvInit
+}
+
+func disableJinjaKeywords(env *gonja.Environment) {
+	keywords := []string{jinjaInclude, jinjaExtends, jinjaFrom, jinjaImport}
+	for _, keyword := range keywords {
+		if env.Statements.Exists(keyword) {
+			err := env.Statements.Replace(keyword,
+				staticErr(ErrInternalValidation("keyword[%s] has been disabled", keyword)),
+			)
+			if err != nil {
+				errEnvInit = fmt.Errorf("disable jinja keyword %s: %w", keyword, err)
+				return
+			}
+		}
+	}
 }

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
@@ -83,7 +82,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		assertResult func(
 			t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
 		)
-		name         string
+		name string
 	}
 
 	tests := []testCase{
@@ -109,7 +108,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 							"registration_endpoint":  "http://" + r.Host + "/register",
 						})
 					case "/register":
-						assert.Equal(t, http.MethodPost, r.Method)
+						require.Equal(t, http.MethodPost, r.Method)
 						w.WriteHeader(http.StatusCreated)
 						_ = json.NewEncoder(w).Encode(map[string]any{
 							"client_id":     "client-123",
@@ -129,13 +128,13 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
 			) {
 				require.NotNil(t, cfg)
-				assert.Equal(t, "client-123", cfg.ClientID)
-				assert.Equal(t, "secret-123", cfg.ClientSecret)
-				assert.Equal(t, "http://localhost/callback", cfg.RedirectURL)
-				assert.Equal(
+				require.Equal(t, "client-123", cfg.ClientID)
+				require.Equal(t, "secret-123", cfg.ClientSecret)
+				require.Equal(t, "http://localhost/callback", cfg.RedirectURL)
+				require.Equal(
 					t, "http://"+srv.Listener.Addr().String()+"/auth", cfg.Endpoint.AuthURL,
 				)
-				assert.Equal(
+				require.Equal(
 					t, "http://"+srv.Listener.Addr().String()+"/token", cfg.Endpoint.TokenURL,
 				)
 			},
@@ -174,8 +173,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
 			) {
 				require.NotNil(t, cfg)
-				assert.Equal(t, "fallback-client", cfg.ClientID)
-				assert.Empty(t, cfg.ClientSecret)
+				require.Equal(t, "fallback-client", cfg.ClientID)
+				require.Empty(t, cfg.ClientSecret)
 			},
 			opts:      nil,
 			assertErr: nil,
@@ -221,7 +220,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
 			) {
 				require.NotNil(t, cfg)
-				assert.Equal(t, "suggested-client", cfg.ClientID)
+				require.Equal(t, "suggested-client", cfg.ClientID)
 			},
 			assertErr: nil,
 		},
@@ -260,7 +259,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				var expectedErr *DynamicClientRegistrationNotSupportedError
 				require.ErrorAs(t, err, &expectedErr)
 				require.NotNil(t, expectedErr.Documentation())
-				assert.Equal(t, "https://developer.example.com",
+				require.Equal(t, "https://developer.example.com",
 					expectedErr.Documentation().String())
 			},
 			opts:         nil,

@@ -3,7 +3,6 @@ package messages
 import (
 	"context"
 	"encoding/json"
-	"errors"
 )
 
 type MessageToolError struct {
@@ -56,13 +55,13 @@ func (tm MessageToolError) Valid() bool { return tm._valid || tm.Validate() == n
 func (tm MessageToolError) Validate() error {
 	switch {
 	case tm.toolName == "":
-		return errors.New("tool name cannot be empty")
+		return ErrInternalValidation("tool name cannot be empty")
 
 	case tm.toolCallID == "":
-		return errors.New("tool call ID cannot be empty")
+		return ErrInternalValidation("tool call ID cannot be empty")
 
 	case !json.Valid(tm.content):
-		return errors.New("content must be valid JSON")
+		return ErrInternalValidation("content must be valid JSON")
 
 	case len(tm.content) > maxMessageLength:
 		return ErrMessageTooLarge
@@ -76,13 +75,8 @@ func (tm MessageToolError) MergeTag() uint64         { return tm.mergeTag }
 func (tm MessageToolError) ToolName() string         { return tm.toolName }
 func (tm MessageToolError) ToolCallID() string       { return tm.toolCallID }
 func (tm MessageToolError) Content() json.RawMessage { return tm.content }
-func (tm MessageToolError) Format(
-	ctx context.Context,
-	vs map[string]any,
-	formatType FormatType,
-) (
-	Message,
-	error,
-) {
-	return nil, errors.New("tool message cannot be formatted")
+
+//nolint:ireturn // tool error format
+func (tm MessageToolError) Format(context.Context, map[string]any, FormatType) (Message, error) {
+	return nil, ErrToolMessageNoFormat
 }

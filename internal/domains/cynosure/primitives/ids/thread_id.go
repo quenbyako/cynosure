@@ -27,12 +27,12 @@ func NewThreadIDFromString(s string) (ThreadID, error) {
 
 	uRaw, err := uuid.Parse(str[1])
 	if err != nil {
-		return ThreadID{}, err
+		return ThreadID{}, fmt.Errorf("parsing user id: %w", err)
 	}
 
 	u, err := NewUserID(uRaw)
 	if err != nil {
-		return ThreadID{}, err
+		return ThreadID{}, fmt.Errorf("creating user id: %w", err)
 	}
 
 	return NewThreadID(u, str[3])
