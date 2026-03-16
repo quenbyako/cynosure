@@ -25,7 +25,7 @@ func (s *Servers) GetServerInfo(
 		return nil, fmt.Errorf("failed to get server info: %w", err)
 	}
 
-	info, err := datatransfer.ServerInfoFromDB(row)
+	info, err := datatransfer.ServerInfoFromDB(&row)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert server info: %w", err)
 	}

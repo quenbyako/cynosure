@@ -1,6 +1,7 @@
 package testsuite
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -34,14 +35,14 @@ func RunModelSettingsStorageTests(
 type ModelSettingsStorageTestSuite struct {
 	adapter ports.AgentStorage
 
-	cleanup func() error
+	cleanup func(context.Context) error
 }
 
 var _ afterTest = (*ModelSettingsStorageTestSuite)(nil)
 
 type ModelSettingsStorageTestSuiteOption func(*ModelSettingsStorageTestSuite)
 
-func WithModelSettingsStorageCleanup(f func() error) ModelSettingsStorageTestSuiteOption {
+func WithModelSettingsStorageCleanup(f func(context.Context) error) ModelSettingsStorageTestSuiteOption {
 	return func(s *ModelSettingsStorageTestSuite) { s.cleanup = f }
 }
 
@@ -55,7 +56,7 @@ func (s *ModelSettingsStorageTestSuite) validate() error {
 
 func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
-		if err := s.cleanup(); err != nil {
+		if err := s.cleanup(t.Context()); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
 		}
 	}

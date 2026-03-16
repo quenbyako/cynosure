@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 
+	errors1 "github.com/quenbyako/cynosure/internal/adapters/sql/errors"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
@@ -22,34 +23,17 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 		return nil
 	}
 
-	// thread.Messages() contains all messages including pending ones.
-	totalMessages := len(thread.Messages())
-	pendingCount := len(pending)
-	startPos := int64(totalMessages - pendingCount) // 0-based count of committed messages
-
 	transaction, err := t.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
+
+	//nolint:errcheck // it makes no sense to check the error in defer
 	defer transaction.Rollback(ctx)
 
 	qtx := t.q.WithTx(transaction)
-
-	currentPos := startPos
-
-	for _, event := range pending {
-		evt, ok := event.(entities.ThreadEventMessageAdded)
-		if !ok {
-			continue
-		}
-
-		msg := evt.Message()
-		currentPos++
-
-		err := t.insertMessage(ctx, qtx, thread.ID().String(), currentPos, msg)
-		if err != nil {
-			return fmt.Errorf("insert message at pos %d: %w", currentPos, err)
-		}
+	if err := t.processPendingEvents(ctx, qtx, thread); err != nil {
+		return err
 	}
 
 	if err := transaction.Commit(ctx); err != nil {
@@ -59,10 +43,35 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 	return nil
 }
 
+func (t *Threads) processPendingEvents(
+	ctx context.Context, qtx *db.Queries, thread entities.ThreadReadOnly,
+) error {
+	pending := thread.PendingEvents()
+	totalMessages := len(thread.Messages())
+	startPos := int64(totalMessages - len(pending))
+	currentPos := startPos
+
+	for _, event := range pending {
+		evt, ok := event.(entities.ThreadEventMessageAdded)
+		if !ok {
+			continue
+		}
+
+		currentPos++
+
+		threadID := thread.ID().String()
+		if err := t.insertMessage(ctx, qtx, threadID, currentPos, evt.Message()); err != nil {
+			return fmt.Errorf("insert message at pos %d: %w", currentPos, err)
+		}
+	}
+
+	return nil
+}
+
 var emptyUUID = pgtype.UUID{Valid: false, Bytes: [16]byte{}}
 
 func (t *Threads) insertMessage(
-	ctx context.Context, aueries *db.Queries, threadID string, pos int64, msg messages.Message,
+	ctx context.Context, qtx *db.Queries, threadID string, pos int64, msg messages.Message,
 ) error {
 	occPos := pos - 1
 	//nolint:gosec // mergeTag is assumed to fit in int64
@@ -70,116 +79,109 @@ func (t *Threads) insertMessage(
 
 	switch msg := msg.(type) {
 	case messages.MessageUser:
-		_, err := aueries.InsertMessageUser(ctx, db.InsertMessageUserParams{
-			Content:               msg.Content(),
-			Position:              pos,
-			ThreadID:              threadID,
-			CurrentLastMessagePos: occPos,
-			MergeTag:              mergeTag,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return errors.New("concurrent modification")
-			}
-
-			return err
-		}
-
+		return t.insertMessageUser(ctx, qtx, threadID, pos, occPos, mergeTag, msg)
 	case messages.MessageAssistant:
-		agentID := msg.AgentID().ID()
-
-		_, err := aueries.InsertMessageAssistant(ctx, db.InsertMessageAssistantParams{
-			Text:                  msg.Content(),
-			Reasoning:             msg.Reasoning(),
-			AgentID:               agentID,
-			Position:              pos,
-			ThreadID:              threadID,
-			CurrentLastMessagePos: occPos,
-			MergeTag:              mergeTag,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return errors.New("concurrent modification")
-			}
-
-			return err
-		}
-
+		return t.insertMessageAssistant(ctx, qtx, threadID, pos, occPos, mergeTag, msg)
 	case messages.MessageToolRequest:
-		argsBytes, _ := json.Marshal(msg.Arguments())
-
-		_, err := aueries.InsertMessageToolRequest(ctx, db.InsertMessageToolRequestParams{
-			ToolID:                emptyUUID, // Always NULL now as we don't look up IDs
-			ToolName:              msg.ToolName(),
-			ToolCallID:            msg.ToolCallID(),
-			Reasoning:             msg.Reasoning(),
-			Arguments:             argsBytes,
-			Position:              pos,
-			ThreadID:              threadID,
-			CurrentLastMessagePos: occPos,
-			MergeTag:              mergeTag,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return errors.New("concurrent modification")
-			}
-
-			return err
-		}
-
+		return t.insertMessageToolRequest(ctx, qtx, threadID, pos, occPos, mergeTag, msg)
 	case messages.MessageToolResponse:
-		reqPos, err := aueries.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
-			ThreadID:   threadID,
-			ToolCallID: msg.ToolCallID(),
-		})
-		if err != nil {
-			return fmt.Errorf("find tool request pos: %w", err)
-		}
-
-		_, err = aueries.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
-			RequestPosition:       reqPos,
-			ToolCallID:            msg.ToolCallID(),
-			IsError:               false,
-			Content:               []byte(msg.Content()),
-			Position:              pos,
-			ThreadID:              threadID,
-			CurrentLastMessagePos: occPos,
-			MergeTag:              mergeTag,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return errors.New("concurrent modification")
-			}
-
-			return err
-		}
-
+		return t.insertMessageToolResult(
+			ctx, qtx, threadID, pos, occPos, mergeTag, msg, false,
+		)
 	case messages.MessageToolError:
-		reqPos, err := aueries.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
-			ThreadID:   threadID,
-			ToolCallID: msg.ToolCallID(),
-		})
-		if err != nil {
-			return fmt.Errorf("find tool request pos: %w", err)
+		return t.insertMessageToolResult(
+			ctx, qtx, threadID, pos, occPos, mergeTag, msg, true,
+		)
+	default:
+		return errors1.ErrMessageTypeUnknown
+	}
+}
+
+func (t *Threads) insertMessageUser(
+	ctx context.Context, qtx *db.Queries, threadID string,
+	pos, occPos, mergeTag int64, msg messages.MessageUser,
+) error {
+	_, err := qtx.InsertMessageUser(ctx, db.InsertMessageUserParams{
+		Content: msg.Content(), Position: pos, ThreadID: threadID,
+		CurrentLastMessagePos: occPos, MergeTag: mergeTag,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors1.ErrConcurrentModification
 		}
 
-		_, err = aueries.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
-			RequestPosition:       reqPos,
-			ToolCallID:            msg.ToolCallID(),
-			IsError:               true,
-			Content:               []byte(msg.Content()),
-			Position:              pos,
-			ThreadID:              threadID,
-			CurrentLastMessagePos: occPos,
-			MergeTag:              mergeTag,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return errors.New("concurrent modification")
-			}
+		return fmt.Errorf("insert user msg: %w", err)
+	}
 
-			return err
+	return nil
+}
+
+func (t *Threads) insertMessageAssistant(
+	ctx context.Context, qtx *db.Queries, threadID string,
+	pos, occPos, mergeTag int64, msg messages.MessageAssistant,
+) error {
+	_, err := qtx.InsertMessageAssistant(ctx, db.InsertMessageAssistantParams{
+		Text: msg.Content(), Reasoning: msg.Reasoning(), AgentID: msg.AgentID().ID(),
+		Position: pos, ThreadID: threadID, CurrentLastMessagePos: occPos, MergeTag: mergeTag,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors1.ErrConcurrentModification
 		}
+
+		return fmt.Errorf("insert assistant msg: %w", err)
+	}
+
+	return nil
+}
+
+func (t *Threads) insertMessageToolRequest(
+	ctx context.Context, qtx *db.Queries, threadID string,
+	pos, occPos, mergeTag int64, msg messages.MessageToolRequest,
+) error {
+	args, err := json.Marshal(msg.Arguments())
+	if err != nil {
+		return fmt.Errorf("marshal tool args: %w", err)
+	}
+
+	_, err = qtx.InsertMessageToolRequest(ctx, db.InsertMessageToolRequestParams{
+		ToolID: emptyUUID, ToolName: msg.ToolName(), ToolCallID: msg.ToolCallID(),
+		Reasoning: msg.Reasoning(), Arguments: args, Position: pos, ThreadID: threadID,
+		CurrentLastMessagePos: occPos, MergeTag: mergeTag,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors1.ErrConcurrentModification
+		}
+
+		return fmt.Errorf("insert tool request: %w", err)
+	}
+
+	return nil
+}
+
+func (t *Threads) insertMessageToolResult(
+	ctx context.Context, qtx *db.Queries, threadID string,
+	pos, occPos, mergeTag int64, msg messages.MessageTool, isError bool,
+) error {
+	reqPos, err := qtx.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
+		ThreadID: threadID, ToolCallID: msg.ToolCallID(),
+	})
+	if err != nil {
+		return fmt.Errorf("find tool request pos: %w", err)
+	}
+
+	_, err = qtx.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
+		RequestPosition: reqPos, ToolCallID: msg.ToolCallID(), IsError: isError,
+		Content: []byte(msg.Content()), Position: pos, ThreadID: threadID,
+		CurrentLastMessagePos: occPos, MergeTag: mergeTag,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors1.ErrConcurrentModification
+		}
+
+		return fmt.Errorf("insert tool result: %w", err)
 	}
 
 	return nil

@@ -56,35 +56,37 @@ func SetupTestDB(t *testing.T) *pgxpool.Pool {
 // NewTestPostgresInstance starts a PostgreSQL container for testing.
 // Returns connection string, teardown function, and error.
 // The teardown function should be called via t.Cleanup() or defer.
-func setupDockerPostgres(t *testing.T) (string, func(), error) {
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+func setupDockerPostgres(t *testing.T) (dsn string, teardown func(), err error) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	t.Cleanup(cancel)
 
 	dbName := "testdb"
 	dbUser := "user"
 	dbPassword := "password"
 
-	postgresContainer, err := postgres.Run(ctx,
+	postgresContainer, execErr := postgres.Run(ctx,
 		"pgvector/pgvector:pg16",
 		postgres.WithDatabase(dbName),
 		postgres.WithUsername(dbUser),
 		postgres.WithPassword(dbPassword),
 		postgres.BasicWaitStrategies(),
 	)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to start postgres container: %w", err)
+	if execErr != nil {
+		return "", nil, fmt.Errorf("failed to start postgres container: %w", execErr)
 	}
 
-	teardown := func() {
+	teardown = func() {
 		if err := testcontainers.TerminateContainer(postgresContainer); err != nil {
 			t.Logf("failed to stop postgres container: %v", err)
 		}
 	}
 
-	connStr, err := postgresContainer.ConnectionString(ctx)
-	if err != nil {
+	connStr, connErr := postgresContainer.ConnectionString(ctx)
+	if connErr != nil {
 		teardown()
-		return "", nil, fmt.Errorf("failed to get connection string: %w", err)
+		return "", nil, fmt.Errorf("failed to get connection string: %w", connErr)
 	}
 
 	return connStr, teardown, nil

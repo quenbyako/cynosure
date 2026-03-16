@@ -15,8 +15,8 @@ func (s *Servers) ListServers(ctx context.Context) ([]*entities.ServerConfig, er
 	}
 
 	servers := make([]*entities.ServerConfig, 0, len(rows))
-	for _, row := range rows {
-		server, err := datatransfer.ServerInfoListFromDB(row)
+	for i := range rows {
+		server, err := datatransfer.ServerInfoListFromDB(&rows[i])
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert server info: %w", err)
 		}

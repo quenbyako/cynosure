@@ -12,12 +12,15 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+// LookupTools performs semantic search for relevant tools.
+//
+//nolint:gocritic // hugeParam is architectural decision in domains
 func (t *Tools) LookupTools(
 	ctx context.Context,
 	user ids.UserID,
 	embedding [embeddingSize]float32,
 	limit int,
-) ([]*entities.Tool, error) {
+) (foundTools []*entities.Tool, err error) {
 	accs, err := t.q.ListAccountIDs(ctx, user.ID())
 	if err != nil {
 		return nil, fmt.Errorf("list accounts: %w", err)
@@ -27,8 +30,52 @@ func (t *Tools) LookupTools(
 		return []*entities.Tool{}, nil
 	}
 
-	accountIDs := make([]uuid.UUID, len(accs))
-	accountMap := make(map[uuid.UUID]ids.AccountID)
+	accountIDs, accountMap := mapAccountsForSearch(user, accs)
+	embedVec := pgvector.NewVector(embedding[:])
+
+	rows, err := t.q.SearchToolsByEmbedding(ctx, db.SearchToolsByEmbeddingParams{
+		AccountIds:     accountIDs,
+		QueryEmbedding: &embedVec,
+		LimitCount:     int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("search tools: %w", err)
+	}
+
+	return mapToolsFromSearchRows(accountMap, rows)
+}
+
+func mapToolsFromSearchRows(
+	accMap map[uuid.UUID]ids.AccountID,
+	rows []db.SearchToolsByEmbeddingRow,
+) ([]*entities.Tool, error) {
+	tools := make([]*entities.Tool, 0, len(rows))
+
+	for i := range rows {
+		row := &rows[i]
+
+		accID, ok := accMap[row.AccountID]
+		if !ok {
+			continue
+		}
+
+		tool, err := mapToolFromSearchRow(accID, row)
+		if err != nil {
+			return nil, err
+		}
+
+		tools = append(tools, tool)
+	}
+
+	return tools, nil
+}
+
+func mapAccountsForSearch(
+	user ids.UserID,
+	accs []db.ListAccountIDsRow,
+) (accountIDs []uuid.UUID, accMap map[uuid.UUID]ids.AccountID) {
+	accountIDs = make([]uuid.UUID, len(accs))
+	accMap = make(map[uuid.UUID]ids.AccountID)
 
 	for i, acc := range accs {
 		accountIDs[i] = acc.ID
@@ -43,57 +90,8 @@ func (t *Tools) LookupTools(
 			continue
 		}
 
-		accountMap[acc.ID] = accID
+		accMap[acc.ID] = accID
 	}
 
-	embedVec := pgvector.NewVector(embedding[:])
-
-	rows, err := t.q.SearchToolsByEmbedding(ctx, db.SearchToolsByEmbeddingParams{
-		AccountIds:     accountIDs,
-		QueryEmbedding: &embedVec,
-		LimitCount:     int64(limit),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("search tools: %w", err)
-	}
-
-	tools := make([]*entities.Tool, 0, len(rows))
-	for _, row := range rows {
-		accID, ok := accountMap[row.AccountID]
-		if !ok {
-			continue
-		}
-
-		toolID, err := ids.NewToolID(accID, row.ID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid tool id: %w", err)
-		}
-
-		var toolEmbedding [embeddingSize]float32
-
-		if row.Embedding != nil {
-			vec := row.Embedding.Slice()
-
-			if len(vec) == embeddingSize {
-				copy(toolEmbedding[:], vec)
-			}
-		}
-
-		tool, err := entities.NewTool(
-			toolID,
-			row.AccountName,
-			row.Name,
-			row.Description,
-			row.Input,
-			row.Output,
-			entities.WithEmbedding(toolEmbedding),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("map tool: %w", err)
-		}
-
-		tools = append(tools, tool)
-	}
-
-	return tools, nil
+	return accountIDs, accMap
 }

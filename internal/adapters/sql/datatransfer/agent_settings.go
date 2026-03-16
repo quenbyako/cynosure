@@ -38,22 +38,8 @@ func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
 
 // ToDBAgentParams converts domain entity to DB insert parameters
 func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams, error) {
-	dbID := agent.ID().ID()
-	userID := agent.ID().UserID().ID()
-
-	model := agent.Model()
-	sysMsg := agent.SystemMessage()
 	temp, _ := agent.Temperature()
-
-	if temp < 0 {
-		temp = 0
-	}
-
 	topP, _ := agent.TopP()
-
-	if topP < 0 {
-		topP = 0
-	}
 
 	stopWords := agent.StopWords()
 	if stopWords == nil {
@@ -61,12 +47,12 @@ func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams
 	}
 
 	return db.UpsertAgentSettingsParams{
-		ID:            dbID,
-		UserID:        userID,
-		Model:         model,
-		SystemMessage: sysMsg,
-		Temperature:   temp,
-		TopP:          topP,
+		ID:            agent.ID().ID(),
+		UserID:        agent.ID().UserID().ID(),
+		Model:         agent.Model(),
+		SystemMessage: agent.SystemMessage(),
+		Temperature:   max(0, temp),
+		TopP:          max(0, topP),
 		StopWords:     stopWords,
 	}, nil
 }

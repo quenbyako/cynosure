@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -25,9 +26,16 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		return nil, fmt.Errorf("failed to lookup server: %w", err)
 	}
 
-	var emptyTimestamp pgtype.Timestamptz
+	info, err := datatransfer.ServerInfoFromDB(mapServerInfoRow(&row))
+	if err != nil {
+		return nil, fmt.Errorf("mapping server info: %w", err)
+	}
 
-	info, err := datatransfer.ServerInfoFromDB(db.GetServerInfoRow{
+	return info, nil
+}
+
+func mapServerInfoRow(row *db.LookupByURLRow) *db.GetServerInfoRow {
+	return &db.GetServerInfoRow{
 		ID:           row.ID,
 		Url:          row.Url,
 		ClientID:     row.ClientID,
@@ -37,12 +45,11 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		TokenUrl:     row.TokenUrl,
 		Expiration:   row.Expiration,
 		Scopes:       row.Scopes,
-		DeletedAt:    emptyTimestamp,
-		Embedding:    nil,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert server info: %w", err)
+		DeletedAt: pgtype.Timestamptz{
+			Valid:            false,
+			Time:             time.Time{},
+			InfinityModifier: pgtype.Finite,
+		},
+		Embedding: nil,
 	}
-
-	return info, nil
 }

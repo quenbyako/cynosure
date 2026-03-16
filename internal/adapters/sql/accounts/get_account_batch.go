@@ -29,10 +29,10 @@ func (a *Accounts) GetAccountsBatch(
 	}
 
 	result := make([]*entities.Account, len(rows))
-	for i, row := range rows {
-		acc, err := datatransfer.AccountFromGetAccountsBatchRow(row)
+	for i := range rows { // not using value to omit copying
+		acc, err := datatransfer.AccountFromGetAccountsBatchRow(&rows[i])
 		if err != nil {
-			return nil, fmt.Errorf("mapping account %s: %w", row.ID, err)
+			return nil, fmt.Errorf("mapping account %s: %w", rows[i].ID, err)
 		}
 
 		result[i] = acc

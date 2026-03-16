@@ -1,10 +1,12 @@
 package sql_test
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
@@ -20,32 +22,47 @@ func TestAdapter(t *testing.T) {
 	adapter, err := New(t.Context(), must(url.Parse(connStr)))
 	require.NoError(t, err, "Failed to create SQL adapter")
 	require.NotNil(t, adapter, "Adapter should not be nil")
-	t.Cleanup(func() { adapter.Close() })
 
-	// Create fixturer function that inserts required servers before account tests
-	fixturer := func(fixture testsuite.SaveAccountFixture) error {
-		_, err = pool.Exec(t.Context(), `
-			INSERT INTO agents.mcp_servers (id, url)
-			VALUES ($1, $2)
-			ON CONFLICT DO NOTHING
-		`, fixture.AccountID.Server().ID(), "http://test-server")
+	t.Cleanup(func() {
+		if closeErr := adapter.Close(); closeErr != nil {
+			t.Errorf("failed to close adapter: %v", closeErr)
+		}
+	})
+
+	t.Run("Accounts", testsuite.RunAccountStorageTests(adapter,
+		testsuite.WithSaveAccountSeeder(seeder(pool)),
+		testsuite.WithAccountStorageCleanup(cleaner(pool)),
+	))
+
+	t.Run("ModelSettings", testsuite.RunModelSettingsStorageTests(adapter,
+		testsuite.WithModelSettingsStorageCleanup(cleaner(pool)),
+	))
+
+	t.Run("Servers", testsuite.RunServerStorageTests(adapter,
+		testsuite.WithServerStorageCleanup(cleaner(pool)),
+	))
+}
+
+func seeder(pool *pgxpool.Pool) testsuite.AccountFixtureBuilder {
+	return func(ctx context.Context, fixture testsuite.SaveAccountFixture) error {
+		_, err := pool.Exec(ctx, `
+				INSERT INTO agents.mcp_servers (id, url)
+				VALUES ($1, $2)
+				ON CONFLICT DO NOTHING
+			`, fixture.AccountID.Server().ID(), "http://test-server")
 		if err != nil {
 			return fmt.Errorf("inserting server: %w", err)
 		}
 
-		_, err = pool.Exec(t.Context(), `
-			INSERT INTO agents.oauth_configs (
-				server_id, client_id, client_secret, redirect_url, auth_url, token_url, scopes
-			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			ON CONFLICT DO NOTHING
-		`,
-			fixture.AccountID.Server().ID(),
-			"client_id",
-			"client_secret",
-			"http://redirect",
-			"http://auth",
-			"http://token",
+		_, err = pool.Exec(ctx, `
+				INSERT INTO agents.oauth_configs (
+					server_id, client_id, client_secret, redirect_url, auth_url, token_url, scopes
+				)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				ON CONFLICT DO NOTHING
+			`,
+			fixture.AccountID.Server().ID(), "client_id", "client_secret",
+			"http://redirect", "http://auth", "http://token",
 			[]string{"mcp.read", "mcp.write"},
 		)
 		if err != nil {
@@ -54,30 +71,26 @@ func TestAdapter(t *testing.T) {
 
 		return nil
 	}
+}
 
-	cleanup := func() error {
-		// cleanup flushes the whole data in the test database leaving ONLY
-		// schema and roles.
-		pool.Exec(t.Context(), "TRUNCATE TABLE agents.agent_settings CASCADE")
-		pool.Exec(t.Context(), "TRUNCATE TABLE agents.mcp_accounts CASCADE")
-		pool.Exec(t.Context(), "TRUNCATE TABLE agents.mcp_servers CASCADE")
-		pool.Exec(t.Context(), "TRUNCATE TABLE agents.oauth_configs CASCADE")
+func cleaner(pool *pgxpool.Pool) func(context.Context) error {
+	return func(ctx context.Context) error {
+		tables := []string{
+			"agents.agent_settings",
+			"agents.mcp_accounts",
+			"agents.mcp_servers",
+			"agents.oauth_configs",
+		}
+
+		for _, table := range tables {
+			query := fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table)
+			if _, err := pool.Exec(ctx, query); err != nil {
+				return fmt.Errorf("truncate %s: %w", table, err)
+			}
+		}
 
 		return nil
 	}
-
-	testsuite.RunAccountStorageTests(adapter,
-		testsuite.WithSaveAccountSeeder(fixturer),
-		testsuite.WithAccountStorageCleanup(cleanup),
-	)(t)
-
-	testsuite.RunModelSettingsStorageTests(adapter,
-		testsuite.WithModelSettingsStorageCleanup(cleanup),
-	)(t)
-
-	testsuite.RunServerStorageTests(adapter,
-		testsuite.WithServerStorageCleanup(cleanup),
-	)(t)
 }
 
 func must[T any](v T, err error) T {

@@ -14,7 +14,7 @@ import (
 
 // AccountFromGetAccountRow converts a GetAccount row (with embedded token fields from LEFT JOIN)
 // to a domain Account entity.
-func AccountFromGetAccountRow(row db.GetAccountRow) (*entities.Account, error) {
+func AccountFromGetAccountRow(row *db.GetAccountRow) (*entities.Account, error) {
 	usrID, err := ids.NewUserID(row.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid user id: %w", err)
@@ -43,7 +43,7 @@ func AccountFromGetAccountRow(row db.GetAccountRow) (*entities.Account, error) {
 
 // AccountFromGetAccountsBatchRow converts a GetAccountsBatch row
 // (with embedded token fields from LEFT JOIN) to a domain Account entity.
-func AccountFromGetAccountsBatchRow(row db.GetAccountsBatchRow) (*entities.Account, error) {
+func AccountFromGetAccountsBatchRow(row *db.GetAccountsBatchRow) (*entities.Account, error) {
 	usrID, err := ids.NewUserID(row.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid user id: %w", err)
@@ -79,12 +79,8 @@ func buildAccount(
 	tokenType *string,
 	refreshToken *string,
 	expiry pgtype.Timestamptz,
-) (
-	*entities.Account,
-	error,
-) {
+) (*entities.Account, error) {
 	var token *oauth2.Token
-	// Apply token if exists - token fields are optional from LEFT JOIN
 	if accessToken != nil && *accessToken != "" {
 		token = &oauth2.Token{
 			AccessToken:  *accessToken,
@@ -98,12 +94,7 @@ func buildAccount(
 		}
 	}
 
-	acc, err := entities.NewAccount(
-		accountID,
-		name,
-		description,
-		entities.WithAuthToken(token),
-	)
+	acc, err := entities.NewAccount(accountID, name, description, entities.WithAuthToken(token))
 	if err != nil {
 		return nil, fmt.Errorf("creating account entity: %w", err)
 	}

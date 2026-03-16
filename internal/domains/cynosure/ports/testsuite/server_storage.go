@@ -1,6 +1,7 @@
 package testsuite
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"testing"
@@ -42,14 +43,14 @@ func RunServerStorageTests(
 type ServerStorageTestSuite struct {
 	adapter ports.ServerStorage
 
-	cleanup func() error
+	cleanup func(context.Context) error
 }
 
 var _ afterTest = (*ServerStorageTestSuite)(nil)
 
 type ServerStorageTestSuiteOption func(*ServerStorageTestSuite)
 
-func WithServerStorageCleanup(f func() error) ServerStorageTestSuiteOption {
+func WithServerStorageCleanup(f func(context.Context) error) ServerStorageTestSuiteOption {
 	return func(s *ServerStorageTestSuite) { s.cleanup = f }
 }
 
@@ -63,7 +64,7 @@ func (s *ServerStorageTestSuite) validate() error {
 
 func (s *ServerStorageTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
-		if err := s.cleanup(); err != nil {
+		if err := s.cleanup(t.Context()); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
 		}
 	}

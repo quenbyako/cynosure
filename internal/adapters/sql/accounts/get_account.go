@@ -25,7 +25,7 @@ func (a *Accounts) GetAccount(
 		return nil, fmt.Errorf("getting account: %w", err)
 	}
 
-	acc, err := datatransfer.AccountFromGetAccountRow(row)
+	acc, err := datatransfer.AccountFromGetAccountRow(&row)
 	if err != nil {
 		return nil, fmt.Errorf("map account: %w", err)
 	}

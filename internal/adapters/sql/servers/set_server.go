@@ -3,6 +3,7 @@ package servers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,11 +19,12 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
+
+	//nolint:errcheck // Rollback is called in defer and we often don't check its error
 	defer transaction.Rollback(ctx)
 
 	queries := s.q.WithTx(transaction)
 
-	// Insert the server record
 	if err := queries.AddServer(ctx, db.AddServerParams{
 		ID:        server.ID().ID(),
 		Url:       server.SSELink().String(),
@@ -31,28 +33,29 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 		return fmt.Errorf("failed to add server: %w", err)
 	}
 
-	// If auth config is provided, insert it as well
-	if server.AuthConfig() == nil {
-		if err := transaction.Commit(ctx); err != nil {
-			return fmt.Errorf("commit tx: %w", err)
-		}
+	if err := s.addOAuthConfig(ctx, queries, server); err != nil {
+		return err
+	}
 
+	if err := transaction.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Servers) addOAuthConfig(
+	ctx context.Context,
+	queries *db.Queries,
+	server entities.ServerConfigReadOnly,
+) error {
+	if server.AuthConfig() == nil {
 		return nil
 	}
-	// Convert scopes array (may be nil)
+
 	scopes := server.AuthConfig().Scopes
 	if scopes == nil {
 		scopes = []string{}
-	}
-
-	// Convert expiration to pgtype.Timestamptz
-	var expiration pgtype.Timestamptz
-	if !server.ConfigExpiration().IsZero() {
-		expiration = pgtype.Timestamptz{
-			Time:             server.ConfigExpiration(),
-			InfinityModifier: pgtype.Finite,
-			Valid:            true,
-		}
 	}
 
 	if err := queries.AddOAuthConfig(ctx, db.AddOAuthConfigParams{
@@ -62,15 +65,23 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 		RedirectUrl:  server.AuthConfig().RedirectURL,
 		AuthUrl:      server.AuthConfig().Endpoint.AuthURL,
 		TokenUrl:     server.AuthConfig().Endpoint.TokenURL,
-		Expiration:   expiration,
+		Expiration:   timeToTimestampz(server.ConfigExpiration()),
 		Scopes:       scopes,
 	}); err != nil {
 		return fmt.Errorf("failed to add oauth config: %w", err)
 	}
 
-	if err := transaction.Commit(ctx); err != nil {
-		return fmt.Errorf("commit tx: %w", err)
+	return nil
+}
+
+func timeToTimestampz(value time.Time) (res pgtype.Timestamptz) {
+	if value.IsZero() {
+		return res
 	}
 
-	return nil
+	return pgtype.Timestamptz{
+		Time:             value,
+		InfinityModifier: pgtype.Finite,
+		Valid:            true,
+	}
 }

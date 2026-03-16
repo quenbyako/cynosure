@@ -1,6 +1,7 @@
 package testsuite
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -40,19 +41,21 @@ func RunAccountStorageTests(
 type AccountStorageTestSuite struct {
 	adapter ports.AccountStorage
 
-	saveAccountFixture func(SaveAccountFixture) error
-	cleanup            func() error
+	saveAccountFixture AccountFixtureBuilder
+	cleanup            func(context.Context) error
 }
 
 var _ afterTest = (*AccountStorageTestSuite)(nil)
 
 type AccountStorageTestSuiteOption func(*AccountStorageTestSuite)
 
-func WithSaveAccountSeeder(f func(SaveAccountFixture) error) AccountStorageTestSuiteOption {
+type AccountFixtureBuilder = func(context.Context, SaveAccountFixture) error
+
+func WithSaveAccountSeeder(f AccountFixtureBuilder) AccountStorageTestSuiteOption {
 	return func(s *AccountStorageTestSuite) { s.saveAccountFixture = f }
 }
 
-func WithAccountStorageCleanup(f func() error) AccountStorageTestSuiteOption {
+func WithAccountStorageCleanup(f func(context.Context) error) AccountStorageTestSuiteOption {
 	return func(s *AccountStorageTestSuite) { s.cleanup = f }
 }
 
@@ -66,7 +69,7 @@ func (s *AccountStorageTestSuite) validate() error {
 
 func (s *AccountStorageTestSuite) afterTest(t *testing.T) {
 	if s.cleanup != nil {
-		if err := s.cleanup(); err != nil {
+		if err := s.cleanup(t.Context()); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
 		}
 	}
@@ -82,7 +85,7 @@ func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 	fixture := s.buildSaveAccountSeed()
 
 	if s.saveAccountFixture != nil {
-		if err := s.saveAccountFixture(fixture); err != nil {
+		if err := s.saveAccountFixture(t.Context(), fixture); err != nil {
 			t.Fatalf("failed to setup fixtures: %v", err)
 		}
 	}
