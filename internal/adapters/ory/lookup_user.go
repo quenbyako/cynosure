@@ -4,55 +4,64 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
+
+	"github.com/quenbyako/cynosure/contrib/ory-openapi/gen/go/ory"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-// LookupUser searches for an identity by external identifier.
+// LookupUser looks up a user in Ory Kratos by their external ID.
 func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
-	resp, err := a.api.ListIdentitiesWithResponse(ctx)
+	resp, err := a.listIdentitiesByIdentifier(ctx, externalID)
 	if err != nil {
-		return ids.UserID{}, fmt.Errorf("performing request: %w", err)
+		return ids.UserID{}, err
+	}
+
+	return a.processLookupResponse(resp)
+}
+
+func (a *Client) listIdentitiesByIdentifier(
+	ctx context.Context,
+	externalID string,
+) (*ory.ListIdentitiesResponse, error) {
+	resp, err := a.api.ListIdentitiesWithResponse(ctx,
+		func(_ context.Context, req *http.Request) error {
+			q := req.URL.Query()
+			q.Set("credentials_identifier", externalID)
+			req.URL.RawQuery = q.Encode()
+
+			return nil
+		})
+	if err != nil {
+		return nil, fmt.Errorf("listing identities: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (a *Client) processLookupResponse(
+	resp *ory.ListIdentitiesResponse,
+) (ids.UserID, error) {
+	if resp.StatusCode() == http.StatusTooManyRequests {
+		return ids.UserID{}, identitymanager.ErrRateLimited
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return ids.UserID{}, fmt.Errorf("ory error (status: %d): %s", resp.StatusCode(), string(resp.Body))
+		return ids.UserID{}, fmt.Errorf("%w (status %d): %s",
+			ErrInternal, resp.StatusCode(), string(resp.Body))
 	}
 
-	if resp.JSON200 == nil {
+	if resp.JSON200 == nil || len(*resp.JSON200) == 0 {
 		return ids.UserID{}, identitymanager.ErrNotFound
 	}
 
-	for _, identity := range *resp.JSON200 {
-		tgID, ok := identity.Traits["telegram_id"]
-		if !ok {
-			continue
-		}
+	identities := *resp.JSON200
 
-		var currentID string
-
-		switch v := tgID.(type) {
-		case float64:
-			currentID = strconv.FormatFloat(v, 'f', -1, 64)
-		case string:
-			currentID = v
-		case int:
-			currentID = strconv.Itoa(v)
-		case int64:
-			currentID = strconv.FormatInt(v, 10)
-		}
-
-		if currentID == externalID {
-			userID, err := ids.NewUserIDFromString(identity.Id.String())
-			if err != nil {
-				return ids.UserID{}, fmt.Errorf("parsing user id from ory: %w", err)
-			}
-
-			return userID, nil
-		}
+	uid, err := ids.NewUserID(identities[0].Id)
+	if err != nil {
+		return ids.UserID{}, fmt.Errorf("invalid user id from ory: %w", err)
 	}
 
-	return ids.UserID{}, identitymanager.ErrNotFound
+	return uid, nil
 }

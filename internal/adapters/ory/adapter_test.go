@@ -16,6 +16,7 @@ import (
 //go:embed ory.secret
 var secretsRaw []byte
 
+//nolint:tagliatelle // better to do in that way.
 type secrets struct {
 	Endpoint     string `yaml:"endpoint"`
 	AdminKey     string `yaml:"admin_key"`
@@ -24,16 +25,16 @@ type secrets struct {
 }
 
 func TestOryIdentityManager(t *testing.T) {
-	var s secrets
+	var sec secrets
 
-	err := yaml.Unmarshal(secretsRaw, &s)
-	require.NoError(t, err)
+	err := yaml.Unmarshal(secretsRaw, &sec)
+	require.NoErrorf(t, err, "unmarshaling secrets")
 
-	endpoint, err := url.Parse(s.Endpoint)
-	require.NoError(t, err)
+	endpoint, err := url.Parse(sec.Endpoint)
+	require.NoErrorf(t, err, "parsing endpoint")
 
-	adapter := ory.New(endpoint, s.AdminKey,
-		ory.WithClientCredentials(s.ClientID, s.ClientSecret),
+	adapter := ory.New(endpoint, sec.AdminKey,
+		ory.WithClientCredentials(sec.ClientID, sec.ClientSecret),
 		ory.WithScopes("mcp:read", "mcp:write", "offline_access"),
 		ory.WithRedirectURL("http://localhost:5001"),
 	)

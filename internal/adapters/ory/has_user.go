@@ -20,7 +20,8 @@ func (a *Client) HasUser(ctx context.Context, id ids.UserID) (bool, error) {
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return false, fmt.Errorf("ory error (status: %d): %s", resp.StatusCode(), string(resp.Body))
+		return false, fmt.Errorf("%w (status %d): %s",
+			ErrInternal, resp.StatusCode(), string(resp.Body))
 	}
 
 	return true, nil

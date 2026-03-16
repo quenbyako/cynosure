@@ -1,3 +1,4 @@
+// Package ory provides an adapter for Ory Hydra and Kratos.
 package ory
 
 import (
@@ -15,7 +16,26 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/adapters/ory"
+const (
+	pkgName = "github.com/quenbyako/cynosure/internal/adapters/ory"
+)
+
+// Package-level error variables.
+var (
+	ErrBaseURLRequired     = errors.New("base url is required")
+	ErrAdminKeyRequired    = errors.New("admin key is required")
+	ErrClientIDRequired    = errors.New("client id is required")
+	ErrAuthURLRequired     = errors.New("auth url is required")
+	ErrTokenURLRequired    = errors.New("token url is required")
+	ErrRedirectURLRequired = errors.New("redirect url is required")
+	ErrScopesRequired      = errors.New("scopes are required")
+	ErrIdentityMissing     = errors.New("invalid response from ory: missing identity")
+	ErrRedirectMissing     = errors.New("invalid response from ory: missing redirect_to")
+	ErrTooManyRedirects    = errors.New("too many redirects")
+	ErrRateLimited         = identitymanager.ErrRateLimited
+	ErrInternal            = errors.New("internal ory adapter error")
+	ErrUnexpectedResponse  = errors.New("unexpected response from ory")
+)
 
 type Client struct {
 	// For IssueToken
@@ -29,6 +49,9 @@ type Client struct {
 
 var _ identitymanager.PortFactory = (*Client)(nil)
 
+// IdentityManager returns the identity manager port.
+//
+//nolint:ireturn // Implementing interface from external package.
 func (a *Client) IdentityManager() identitymanager.PortWrapped {
 	return identitymanager.Wrap(a, a.trace)
 }
@@ -58,8 +81,8 @@ func WithScopes(scopes ...string) NewOption {
 	return func(p *newParams) { p.scopes = scopes }
 }
 
-func WithRedirectURL(url string) NewOption {
-	return func(p *newParams) { p.redirectURL = url }
+func WithRedirectURL(redirectURL string) NewOption {
+	return func(p *newParams) { p.redirectURL = redirectURL }
 }
 
 func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
@@ -75,55 +98,67 @@ func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
 		opt(&params)
 	}
 
-	// TODO: validate config
-	conf := oauth2.Config{
+	client := &Client{
+		baseURL:  endpoint.String(),
+		adminKey: adminKey,
+		config:   newOauthConfig(endpoint.String(), params),
+		obs:      newObservable(ports.StackFromCore(params.metrics, pkgName)),
+		trace:    ports.StackFromCore(params.metrics, pkgName),
+		api:      nil,
+	}
+
+	if err := client.initAPI(); err != nil {
+		return nil
+	}
+
+	if !client.Valid() {
+		return nil
+	}
+
+	return client
+}
+
+func (a *Client) initAPI() error {
+	apiClient, err := ory.NewClientWithResponses(
+		a.baseURL,
+		ory.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
+			req.Header.Set("Authorization", "Bearer "+a.adminKey)
+			return nil
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("creating ory api client: %w", err)
+	}
+
+	a.api = apiClient
+
+	return nil
+}
+
+func newOauthConfig(baseURL string, params newParams) oauth2.Config {
+	return oauth2.Config{
 		ClientID:     params.clientID,
 		ClientSecret: params.clientSecret,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:       endpoint.String() + "/oauth2/auth",
-			TokenURL:      endpoint.String() + "/oauth2/token",
+			AuthURL:       baseURL + "/oauth2/auth",
+			TokenURL:      baseURL + "/oauth2/token",
 			AuthStyle:     oauth2.AuthStyleInHeader,
 			DeviceAuthURL: "",
 		},
 		RedirectURL: params.redirectURL,
 		Scopes:      params.scopes,
 	}
-
-	client := &Client{
-		baseURL:  endpoint.String(),
-		adminKey: adminKey,
-		config:   conf,
-		obs:      newObservable(ports.StackFromCore(params.metrics, pkgName)),
-		trace:    ports.StackFromCore(params.metrics, pkgName),
-		api:      nil,
-	}
-
-	apiClient, err := ory.NewClientWithResponses(client.baseURL, ory.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer "+client.adminKey)
-		return nil
-	}))
-	if err != nil {
-		panic(fmt.Errorf("creating ory api client: %w", err))
-	}
-
-	client.api = apiClient
-
-	if err := client.validate(); err != nil {
-		panic(err)
-	}
-
-	return client
 }
 
 func (a *Client) Valid() bool { return a != nil && a.validate() == nil }
 
 func (a *Client) validate() error {
 	if a.baseURL == "" {
-		return errors.New("base url is required")
+		return ErrBaseURLRequired
 	}
 
 	if a.adminKey == "" {
-		return errors.New("admin key is required")
+		return ErrAdminKeyRequired
 	}
 
 	if err := validateOauthConfig(a.config); err != nil {
@@ -133,26 +168,30 @@ func (a *Client) validate() error {
 	return nil
 }
 
+//nolint:ireturn
+func (a *Client) initiateAuth(ctx context.Context, name string) (context.Context, span) {
+	return a.obs.initiateAuth(ctx, name)
+}
+
 func validateOauthConfig(conf oauth2.Config) error {
 	if conf.ClientID == "" {
-		return errors.New("client id is required")
+		return ErrClientIDRequired
 	}
-	// client secrets are usually optional.
 
 	if conf.Endpoint.AuthURL == "" {
-		return errors.New("auth url is required")
+		return ErrAuthURLRequired
 	}
 
 	if conf.Endpoint.TokenURL == "" {
-		return errors.New("token url is required")
+		return ErrTokenURLRequired
 	}
 
 	if conf.RedirectURL == "" {
-		return errors.New("redirect url is required")
+		return ErrRedirectURLRequired
 	}
 
 	if len(conf.Scopes) == 0 {
-		return errors.New("scopes are required")
+		return ErrScopesRequired
 	}
 
 	return nil

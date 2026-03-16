@@ -17,10 +17,15 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-// IssueToken issues a new OAuth2 token for the given user by programmatically
-// accepting login and consent requests in Ory Hydra.
+const (
+	maxRedirects = 10
+	retryCount   = 3
+	stateValue   = "state-longer-than-eight-characters"
+)
+
+// IssueToken issues a new OAuth2 token for the given user.
 func (a *Client) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
-	for i := range 3 {
+	for i := range retryCount {
 		token, err := a.issueToken(ctx, id)
 		if err == nil {
 			return token, nil
@@ -30,10 +35,9 @@ func (a *Client) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, 
 			return nil, err
 		}
 
-		// Wait before retry
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("context cancelled during token issuance: %w", ctx.Err())
 		case <-time.After(time.Second * time.Duration(i+1)):
 		}
 	}
@@ -42,7 +46,6 @@ func (a *Client) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, 
 }
 
 func (a *Client) issueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
-	// 1. Check if user exists
 	exists, err := a.HasUser(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("checking user existence: %w", err)
@@ -52,118 +55,184 @@ func (a *Client) issueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, 
 		return nil, identitymanager.ErrNotFound
 	}
 
-	// 2. Start OAuth2 flow
-	state := "state-longer-than-eight-characters"
-	authURL := a.config.AuthCodeURL(state)
-
-	jar, _ := cookiejar.New(nil)
-	httpClient := &http.Client{
-		Jar: jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-		Transport: nil,
-		Timeout:   0,
+	httpClient, err := a.newHTTPClient()
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	// 3. Initiate Auth
-	challenge, err := a.initiateAuth(ctx, httpClient, authURL)
+	challenge, err := a.getConsentChallenge(ctx, httpClient, id)
 	if err != nil {
 		return nil, err
 	}
 
-	var consentChallenge string
-	if strings.HasPrefix(challenge, "consent:") {
-		consentChallenge = strings.TrimPrefix(challenge, "consent:")
-	} else {
-		// 4. Accept Login
-		loginRedirectTo, err := a.acceptLogin(ctx, challenge, id.ID().String())
-		if err != nil {
-			return nil, err
-		}
-
-		// 5. Follow to Consent
-		consentChallenge, err = a.followToConsent(ctx, httpClient, loginRedirectTo)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// 6. Accept Consent
-	consentRedirectTo, err := a.acceptConsent(ctx, consentChallenge)
+	redirectTo, err := a.acceptConsent(ctx, challenge)
 	if err != nil {
 		return nil, err
 	}
 
-	// 7. Get the code
-	code, err := a.exchangeCode(ctx, httpClient, consentRedirectTo)
+	code, err := a.exchangeCode(ctx, httpClient, redirectTo)
 	if err != nil {
 		return nil, err
 	}
 
-	// 8. Exchange
-	return a.config.Exchange(ctx, code)
+	return a.exchangeToken(ctx, code)
 }
 
-func (a *Client) initiateAuth(ctx context.Context, client *http.Client, authURL string) (string, error) {
-	ctx, span := a.obs.initiateAuth(ctx, "initiateAuth")
-	defer span.end()
-
-	currURL := authURL
-	for range 10 {
-		resp, err := client.Get(currURL)
-		if err != nil {
-			span.recordError(err)
-			return "", fmt.Errorf("initiating auth flow at %s: %w", currURL, err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusTooManyRequests {
-			return "", identitymanager.ErrRateLimited
-		}
-
-		// Check query of the current request URL (if we were redirected and landed)
-		if c := resp.Request.URL.Query().Get("login_challenge"); c != "" {
-			return c, nil
-		}
-
-		if c := resp.Request.URL.Query().Get("consent_challenge"); c != "" {
-			return "consent:" + c, nil
-		}
-
-		// If it's a redirect, check the Location header directly too
-		if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusSeeOther {
-			location, err := resp.Location()
-			if err == nil {
-				if c := location.Query().Get("login_challenge"); c != "" {
-					return c, nil
-				}
-
-				if c := location.Query().Get("consent_challenge"); c != "" {
-					return "consent:" + c, nil
-				}
-
-				currURL = location.String()
-
-				continue
-			}
-		}
-
-		return "", fmt.Errorf("login challenge not found at %s (status %d)", resp.Request.URL.String(), resp.StatusCode)
+func (a *Client) newHTTPClient() (*http.Client, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating cookie jar: %w", err)
 	}
 
-	return "", errors.New("too many redirects during auth initiation")
+	return &http.Client{
+		Jar: jar,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+		Transport: http.DefaultTransport,
+		Timeout:   0,
+	}, nil
+}
+
+func (a *Client) exchangeToken(ctx context.Context, code string) (*oauth2.Token, error) {
+	token, err := a.config.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("exchanging code for token: %w", err)
+	}
+
+	return token, nil
+}
+
+func (a *Client) getConsentChallenge(
+	ctx context.Context,
+	httpClient *http.Client,
+	id ids.UserID,
+) (string, error) {
+	authURL := a.config.AuthCodeURL(stateValue)
+
+	challenge, err := a.doInitiateAuth(ctx, httpClient, authURL)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.HasPrefix(challenge, "consent:") {
+		return strings.TrimPrefix(challenge, "consent:"), nil
+	}
+
+	loginRedirectTo, err := a.acceptLogin(ctx, challenge, id.ID().String())
+	if err != nil {
+		return "", err
+	}
+
+	return a.followToConsent(ctx, httpClient, loginRedirectTo)
+}
+
+func (a *Client) doInitiateAuth(
+	ctx context.Context,
+	httpClient *http.Client,
+	authURL string,
+) (string, error) {
+	innerCtx, ops := a.obs.initiateAuth(ctx, "initiateAuth")
+	defer ops.End()
+
+	currURL := authURL
+
+	for range maxRedirects {
+		challenge, location, err := a.doAuthStep(innerCtx, ops, httpClient, currURL)
+		if err != nil {
+			return "", err
+		}
+
+		if challenge != "" {
+			return challenge, nil
+		}
+
+		currURL = location
+	}
+
+	return "", ErrTooManyRedirects
+}
+
+type authStepRes struct {
+	challenge string
+	location  string
+}
+
+func (a *Client) doAuthStep(
+	ctx context.Context,
+	ops span,
+	httpClient *http.Client,
+	currURL string,
+) (challenge, location string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, currURL, http.NoBody)
+	if err != nil {
+		return "", "", fmt.Errorf("creating auth request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		ops.RecordError(err)
+
+		return "", "", fmt.Errorf("initiating auth flow at %s: %w", currURL, err)
+	}
+
+	//nolint:errcheck
+	defer func() { _ = resp.Body.Close() }()
+
+	res, err := a.parseAuthResponse(resp)
+	if err != nil {
+		return "", "", err
+	}
+
+	return res.challenge, res.location, nil
+}
+
+func (a *Client) parseAuthResponse(resp *http.Response) (*authStepRes, error) {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrRateLimited
+	}
+
+	if chal, ok := a.checkURLForChallenge(resp.Request.URL); ok {
+		return &authStepRes{challenge: chal, location: ""}, nil
+	}
+
+	if resp.StatusCode != http.StatusFound && resp.StatusCode != http.StatusSeeOther {
+		return nil, fmt.Errorf("%w (status %d)", ErrUnexpectedResponse, resp.StatusCode)
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		return nil, fmt.Errorf("location missing at %s: %w", resp.Request.URL.String(), err)
+	}
+
+	if chal, ok := a.checkURLForChallenge(loc); ok {
+		return &authStepRes{challenge: chal, location: ""}, nil
+	}
+
+	return &authStepRes{challenge: "", location: loc.String()}, nil
+}
+
+func (a *Client) checkURLForChallenge(u *url.URL) (string, bool) {
+	if challenge := u.Query().Get("login_challenge"); challenge != "" {
+		return challenge, true
+	}
+
+	if challenge := u.Query().Get("consent_challenge"); challenge != "" {
+		return "consent:" + challenge, true
+	}
+
+	return "", false
 }
 
 func (a *Client) acceptLogin(ctx context.Context, challenge, subject string) (string, error) {
-	ctx, span := a.obs.step(ctx, "acceptLogin")
-	defer span.end()
+	_, ops := a.obs.step(ctx, "acceptLogin")
+	defer ops.End()
 
 	resp, err := a.api.AcceptLoginRequestWithResponse(ctx, ory.AcceptOAuth2LoginRequest{
-		Subject:     subject,
 		Remember:    nil,
 		RememberFor: nil,
-	}, func(ctx context.Context, req *http.Request) error {
+		Subject:     subject,
+	}, func(_ context.Context, req *http.Request) error {
 		q := req.URL.Query()
 		q.Set("login_challenge", challenge)
 		req.URL.RawQuery = q.Encode()
@@ -174,70 +243,139 @@ func (a *Client) acceptLogin(ctx context.Context, challenge, subject string) (st
 		return "", fmt.Errorf("accepting login: %w", err)
 	}
 
-	if resp.StatusCode() == http.StatusTooManyRequests {
-		return "", identitymanager.ErrRateLimited
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("failed to accept login (status %d): %s", resp.StatusCode(), string(resp.Body))
-	}
-
-	if resp.JSON200 == nil || resp.JSON200.RedirectTo == nil {
-		return "", errors.New("invalid response from ory: missing redirect_to")
-	}
-
-	return *resp.JSON200.RedirectTo, nil
+	return a.processAcceptRedirect(resp.StatusCode(), resp.Body, resp.JSON200)
 }
 
-func (a *Client) followToConsent(ctx context.Context, client *http.Client, redirectTo string) (string, error) {
-	ctx, span := a.obs.step(ctx, "followToConsent")
-	defer span.end()
-
-	currURL := redirectTo
-	for range 10 {
-		resp, err := client.Get(currURL)
-		if err != nil {
-			span.recordError(err)
-			return "", fmt.Errorf("following to consent at %s: %w", currURL, err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusTooManyRequests {
-			return "", identitymanager.ErrRateLimited
-		}
-
-		if c := resp.Request.URL.Query().Get("consent_challenge"); c != "" {
-			return c, nil
-		}
-
-		if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusSeeOther {
-			location, err := resp.Location()
-			if err == nil {
-				if c := location.Query().Get("consent_challenge"); c != "" {
-					return c, nil
-				}
-
-				currURL = location.String()
-
-				continue
-			}
-		}
-
-		return "", fmt.Errorf("consent challenge not found at %s (status %d)", resp.Request.URL.String(), resp.StatusCode)
+func (a *Client) processAcceptRedirect(
+	code int,
+	body []byte,
+	data *ory.OAuth2RedirectTo,
+) (string, error) {
+	if code == http.StatusTooManyRequests {
+		return "", ErrRateLimited
 	}
 
-	return "", errors.New("too many redirects during consent following")
+	if code != http.StatusOK {
+		return "", fmt.Errorf("%w (status %d): %s",
+			ErrInternal, code, string(body))
+	}
+
+	if data == nil || data.RedirectTo == nil {
+		return "", ErrRedirectMissing
+	}
+
+	return *data.RedirectTo, nil
+}
+
+func (a *Client) followToConsent(
+	ctx context.Context,
+	httpClient *http.Client,
+	redirectTo string,
+) (string, error) {
+	innerCtx, ops := a.obs.step(ctx, "followToConsent")
+	defer ops.End()
+
+	currURL := redirectTo
+
+	for range maxRedirects {
+		chal, loc, err := a.doRedirectStep(innerCtx, ops, httpClient,
+			currURL, a.processConsentResponse)
+		if err != nil {
+			return "", err
+		}
+
+		if chal != "" {
+			return chal, nil
+		}
+
+		currURL = loc
+	}
+
+	return "", ErrTooManyRedirects
+}
+
+type redirectProc func(resp *http.Response) (challenge, location string, ok bool)
+
+func (a *Client) doRedirectStep(
+	ctx context.Context,
+	ops span,
+	httpClient *http.Client,
+	currURL string,
+	proc redirectProc,
+) (challenge, location string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, currURL, http.NoBody)
+	if err != nil {
+		return "", "", fmt.Errorf("creating redirect request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		ops.RecordError(err)
+
+		return "", "", fmt.Errorf("following redirect at %s: %w", currURL, err)
+	}
+
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck
+
+	challenge, location, ok := proc(resp)
+	if ok {
+		return challenge, "", nil
+	}
+
+	if location == "" {
+		return "", "", fmt.Errorf("%w (redirect location missing)", ErrUnexpectedResponse)
+	}
+
+	return "", location, nil
+}
+
+func (a *Client) processConsentResponse(resp *http.Response) (challenge, location string, ok bool) {
+	if chal, ok := a.extractConsentChallenge(resp); ok {
+		return chal, "", true
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		return "", "", false
+	}
+
+	return "", loc.String(), false
+}
+
+func (a *Client) extractConsentChallenge(resp *http.Response) (string, bool) {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return "", false
+	}
+
+	if challenge := resp.Request.URL.Query().Get("consent_challenge"); challenge != "" {
+		return challenge, true
+	}
+
+	if resp.StatusCode != http.StatusFound && resp.StatusCode != http.StatusSeeOther {
+		return "", false
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		return "", false
+	}
+
+	if chal, ok := loc.Query()["consent_challenge"]; ok && len(chal) > 0 {
+		return chal[0], true
+	}
+
+	return "", false
 }
 
 func (a *Client) acceptConsent(ctx context.Context, challenge string) (string, error) {
-	ctx, span := a.obs.step(ctx, "acceptConsent")
-	defer span.end()
+	_, ops := a.obs.step(ctx, "acceptConsent")
+	defer ops.End()
 
 	resp, err := a.api.AcceptConsentRequestWithResponse(ctx, ory.AcceptOAuth2ConsentRequest{
 		GrantScope:  &a.config.Scopes,
 		Remember:    nil,
 		RememberFor: nil,
-	}, func(ctx context.Context, req *http.Request) error {
+	}, func(_ context.Context, req *http.Request) error {
 		q := req.URL.Query()
 		q.Set("consent_challenge", challenge)
 		req.URL.RawQuery = q.Encode()
@@ -248,57 +386,60 @@ func (a *Client) acceptConsent(ctx context.Context, challenge string) (string, e
 		return "", fmt.Errorf("accepting consent: %w", err)
 	}
 
-	if resp.StatusCode() == http.StatusTooManyRequests {
-		return "", identitymanager.ErrRateLimited
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("failed to accept consent (status %d): %s", resp.StatusCode(), string(resp.Body))
-	}
-
-	if resp.JSON200 == nil || resp.JSON200.RedirectTo == nil {
-		return "", errors.New("invalid response from ory: missing redirect_to")
-	}
-
-	return *resp.JSON200.RedirectTo, nil
+	return a.processAcceptRedirect(resp.StatusCode(), resp.Body, resp.JSON200)
 }
 
-func (a *Client) exchangeCode(ctx context.Context, client *http.Client, redirectTo string) (string, error) {
-	ctx, span := a.obs.step(ctx, "exchangeCode")
-	defer span.end()
+func (a *Client) exchangeCode(
+	ctx context.Context,
+	httpClient *http.Client,
+	redirectTo string,
+) (string, error) {
+	innerCtx, ops := a.obs.step(ctx, "exchangeCode")
+	defer ops.End()
 
 	currURL := redirectTo
-	for range 10 {
-		resp, err := client.Get(currURL)
+
+	for range maxRedirects {
+		code, loc, err := a.doRedirectStep(innerCtx, ops, httpClient,
+			currURL, a.processExchangeResponse)
 		if err != nil {
-			span.recordError(err)
-			return "", fmt.Errorf("following to exchange at %s: %w", currURL, err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusTooManyRequests {
-			return "", identitymanager.ErrRateLimited
+			return "", err
 		}
 
-		if c := resp.Header.Get("Location"); c != "" {
-			u, _ := url.Parse(c)
-			if code := u.Query().Get("code"); code != "" {
-				return code, nil
-			}
-
-			currURL = c
-
-			continue
+		if code != "" {
+			return code, nil
 		}
 
-		if resp.StatusCode == http.StatusOK {
-			if code := resp.Request.URL.Query().Get("code"); code != "" {
-				return code, nil
-			}
-		}
-
-		return "", fmt.Errorf("auth code not found at %s (status %d)", resp.Request.URL.String(), resp.StatusCode)
+		currURL = loc
 	}
 
-	return "", errors.New("too many redirects during code exchange")
+	return "", ErrTooManyRedirects
+}
+
+func (a *Client) processExchangeResponse(resp *http.Response) (code, location string, ok bool) {
+	if c, ok := a.extractCode(resp); ok {
+		return c, "", true
+	}
+
+	loc := resp.Header.Get("Location")
+
+	return "", loc, false
+}
+
+func (a *Client) extractCode(resp *http.Response) (string, bool) {
+	location := resp.Header.Get("Location")
+	if location != "" {
+		u, err := url.Parse(location)
+		if err == nil && u.Query().Get("code") != "" {
+			return u.Query().Get("code"), true
+		}
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		if code := resp.Request.URL.Query().Get("code"); code != "" {
+			return code, true
+		}
+	}
+
+	return "", false
 }
