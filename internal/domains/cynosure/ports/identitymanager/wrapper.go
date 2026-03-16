@@ -58,7 +58,9 @@ func (i *portWrapped) LookupUser(ctx context.Context, telegramID string) (ids.Us
 	return res, err
 }
 
-func (i *portWrapped) CreateUser(ctx context.Context, telegramID, nickname, firstName, lastName string) (ids.UserID, error) {
+func (i *portWrapped) CreateUser(
+	ctx context.Context, telegramID, nickname, firstName, lastName string,
+) (ids.UserID, error) {
 	ctx, span := i.t.createUser(ctx, telegramID, nickname, firstName, lastName)
 	defer span.end()
 

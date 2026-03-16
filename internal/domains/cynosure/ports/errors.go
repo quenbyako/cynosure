@@ -11,7 +11,9 @@ var (
 
 	ErrToolsNotCached = errors.New("tools were not cached")
 
-	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
+	ErrAuthUnsupported = errors.New(
+		"authorization for this server is not supported, allowed to connect anonymously",
+	)
 
 	// ErrServerUnreachable indicates that all connection protocols failed.
 	// Use case should inform user that server is offline or unreachable.
@@ -43,7 +45,8 @@ func (e *RequiresAuthError) Error() string {
 		return "requires authentication, no metadata endpoint suggested"
 	}
 
-	return "requires authentication, should use metadata endpoint: " + e.suggestedMetadataEndpoint.String()
+	return "requires authentication, should use metadata endpoint: " +
+		e.suggestedMetadataEndpoint.String()
 }
 
 func (e *RequiresAuthError) Endpoint() *url.URL { return e.suggestedMetadataEndpoint }

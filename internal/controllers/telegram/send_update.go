@@ -17,7 +17,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-func (h *Handler) SendUpdate(ctx context.Context, request botapi.SendUpdateRequestObject) (botapi.SendUpdateResponseObject, error) {
+func (h *Handler) SendUpdate(
+	ctx context.Context, request botapi.SendUpdateRequestObject,
+) (botapi.SendUpdateResponseObject, error) {
 	ctx, span := h.tracer.Start(ctx, "SendUpdate")
 	defer span.End()
 
@@ -40,7 +42,9 @@ func (h *Handler) SendUpdate(ctx context.Context, request botapi.SendUpdateReque
 	}
 }
 
-func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.Message) (botapi.SendUpdateResponseObject, error) {
+func (h *Handler) processMessage(
+	requestCtx context.Context, _ int, msg *botapi.Message,
+) (botapi.SendUpdateResponseObject, error) {
 	chatID := msg.Chat.Id
 
 	if msg.Chat.Type != "private" {
@@ -48,7 +52,8 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 		return noContentResponse{}, nil
 	}
 
-	// We resolve basic info synchronously to ensure we can respond with error if something is fundamentally wrong.
+	// We resolve basic info synchronously to ensure we can respond with error
+	// if something is fundamentally wrong.
 	// But the actual heavy generation happens in background.
 	var nickname, firstName, lastName string
 	if msg.From.Username != nil {
@@ -60,7 +65,9 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 		lastName = *msg.From.LastName
 	}
 
-	userID, err := h.users.EnsureUser(requestCtx, strconv.Itoa(msg.From.Id), nickname, firstName, lastName)
+	userID, err := h.users.EnsureUser(
+		requestCtx, strconv.Itoa(msg.From.Id), nickname, firstName, lastName,
+	)
 	if err != nil {
 		if errors.Is(err, identitymanager.ErrRateLimited) {
 			traceID := trace.SpanFromContext(requestCtx).SpanContext().TraceID()
@@ -70,25 +77,29 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 				text += fmt.Sprintf(" (trace id: %s)", traceID.String())
 			}
 
-			_, err := h.client.SendMessageWithResponse(requestCtx, botapi.SendMessageJSONRequestBody{
-				ChatId:                  chatID,
-				MessageThreadId:         msg.MessageThreadId,
-				Text:                    text,
-				AllowPaidBroadcast:      nil,
-				BusinessConnectionId:    nil,
-				DirectMessagesTopicId:   nil,
-				DisableNotification:     nil,
-				Entities:                nil,
-				LinkPreviewOptions:      nil,
-				MessageEffectId:         nil,
-				ParseMode:               nil,
-				ProtectContent:          nil,
-				ReplyMarkup:             nil,
-				ReplyParameters:         nil,
-				SuggestedPostParameters: nil,
-			})
-			if err != nil {
-				h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("sending error message: %w", err))
+			_, sendMessageErr := h.client.SendMessageWithResponse(
+				requestCtx, botapi.SendMessageJSONRequestBody{
+					ChatId:                  chatID,
+					MessageThreadId:         msg.MessageThreadId,
+					Text:                    text,
+					AllowPaidBroadcast:      nil,
+					BusinessConnectionId:    nil,
+					DirectMessagesTopicId:   nil,
+					DisableNotification:     nil,
+					Entities:                nil,
+					LinkPreviewOptions:      nil,
+					MessageEffectId:         nil,
+					ParseMode:               nil,
+					ProtectContent:          nil,
+					ReplyMarkup:             nil,
+					ReplyParameters:         nil,
+					SuggestedPostParameters: nil,
+				},
+			)
+			if sendMessageErr != nil {
+				h.log.ProcessMessageIssue(
+					requestCtx, chatID, fmt.Errorf("sending error message: %w", sendMessageErr),
+				)
 			}
 
 			return noContentResponse{}, nil
@@ -171,25 +182,29 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 
 			if tgMsgId == nil {
 				// First update: send new message
-				resp, err := h.client.SendMessageWithResponse(ctx, botapi.SendMessageJSONRequestBody{
-					ChatId:                  chatID,
-					MessageThreadId:         msg.MessageThreadId,
-					Text:                    accumulated,
-					BusinessConnectionId:    nil,
-					Entities:                nil,
-					LinkPreviewOptions:      nil,
-					ParseMode:               nil,
-					ReplyMarkup:             nil,
-					AllowPaidBroadcast:      nil,
-					DirectMessagesTopicId:   nil,
-					DisableNotification:     nil,
-					MessageEffectId:         nil,
-					ProtectContent:          nil,
-					ReplyParameters:         nil,
-					SuggestedPostParameters: nil,
-				})
+				resp, err := h.client.SendMessageWithResponse(
+					ctx, botapi.SendMessageJSONRequestBody{
+						ChatId:                  chatID,
+						MessageThreadId:         msg.MessageThreadId,
+						Text:                    accumulated,
+						BusinessConnectionId:    nil,
+						Entities:                nil,
+						LinkPreviewOptions:      nil,
+						ParseMode:               nil,
+						ReplyMarkup:             nil,
+						AllowPaidBroadcast:      nil,
+						DirectMessagesTopicId:   nil,
+						DisableNotification:     nil,
+						MessageEffectId:         nil,
+						ProtectContent:          nil,
+						ReplyParameters:         nil,
+						SuggestedPostParameters: nil,
+					},
+				)
 				if err != nil {
-					h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("send initial message: %w", err))
+					h.log.ProcessMessageIssue(
+						ctx, chatID, fmt.Errorf("send initial message: %w", err),
+					)
 					continue
 				}
 
@@ -198,7 +213,11 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 					tgMsgId = &id
 					lastSentText = accumulated
 				} else if resp.JSONDefault != nil {
-					h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("send initial message: %v", resp.JSONDefault.Description))
+					h.log.ProcessMessageIssue(
+						ctx, chatID,
+						fmt.Errorf("send initial message: %v", resp.JSONDefault.Description),
+					)
+
 					break
 				}
 
@@ -206,17 +225,19 @@ func (h *Handler) processMessage(requestCtx context.Context, _ int, msg *botapi.
 			}
 
 			if accumulated != lastSentText && limiter.Allow() {
-				_, err := h.client.EditMessageTextWithResponse(ctx, botapi.EditMessageTextJSONRequestBody{
-					ChatId:               &chatID,
-					MessageId:            tgMsgId,
-					Text:                 accumulated,
-					BusinessConnectionId: nil,
-					Entities:             nil,
-					InlineMessageId:      nil,
-					LinkPreviewOptions:   nil,
-					ParseMode:            nil,
-					ReplyMarkup:          nil,
-				})
+				_, err := h.client.EditMessageTextWithResponse(
+					ctx, botapi.EditMessageTextJSONRequestBody{
+						ChatId:               &chatID,
+						MessageId:            tgMsgId,
+						Text:                 accumulated,
+						BusinessConnectionId: nil,
+						Entities:             nil,
+						InlineMessageId:      nil,
+						LinkPreviewOptions:   nil,
+						ParseMode:            nil,
+						ReplyMarkup:          nil,
+					},
+				)
 				if err != nil {
 					h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("edit message: %w", err))
 					continue

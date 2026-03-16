@@ -45,12 +45,16 @@ func (h *Handler) CancelTask(context.Context, *a2a.CancelTaskRequest) (*a2a.Task
 }
 
 // CreateTaskPushNotificationConfig implements a2a.A2AServiceServer.
-func (h *Handler) CreateTaskPushNotificationConfig(context.Context, *a2a.CreateTaskPushNotificationConfigRequest) (*a2a.TaskPushNotificationConfig, error) {
+func (h *Handler) CreateTaskPushNotificationConfig(
+	ctx context.Context, req *a2a.CreateTaskPushNotificationConfigRequest,
+) (*a2a.TaskPushNotificationConfig, error) {
 	panic("unimplemented")
 }
 
 // DeleteTaskPushNotificationConfig implements a2a.A2AServiceServer.
-func (h *Handler) DeleteTaskPushNotificationConfig(context.Context, *a2a.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error) {
+func (h *Handler) DeleteTaskPushNotificationConfig(
+	ctx context.Context, req *a2a.DeleteTaskPushNotificationConfigRequest,
+) (*emptypb.Empty, error) {
 	panic("unimplemented")
 }
 
@@ -65,17 +69,23 @@ func (h *Handler) GetTask(context.Context, *a2a.GetTaskRequest) (*a2a.Task, erro
 }
 
 // GetTaskPushNotificationConfig implements a2a.A2AServiceServer.
-func (h *Handler) GetTaskPushNotificationConfig(context.Context, *a2a.GetTaskPushNotificationConfigRequest) (*a2a.TaskPushNotificationConfig, error) {
+func (h *Handler) GetTaskPushNotificationConfig(
+	ctx context.Context, req *a2a.GetTaskPushNotificationConfigRequest,
+) (*a2a.TaskPushNotificationConfig, error) {
 	panic("unimplemented")
 }
 
 // ListTaskPushNotificationConfig implements a2a.A2AServiceServer.
-func (h *Handler) ListTaskPushNotificationConfig(context.Context, *a2a.ListTaskPushNotificationConfigRequest) (*a2a.ListTaskPushNotificationConfigResponse, error) {
+func (h *Handler) ListTaskPushNotificationConfig(
+	ctx context.Context, req *a2a.ListTaskPushNotificationConfigRequest,
+) (*a2a.ListTaskPushNotificationConfigResponse, error) {
 	panic("unimplemented")
 }
 
 // SendMessage implements a2a.A2AServiceServer.
-func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) (*a2a.SendMessageResponse, error) {
+func (h *Handler) SendMessage(
+	ctx context.Context, req *a2a.SendMessageRequest,
+) (*a2a.SendMessageResponse, error) {
 	var (
 		text     string
 		textSb80 strings.Builder
@@ -183,7 +193,9 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 }
 
 // SendStreamingMessage implements a2a.A2AServiceServer.
-func (h *Handler) SendStreamingMessage(req *a2a.SendMessageRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse]) error {
+func (h *Handler) SendStreamingMessage(
+	req *a2a.SendMessageRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse],
+) error {
 	var (
 		text      string
 		textSb176 strings.Builder
@@ -239,7 +251,9 @@ func (h *Handler) SendStreamingMessage(req *a2a.SendMessageRequest, srv grpc.Ser
 }
 
 // TaskSubscription implements a2a.A2AServiceServer.
-func (h *Handler) TaskSubscription(*a2a.TaskSubscriptionRequest, grpc.ServerStreamingServer[a2a.StreamResponse]) error {
+func (h *Handler) TaskSubscription(
+	req *a2a.TaskSubscriptionRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse],
+) error {
 	panic("unimplemented")
 }
 

@@ -16,5 +16,9 @@ type NoOpLogCallbacks struct{}
 var _ LogCallbacks = NoOpLogCallbacks{}
 
 func (n NoOpLogCallbacks) MaxTurnsReached(ctx context.Context, threadID string) {}
-func (n NoOpLogCallbacks) ToolCalled(ctx context.Context, threadID string, toolNames []messages.MessageToolRequest) {
+func (n NoOpLogCallbacks) ToolCalled(
+	ctx context.Context,
+	threadID string,
+	toolNames []messages.MessageToolRequest,
+) {
 }

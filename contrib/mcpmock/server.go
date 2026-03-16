@@ -42,8 +42,11 @@ type MockServerConfig struct {
 }
 
 func (c MockServerConfig) String() string {
-	return fmt.Sprintf("transport=%q,auth=%q,discovery=%q,registration=%q,flow=%q,token=%q,protected=%q,authType=%q",
-		c.Transport, c.Auth, c.Discovery, c.Registration, c.Flow, c.Token, c.Protected, c.AuthType)
+	return fmt.Sprintf(
+		"transport=%q,auth=%q,discovery=%q,registration=%q,"+
+			"flow=%q,token=%q,protected=%q,authType=%q",
+		c.Transport, c.Auth, c.Discovery, c.Registration, c.Flow, c.Token, c.Protected, c.AuthType,
+	)
 }
 
 // MockServer wraps httptest.Server and manages its states.
@@ -76,7 +79,9 @@ func (m *MockServer) DropConnections() {
 	m.CloseClientConnections()
 }
 
-func (m *MockServer) Tools(accountName, accountDesc string, toolID func(string) ids.ToolID) []tools.RawTool {
+func (m *MockServer) Tools(
+	accountName, accountDesc string, toolID func(string) ids.ToolID,
+) []tools.RawTool {
 	return []tools.RawTool{
 		must(tools.NewRawTool(
 			"mock_tool",
@@ -171,7 +176,9 @@ func New(cfg MockServerConfig) *MockServer {
 	case TransportSSE:
 		mcpHandler = mcp.NewSSEHandler(func(*http.Request) *mcp.Server { return mcpServer }, nil)
 	case TransportHTTP:
-		mcpHandler = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpServer }, nil)
+		mcpHandler = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+			return mcpServer
+		}, nil)
 	default:
 		panic(fmt.Sprintf("unknown transport type: %v", cfg.Transport))
 	}

@@ -32,14 +32,18 @@ func NewHandler(srv *accounts.Usecase) http.Handler {
 var emptyBool = httpapi.OptBool{Value: false, Set: false}
 
 // GetAgentCard implements httpapi.Handler.
-func (h *Handler) GetAgentCard(ctx context.Context, params httpapi.GetAgentCardParams) (httpapi.GetAgentCardRes, error) {
+func (h *Handler) GetAgentCard(
+	ctx context.Context, params httpapi.GetAgentCardParams,
+) (httpapi.GetAgentCardRes, error) {
 	return &httpapi.GetAgentCardOK{
 		ProtocolVersion:    "0.3.0",
 		Name:               "TestAgent",
 		Description:        "Some test agent, idk",
 		Version:            "0.1.0",
 		URL:                "https://af9f40da2e5e.ngrok-free.app/agent",
-		PreferredTransport: httpapi.NewOptGetAgentCardOKPreferredTransport(httpapi.GetAgentCardOKPreferredTransportJSONRPC),
+		PreferredTransport: httpapi.NewOptGetAgentCardOKPreferredTransport(
+			httpapi.GetAgentCardOKPreferredTransportJSONRPC,
+		),
 		DefaultInputModes:  []string{"text/plain"},
 		DefaultOutputModes: []string{"text/plain"},
 		Skills: []httpapi.AgentSkill{{
@@ -62,7 +66,9 @@ func (h *Handler) GetAgentCard(ctx context.Context, params httpapi.GetAgentCardP
 }
 
 // OAuthCallbackGet implements httpapi.Handler.
-func (h *Handler) OAuthCallbackGet(ctx context.Context, params httpapi.OAuthCallbackGetParams) (httpapi.OAuthCallbackGetRes, error) {
+func (h *Handler) OAuthCallbackGet(
+	ctx context.Context, params httpapi.OAuthCallbackGetParams,
+) (httpapi.OAuthCallbackGetRes, error) {
 	if !params.State.IsSet() {
 		return &httpapi.OAuthCallbackGetBadRequest{
 			Data: strings.NewReader(errorPage),

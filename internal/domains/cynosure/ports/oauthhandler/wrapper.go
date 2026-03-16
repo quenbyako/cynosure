@@ -36,7 +36,13 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	return &t
 }
 
-func (t *portWrapped) RegisterClient(ctx context.Context, resourceURL *url.URL, clientName string, setRedirect *url.URL, opts ...RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error) {
+func (t *portWrapped) RegisterClient(
+	ctx context.Context,
+	resourceURL *url.URL,
+	clientName string,
+	setRedirect *url.URL,
+	opts ...RegisterClientOption,
+) (cfg *oauth2.Config, expiresAt time.Time, err error) {
 	ctx, span := t.t.registerClient(ctx, resourceURL.String(), clientName)
 	defer span.end()
 
@@ -46,7 +52,9 @@ func (t *portWrapped) RegisterClient(ctx context.Context, resourceURL *url.URL, 
 	return cfg, expiresAt, err
 }
 
-func (t *portWrapped) RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (res *oauth2.Token, err error) {
+func (t *portWrapped) RefreshToken(
+	ctx context.Context, config *oauth2.Config, token *oauth2.Token,
+) (res *oauth2.Token, err error) {
 	ctx, span := t.t.refreshToken(ctx, config.ClientID, config.Endpoint.AuthURL)
 	defer span.end()
 
@@ -56,7 +64,9 @@ func (t *portWrapped) RefreshToken(ctx context.Context, config *oauth2.Config, t
 	return res, err
 }
 
-func (t *portWrapped) Exchange(ctx context.Context, config *oauth2.Config, code string, verifier []byte) (res *oauth2.Token, err error) {
+func (t *portWrapped) Exchange(
+	ctx context.Context, config *oauth2.Config, code string, verifier []byte,
+) (res *oauth2.Token, err error) {
 	ctx, span := t.t.exchange(ctx, config.ClientID, config.Endpoint.TokenURL)
 	defer span.end()
 

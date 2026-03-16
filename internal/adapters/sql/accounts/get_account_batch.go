@@ -11,7 +11,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-func (a *Accounts) GetAccountsBatch(ctx context.Context, accounts []ids.AccountID) ([]*entities.Account, error) {
+func (a *Accounts) GetAccountsBatch(
+	ctx context.Context, accounts []ids.AccountID,
+) ([]*entities.Account, error) {
 	if len(accounts) == 0 {
 		return []*entities.Account{}, nil
 	}

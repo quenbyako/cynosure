@@ -38,19 +38,34 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	return &t
 }
 
-func (t *toolClientWrapped) DiscoverTools(ctx context.Context, serverAddr *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawTool, error) {
+func (t *toolClientWrapped) DiscoverTools(
+	ctx context.Context,
+	serverAddr *url.URL,
+	account ids.AccountID,
+	accountSlug, accountDesc string,
+	opts ...DiscoverToolsOption,
+) ([]tools.RawTool, error) {
 	p := DiscoverToolsParams(opts...)
 
-	ctx, span := t.t.discoverTools(ctx, account.ID().String(), serverAddr.String(), p.Token() != nil)
+	hasToken := p.Token() != nil
+
+	ctx, span := t.t.discoverTools(ctx, account.ID().String(), serverAddr.String(), hasToken)
 	defer span.end()
 
-	res, err := t.w.DiscoverTools(ctx, serverAddr, account, accountSlug, accountDesc, resolvedDiscoverToolsParams(p))
+	resolved := resolvedDiscoverToolsParams(p)
+
+	res, err := t.w.DiscoverTools(ctx, serverAddr, account, accountSlug, accountDesc, resolved)
 	span.recordError(err)
 
 	return res, err
 }
 
-func (t *toolClientWrapped) ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
+func (t *toolClientWrapped) ExecuteTool(
+	ctx context.Context,
+	tool entities.ToolReadOnly,
+	args map[string]json.RawMessage,
+	toolCallID string,
+) (messages.MessageTool, error) {
 	ctx, span := t.t.executeTool(ctx, tool.Name(), args, toolCallID)
 	defer span.end()
 

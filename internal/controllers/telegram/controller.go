@@ -50,7 +50,10 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
-func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress *url.URL, token []byte, opts ...NewOption) (http.Handler, error) {
+func New(
+	ctx context.Context, srv *chat.Usecase, users *users.Usecase,
+	serverPublicAddress *url.URL, token []byte, opts ...NewOption,
+) (http.Handler, error) {
 	params := newParams{
 		updateInterval: time.Second * 2,
 		log:            NoOpLogCallbacks{},
@@ -62,7 +65,10 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
 		botapi.WithHTTPClient(&http.Client{
-			Transport:     otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(params.tracer)),
+			Transport: otelhttp.NewTransport(
+				http.DefaultTransport,
+				otelhttp.WithTracerProvider(params.tracer),
+			),
 			Timeout:       0,
 			CheckRedirect: nil,
 			Jar:           nil,

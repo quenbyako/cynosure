@@ -33,7 +33,9 @@ type registerClientCallback interface {
 	span
 }
 
-func (o *observable) registerClient(ctx context.Context, resourceURL, clientName string) (context.Context, registerClientCallback) {
+func (o *observable) registerClient(
+	ctx context.Context, resourceURL, clientName string,
+) (context.Context, registerClientCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.register_client",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -49,7 +51,9 @@ type refreshTokenCallback interface {
 	span
 }
 
-func (o *observable) refreshToken(ctx context.Context, clientID, authURL string) (context.Context, refreshTokenCallback) {
+func (o *observable) refreshToken(
+	ctx context.Context, clientID, authURL string,
+) (context.Context, refreshTokenCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.refresh_token",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -65,7 +69,9 @@ type exchangeCallback interface {
 	span
 }
 
-func (o *observable) exchange(ctx context.Context, clientID, authURL string) (context.Context, exchangeCallback) {
+func (o *observable) exchange(
+	ctx context.Context, clientID, authURL string,
+) (context.Context, exchangeCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.exchange",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(

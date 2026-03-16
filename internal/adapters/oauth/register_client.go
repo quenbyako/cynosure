@@ -16,7 +16,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
-func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, clientName string, redirect *url.URL, opts ...oauthhandler.RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error) {
+func (h *Handler) RegisterClient(
+	ctx context.Context, originURL *url.URL, clientName string, redirect *url.URL,
+	opts ...oauthhandler.RegisterClientOption,
+) (cfg *oauth2.Config, expiresAt time.Time, err error) {
 	params := oauthhandler.RegisterClientParams(opts...)
 
 	if originURL == nil {
@@ -40,7 +43,8 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	// authorization server url
 	//
 	// 1. try suggested protected resource
-	// 2. if fails — try granular request to /oauth-protected-resource/mcp/whatever, based on initial request URL
+	// 2. if fails — try granular request to
+	// /oauth-protected-resource/mcp/whatever, based on initial request URL
 	// 3. if fails — use default endpoint <request host>/.well-known/oauth-protected-resource
 	// 4. if fails — use hostname as authorization server url.
 	//
@@ -56,7 +60,10 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 		resourceScopes           []string
 	)
 
-	if metadata, err := discoverProtectedResourceMetadata(ctx, client, originURL, params.SuggestedProtectedResource()); err == nil {
+	metadata, err := discoverProtectedResourceMetadata(
+		ctx, client, originURL, params.SuggestedProtectedResource(),
+	)
+	if err == nil {
 		if metadata == nil {
 			return nil, time.Time{}, errors.New("empty metadata response")
 		}
@@ -65,7 +72,9 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 			for _, srvRaw := range *authSrv {
 				srv, parseErr := url.Parse(srvRaw)
 				if parseErr != nil {
-					return nil, time.Time{}, fmt.Errorf("failed to parse authorization server URL: %w", parseErr)
+					return nil, time.Time{}, fmt.Errorf(
+						"failed to parse authorization server URL: %w", parseErr,
+					)
 				}
 
 				authServers = append(authServers, srv)
@@ -78,7 +87,9 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 
 		if doc := metadata.ResourceDocumentation; doc != nil {
 			if resourceDocumentationURL, err = url.Parse(*doc); err != nil {
-				return nil, time.Time{}, fmt.Errorf("failed to parse resource documentation URL: %w", err)
+				return nil, time.Time{}, fmt.Errorf(
+					"failed to parse resource documentation URL: %w", err,
+				)
 			}
 		}
 	} else {
@@ -117,23 +128,28 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	for _, authServer := range authServers {
 		var metadataResp *oauth.GetAuthServerMetadataResponse
 
-		metadataResp, authMetadataErr = client.GetAuthServerMetadataWithResponse(ctx, func(ctx context.Context, req *http.Request) error {
-			cloned := *authServer
-			if !strings.HasPrefix(cloned.Path, "/.well-known/oauth-authorization-server") {
-				cloned.Path = path.Join("/.well-known/oauth-authorization-server", cloned.Path)
-			}
+		metadataResp, authMetadataErr = client.GetAuthServerMetadataWithResponse(
+			ctx, func(ctx context.Context, req *http.Request) error {
+				cloned := *authServer
+				if !strings.HasPrefix(cloned.Path, "/.well-known/oauth-authorization-server") {
+					cloned.Path = path.Join("/.well-known/oauth-authorization-server", cloned.Path)
+				}
 
-			req.URL = &cloned
-			req.Host = cloned.Host
+				req.URL = &cloned
+				req.Host = cloned.Host
 
-			return nil
-		})
+				return nil
+			},
+		)
 		if authMetadataErr != nil {
 			continue // try next
 		}
 
 		if metadataResp.StatusCode() != http.StatusOK {
-			authMetadataErr = fmt.Errorf("unexpected status code %d when requesting %s", metadataResp.StatusCode(), authServer.String())
+			authMetadataErr = fmt.Errorf(
+				"unexpected status code %d when requesting %s",
+				metadataResp.StatusCode(), authServer.String(),
+			)
 			continue
 		}
 
@@ -150,7 +166,10 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 				continue
 			}
 		} else {
-			authMetadataErr = oauthhandler.ErrDynamicClientRegistrationNotSupported(resourceDocumentationURL)
+			authMetadataErr = oauthhandler.ErrDynamicClientRegistrationNotSupported(
+				resourceDocumentationURL,
+			)
+
 			continue
 		}
 
@@ -180,7 +199,9 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	}
 
 	if authMetadataErr != nil {
-		return nil, time.Time{}, fmt.Errorf("failed to get authorization server metadata: %w", authMetadataErr)
+		return nil, time.Time{}, fmt.Errorf(
+			"failed to get authorization server metadata: %w", authMetadataErr,
+		)
 	}
 
 	// Step 3: registering client.
@@ -206,50 +227,55 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 
 	scope := strings.Join(finalScopes, " ")
 
-	registerResp, err := client.RegisterOauthClientWithResponse(ctx, "", oauth.RegisterOauthClientJSONRequestBody{
-		ClientName:                            clientName,
-		RedirectUris:                          []string{redirect.String()},
-		TokenEndpointAuthMethod:               &tokenEndpointAuthMethod,
-		GrantTypes:                            &grantTypes,
-		ResponseTypes:                         &responseTypes,
-		Scope:                                 &scope,
-		AuthorizationDetailsTypes:             nil,
-		ClientId:                              nil,
-		ClientIdIssuedAt:                      nil,
-		ClientSecret:                          nil,
-		ClientSecretExpiresAt:                 nil,
-		ClientUri:                             nil,
-		Contacts:                              nil,
-		DpopBoundAccessTokens:                 nil,
-		IntrospectionEncryptedResponseAlg:     nil,
-		IntrospectionEncryptedResponseEnc:     nil,
-		IntrospectionSignedResponseAlg:        nil,
-		Jwks:                                  nil,
-		JwksUri:                               nil,
-		LogoUri:                               nil,
-		PolicyUri:                             nil,
-		RegistrationAccessToken:               nil,
-		RegistrationClientUri:                 nil,
-		RequirePushedAuthorizationRequests:    nil,
-		RequireSignedRequestObject:            nil,
-		SoftwareId:                            nil,
-		SoftwareStatement:                     nil,
-		SoftwareVersion:                       nil,
-		TlsClientAuthSanDns:                   nil,
-		TlsClientAuthSanEmail:                 nil,
-		TlsClientAuthSanIp:                    nil,
-		TlsClientAuthSanUri:                   nil,
-		TlsClientAuthSubjectDn:                nil,
-		TlsClientCertificateBoundAccessTokens: nil,
-		TosUri:                                nil,
-		AdditionalProperties:                  nil,
-	}, useExactURI(registrationEndpoint))
+	registerResp, err := client.RegisterOauthClientWithResponse(
+		ctx, "", oauth.RegisterOauthClientJSONRequestBody{
+			ClientName:                            clientName,
+			RedirectUris:                          []string{redirect.String()},
+			TokenEndpointAuthMethod:               &tokenEndpointAuthMethod,
+			GrantTypes:                            &grantTypes,
+			ResponseTypes:                         &responseTypes,
+			Scope:                                 &scope,
+			AuthorizationDetailsTypes:             nil,
+			ClientId:                              nil,
+			ClientIdIssuedAt:                      nil,
+			ClientSecret:                          nil,
+			ClientSecretExpiresAt:                 nil,
+			ClientUri:                             nil,
+			Contacts:                              nil,
+			DpopBoundAccessTokens:                 nil,
+			IntrospectionEncryptedResponseAlg:     nil,
+			IntrospectionEncryptedResponseEnc:     nil,
+			IntrospectionSignedResponseAlg:        nil,
+			Jwks:                                  nil,
+			JwksUri:                               nil,
+			LogoUri:                               nil,
+			PolicyUri:                             nil,
+			RegistrationAccessToken:               nil,
+			RegistrationClientUri:                 nil,
+			RequirePushedAuthorizationRequests:    nil,
+			RequireSignedRequestObject:            nil,
+			SoftwareId:                            nil,
+			SoftwareStatement:                     nil,
+			SoftwareVersion:                       nil,
+			TlsClientAuthSanDns:                   nil,
+			TlsClientAuthSanEmail:                 nil,
+			TlsClientAuthSanIp:                    nil,
+			TlsClientAuthSanUri:                   nil,
+			TlsClientAuthSubjectDn:                nil,
+			TlsClientCertificateBoundAccessTokens: nil,
+			TosUri:                                nil,
+			AdditionalProperties:                  nil,
+		}, useExactURI(registrationEndpoint),
+	)
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("failed to register client: %w", err)
 	}
 
 	if code := registerResp.StatusCode(); code != http.StatusCreated && code != http.StatusOK {
-		errStr := fmt.Sprintf("unexpected status code %d when registering client at %s", code, registrationEndpoint)
+		errStr := fmt.Sprintf(
+			"unexpected status code %d when registering client at %s",
+			code, registrationEndpoint,
+		)
 		if len(registerResp.Body) > 0 {
 			errStr += ": " + string(registerResp.Body)
 		}
@@ -294,13 +320,21 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 	}, expiresAt, nil
 }
 
-// TODO: immediately return error, if we stuck with infrastructure error, and not "not found" or "forbidden"
-func discoverProtectedResourceMetadata(ctx context.Context, client oauth.ClientWithResponsesInterface, originURL, suggestedURL *url.URL) (*oauth.ProtectedResourceMetadata, error) {
+// TODO: immediately return error, if we stuck with infrastructure error,
+// and not "not found" or "forbidden"
+func discoverProtectedResourceMetadata(
+	ctx context.Context,
+	client oauth.ClientWithResponsesInterface,
+	originURL, suggestedURL *url.URL,
+) (*oauth.ProtectedResourceMetadata, error) {
 	if suggestedURL != nil {
 		resp, err := client.GetResourceMetadataWithResponse(ctx, useExactURI(suggestedURL))
 		if err == nil && resp.StatusCode() < http.StatusBadRequest {
 			if resp.JSONDefault == nil {
-				return nil, fmt.Errorf("empty response when discovering protected resource metadata at %q", resp.HTTPResponse.Request.URL.String())
+				return nil, fmt.Errorf(
+					"empty response when discovering protected resource metadata at %q",
+					resp.HTTPResponse.Request.URL.String(),
+				)
 			}
 
 			return resp.JSONDefault, nil
@@ -311,19 +345,29 @@ func discoverProtectedResourceMetadata(ctx context.Context, client oauth.ClientW
 		return nil, errors.New("origin URL is required to discover metadata")
 	}
 
-	resp, err := client.GetResourceMetadataWithResponse(ctx, useGranularProtectedResourceEndpoint(originURL))
+	resp, err := client.GetResourceMetadataWithResponse(
+		ctx, useGranularProtectedResourceEndpoint(originURL),
+	)
 	if err == nil && resp.StatusCode() < http.StatusBadRequest {
 		if resp.JSONDefault == nil {
-			return nil, fmt.Errorf("empty response when discovering protected resource metadata at %q", resp.HTTPResponse.Request.URL.String())
+			return nil, fmt.Errorf(
+				"empty response when discovering protected resource metadata at %q",
+				resp.HTTPResponse.Request.URL.String(),
+			)
 		}
 
 		return resp.JSONDefault, nil
 	}
 
-	resp, err = client.GetResourceMetadataWithResponse(ctx, useDomainProtectedResourceEndpoint(originURL))
+	resp, err = client.GetResourceMetadataWithResponse(
+		ctx, useDomainProtectedResourceEndpoint(originURL),
+	)
 	if err == nil && resp.StatusCode() < http.StatusBadRequest {
 		if resp.JSONDefault == nil {
-			return nil, fmt.Errorf("empty response when discovering protected resource metadata at %q", resp.HTTPResponse.Request.URL.String())
+			return nil, fmt.Errorf(
+				"empty response when discovering protected resource metadata at %q",
+				resp.HTTPResponse.Request.URL.String(),
+			)
 		}
 
 		return resp.JSONDefault, nil

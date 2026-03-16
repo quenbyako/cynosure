@@ -32,7 +32,9 @@ type hasUserCallback interface {
 	span
 }
 
-func (o *observable) hasUser(ctx context.Context, userID string) (context.Context, hasUserCallback) {
+func (o *observable) hasUser(
+	ctx context.Context, userID string,
+) (context.Context, hasUserCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.identity.has_user",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -47,7 +49,9 @@ type lookupUserCallback interface {
 	span
 }
 
-func (o *observable) lookupUser(ctx context.Context, telegramID string) (context.Context, lookupUserCallback) {
+func (o *observable) lookupUser(
+	ctx context.Context, telegramID string,
+) (context.Context, lookupUserCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.identity.lookup_user",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -62,7 +66,9 @@ type createUserCallback interface {
 	span
 }
 
-func (o *observable) createUser(ctx context.Context, telegramID, nickname, firstName, lastName string) (context.Context, createUserCallback) {
+func (o *observable) createUser(
+	ctx context.Context, telegramID, nickname, firstName, lastName string,
+) (context.Context, createUserCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.identity.create_user",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -80,7 +86,9 @@ type issueTokenCallback interface {
 	span
 }
 
-func (o *observable) issueToken(ctx context.Context, userID string) (context.Context, issueTokenCallback) {
+func (o *observable) issueToken(
+	ctx context.Context, userID string,
+) (context.Context, issueTokenCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.identity.issue_token",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(

@@ -9,9 +9,13 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-// EnsureUser ensures that a user exists in the system by checking their external identity.
-// If the user doesn't exist, it creates a new user, pushes it to Ory, and initializes their default environment.
-func (s *Usecase) EnsureUser(ctx context.Context, externalID, nickname, firstName, lastName string) (ids.UserID, error) {
+// EnsureUser ensures that a user exists in the system by checking their
+// external identity. If the user doesn't exist, it creates a new user, pushes
+// it to Ory, and initializes their default environment.
+func (s *Usecase) EnsureUser(
+	ctx context.Context,
+	externalID, nickname, firstName, lastName string,
+) (ids.UserID, error) {
 	// 1. Try to lookup user by identity
 	userID, err := s.users.LookupUser(ctx, externalID)
 	if err != nil {

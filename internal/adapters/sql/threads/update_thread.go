@@ -61,7 +61,9 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 
 var emptyUUID = pgtype.UUID{Valid: false, Bytes: [16]byte{}}
 
-func (t *Threads) insertMessage(ctx context.Context, aueries *db.Queries, threadID string, pos int64, msg messages.Message) error {
+func (t *Threads) insertMessage(
+	ctx context.Context, aueries *db.Queries, threadID string, pos int64, msg messages.Message,
+) error {
 	occPos := pos - 1
 	//nolint:gosec // mergeTag is assumed to fit in int64
 	mergeTag := int64(msg.MergeTag())

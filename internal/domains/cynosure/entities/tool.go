@@ -14,7 +14,9 @@ import (
 
 const embeddingSize = 1536
 
-type ToolCallFunc func(ctx context.Context, params map[string]json.RawMessage) (messages.MessageTool, error)
+type ToolCallFunc func(
+	ctx context.Context, params map[string]json.RawMessage,
+) (messages.MessageTool, error)
 
 // Tool is the information of a tool.
 type Tool struct {
@@ -40,7 +42,12 @@ func WithEmbedding(embedding [embeddingSize]float32) ToolOption {
 	return func(t *Tool) { t.embedding = embedding }
 }
 
-func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, outputSchema json.RawMessage, opts ...ToolOption) (*Tool, error) {
+func NewTool(
+	id ids.ToolID,
+	accountName, name, description string,
+	inputSchema, outputSchema json.RawMessage,
+	opts ...ToolOption,
+) (*Tool, error) {
 	normalizedInput, err := normalizeInputSchema(inputSchema)
 	if err != nil {
 		return nil, err

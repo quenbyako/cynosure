@@ -39,7 +39,11 @@ type discoverToolsCallback interface {
 	span
 }
 
-func (o *observable) discoverTools(ctx context.Context, accountID, serverURL string, hasToken bool) (context.Context, discoverToolsCallback) {
+func (o *observable) discoverTools(
+	ctx context.Context,
+	accountID, serverURL string,
+	hasToken bool,
+) (context.Context, discoverToolsCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.tool.discover_tools",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -67,7 +71,12 @@ func (c *executeToolSpan) recordResponse(response json.RawMessage) {
 	}
 }
 
-func (o *observable) executeTool(ctx context.Context, toolName string, args map[string]json.RawMessage, toolCallID string) (context.Context, executeToolCallback) {
+func (o *observable) executeTool(
+	ctx context.Context,
+	toolName string,
+	args map[string]json.RawMessage,
+	toolCallID string,
+) (context.Context, executeToolCallback) {
 	serialized, _ := json.Marshal(args)
 
 	ctx, span := o.t.Start(ctx, "cynosure.ports.tool.execute_tool",

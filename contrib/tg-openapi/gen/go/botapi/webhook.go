@@ -42,24 +42,31 @@ func (siw *WebhookInterfaceWrapper) SendUpdate(w http.ResponseWriter, r *http.Re
 	headers := r.Header
 
 	// ------------- Optional header parameter "X-Telegram-Bot-Api-Secret-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Telegram-Bot-Api-Secret-Token")]; found {
+	secretTokenKey := http.CanonicalHeaderKey("X-Telegram-Bot-Api-Secret-Token")
+	if valueList, found := headers[secretTokenKey]; found {
 		var XTelegramBotApiSecretToken string
 
 		n := len(valueList)
 		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Telegram-Bot-Api-Secret-Token", Count: n})
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{
+				ParamName: "X-Telegram-Bot-Api-Secret-Token", Count: n,
+			})
 			return
 		}
 
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Telegram-Bot-Api-Secret-Token", valueList[0], &XTelegramBotApiSecretToken, runtime.BindStyledParameterOptions{
-			ParamLocation: runtime.ParamLocationHeader,
-			Explode:       false,
-			Required:      false,
-			Type:          "string",
-			Format:        "",
-		})
+		err = runtime.BindStyledParameterWithOptions(
+			"simple", "X-Telegram-Bot-Api-Secret-Token", valueList[0],
+			&XTelegramBotApiSecretToken, runtime.BindStyledParameterOptions{
+				ParamLocation: runtime.ParamLocationHeader,
+				Explode:       false,
+				Required:      false,
+				Type:          "string",
+				Format:        "",
+			})
 		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Telegram-Bot-Api-Secret-Token", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{
+				ParamName: "X-Telegram-Bot-Api-Secret-Token", Err: err,
+			})
 			return
 		}
 
@@ -105,7 +112,9 @@ func WebhookHandlerFromMux(si WebhookInterface, m ServeMux) http.Handler {
 	})
 }
 
-func WebhookHandlerFromMuxWithBaseURL(si WebhookInterface, m ServeMux, baseURL string) http.Handler {
+func WebhookHandlerFromMuxWithBaseURL(
+	si WebhookInterface, m ServeMux, baseURL string,
+) http.Handler {
 	return WebhookHandlerWithOptions(si, WebhookServerOptions{
 		BaseURL:          baseURL,
 		BaseRouter:       m,
@@ -115,7 +124,9 @@ func WebhookHandlerFromMuxWithBaseURL(si WebhookInterface, m ServeMux, baseURL s
 }
 
 // WebhookHandlerWithOptions creates http.Handler with additional options
-func WebhookHandlerWithOptions(webhook WebhookInterface, options WebhookServerOptions) http.Handler {
+func WebhookHandlerWithOptions(
+	webhook WebhookInterface, options WebhookServerOptions,
+) http.Handler {
 	mux := options.BaseRouter
 
 	if mux == nil {
@@ -160,21 +171,30 @@ func (response SendUpdate204Response) VisitSendUpdateResponse(w http.ResponseWri
 // StrictWebhookInterface represents all server handlers.
 type StrictWebhookInterface interface {
 	// (POST /)
-	SendUpdate(ctx context.Context, request SendUpdateRequestObject) (SendUpdateResponseObject, error)
+	SendUpdate(
+		ctx context.Context, request SendUpdateRequestObject,
+	) (SendUpdateResponseObject, error)
 }
 
-func NewStrictWebhookHandler(ssi StrictWebhookInterface, middlewares []StrictMiddlewareFunc) WebhookInterface {
-	return &strictWebhookHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		},
-	}}
+func NewStrictWebhookHandler(
+	ssi StrictWebhookInterface, middlewares []StrictMiddlewareFunc,
+) WebhookInterface {
+	return &strictWebhookHandler{
+		ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
+			RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			},
+			ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			},
+		}}
 }
 
-func NewStrictWebhookHandlerWithOptions(ssi StrictWebhookInterface, middlewares []StrictMiddlewareFunc, options StrictHTTPServerOptions) WebhookInterface {
+func NewStrictWebhookHandlerWithOptions(
+	ssi StrictWebhookInterface,
+	middlewares []StrictMiddlewareFunc,
+	options StrictHTTPServerOptions,
+) WebhookInterface {
 	return &strictWebhookHandler{ssi: ssi, middlewares: middlewares, options: options}
 }
 
@@ -185,7 +205,9 @@ type strictWebhookHandler struct {
 }
 
 // SendUpdate operation middleware
-func (sh *strictWebhookHandler) SendUpdate(w http.ResponseWriter, r *http.Request, params SendUpdateParams) {
+func (sh *strictWebhookHandler) SendUpdate(
+	w http.ResponseWriter, r *http.Request, params SendUpdateParams,
+) {
 	var request SendUpdateRequestObject
 
 	request.Params = params
@@ -198,7 +220,9 @@ func (sh *strictWebhookHandler) SendUpdate(w http.ResponseWriter, r *http.Reques
 
 	request.Body = &body
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+	handler := func(
+		ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{},
+	) (any, error) {
 		return sh.ssi.SendUpdate(ctx, request.(SendUpdateRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
@@ -213,6 +237,8 @@ func (sh *strictWebhookHandler) SendUpdate(w http.ResponseWriter, r *http.Reques
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+		sh.options.ResponseErrorHandlerFunc(
+			w, r, fmt.Errorf("unexpected response type: %T", response),
+		)
 	}
 }

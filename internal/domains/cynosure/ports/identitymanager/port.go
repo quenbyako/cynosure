@@ -54,7 +54,9 @@ type PortWrite interface {
 	// Throws:
 	//
 	//  - [ErrAlreadyExists]: if a user with such parameters already exists.
-	CreateUser(ctx context.Context, telegramID, nickname, firstName, lastName string) (ids.UserID, error)
+	CreateUser(
+		ctx context.Context, telegramID, nickname, firstName, lastName string,
+	) (ids.UserID, error)
 
 	// IssueToken issues a new OAuth2 token for the given user.
 	//

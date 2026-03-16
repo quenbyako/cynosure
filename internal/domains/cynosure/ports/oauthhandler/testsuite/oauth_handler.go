@@ -80,7 +80,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		redirectURL  *url.URL
 		opts         func(srv *httptest.Server) []RegisterClientOption
 		assertErr    func(t *testing.T, err error)
-		assertResult func(t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time)
+		assertResult func(
+			t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
+		)
 		name         string
 	}
 
@@ -88,7 +90,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "success with complete dynamic flow",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 
 					switch r.URL.Path {
@@ -121,13 +125,19 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				return u
 			},
 			redirectURL: must(url.Parse("http://localhost/callback")),
-			assertResult: func(t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time) {
+			assertResult: func(
+				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
+			) {
 				require.NotNil(t, cfg)
 				assert.Equal(t, "client-123", cfg.ClientID)
 				assert.Equal(t, "secret-123", cfg.ClientSecret)
 				assert.Equal(t, "http://localhost/callback", cfg.RedirectURL)
-				assert.Equal(t, "http://"+srv.Listener.Addr().String()+"/auth", cfg.Endpoint.AuthURL)
-				assert.Equal(t, "http://"+srv.Listener.Addr().String()+"/token", cfg.Endpoint.TokenURL)
+				assert.Equal(
+					t, "http://"+srv.Listener.Addr().String()+"/auth", cfg.Endpoint.AuthURL,
+				)
+				assert.Equal(
+					t, "http://"+srv.Listener.Addr().String()+"/token", cfg.Endpoint.TokenURL,
+				)
 			},
 			opts:      nil,
 			assertErr: nil,
@@ -135,7 +145,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "fallback to domain if protected resource is missing",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 
 					switch r.URL.Path {
@@ -158,7 +170,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				return u
 			},
 			redirectURL: must(url.Parse("http://localhost/callback")),
-			assertResult: func(t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time) {
+			assertResult: func(
+				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
+			) {
 				require.NotNil(t, cfg)
 				assert.Equal(t, "fallback-client", cfg.ClientID)
 				assert.Empty(t, cfg.ClientSecret)
@@ -169,7 +183,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "success with suggested protected resource option",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 
 					switch r.URL.Path {
@@ -192,7 +208,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				}))
 			},
 			originURL: func(srv *httptest.Server) *url.URL {
-				u, _ := url.Parse("http://some-fake-domain.com") // Original domain should be ignored
+				// Original domain should be ignored
+				u, _ := url.Parse("http://some-fake-domain.com")
 				return u
 			},
 			redirectURL: must(url.Parse("http://localhost/callback")),
@@ -200,7 +217,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				u, _ := url.Parse(srv.URL + "/custom-protected-resource")
 				return []RegisterClientOption{WithSuggestedProtectedResource(u)}
 			},
-			assertResult: func(t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time) {
+			assertResult: func(
+				t *testing.T, srv *httptest.Server, cfg *oauth2.Config, expiresAt time.Time,
+			) {
 				require.NotNil(t, cfg)
 				assert.Equal(t, "suggested-client", cfg.ClientID)
 			},
@@ -209,7 +228,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "error dynamic client registration not supported",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 
 					switch r.URL.Path {
@@ -239,7 +260,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				var expectedErr *DynamicClientRegistrationNotSupportedError
 				require.ErrorAs(t, err, &expectedErr)
 				require.NotNil(t, expectedErr.Documentation())
-				assert.Equal(t, "https://developer.example.com", expectedErr.Documentation().String())
+				assert.Equal(t, "https://developer.example.com",
+					expectedErr.Documentation().String())
 			},
 			opts:         nil,
 			assertResult: nil,
@@ -290,7 +312,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "error broken server response on metadata",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 					_, _ = w.Write([]byte(`{ "authorization_servers": [`)) // malformed json
 				}))
@@ -310,7 +334,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "error returned during registration (403)",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 
 					switch r.URL.Path {
@@ -344,7 +370,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 		{
 			name: "error broken urls inside metadata",
 			setupServer: func(t *testing.T) *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(
+					w http.ResponseWriter, r *http.Request,
+				) {
 					w.Header().Set("Content-Type", "application/json")
 
 					switch r.URL.Path {
@@ -394,7 +422,9 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 				opts = tc.opts(srv)
 			}
 
-			cfg, expiresAt, err := s.adapter.RegisterClient(t.Context(), origin, "test-client", redirect, opts...)
+			cfg, expiresAt, err := s.adapter.RegisterClient(
+				t.Context(), origin, "test-client", redirect, opts...,
+			)
 
 			if tc.assertErr != nil {
 				tc.assertErr(t, err)

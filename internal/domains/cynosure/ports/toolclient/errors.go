@@ -36,7 +36,8 @@ func (e *RequiresAuthError) Error() string {
 		return "requires authentication, no metadata endpoint suggested"
 	}
 
-	return "requires authentication, should use metadata endpoint: " + e.suggestedMetadataEndpoint.String()
+	return "requires authentication, should use metadata endpoint: " +
+		e.suggestedMetadataEndpoint.String()
 }
 
 func (e *RequiresAuthError) Endpoint() *url.URL { return e.suggestedMetadataEndpoint }

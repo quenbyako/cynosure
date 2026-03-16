@@ -29,7 +29,9 @@ type ToolSemanticIndexTestSuiteOpts func(*ToolSemanticIndexTestSuite)
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunToolSemanticIndexTests(a ports.ToolSemanticIndex, opts ...ToolSemanticIndexTestSuiteOpts) func(t *testing.T) {
+func RunToolSemanticIndexTests(
+	a ports.ToolSemanticIndex, opts ...ToolSemanticIndexTestSuiteOpts,
+) func(t *testing.T) {
 	suite := &ToolSemanticIndexTestSuite{
 		adapter: a,
 	}
@@ -65,7 +67,7 @@ func (s *ToolSemanticIndexTestSuite) TestIndexTool(t *testing.T) {
 		buildTool: s.buildComplexTool,
 	}, {
 		name:      "empty_description",
-		buildTool: s.buildToolWithEmptyDescription,
+		buildTool: s.buildToolEmptyDesc,
 	}, {
 		name:      "minimal_schema",
 		buildTool: s.buildMinimalTool,
@@ -172,7 +174,9 @@ func (s *ToolSemanticIndexTestSuite) TestBuildToolEmbedding(t *testing.T) {
 }
 
 // Helper: assertValidEmbedding checks that embedding is valid (correct size, non-zero).
-func (s *ToolSemanticIndexTestSuite) assertValidEmbedding(t *testing.T, embedding [embeddingSize]float32) {
+func (s *ToolSemanticIndexTestSuite) assertValidEmbedding(
+	t *testing.T, embedding [embeddingSize]float32,
+) {
 	t.Helper()
 
 	// Check that at least some values are non-zero (embedding is not all zeros)
@@ -217,7 +221,9 @@ func (s *ToolSemanticIndexTestSuite) buildSimpleTool(t *testing.T) entities.Tool
 		}
 	}`)
 
-	return s.buildTool(t, "get_weather", "Get current weather for a location", schema, responseSchema)
+	return s.buildTool(
+		t, "get_weather", "Get current weather for a location", schema, responseSchema,
+	)
 }
 
 // buildComplexTool creates a tool with complex nested schema.
@@ -264,11 +270,14 @@ func (s *ToolSemanticIndexTestSuite) buildComplexTool(t *testing.T) entities.Too
 		}
 	}`)
 
-	return s.buildTool(t, "search_database", "Search database with complex filters and sorting", schema, responseSchema)
+	return s.buildTool(
+		t, "search_database", "Search database with complex filters and sorting",
+		schema, responseSchema,
+	)
 }
 
-// buildToolWithEmptyDescription creates a tool with empty description.
-func (s *ToolSemanticIndexTestSuite) buildToolWithEmptyDescription(t *testing.T) entities.ToolReadOnly {
+// buildToolEmptyDesc creates a tool with empty description.
+func (s *ToolSemanticIndexTestSuite) buildToolEmptyDesc(t *testing.T) entities.ToolReadOnly {
 	t.Helper()
 
 	schema := json.RawMessage(`{
@@ -294,7 +303,11 @@ func (s *ToolSemanticIndexTestSuite) buildMinimalTool(t *testing.T) entities.Too
 }
 
 // buildTool is a helper for creating tools with given parameters.
-func (s *ToolSemanticIndexTestSuite) buildTool(t *testing.T, name, description string, schema, responseSchema json.RawMessage) entities.ToolReadOnly {
+func (s *ToolSemanticIndexTestSuite) buildTool(
+	t *testing.T,
+	name, description string,
+	schema, responseSchema json.RawMessage,
+) entities.ToolReadOnly {
 	t.Helper()
 
 	account := must(ids.RandomAccountID(ids.RandomUserID(), ids.RandomServerID()))

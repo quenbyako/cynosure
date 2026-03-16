@@ -13,7 +13,9 @@ import (
 
 // RunModelSettingsStorageTests runs tests for the given adapter. These tests are predefined
 // and REQUIRED to be used for ANY adapter implementation.
-func RunModelSettingsStorageTests(a ports.AgentStorage, opts ...ModelSettingsStorageTestSuiteOption) func(t *testing.T) {
+func RunModelSettingsStorageTests(
+	a ports.AgentStorage, opts ...ModelSettingsStorageTestSuiteOption,
+) func(t *testing.T) {
 	suite := &ModelSettingsStorageTestSuite{
 		adapter: a,
 		cleanup: nil,

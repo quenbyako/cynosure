@@ -14,7 +14,9 @@ import (
 
 // RunIdentityManagerTests runs tests for the given adapter. These tests are
 // predefined and REQUIRED to be used for ANY adapter implementation.
-func RunIdentityManagerTests(a identitymanager.Port, opts ...IdentityManagerTestSuiteOption) func(t *testing.T) {
+func RunIdentityManagerTests(
+	a identitymanager.Port, opts ...IdentityManagerTestSuiteOption,
+) func(t *testing.T) {
 	suite := &IdentityManagerTestSuite{
 		adapter: a,
 		cleanup: nil,

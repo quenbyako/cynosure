@@ -45,9 +45,14 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 		must(messages.NewMessageUser("А чего так грубо?")),
 		must(messages.NewMessageAssistant("Ta ты заебал, че хотел?")),
 		must(messages.NewMessageUser("Ало, шелупонь быстро сказала какая погода в Нью-Йорке")),
-		must(messages.NewMessageToolRequest(map[string]json.RawMessage{"location": json.RawMessage(`"New York"`)}, "get_weather", "some_id")),
-		must(messages.NewMessageToolResponse(json.RawMessage(`{"temperature": 57}`), "get_weather", "some_id")),
-		must(messages.NewMessageAssistant("А ничё тот факт, что")), // модель должна продолжить генерацию
+		must(messages.NewMessageToolRequest(
+			map[string]json.RawMessage{"location": json.RawMessage(`"New York"`)},
+			"get_weather", "some_id",
+		)),
+		must(messages.NewMessageToolResponse(
+			json.RawMessage(`{"temperature": 57}`), "get_weather", "some_id",
+		)),
+		must(messages.NewMessageAssistant("А ничё тот факт, что")), // модель должна продолжить
 	}
 
 	settings := must(entities.NewModelSettings(

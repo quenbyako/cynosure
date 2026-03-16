@@ -13,7 +13,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-func (a *Accounts) GetAccount(ctx context.Context, account ids.AccountID) (*entities.Account, error) {
+func (a *Accounts) GetAccount(
+	ctx context.Context, account ids.AccountID,
+) (*entities.Account, error) {
 	row, err := a.q.GetAccount(ctx, account.ID())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

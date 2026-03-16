@@ -18,7 +18,9 @@ import (
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunAccountStorageTests(a ports.AccountStorage, opts ...AccountStorageTestSuiteOption) func(t *testing.T) {
+func RunAccountStorageTests(
+	a ports.AccountStorage, opts ...AccountStorageTestSuiteOption,
+) func(t *testing.T) {
 	suite := &AccountStorageTestSuite{
 		adapter:            a,
 		saveAccountFixture: nil,

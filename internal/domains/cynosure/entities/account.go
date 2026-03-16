@@ -31,7 +31,11 @@ func WithAuthToken(token *oauth2.Token) NewAccountOption {
 	return func(c *Account) { c.token = token }
 }
 
-func NewAccount(id ids.AccountID, name, description string, opts ...NewAccountOption) (*Account, error) {
+func NewAccount(
+	id ids.AccountID,
+	name, description string,
+	opts ...NewAccountOption,
+) (*Account, error) {
 	account := &Account{
 		id:          id,
 		name:        name,

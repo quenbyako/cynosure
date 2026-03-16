@@ -51,7 +51,10 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 
 	return &Handler{
 		client: &http.Client{
-			Transport:     otelhttp.NewTransport(params.client, otelhttp.WithTracerProvider(params.metrics)),
+			Transport: otelhttp.NewTransport(
+				params.client,
+				otelhttp.WithTracerProvider(params.metrics),
+			),
 			CheckRedirect: nil,
 			Jar:           nil,
 			Timeout:       0,
@@ -62,12 +65,18 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 }
 
 // Exchange implements ports.OAuthHandler.
-func (h *Handler) Exchange(ctx context.Context, config *oauth2.Config, code string, verifier []byte) (*oauth2.Token, error) {
-	return config.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", base64.RawURLEncoding.EncodeToString(verifier)))
+func (h *Handler) Exchange(
+	ctx context.Context, config *oauth2.Config, code string, verifier []byte,
+) (*oauth2.Token, error) {
+	return config.Exchange(ctx, code, oauth2.SetAuthURLParam(
+		"code_verifier", base64.RawURLEncoding.EncodeToString(verifier),
+	))
 }
 
 // RefreshToken implements ports.OAuthHandler.
-func (h *Handler) RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error) {
+func (h *Handler) RefreshToken(
+	ctx context.Context, config *oauth2.Config, token *oauth2.Token,
+) (*oauth2.Token, error) {
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}

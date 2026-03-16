@@ -13,7 +13,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-func (s *Servers) GetServerInfo(ctx context.Context, id ids.ServerID) (*entities.ServerConfig, error) {
+func (s *Servers) GetServerInfo(
+	ctx context.Context, id ids.ServerID,
+) (*entities.ServerConfig, error) {
 	row, err := s.q.GetServerInfo(ctx, id.ID())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

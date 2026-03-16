@@ -91,19 +91,29 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 
 				nameToID := map[string]ids.ToolID{}
 
-				tools, err := s.adapter.DiscoverTools(t.Context(), srv.MCPURL(), account, name, desc, toolclient.WithToolIDBuilder(func(account ids.AccountID, name string) (ids.ToolID, error) {
-					if _, ok := nameToID[name]; ok {
-						panic("unexpected tool name collision")
-					}
+				tools, err := s.adapter.DiscoverTools(
+					t.Context(), srv.MCPURL(), account, name, desc,
+					toolclient.WithToolIDBuilder(func(
+						account ids.AccountID, name string,
+					) (ids.ToolID, error) {
+						if _, ok := nameToID[name]; ok {
+							panic("unexpected tool name collision")
+						}
 
-					id := must(ids.RandomToolID(account))
-					nameToID[name] = id
+						id := must(ids.RandomToolID(account))
+						nameToID[name] = id
 
-					return id, nil
-				}), toolclient.WithAuthToken(token))
-				expectError := config.Auth == mcpmock.AuthRequired || config.Auth == mcpmock.AuthNoHeader
-				// If we have a valid account and the server uses Bearer (which oauth defaults to), it will succeed.
-				if testName == "valid_account" && (config.AuthType == mcpmock.AuthTypeNone || config.AuthType == mcpmock.AuthTypeBearer) {
+						return id, nil
+					}),
+					toolclient.WithAuthToken(token),
+				)
+				expectError := config.Auth == mcpmock.AuthRequired ||
+					config.Auth == mcpmock.AuthNoHeader
+				// If we have a valid account and the server uses Bearer (which oauth defaults to),
+				// it will succeed.
+				if testName == "valid_account" &&
+					(config.AuthType == mcpmock.AuthTypeNone ||
+						config.AuthType == mcpmock.AuthTypeBearer) {
 					expectError = false
 				}
 
@@ -119,9 +129,11 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 					reqAuthErr := new(toolclient.RequiresAuthError)
 					require.ErrorAs(t, err, &reqAuthErr)
 
-					// Endpoint is only provided by server if it sends WWW-Authenticate header.
-					// For AuthNoHeader, server does not send it, so Endpoint() will naturally be nil.
-					if config.Protected == mcpmock.MetadataDiscoveryPathExplicit && config.Auth != mcpmock.AuthNoHeader {
+					// Endpoint is only provided by server if it sends
+					// WWW-Authenticate header. For AuthNoHeader, server does
+					// not send it, so Endpoint() will naturally be nil.
+					if config.Protected == mcpmock.MetadataDiscoveryPathExplicit &&
+						config.Auth != mcpmock.AuthNoHeader {
 						require.NotNil(t, reqAuthErr.Endpoint())
 						require.NotEmpty(t, reqAuthErr.Endpoint().String())
 					}
@@ -133,7 +145,11 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 					return
 				}
 
-				require.ElementsMatch(t, srv.Tools(name, desc, func(name string) ids.ToolID { return nameToID[name] }), tools)
+				require.ElementsMatch(
+					t,
+					srv.Tools(name, desc, func(name string) ids.ToolID { return nameToID[name] }),
+					tools,
+				)
 			})
 		}
 	}
@@ -149,13 +165,30 @@ func dummyAccount() ids.AccountID {
 
 func configIterator() iter.Seq[mcpmock.MockServerConfig] {
 	transports := [...]mcpmock.TransportType{mcpmock.TransportSSE, mcpmock.TransportHTTP}
-	authReqs := [...]mcpmock.AuthRequirement{mcpmock.AuthNone, mcpmock.AuthOptional, mcpmock.AuthRequired, mcpmock.AuthNoHeader}
-	metadataDiscovery := [...]mcpmock.MetadataDiscovery{mcpmock.MetadataDiscoveryNone, mcpmock.MetadataDiscoveryRoot, mcpmock.MetadataDiscoveryPathSpecific, mcpmock.MetadataDiscoveryPathExplicit}
-	oauthDiscobery := [...]mcpmock.OAuthDiscovery{mcpmock.OAuthDiscoveryNone}                     // , mcpmock.OAuthDiscoveryAuthOnly, mcpmock.OAuthDiscoveryFull}
-	metadataRegistration := [...]mcpmock.OAuthRegistration{mcpmock.OAuthRegistrationNotSupported} // , mcpmock.OAuthRegistrationSupported}
-	oauthFlow := [...]mcpmock.OAuthFlow{mcpmock.OAuthFlowReturnsURL}                              // , mcpmock.OAuthFlowAuthLinkError, mcpmock.OAuthFlowInstantlyReturnsToken}
-	metadataToken := [...]mcpmock.OAuthTokenStatus{mcpmock.TokenValid}                            // , mcpmock.TokenExpiredRefreshValid, mcpmock.TokenExpiredRefreshExpired}
-	metadataAuthType := [...]mcpmock.AuthType{mcpmock.AuthTypeNone}                               // , mcpmock.AuthTypeBearer, mcpmock.AuthTypeRandomized}
+	authReqs := [...]mcpmock.AuthRequirement{
+		mcpmock.AuthNone, mcpmock.AuthOptional, mcpmock.AuthRequired, mcpmock.AuthNoHeader,
+	}
+	metadataDiscovery := [...]mcpmock.MetadataDiscovery{
+		mcpmock.MetadataDiscoveryNone,
+		mcpmock.MetadataDiscoveryRoot,
+		mcpmock.MetadataDiscoveryPathSpecific,
+		mcpmock.MetadataDiscoveryPathExplicit,
+	}
+	oauthDiscobery := [...]mcpmock.OAuthDiscovery{
+		mcpmock.OAuthDiscoveryNone,
+	} // , mcpmock.OAuthDiscoveryAuthOnly, mcpmock.OAuthDiscoveryFull}
+	metadataRegistration := [...]mcpmock.OAuthRegistration{
+		mcpmock.OAuthRegistrationNotSupported,
+	} // , mcpmock.OAuthRegistrationSupported}
+	oauthFlow := [...]mcpmock.OAuthFlow{
+		mcpmock.OAuthFlowReturnsURL,
+	} // , mcpmock.OAuthFlowAuthLinkError, mcpmock.OAuthFlowInstantlyReturnsToken}
+	metadataToken := [...]mcpmock.OAuthTokenStatus{
+		mcpmock.TokenValid,
+	} // , mcpmock.TokenExpiredRefreshValid, mcpmock.TokenExpiredRefreshExpired}
+	metadataAuthType := [...]mcpmock.AuthType{
+		mcpmock.AuthTypeNone,
+	} // , mcpmock.AuthTypeBearer, mcpmock.AuthTypeRandomized}
 
 	return func(yield func(mcpmock.MockServerConfig) bool) {
 	globalIter:

@@ -34,7 +34,9 @@ func TestAdapter(t *testing.T) {
 		}
 
 		_, err = pool.Exec(t.Context(), `
-			INSERT INTO agents.oauth_configs (server_id, client_id, client_secret, redirect_url, auth_url, token_url, scopes)
+			INSERT INTO agents.oauth_configs (
+				server_id, client_id, client_secret, redirect_url, auth_url, token_url, scopes
+			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT DO NOTHING
 		`,

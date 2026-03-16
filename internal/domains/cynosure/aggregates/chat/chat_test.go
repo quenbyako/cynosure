@@ -105,7 +105,10 @@ func (f *chatFixture) expectRAG(tools map[string][]*entities.Tool) {
 		}
 	}
 
-	f.accountStorage.EXPECT().GetAccountsBatch(mock.Anything, mock.Anything).Return(accounts, nil).Twice()
+	f.accountStorage.EXPECT().
+		GetAccountsBatch(mock.Anything, mock.Anything).
+		Return(accounts, nil).
+		Twice()
 }
 
 func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
@@ -122,11 +125,14 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 	f.threadStorage.EXPECT().GetThread(mock.Anything, f.threadID).Return(thread, nil)
 	f.threadStorage.EXPECT().UpdateThread(mock.Anything, mock.Anything).Return(nil)
 
-	c, err := chat.New(ctx, f.threadStorage, f.indexer, f.toolStorage, f.accountStorage, f.agentStorage, f.threadID)
+	chatAggregate, err := chat.New(
+		ctx, f.threadStorage, f.indexer, f.toolStorage,
+		f.accountStorage, f.agentStorage, f.threadID,
+	)
 	require.NoError(f.t, err)
-	f._chat = c
+	f._chat = chatAggregate
 
-	return c
+	return chatAggregate
 }
 
 func (f *chatFixture) msg(content string) messages.MessageUser {

@@ -33,11 +33,15 @@ func Register(usecase *accounts.Usecase) func(server grpc.ServiceRegistrar) {
 	}
 }
 
-func (h *Handler) AddServer(ctx context.Context, req *admin.AddServerRequest) (*admin.AddServerResponse, error) {
+func (h *Handler) AddServer(
+	ctx context.Context, req *admin.AddServerRequest,
+) (*admin.AddServerResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
-func (h *Handler) Authorize(ctx context.Context, req *admin.AuthorizeRequest) (*admin.AuthorizeResponse, error) {
+func (h *Handler) Authorize(
+	ctx context.Context, req *admin.AuthorizeRequest,
+) (*admin.AuthorizeResponse, error) {
 	mcpUrl, err := url.Parse(req.GetServerId())
 	if err != nil {
 		return nil, fmt.Errorf("invalid server URL: %w", err)
@@ -48,7 +52,9 @@ func (h *Handler) Authorize(ctx context.Context, req *admin.AuthorizeRequest) (*
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	link, err := h.accounts.AddAccount(ctx, userID, mcpUrl, req.GetAccountName(), req.GetAccountDesc())
+	link, err := h.accounts.AddAccount(
+		ctx, userID, mcpUrl, req.GetAccountName(), req.GetAccountDesc(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup auth link: %w", err)
 	}

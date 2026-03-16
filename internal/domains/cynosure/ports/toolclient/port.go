@@ -36,7 +36,13 @@ type Port interface {
 	//  - [ErrInvalidCredentials] if OAuth token is invalid or expired.
 	//  - [RequiresAuthError] if server requires auth first, and there is no
 	//    data about mcp protocol yet.
-	DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawTool, error)
+	DiscoverTools(
+		ctx context.Context,
+		u *url.URL,
+		account ids.AccountID,
+		accountSlug, accountDesc string,
+		opts ...DiscoverToolsOption,
+	) ([]tools.RawTool, error)
 
 	// ExecuteTool executes a tool call and returns the result. Implements the
 	// MCP tool execution phase. Does not validate argument schemas - validation
@@ -53,7 +59,12 @@ type Port interface {
 	//    invalid.
 	//  - [RequiresAuthError] if server requires auth first, and there is no
 	//    data about mcp protocol yet.
-	ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
+	ExecuteTool(
+		ctx context.Context,
+		tool entities.ToolReadOnly,
+		args map[string]json.RawMessage,
+		toolCallID string,
+	) (messages.MessageTool, error)
 }
 
 func defaultDiscoverToolsParams() discoverToolsParams {

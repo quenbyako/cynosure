@@ -64,7 +64,11 @@ func WithStopWords(stopWords []string) NewModelSettingsOption {
 	return func(m *Agent) { m.stopWords = stopWords }
 }
 
-func NewModelSettings(id ids.AgentID, model string, opts ...NewModelSettingsOption) (*Agent, error) {
+func NewModelSettings(
+	id ids.AgentID,
+	model string,
+	opts ...NewModelSettingsOption,
+) (*Agent, error) {
 	agent := &Agent{
 		id:            id,
 		model:         model,

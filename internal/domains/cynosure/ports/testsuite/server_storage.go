@@ -21,7 +21,9 @@ import (
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunServerStorageTests(a ports.ServerStorage, opts ...ServerStorageTestSuiteOption) func(t *testing.T) {
+func RunServerStorageTests(
+	a ports.ServerStorage, opts ...ServerStorageTestSuiteOption,
+) func(t *testing.T) {
 	suite := &ServerStorageTestSuite{
 		adapter: a,
 		cleanup: nil,

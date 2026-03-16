@@ -48,7 +48,12 @@ type ToolStorageRead interface {
 	// Parameters:
 	//  - embedding: Query vector from ToolSemanticIndex.BuildToolEmbedding
 	//  - limit: Maximum number of results (top-K)
-	LookupTools(ctx context.Context, user ids.UserID, embedding [embeddingSize]float32, limit int) ([]*entities.Tool, error)
+	LookupTools(
+		ctx context.Context,
+		user ids.UserID,
+		embedding [embeddingSize]float32,
+		limit int,
+	) ([]*entities.Tool, error)
 }
 
 type ToolStorageWrite interface {

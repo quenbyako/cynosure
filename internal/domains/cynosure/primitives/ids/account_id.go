@@ -23,7 +23,12 @@ func RandomAccountID(user UserID, server ServerID, opts ...AccountIDOption) (Acc
 	return NewAccountID(user, server, uuid.New(), opts...)
 }
 
-func NewAccountIDFromString(user UserID, server ServerID, id string, opts ...AccountIDOption) (AccountID, error) {
+func NewAccountIDFromString(
+	user UserID,
+	server ServerID,
+	id string,
+	opts ...AccountIDOption,
+) (AccountID, error) {
 	accountID, err := uuid.Parse(id)
 	if err != nil {
 		return AccountID{}, err
@@ -32,7 +37,12 @@ func NewAccountIDFromString(user UserID, server ServerID, id string, opts ...Acc
 	return NewAccountID(user, server, accountID, opts...)
 }
 
-func NewAccountID(user UserID, server ServerID, id uuid.UUID, opts ...AccountIDOption) (AccountID, error) {
+func NewAccountID(
+	user UserID,
+	server ServerID,
+	id uuid.UUID,
+	opts ...AccountIDOption,
+) (AccountID, error) {
 	account := AccountID{
 		id:     id,
 		user:   user,

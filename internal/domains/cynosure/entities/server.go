@@ -48,7 +48,11 @@ func WithProtocol(protocol tools.Protocol) ServerConfigOption {
 	return func(c *ServerConfig) { c.protocol = protocol }
 }
 
-func NewServerConfig(id ids.ServerID, link *url.URL, opts ...ServerConfigOption) (*ServerConfig, error) {
+func NewServerConfig(
+	id ids.ServerID,
+	link *url.URL,
+	opts ...ServerConfigOption,
+) (*ServerConfig, error) {
 	serverConfig := ServerConfig{
 		id:               id,
 		sseLink:          link,
@@ -97,7 +101,9 @@ func (c *ServerConfig) validateConfig(cfg *oauth2.Config) error {
 
 func (c *ServerConfig) Synchronized() bool                 { return len(c.pendingEvents) == 0 }
 func (c *ServerConfig) PendingEvents() []ServerConfigEvent { return slices.Clone(c.pendingEvents) }
-func (c *ServerConfig) ClearEvents()                       { c.pendingEvents = c.pendingEvents[:0:0] }
+func (c *ServerConfig) ClearEvents() {
+	c.pendingEvents = c.pendingEvents[:0:0]
+}
 
 func (c *ServerConfig) Reset() {
 	for _, event := range slices.Backward(c.pendingEvents) {

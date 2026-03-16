@@ -28,7 +28,11 @@ func WithAgent(id ids.AgentID) ThreadOption {
 	return func(t *Thread) { t.agentID = id }
 }
 
-func NewThread(id ids.ThreadID, messages []messages.Message, opts ...ThreadOption) (*Thread, error) {
+func NewThread(
+	id ids.ThreadID,
+	messages []messages.Message,
+	opts ...ThreadOption,
+) (*Thread, error) {
 	thread := &Thread{
 		id:            id,
 		messages:      messages,

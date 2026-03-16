@@ -44,7 +44,10 @@ func (s *Usecase) InitializeAccount(ctx context.Context, userID ids.UserID) erro
 		agent, err := entities.NewModelSettings(
 			agentID,
 			"gemini-2.5-flash", // Default model
-			entities.WithSystemMessage("You are Cynosure, a meta-agent assistant. You can manage other MCP servers and help user with various tasks."),
+			entities.WithSystemMessage(
+				"You are Cynosure, a meta-agent assistant. "+
+					"You can manage other MCP servers and help user with various tasks.",
+			),
 		)
 		if err != nil {
 			return fmt.Errorf("creating default agent entity: %w", err)
@@ -58,7 +61,10 @@ func (s *Usecase) InitializeAccount(ctx context.Context, userID ids.UserID) erro
 	return nil
 }
 
-func (s *Usecase) addAdminMCP(ctx context.Context, userID ids.UserID) (entities.AccountReadOnly, error) {
+func (s *Usecase) addAdminMCP(
+	ctx context.Context,
+	userID ids.UserID,
+) (entities.AccountReadOnly, error) {
 	// 1. Check if admin account already exists
 	existingIDs, err := s.accounts.ListAccounts(ctx, userID)
 	if err != nil {
@@ -138,7 +144,8 @@ func (s *Usecase) discoverTools(ctx context.Context, account entities.AccountRea
 		return fmt.Errorf("getting server info: %w", err)
 	}
 
-	rawTools, err := s.toolClient.DiscoverTools(ctx, server.SSELink(), account.ID(), account.Name(), account.Description(),
+	rawTools, err := s.toolClient.DiscoverTools(
+		ctx, server.SSELink(), account.ID(), account.Name(), account.Description(),
 		toolclient.WithAuthToken(account.Token()),
 	)
 	if err != nil {

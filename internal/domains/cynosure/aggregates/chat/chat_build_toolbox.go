@@ -89,7 +89,9 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 
 type accountDesc struct{ slug, desc string }
 
-func (c *Chat) accountsDescriptions(ctx context.Context, tools []*entities.Tool) (map[ids.AccountID]accountDesc, error) {
+func (c *Chat) accountsDescriptions(
+	ctx context.Context, tools []*entities.Tool,
+) (map[ids.AccountID]accountDesc, error) {
 	accountIDs := extractUniqueAccounts(tools)
 
 	accounts, err := c.accounts.GetAccountsBatch(ctx, accountIDs)
