@@ -116,14 +116,14 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 						return
 					}
 
-					e := new(toolclient.RequiresAuthError)
-					require.ErrorAs(t, err, &e)
+					reqAuthErr := new(toolclient.RequiresAuthError)
+					require.ErrorAs(t, err, &reqAuthErr)
 
 					// Endpoint is only provided by server if it sends WWW-Authenticate header.
 					// For AuthNoHeader, server does not send it, so Endpoint() will naturally be nil.
 					if config.Protected == mcpmock.MetadataDiscoveryPathExplicit && config.Auth != mcpmock.AuthNoHeader {
-						require.NotNil(t, e.Endpoint())
-						require.NotEmpty(t, e.Endpoint().String())
+						require.NotNil(t, reqAuthErr.Endpoint())
+						require.NotEmpty(t, reqAuthErr.Endpoint().String())
 					}
 
 					return

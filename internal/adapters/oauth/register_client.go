@@ -17,7 +17,7 @@ import (
 )
 
 func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, clientName string, redirect *url.URL, opts ...oauthhandler.RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error) {
-	p := oauthhandler.RegisterClientParams(opts...)
+	params := oauthhandler.RegisterClientParams(opts...)
 
 	if originURL == nil {
 		return nil, time.Time{}, errors.New("origin url is nil")
@@ -56,7 +56,7 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 		resourceScopes           []string
 	)
 
-	if metadata, err := discoverProtectedResourceMetadata(ctx, client, originURL, p.SuggestedProtectedResource()); err == nil {
+	if metadata, err := discoverProtectedResourceMetadata(ctx, client, originURL, params.SuggestedProtectedResource()); err == nil {
 		if metadata == nil {
 			return nil, time.Time{}, errors.New("empty metadata response")
 		}
@@ -137,14 +137,14 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 			continue
 		}
 
-		m := metadataResp.JSON200
-		if m == nil {
+		metadata := metadataResp.JSON200
+		if metadata == nil {
 			authMetadataErr = errors.New("empty metadata response")
 			continue
 		}
 
-		if m.RegistrationEndpoint != nil {
-			registrationEndpoint, err = url.Parse(*m.RegistrationEndpoint)
+		if metadata.RegistrationEndpoint != nil {
+			registrationEndpoint, err = url.Parse(*metadata.RegistrationEndpoint)
 			if err != nil {
 				authMetadataErr = fmt.Errorf("failed to parse registration endpoint: %w", err)
 				continue
@@ -154,24 +154,24 @@ func (h *Handler) RegisterClient(ctx context.Context, originURL *url.URL, client
 			continue
 		}
 
-		if m.AuthorizationEndpoint != nil {
-			authorizationEndpoint, err = url.Parse(*m.AuthorizationEndpoint)
+		if metadata.AuthorizationEndpoint != nil {
+			authorizationEndpoint, err = url.Parse(*metadata.AuthorizationEndpoint)
 			if err != nil {
 				authMetadataErr = fmt.Errorf("failed to parse authorization endpoint: %w", err)
 				continue
 			}
 		}
 
-		if m.TokenEndpoint != nil {
-			tokenEndpoint, err = url.Parse(*m.TokenEndpoint)
+		if metadata.TokenEndpoint != nil {
+			tokenEndpoint, err = url.Parse(*metadata.TokenEndpoint)
 			if err != nil {
 				authMetadataErr = fmt.Errorf("failed to parse token endpoint: %w", err)
 				continue
 			}
 		}
 
-		if m.ScopesSupported != nil {
-			authScopes = *m.ScopesSupported
+		if metadata.ScopesSupported != nil {
+			authScopes = *metadata.ScopesSupported
 		}
 
 		authMetadataErr = nil

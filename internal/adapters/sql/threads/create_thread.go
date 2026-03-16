@@ -12,13 +12,13 @@ import (
 func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
 	id := thread.ID()
 
-	tx, err := t.tx.BeginTx(ctx, emptyTxOptions)
+	transaction, err := t.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer transaction.Rollback(ctx)
 
-	qtx := t.q.WithTx(tx)
+	qtx := t.q.WithTx(transaction)
 
 	err = qtx.CreateThread(ctx, db.CreateThreadParams{
 		ID:     id.String(),
@@ -37,5 +37,5 @@ func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOn
 		}
 	}
 
-	return tx.Commit(ctx)
+	return transaction.Commit(ctx)
 }

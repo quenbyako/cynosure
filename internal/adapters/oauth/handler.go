@@ -39,19 +39,19 @@ func WithObservability(m core.Metrics) NewOption {
 }
 
 func New(defaultScopes []string, opts ...NewOption) *Handler {
-	p := newParams{
+	params := newParams{
 		client:  http.DefaultTransport,
 		metrics: core.NoopMetrics(),
 	}
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
-	tracer := ports.StackFromCore(p.metrics, pkgName)
+	tracer := ports.StackFromCore(params.metrics, pkgName)
 
 	return &Handler{
 		client: &http.Client{
-			Transport:     otelhttp.NewTransport(p.client, otelhttp.WithTracerProvider(p.metrics)),
+			Transport:     otelhttp.NewTransport(params.client, otelhttp.WithTracerProvider(params.metrics)),
 			CheckRedirect: nil,
 			Jar:           nil,
 			Timeout:       0,

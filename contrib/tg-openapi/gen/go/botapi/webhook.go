@@ -115,11 +115,11 @@ func WebhookHandlerFromMuxWithBaseURL(si WebhookInterface, m ServeMux, baseURL s
 }
 
 // WebhookHandlerWithOptions creates http.Handler with additional options
-func WebhookHandlerWithOptions(si WebhookInterface, options WebhookServerOptions) http.Handler {
-	m := options.BaseRouter
+func WebhookHandlerWithOptions(webhook WebhookInterface, options WebhookServerOptions) http.Handler {
+	mux := options.BaseRouter
 
-	if m == nil {
-		m = http.NewServeMux()
+	if mux == nil {
+		mux = http.NewServeMux()
 	}
 
 	if options.ErrorHandlerFunc == nil {
@@ -129,14 +129,14 @@ func WebhookHandlerWithOptions(si WebhookInterface, options WebhookServerOptions
 	}
 
 	wrapper := WebhookInterfaceWrapper{
-		Handler:            si,
+		Handler:            webhook,
 		HandlerMiddlewares: options.Middlewares,
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("POST "+options.BaseURL+"/{$}", wrapper.SendUpdate)
+	mux.HandleFunc("POST "+options.BaseURL+"/{$}", wrapper.SendUpdate)
 
-	return m
+	return mux
 }
 
 type SendUpdateRequestObject struct {

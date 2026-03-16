@@ -49,14 +49,14 @@ func New(
 	adminMCPID ids.ServerID,
 	opts ...NewOption,
 ) *Usecase {
-	p := newParams{
+	params := newParams{
 		tracer: noop.NewTracerProvider(),
 	}
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
-	s := &Usecase{
+	usecase := &Usecase{
 		users:      users,
 		agents:     agents,
 		accounts:   accounts,
@@ -67,13 +67,13 @@ func New(
 
 		adminMCPID: adminMCPID,
 
-		trace: p.tracer.Tracer(pkgName),
+		trace: params.tracer.Tracer(pkgName),
 	}
-	if err := s.validate(); err != nil {
+	if err := usecase.validate(); err != nil {
 		panic(err)
 	}
 
-	return s
+	return usecase
 }
 
 func (s *Usecase) validate() error {

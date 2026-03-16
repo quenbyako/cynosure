@@ -27,13 +27,13 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 	pendingCount := len(pending)
 	startPos := int64(totalMessages - pendingCount) // 0-based count of committed messages
 
-	tx, err := t.tx.BeginTx(ctx, emptyTxOptions)
+	transaction, err := t.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer transaction.Rollback(ctx)
 
-	qtx := t.q.WithTx(tx)
+	qtx := t.q.WithTx(transaction)
 
 	currentPos := startPos
 
@@ -52,7 +52,7 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 
@@ -61,15 +61,15 @@ func (t *Threads) UpdateThread(ctx context.Context, thread entities.ThreadReadOn
 
 var emptyUUID = pgtype.UUID{Valid: false, Bytes: [16]byte{}}
 
-func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID string, pos int64, msg messages.Message) error {
+func (t *Threads) insertMessage(ctx context.Context, aueries *db.Queries, threadID string, pos int64, msg messages.Message) error {
 	occPos := pos - 1
 	//nolint:gosec // mergeTag is assumed to fit in int64
 	mergeTag := int64(msg.MergeTag())
 
-	switch m := msg.(type) {
+	switch msg := msg.(type) {
 	case messages.MessageUser:
-		_, err := q.InsertMessageUser(ctx, db.InsertMessageUserParams{
-			Content:               m.Content(),
+		_, err := aueries.InsertMessageUser(ctx, db.InsertMessageUserParams{
+			Content:               msg.Content(),
 			Position:              pos,
 			ThreadID:              threadID,
 			CurrentLastMessagePos: occPos,
@@ -84,11 +84,11 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		}
 
 	case messages.MessageAssistant:
-		agentID := m.AgentID().ID()
+		agentID := msg.AgentID().ID()
 
-		_, err := q.InsertMessageAssistant(ctx, db.InsertMessageAssistantParams{
-			Text:                  m.Content(),
-			Reasoning:             m.Reasoning(),
+		_, err := aueries.InsertMessageAssistant(ctx, db.InsertMessageAssistantParams{
+			Text:                  msg.Content(),
+			Reasoning:             msg.Reasoning(),
 			AgentID:               agentID,
 			Position:              pos,
 			ThreadID:              threadID,
@@ -104,13 +104,13 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		}
 
 	case messages.MessageToolRequest:
-		argsBytes, _ := json.Marshal(m.Arguments())
+		argsBytes, _ := json.Marshal(msg.Arguments())
 
-		_, err := q.InsertMessageToolRequest(ctx, db.InsertMessageToolRequestParams{
+		_, err := aueries.InsertMessageToolRequest(ctx, db.InsertMessageToolRequestParams{
 			ToolID:                emptyUUID, // Always NULL now as we don't look up IDs
-			ToolName:              m.ToolName(),
-			ToolCallID:            m.ToolCallID(),
-			Reasoning:             m.Reasoning(),
+			ToolName:              msg.ToolName(),
+			ToolCallID:            msg.ToolCallID(),
+			Reasoning:             msg.Reasoning(),
 			Arguments:             argsBytes,
 			Position:              pos,
 			ThreadID:              threadID,
@@ -126,19 +126,19 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		}
 
 	case messages.MessageToolResponse:
-		reqPos, err := q.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
+		reqPos, err := aueries.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
 			ThreadID:   threadID,
-			ToolCallID: m.ToolCallID(),
+			ToolCallID: msg.ToolCallID(),
 		})
 		if err != nil {
 			return fmt.Errorf("find tool request pos: %w", err)
 		}
 
-		_, err = q.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
+		_, err = aueries.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
 			RequestPosition:       reqPos,
-			ToolCallID:            m.ToolCallID(),
+			ToolCallID:            msg.ToolCallID(),
 			IsError:               false,
-			Content:               []byte(m.Content()),
+			Content:               []byte(msg.Content()),
 			Position:              pos,
 			ThreadID:              threadID,
 			CurrentLastMessagePos: occPos,
@@ -153,19 +153,19 @@ func (t *Threads) insertMessage(ctx context.Context, q *db.Queries, threadID str
 		}
 
 	case messages.MessageToolError:
-		reqPos, err := q.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
+		reqPos, err := aueries.GetToolRequestPosition(ctx, db.GetToolRequestPositionParams{
 			ThreadID:   threadID,
-			ToolCallID: m.ToolCallID(),
+			ToolCallID: msg.ToolCallID(),
 		})
 		if err != nil {
 			return fmt.Errorf("find tool request pos: %w", err)
 		}
 
-		_, err = q.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
+		_, err = aueries.InsertMessageToolResult(ctx, db.InsertMessageToolResultParams{
 			RequestPosition:       reqPos,
-			ToolCallID:            m.ToolCallID(),
+			ToolCallID:            msg.ToolCallID(),
 			IsError:               true,
-			Content:               []byte(m.Content()),
+			Content:               []byte(msg.Content()),
 			Position:              pos,
 			ThreadID:              threadID,
 			CurrentLastMessagePos: occPos,

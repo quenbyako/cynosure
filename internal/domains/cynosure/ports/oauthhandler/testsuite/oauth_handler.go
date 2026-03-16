@@ -26,19 +26,19 @@ import (
 func RunOAuthHandlerTests(
 	a Port, opts ...OAuthHandlerTestSuiteOption,
 ) func(t *testing.T) {
-	s := &OAuthHandlerTestSuite{
+	suite := &OAuthHandlerTestSuite{
 		adapter: a,
 		cleanup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	if err := s.validate(); err != nil {
+	if err := suite.validate(); err != nil {
 		panic(err)
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 type OAuthHandlerTestSuite struct {

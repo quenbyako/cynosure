@@ -14,15 +14,15 @@ import (
 var emptyTxOptions pgx.TxOptions
 
 func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnly) error {
-	tx, err := a.tx.BeginTx(ctx, emptyTxOptions)
+	transaction, err := a.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer transaction.Rollback(ctx)
 
-	q := a.q.WithTx(tx)
+	queries := a.q.WithTx(transaction)
 
-	err = q.UpsertAccount(ctx, db.UpsertAccountParams{
+	err = queries.UpsertAccount(ctx, db.UpsertAccountParams{
 		ID:          info.ID().ID(),
 		UserID:      info.ID().User().ID(),
 		ServerID:    info.ID().Server().ID(),
@@ -35,7 +35,7 @@ func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnl
 	}
 
 	// Handle OAuth token - always delete old and upsert new (one-to-one relation)
-	if err := q.DeleteAccountToken(ctx, info.ID().ID()); err != nil {
+	if err := queries.DeleteAccountToken(ctx, info.ID().ID()); err != nil {
 		return fmt.Errorf("deleting old oauth token: %w", err)
 	}
 
@@ -51,7 +51,7 @@ func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnl
 			refreshToken = ptr(token.RefreshToken)
 		}
 
-		if err := q.AddOAuthToken(ctx, db.AddOAuthTokenParams{
+		if err := queries.AddOAuthToken(ctx, db.AddOAuthTokenParams{
 			AccountID:    info.ID().ID(),
 			Type:         tokenType,
 			AccessToken:  token.AccessToken,
@@ -66,7 +66,7 @@ func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnl
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 

@@ -49,13 +49,13 @@ func NewState(
 	return state, nil
 }
 
-func StateFromToken(token string, k [16]byte) (State, error) {
+func StateFromToken(token string, key [16]byte) (State, error) {
 	tokenRaw, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return State{}, fmt.Errorf("invalid base64: %w", err)
 	}
 
-	kk, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, k[:])
+	kk, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, key[:])
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +115,7 @@ func (s *State) Description() string    { return s.desc }
 func (s *State) Challenge() []byte      { return s.challenge }
 
 func (s *State) State(kid string, k [16]byte) string {
-	kk, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, k[:])
+	aesKey, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, k[:])
 	if err != nil {
 		panic(err)
 	}
@@ -147,7 +147,7 @@ func (s *State) State(kid string, k [16]byte) string {
 		Unprotected: nil,
 	}
 
-	data := must(msg.EncryptAndEncode(must(kk.Encryptor()), nil))
+	data := must(msg.EncryptAndEncode(must(aesKey.Encryptor()), nil))
 
 	return base64.RawURLEncoding.EncodeToString(data)
 }

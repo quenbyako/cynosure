@@ -14,16 +14,16 @@ import (
 var emptyOptions pgx.TxOptions
 
 func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigReadOnly) error {
-	tx, err := s.tx.BeginTx(ctx, emptyOptions)
+	transaction, err := s.tx.BeginTx(ctx, emptyOptions)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer transaction.Rollback(ctx)
 
-	q := s.q.WithTx(tx)
+	queries := s.q.WithTx(transaction)
 
 	// Insert the server record
-	if err := q.AddServer(ctx, db.AddServerParams{
+	if err := queries.AddServer(ctx, db.AddServerParams{
 		ID:        server.ID().ID(),
 		Url:       server.SSELink().String(),
 		Embedding: nil,
@@ -33,7 +33,7 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 
 	// If auth config is provided, insert it as well
 	if server.AuthConfig() == nil {
-		if err := tx.Commit(ctx); err != nil {
+		if err := transaction.Commit(ctx); err != nil {
 			return fmt.Errorf("commit tx: %w", err)
 		}
 
@@ -55,7 +55,7 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 		}
 	}
 
-	if err := q.AddOAuthConfig(ctx, db.AddOAuthConfigParams{
+	if err := queries.AddOAuthConfig(ctx, db.AddOAuthConfigParams{
 		ServerID:     server.ID().ID(),
 		ClientID:     server.AuthConfig().ClientID,
 		ClientSecret: server.AuthConfig().ClientSecret,
@@ -68,7 +68,7 @@ func (s *Servers) SetServer(ctx context.Context, server entities.ServerConfigRea
 		return fmt.Errorf("failed to add oauth config: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 

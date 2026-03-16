@@ -53,15 +53,15 @@ func New(
 	models ports.AgentStorage,
 	opts ...NewOpt,
 ) *Usecase {
-	p := newParams{
+	params := newParams{
 		log:    NoOpLogCallbacks{},
 		tracer: noop.NewTracerProvider(),
 	}
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
-	u := &Usecase{
+	usecase := &Usecase{
 		storage:     storage,
 		model:       model,
 		tools:       tool,
@@ -73,14 +73,14 @@ func New(
 
 		agentLoopTurns: 10,
 
-		log:   p.log,
-		trace: p.tracer.Tracer(pkgName),
+		log:   params.log,
+		trace: params.tracer.Tracer(pkgName),
 	}
-	if err := u.validate(); err != nil {
+	if err := usecase.validate(); err != nil {
 		panic(err)
 	}
 
-	return u
+	return usecase
 }
 
 func (u *Usecase) validate() error {

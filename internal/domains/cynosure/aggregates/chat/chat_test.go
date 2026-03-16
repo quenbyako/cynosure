@@ -19,22 +19,22 @@ import (
 )
 
 func TestChat_AcceptUserMessage_RAG_Orchestration(t *testing.T) {
-	ctx, f := context.Background(), newChatFixture(t)
+	ctx, fixture := context.Background(), newChatFixture(t)
 
 	// Arrange: Define tools and expect RAG to find them twice (on New and on Accept)
-	t1 := f.tool("get_weather")
-	t2 := f.tool("send_email")
-	f.expectRAG(map[string][]*entities.Tool{
-		"Personal": {t1},
-		"Work":     {t2},
+	tool1 := fixture.tool("get_weather")
+	tool2 := fixture.tool("send_email")
+	fixture.expectRAG(map[string][]*entities.Tool{
+		"Personal": {tool1},
+		"Work":     {tool2},
 	})
 
 	// Act: Add user message which triggers re-indexing
-	err := f.instance(ctx).AcceptUserMessage(ctx, f.msg("What is the weather?"))
+	err := fixture.instance(ctx).AcceptUserMessage(ctx, fixture.msg("What is the weather?"))
 
 	// Assert: Check toolbox consistency and account enrichment
 	assert.NoError(t, err)
-	f.assertToolbox(t1, t2)
+	fixture.assertToolbox(tool1, tool2)
 }
 
 // --- Fixture ---

@@ -70,15 +70,15 @@ type threadStorageWrapped struct {
 func (t *threadStorageWrapped) _ThreadStorage() {}
 
 func WrapThreadStorage(storage ThreadStorage, opts ...WrapThreadStorageOption) ThreadStorageWrapped {
-	t := threadStorageWrapped{
+	wrapped := threadStorageWrapped{
 		w:     storage,
 		trace: noop.NewTracerProvider().Tracer(""),
 	}
 	for _, opt := range opts {
-		opt.applyWrapThreadStorage(&t)
+		opt.applyWrapThreadStorage(&wrapped)
 	}
 
-	return &t
+	return &wrapped
 }
 
 func (t *threadStorageWrapped) CreateThread(ctx context.Context, thread entities.ThreadReadOnly) error {

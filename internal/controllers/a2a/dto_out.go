@@ -10,14 +10,14 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-func messagesTo(m messages.Message) (res *a2a.Message, err error) {
-	switch m := m.(type) {
+func messagesTo(msg messages.Message) (res *a2a.Message, err error) {
+	switch msg := msg.(type) {
 	case messages.MessageAssistant:
 		return &a2a.Message{
 			Role: a2a.Role_ROLE_AGENT,
 			Content: []*a2a.Part{{
 				Part: &a2a.Part_Text{
-					Text: m.Content(),
+					Text: msg.Content(),
 				},
 			}},
 			MessageId:  "",
@@ -28,14 +28,14 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 		}, nil
 
 	case messages.MessageToolRequest:
-		argsRaw := make(map[string]any, len(m.Arguments()))
-		for k, v := range m.Arguments() {
+		argsRaw := make(map[string]any, len(msg.Arguments()))
+		for key, value := range msg.Arguments() {
 			var x any
-			if err := json.Unmarshal(v, &x); err != nil {
-				return nil, fmt.Errorf("unmarshalling arg %q: %w", k, err)
+			if err := json.Unmarshal(value, &x); err != nil {
+				return nil, fmt.Errorf("unmarshalling arg %q: %w", key, err)
 			}
 
-			argsRaw[k] = x
+			argsRaw[key] = x
 		}
 
 		args, err := structpb.NewStruct(argsRaw)
@@ -51,7 +51,7 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 				},
 			}},
 			Metadata: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"tool":   structpb.NewStringValue(m.ToolName()),
+				"tool":   structpb.NewStringValue(msg.ToolName()),
 				"reason": structpb.NewStringValue("Invoking tool"),
 			}},
 			MessageId:  "",
@@ -62,7 +62,7 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 
 	case messages.MessageToolResponse:
 		var content any
-		if err := json.Unmarshal(m.Content(), &content); err != nil {
+		if err := json.Unmarshal(msg.Content(), &content); err != nil {
 			return nil, fmt.Errorf("unmarshalling arg: %w", err)
 		}
 
@@ -83,7 +83,7 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 				},
 			}},
 			Metadata: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"tool":   structpb.NewStringValue(m.ToolName()),
+				"tool":   structpb.NewStringValue(msg.ToolName()),
 				"reason": structpb.NewStringValue("Invoking tool"),
 			}},
 			MessageId:  "",
@@ -93,6 +93,6 @@ func messagesTo(m messages.Message) (res *a2a.Message, err error) {
 		}, nil
 
 	default:
-		return nil, fmt.Errorf("unknown message type: %T", m)
+		return nil, fmt.Errorf("unknown message type: %T", msg)
 	}
 }

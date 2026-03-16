@@ -51,18 +51,18 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 }
 
 func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress *url.URL, token []byte, opts ...NewOption) (http.Handler, error) {
-	p := newParams{
+	params := newParams{
 		updateInterval: time.Second * 2,
 		log:            NoOpLogCallbacks{},
 		tracer:         noopTrace.NewTracerProvider(),
 	}
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
 		botapi.WithHTTPClient(&http.Client{
-			Transport:     otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(p.tracer)),
+			Transport:     otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(params.tracer)),
 			Timeout:       0,
 			CheckRedirect: nil,
 			Jar:           nil,
@@ -88,17 +88,17 @@ func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPub
 		return nil, fmt.Errorf("failed to set telegram webhook: %s", resp.Status())
 	}
 
-	h := &Handler{
-		log:            p.log,
-		tracer:         p.tracer.Tracer(pkgName),
+	handler := &Handler{
+		log:            params.log,
+		tracer:         params.tracer.Tracer(pkgName),
 		srv:            srv,
 		users:          users,
 		client:         client,
-		updateInterval: p.updateInterval,
+		updateInterval: params.updateInterval,
 		lifecycleCtx:   ctx,
 	}
 
-	inner := botapi.NewStrictWebhookHandler(h, []botapi.StrictMiddlewareFunc{})
+	inner := botapi.NewStrictWebhookHandler(handler, []botapi.StrictMiddlewareFunc{})
 
 	return botapi.WebhookHandler(inner), nil
 }

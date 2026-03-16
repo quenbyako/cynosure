@@ -30,18 +30,18 @@ type ToolSemanticIndexTestSuiteOpts func(*ToolSemanticIndexTestSuite)
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
 func RunToolSemanticIndexTests(a ports.ToolSemanticIndex, opts ...ToolSemanticIndexTestSuiteOpts) func(t *testing.T) {
-	s := &ToolSemanticIndexTestSuite{
+	suite := &ToolSemanticIndexTestSuite{
 		adapter: a,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	if err := s.validate(); err != nil {
+	if err := suite.validate(); err != nil {
 		panic(err)
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 func (s *ToolSemanticIndexTestSuite) validate() error {

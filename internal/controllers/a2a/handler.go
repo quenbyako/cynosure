@@ -113,22 +113,22 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 	parts := make([]*a2a.Part, 0) // len(content))
 
 	for msg := range content {
-		switch m := msg.(type) {
+		switch msg := msg.(type) {
 		case messages.MessageAssistant:
 			parts = append(parts, &a2a.Part{
 				Part: &a2a.Part_Text{
-					Text: m.Content(),
+					Text: msg.Content(),
 				},
 			})
 		case messages.MessageToolRequest:
-			argsRaw := make(map[string]any, len(m.Arguments()))
-			for k, v := range m.Arguments() {
+			argsRaw := make(map[string]any, len(msg.Arguments()))
+			for key, value := range msg.Arguments() {
 				var x any
-				if err := json.Unmarshal(v, &x); err != nil {
-					return nil, fmt.Errorf("unmarshalling arg %q: %w", k, err)
+				if err := json.Unmarshal(value, &x); err != nil {
+					return nil, fmt.Errorf("unmarshalling arg %q: %w", key, err)
 				}
 
-				argsRaw[k] = x
+				argsRaw[key] = x
 			}
 
 			parts = append(parts, &a2a.Part{
@@ -136,7 +136,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 					Data: &a2a.DataPart{
 						Data: &structpb.Struct{
 							Fields: map[string]*structpb.Value{
-								"tool": structpb.NewStringValue(m.ToolName()),
+								"tool": structpb.NewStringValue(msg.ToolName()),
 								"args": must(structpb.NewValue(argsRaw)),
 							},
 						},
@@ -145,7 +145,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 			})
 		case messages.MessageToolResponse:
 			var content any
-			if err := json.Unmarshal(m.Content(), &content); err != nil {
+			if err := json.Unmarshal(msg.Content(), &content); err != nil {
 				return nil, fmt.Errorf("unmarshalling arg: %w", err)
 			}
 
@@ -154,7 +154,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 					Data: &a2a.DataPart{
 						Data: &structpb.Struct{
 							Fields: map[string]*structpb.Value{
-								"tool":    structpb.NewStringValue(m.ToolName()),
+								"tool":    structpb.NewStringValue(msg.ToolName()),
 								"content": must(structpb.NewValue(content)),
 							},
 						},
@@ -162,7 +162,7 @@ func (h *Handler) SendMessage(ctx context.Context, req *a2a.SendMessageRequest) 
 				},
 			})
 		default:
-			pp.Println("Unexpected message type:", m)
+			pp.Println("Unexpected message type:", msg)
 		}
 	}
 

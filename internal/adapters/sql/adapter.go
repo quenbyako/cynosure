@@ -49,22 +49,22 @@ type newParams struct {
 
 type NewOption func(*newParams)
 
-func WithTrace(tp trace.TracerProvider) NewOption {
+func WithTrace(tracerProvider trace.TracerProvider) NewOption {
 	return func(p *newParams) {
-		if tp == nil {
+		if tracerProvider == nil {
 			panic("tracer provider is nil")
 		}
 
-		p.tracer = tp
+		p.tracer = tracerProvider
 	}
 }
 
 func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter, error) {
-	p := newParams{
+	params := newParams{
 		tracer: noopTrace.NewTracerProvider(),
 	}
 	for _, opt := range opts {
-		opt(&p)
+		opt(&params)
 	}
 
 	config, err := pgxpool.ParseConfig(connString.String())
@@ -73,7 +73,7 @@ func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter,
 	}
 
 	config.ConnConfig.Tracer = otelpgx.NewTracer(
-		otelpgx.WithTracerProvider(p.tracer),
+		otelpgx.WithTracerProvider(params.tracer),
 	)
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
@@ -86,20 +86,20 @@ func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter,
 		return nil, fmt.Errorf("pinging db: %w", err)
 	}
 
-	a := Adapter{
+	adapter := Adapter{
 		Accounts: accounts.New(pool),
 		Agents:   agents.New(pool),
 		Servers:  servers.New(pool),
 		Threads:  threads.New(pool),
 		Tools:    tools.New(pool),
 		pool:     pool,
-		trace:    p.tracer.Tracer(pkgName),
+		trace:    params.tracer.Tracer(pkgName),
 	}
-	if err := a.validate(); err != nil {
+	if err := adapter.validate(); err != nil {
 		return nil, err
 	}
 
-	return &a, nil
+	return &adapter, nil
 }
 
 func (a *Adapter) validate() error {

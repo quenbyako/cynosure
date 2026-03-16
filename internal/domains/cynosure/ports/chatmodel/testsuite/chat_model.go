@@ -22,14 +22,14 @@ import (
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
 func RunChatModelTests(a chatmodel.Port, opts ...ChatModelTestSuiteOpts) func(t *testing.T) {
-	s := &ChatModelTestSuite{
+	suite := &ChatModelTestSuite{
 		adapter: a,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 type ChatModelTestSuite struct {
