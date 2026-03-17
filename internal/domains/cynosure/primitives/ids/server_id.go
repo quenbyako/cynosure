@@ -1,4 +1,4 @@
-package ids
+package ids //nolint:dupl // TODO: need to come up with something, how to reduce duplication
 
 import (
 	"fmt"
@@ -9,47 +9,46 @@ import (
 type ServerID struct {
 	id uuid.UUID
 
-	valid bool
+	_valid bool
 }
 
+// RandomServerID returns a new random ServerID.
+// uuid.New() always produces a non-nil UUID so this never fails.
 func RandomServerID() ServerID {
-	if id, err := NewServerID(uuid.New()); err == nil {
-		return id
-	} else {
-		panic(err)
-	}
+	return ServerID{id: uuid.New(), _valid: true}
 }
 
 func NewServerIDFromString(id string) (ServerID, error) {
 	serverID, err := uuid.Parse(id)
 	if err != nil {
-		return ServerID{}, err
+		return ServerID{}, fmt.Errorf("parsing server id: %w", err)
 	}
+
 	return NewServerID(serverID)
 }
 
 func NewServerID(id uuid.UUID) (ServerID, error) {
-	t := ServerID{
-		id: id,
+	server := ServerID{
+		id:     id,
+		_valid: false,
 	}
 
-	if err := t.validate(); err != nil {
+	if err := server.validate(); err != nil {
 		return ServerID{}, err
 	}
 
-	t.valid = true
+	server._valid = true
 
-	return t, nil
+	return server, nil
 }
 
-func (u ServerID) Valid() bool { return u.valid || u.validate() == nil }
+func (u ServerID) Valid() bool { return u._valid || u.validate() == nil }
 func (u ServerID) validate() error {
-	switch {
-	case u.id == uuid.Nil:
-		return fmt.Errorf("invalid server ID: %s", u.id)
-	default:
-		return nil
+	if u.id == uuid.Nil {
+		return ErrInternalValidation("server id cannot be nil")
 	}
+
+	return nil
 }
 
 func (u ServerID) ID() uuid.UUID { return u.id }

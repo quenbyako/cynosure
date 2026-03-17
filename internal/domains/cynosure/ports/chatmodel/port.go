@@ -1,4 +1,5 @@
-package ports
+// Package chatmodel provides an interface for interacting with a chat model.
+package chatmodel
 
 import (
 	"context"
@@ -9,9 +10,12 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-// ChatModel generates AI responses via LLM streaming API. Supports tool
+// StreamIter is an iterator of message chunks.
+type StreamIter = iter.Seq2[messages.Message, error]
+
+// Port generates AI responses via LLM streaming API. Supports tool
 // calling and custom agent parameters (temperature, system prompt, etc.).
-type ChatModel interface {
+type Port interface {
 	// Stream generates AI response as an iterator of message chunks. Supports
 	// tool calling when toolbox is provided via StreamOption. Returns iterator
 	// that yields message chunks and errors.
@@ -25,18 +29,17 @@ type ChatModel interface {
 	//
 	//  - [TestStreamBasicResponse] — generating simple text responses
 	//  - [TestStreamWithTools] — tool calling flow and message formatting
-	Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...StreamOption) (iter.Seq2[messages.Message, error], error)
+	Stream(
+		ctx context.Context,
+		input []messages.Message,
+		settings entities.AgentReadOnly,
+		opts ...StreamOption,
+	) (StreamIter, error)
 }
 
-func defaultStreamParams() *streamParams {
-	return &streamParams{
+func defaultStreamParams() streamParams {
+	return streamParams{
 		toolChoice: tools.ToolChoiceAllowed,
 		tools:      tools.Toolbox{},
 	}
 }
-
-type ChatModelFactory interface {
-	ChatModel() ChatModel
-}
-
-func NewChatModel(factory ChatModelFactory) ChatModel { return factory.ChatModel() }

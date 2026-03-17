@@ -21,21 +21,27 @@ func TestToolClientSuite(t *testing.T) {
 	)
 
 	// SaveTokenFunc mock
-	storage := func(ctx context.Context, account ids.AccountID, t *oauth2.Token) error {
-		accountTokens[account] = t
+	storage := func(ctx context.Context, account ids.AccountID, token *oauth2.Token) error {
+		accountTokens[account] = token
 		return nil
 	}
 
 	// AccountTokenFunc mock
-	accountToken := func(ctx context.Context, account ids.AccountID) (entities.ServerConfigReadOnly, *oauth2.Token, error) {
+	accountToken := func(
+		ctx context.Context,
+		account ids.AccountID,
+	) (entities.ServerConfigReadOnly, *oauth2.Token, error) {
 		return serverConfig, accountTokens[account], nil
 	}
 
-	h := New(storage, accountToken, WithMaxConnSize(5000))
+	handler, err := New(storage, accountToken, WithMaxConnSize(5000))
+	if err != nil {
+		t.Fatalf("failed to create handler: %v", err)
+	}
 
-	testsuite.RunToolClientTests(h,
-		testsuite.WithAfterServerSetup(func(u *url.URL) {
-			serverConfig = must(entities.NewServerConfig(ids.RandomServerID(), u))
+	testsuite.RunToolClientTests(handler,
+		testsuite.WithAfterServerSetup(func(mcpURL *url.URL) {
+			serverConfig = must(entities.NewServerConfig(ids.RandomServerID(), mcpURL))
 		}),
 	)(t)
 }

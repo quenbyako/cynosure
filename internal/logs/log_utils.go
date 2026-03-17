@@ -23,12 +23,15 @@ type BaseLogger struct {
 	l slog.Handler
 }
 
-var _ chat.LogCallbacks = (*BaseLogger)(nil)
-var _ gemini.LogCallbacks = (*BaseLogger)(nil)
-var _ telegram.LogCallbacks = (*BaseLogger)(nil)
-var _ runtime.LogCallbacks = (*BaseLogger)(nil)
+var (
+	_ chat.LogCallbacks     = (*BaseLogger)(nil)
+	_ gemini.LogCallbacks   = (*BaseLogger)(nil)
+	_ telegram.LogCallbacks = (*BaseLogger)(nil)
+	_ runtime.LogCallbacks  = (*BaseLogger)(nil)
+)
 
 type eventBuilder struct {
+	//nolint:containedctx // it's impossible in other ways provide context values
 	ctx context.Context
 	h   slog.Handler
 	r   slog.Record
@@ -70,13 +73,14 @@ func (e *eventBuilder) Context(attrs ...attribute.KeyValue) *eventBuilder {
 func (e *eventBuilder) Msgf(format string, v ...any) { e.Msg(fmt.Sprintf(format, v...)) }
 func (e *eventBuilder) Msg(msg string) {
 	e.r.Message = msg
-	e.h.Handle(e.ctx, e.r)
+	e.h.Handle(e.ctx, e.r) //nolint:errcheck,gosec // unnecessary
 }
 
 func omitOK[T any](s T, ok bool) T {
 	if !ok {
 		return *new(T)
 	}
+
 	return s
 }
 
@@ -88,9 +92,11 @@ func attrsToSlog(attrs ...attribute.KeyValue) []slog.Attr {
 			Value: valueSlog(attr.Value),
 		}
 	}
+
 	return res
 }
 
+//nolint:cyclop // come on, it's a single switch case!
 func valueSlog(attrs attribute.Value) slog.Value {
 	switch attrs.Type() {
 	case attribute.BOOL:
@@ -109,6 +115,8 @@ func valueSlog(attrs attribute.Value) slog.Value {
 		return slog.StringValue(attrs.AsString())
 	case attribute.STRINGSLICE:
 		return slog.AnyValue(attrs.AsStringSlice())
+	case attribute.INVALID:
+		return slog.AnyValue(attrs)
 	default:
 		return slog.AnyValue(attrs)
 	}
@@ -119,5 +127,6 @@ func asEnvs(envs map[string]string) []attribute.KeyValue {
 	for k, v := range envs {
 		attrs = append(attrs, semconv.ProcessEnvironmentVariable(k, v))
 	}
+
 	return attrs
 }

@@ -1,3 +1,4 @@
+// Package admin implements admin controller.
 package admin
 
 import (
@@ -22,9 +23,10 @@ type Handler struct {
 
 var _ admin.AdminServiceServer = (*Handler)(nil)
 
-func Register(accounts *accounts.Usecase) func(server grpc.ServiceRegistrar) {
+func Register(usecase *accounts.Usecase) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
-		accounts: accounts,
+		UnsafeAdminServiceServer: nil,
+		accounts:                 usecase,
 	}
 
 	return func(server grpc.ServiceRegistrar) {
@@ -32,12 +34,16 @@ func Register(accounts *accounts.Usecase) func(server grpc.ServiceRegistrar) {
 	}
 }
 
-func (h *Handler) AddServer(ctx context.Context, req *admin.AddServerRequest) (*admin.AddServerResponse, error) {
+func (h *Handler) AddServer(
+	ctx context.Context, req *admin.AddServerRequest,
+) (*admin.AddServerResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
-func (h *Handler) Authorize(ctx context.Context, req *admin.AuthorizeRequest) (*admin.AuthorizeResponse, error) {
-	mcpUrl, err := url.Parse(req.GetServerId())
+func (h *Handler) Authorize(
+	ctx context.Context, req *admin.AuthorizeRequest,
+) (*admin.AuthorizeResponse, error) {
+	mcpURL, err := url.Parse(req.GetServerId())
 	if err != nil {
 		return nil, fmt.Errorf("invalid server URL: %w", err)
 	}
@@ -47,11 +53,17 @@ func (h *Handler) Authorize(ctx context.Context, req *admin.AuthorizeRequest) (*
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	link, err := h.accounts.AddAccount(ctx, userID, mcpUrl, req.GetAccountName(), req.GetAccountDesc())
+	link, err := h.accounts.AddAccount(
+		ctx, userID, mcpURL, req.GetAccountName(), req.GetAccountDesc(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup auth link: %w", err)
 	}
 
+	return responseFromDomain(link)
+}
+
+func responseFromDomain(link accounts.AddAccountResponse) (*admin.AuthorizeResponse, error) {
 	switch link := link.(type) {
 	case accounts.AddAccountResponseAuthRequired:
 		return &admin.AuthorizeResponse{
@@ -62,6 +74,8 @@ func (h *Handler) Authorize(ctx context.Context, req *admin.AuthorizeRequest) (*
 			Link: "",
 		}, nil
 	default:
-		panic(fmt.Errorf("unexpected accounts.AddAccountResponse: %#v", link))
+		return nil, status.Errorf(codes.Internal,
+			"unexpected accounts.AddAccountResponse: %#v", link,
+		)
 	}
 }

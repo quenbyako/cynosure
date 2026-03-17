@@ -1,3 +1,4 @@
+// Package oauth implements OAuth controller.
 package oauth
 
 import (
@@ -23,38 +24,54 @@ func NewHandler(srv *accounts.Usecase) http.Handler {
 
 	inner, err := httpapi.NewServer(h)
 	if err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for app initialization
 	}
 
 	return inner
 }
 
+var emptyBool = httpapi.OptBool{Value: false, Set: false}
+
 // GetAgentCard implements httpapi.Handler.
-func (h *Handler) GetAgentCard(ctx context.Context, params httpapi.GetAgentCardParams) (httpapi.GetAgentCardRes, error) {
+//
+//nolint:ireturn // polymorphic http api response
+func (h *Handler) GetAgentCard(
+	ctx context.Context, params httpapi.GetAgentCardParams,
+) (httpapi.GetAgentCardRes, error) {
 	return &httpapi.GetAgentCardOK{
-		ProtocolVersion:    "0.3.0",
-		Name:               "TestAgent",
-		Description:        "Some test agent, idk",
-		Version:            "0.1.0",
-		URL:                "https://af9f40da2e5e.ngrok-free.app/agent",
-		PreferredTransport: httpapi.NewOptGetAgentCardOKPreferredTransport(httpapi.GetAgentCardOKPreferredTransportJSONRPC),
+		ProtocolVersion: "0.3.0",
+		Name:            "TestAgent",
+		Description:     "Some test agent, idk",
+		Version:         "0.1.0",
+		URL:             "https://af9f40da2e5e.ngrok-free.app/agent",
+		PreferredTransport: httpapi.NewOptGetAgentCardOKPreferredTransport(
+			httpapi.GetAgentCardOKPreferredTransportJSONRPC,
+		),
 		DefaultInputModes:  []string{"text/plain"},
 		DefaultOutputModes: []string{"text/plain"},
-		Skills: []httpapi.AgentSkill{
-			{
-				Name:        "TestSkill",
-				Description: "A skill for testing purposes",
-			},
-		},
+		Skills: []httpapi.AgentSkill{{
+			Name:        "TestSkill",
+			Description: "A skill for testing purposes",
+			Examples:    nil,
+			ID:          "",
+			InputModes:  nil,
+			OutputModes: nil,
+			Security:    nil,
+			Tags:        nil,
+		}},
 		Capabilities: httpapi.AgentCapabilities{
-			PushNotifications: httpapi.NewOptBool(false),
-			Streaming:         httpapi.NewOptBool(true),
+			PushNotifications:      httpapi.NewOptBool(false),
+			Streaming:              httpapi.NewOptBool(true),
+			StateTransitionHistory: emptyBool,
+			Extensions:             nil,
 		},
 	}, nil
 }
 
-// OAuthCallbackGet implements httpapi.Handler.
-func (h *Handler) OAuthCallbackGet(ctx context.Context, params httpapi.OAuthCallbackGetParams) (httpapi.OAuthCallbackGetRes, error) {
+//nolint:ireturn // polymorphic response
+func (h *Handler) OAuthCallbackGet(
+	ctx context.Context, params httpapi.OAuthCallbackGetParams,
+) (httpapi.OAuthCallbackGetRes, error) {
 	if !params.State.IsSet() {
 		return &httpapi.OAuthCallbackGetBadRequest{
 			Data: strings.NewReader(errorPage),
@@ -75,16 +92,18 @@ func (h *Handler) OAuthCallbackGet(ctx context.Context, params httpapi.OAuthCall
 	}, nil
 }
 
-const errorPage = `<html>
+const (
+	errorPage = `<html>
 				<body>
 					<h1>Oopsie</h1>
 					<p>The 'state' parameter is missing or invalid.</p>
 				</body>
 			</html>`
 
-const successPage = `<html>
+	successPage = `<html>
 				<body>
 					<h1>Authorization Successful</h1>
 					<p>You can now close this window and return to the chat.</p>
 				</body>
 			</html>`
+)

@@ -3,6 +3,7 @@ package testsuite
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,18 +14,22 @@ import (
 
 // RunIdentityManagerTests runs tests for the given adapter. These tests are
 // predefined and REQUIRED to be used for ANY adapter implementation.
-func RunIdentityManagerTests(a identitymanager.Port, opts ...IdentityManagerTestSuiteOption) func(t *testing.T) {
-	s := &IdentityManagerTestSuite{
+func RunIdentityManagerTests(
+	a identitymanager.Port, opts ...IdentityManagerTestSuiteOption,
+) func(t *testing.T) {
+	suite := &IdentityManagerTestSuite{
 		adapter: a,
+		cleanup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
-	}
-	if err := s.validate(); err != nil {
-		panic(err)
+		opt(suite)
 	}
 
-	return runSuite(s)
+	if err := suite.validate(); err != nil {
+		panic(err) //nolint:forbidigo // ok for tests
+	}
+
+	return runSuite(suite)
 }
 
 type IdentityManagerTestSuite struct {
@@ -43,13 +48,15 @@ func WithIdentityManagerCleanup(f func() error) IdentityManagerTestSuiteOption {
 
 func (s *IdentityManagerTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // come on
 	}
 
 	return nil
 }
 
 func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
+	t.Helper()
+
 	if s.cleanup != nil {
 		if err := s.cleanup(); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
@@ -58,14 +65,25 @@ func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
 }
 
 func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
-	id := time.Now().UnixNano() / 1000
+	id := time.Now().UnixNano() / int64(time.Microsecond)
 
-	externalID := fmt.Sprintf("%d", id)
+	externalID := strconv.FormatInt(id, 10)
 	nickname := fmt.Sprintf("go-test-user-%d", id)
 	firstName := "Test"
 	lastName := "User"
 
-	t.Run("create_identity", func(t *testing.T) {
+	t.Run("create_identity", s.subtestCreateIdentity(externalID, nickname, firstName, lastName))
+
+	t.Run("not_found", func(t *testing.T) {
+		_, err := s.adapter.LookupUser(t.Context(), "nonexistent")
+		require.ErrorIs(t, err, identitymanager.ErrNotFound)
+	})
+}
+
+func (s *IdentityManagerTestSuite) subtestCreateIdentity(
+	externalID, nickname, firstName, lastName string,
+) func(*testing.T) {
+	return func(t *testing.T) { //nolint:thelper // it's a subtest, not helper
 		userID, err := s.adapter.CreateUser(t.Context(), externalID, nickname, firstName, lastName)
 		require.NoError(t, err)
 		require.True(t, userID.Valid())
@@ -88,10 +106,5 @@ func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
 			require.NotNil(t, token)
 			require.NotEmpty(t, token.AccessToken)
 		})
-	})
-
-	t.Run("not_found", func(t *testing.T) {
-		_, err := s.adapter.LookupUser(t.Context(), "nonexistent")
-		require.ErrorIs(t, err, identitymanager.ErrNotFound)
-	})
+	}
 }

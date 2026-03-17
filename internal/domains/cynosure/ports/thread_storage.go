@@ -51,6 +51,7 @@ type ThreadStorageFactory interface {
 	ThreadStorage() ThreadStorageWrapped
 }
 
+//nolint:ireturn // standard port pattern: hiding implementation details
 func NewThreadStorage(factory ThreadStorageFactory) ThreadStorageWrapped {
 	return factory.ThreadStorage()
 }
@@ -69,19 +70,26 @@ type threadStorageWrapped struct {
 
 func (t *threadStorageWrapped) _ThreadStorage() {}
 
-func WrapThreadStorage(storage ThreadStorage, opts ...WrapThreadStorageOption) ThreadStorageWrapped {
-	t := threadStorageWrapped{
+//nolint:ireturn // standard port pattern: hiding implementation details
+func WrapThreadStorage(
+	storage ThreadStorage,
+	opts ...WrapThreadStorageOption,
+) ThreadStorageWrapped {
+	wrapped := threadStorageWrapped{
 		w:     storage,
 		trace: noop.NewTracerProvider().Tracer(""),
 	}
 	for _, opt := range opts {
-		opt.applyWrapThreadStorage(&t)
+		opt.applyWrapThreadStorage(&wrapped)
 	}
 
-	return &t
+	return &wrapped
 }
 
-func (t *threadStorageWrapped) CreateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
+func (t *threadStorageWrapped) CreateThread(
+	ctx context.Context,
+	thread entities.ThreadReadOnly,
+) error {
 	ctx, span := t.trace.Start(ctx, "CreateThread")
 	defer span.End()
 
@@ -90,10 +98,14 @@ func (t *threadStorageWrapped) CreateThread(ctx context.Context, thread entities
 		span.RecordError(err)
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return err
 }
 
-func (t *threadStorageWrapped) GetThread(ctx context.Context, threadID ids.ThreadID) (*entities.Thread, error) {
+func (t *threadStorageWrapped) GetThread(
+	ctx context.Context,
+	threadID ids.ThreadID,
+) (*entities.Thread, error) {
 	ctx, span := t.trace.Start(ctx, "GetThread")
 	defer span.End()
 
@@ -102,10 +114,14 @@ func (t *threadStorageWrapped) GetThread(ctx context.Context, threadID ids.Threa
 		span.RecordError(err)
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }
 
-func (t *threadStorageWrapped) UpdateThread(ctx context.Context, thread entities.ThreadReadOnly) error {
+func (t *threadStorageWrapped) UpdateThread(
+	ctx context.Context,
+	thread entities.ThreadReadOnly,
+) error {
 	ctx, span := t.trace.Start(ctx, "UpdateThread")
 	defer span.End()
 
@@ -114,5 +130,6 @@ func (t *threadStorageWrapped) UpdateThread(ctx context.Context, thread entities
 		span.RecordError(err)
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return err
 }

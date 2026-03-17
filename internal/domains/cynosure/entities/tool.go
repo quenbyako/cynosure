@@ -3,7 +3,6 @@ package entities
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -12,73 +11,99 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
-type ToolCallFunc func(ctx context.Context, params map[string]json.RawMessage) (messages.MessageTool, error)
+type ToolCallFunc func(
+	ctx context.Context, params map[string]json.RawMessage,
+) (messages.MessageTool, error)
 
 // Tool is the information of a tool.
 type Tool struct {
-	id          ids.ToolID
-	accountName string
-	name        string
-	description string
-
-	inputSchema  json.RawMessage
-	outputSchema json.RawMessage
-
-	embedding [embeddingSize]float32
-
-	// meta fields
-
-	pendingEvents[ToolEvent]
-	_valid bool // indicates if the tool info is valid
+	accountName              string
+	name                     string
+	description              string
+	inputSchema              json.RawMessage
+	outputSchema             json.RawMessage
+	pendingEvents[ToolEvent] // meta field for tracking updates
+	embedding                [embeddingSize]float32
+	id                       ids.ToolID
+	_valid                   bool // indicates if the tool info is valid
 }
 
-var _ EventsReader[ToolEvent] = (*Tool)(nil)
-var _ ToolReadOnly = (*Tool)(nil)
+var (
+	_ EventsReader[ToolEvent] = (*Tool)(nil)
+	_ ToolReadOnly            = (*Tool)(nil)
+)
 
 type ToolOption func(*Tool)
 
+//nolint:gocritic // hugeparam: large array passed by value, architecture constraint
 func WithEmbedding(embedding [embeddingSize]float32) ToolOption {
 	return func(t *Tool) { t.embedding = embedding }
 }
 
-func NewTool(id ids.ToolID, accountName, name, description string, inputSchema, outputSchema json.RawMessage, opts ...ToolOption) (*Tool, error) {
+func NewTool(
+	id ids.ToolID,
+	accountName, name, description string,
+	inputSchema, outputSchema json.RawMessage,
+	opts ...ToolOption,
+) (*Tool, error) {
 	normalizedInput, err := normalizeInputSchema(inputSchema)
 	if err != nil {
 		return nil, err
 	}
+
 	normalizedOutput, err := normalizeOutputSchema(outputSchema)
 	if err != nil {
 		return nil, err
 	}
 
-	t := Tool{
-		id:           id,
-		accountName:  accountName,
-		name:         name,
-		description:  description,
-		inputSchema:  normalizedInput,
-		outputSchema: normalizedOutput,
+	return newToolFromNormalized(
+		id, accountName, name, description,
+		normalizedInput, normalizedOutput,
+		opts...,
+	)
+}
+
+func newToolFromNormalized(
+	id ids.ToolID,
+	accountName, name, description string,
+	normalizedInput, normalizedOutput json.RawMessage,
+	opts ...ToolOption,
+) (*Tool, error) {
+	tool := Tool{
+		id:            id,
+		accountName:   accountName,
+		name:          name,
+		description:   description,
+		inputSchema:   normalizedInput,
+		outputSchema:  normalizedOutput,
+		_valid:        false,
+		pendingEvents: nil,
+		embedding:     [embeddingSize]float32{},
 	}
 	for _, opt := range opts {
-		opt(&t)
+		opt(&tool)
 	}
 
-	if err := t.Validate(); err != nil {
+	if err := tool.Validate(); err != nil {
 		return nil, err
 	}
-	t._valid = true
 
-	return &t, nil
+	tool._valid = true
+
+	return &tool, nil
 }
 
 // VALIDATION
 
 func (t *Tool) Valid() bool { return t._valid || t.Validate() == nil }
+
 func (t *Tool) Validate() error {
 	if t.description == "" {
-		return errors.New("description is required, but empty")
+		return ErrInternalValidation("description is required, but empty")
 	}
 
 	return nil
@@ -99,12 +124,19 @@ func normalizeSchema(schema json.RawMessage, verifyRoot string) (json.RawMessage
 	if err := json.Unmarshal(schema, &parsedSchema); err != nil {
 		return nil, fmt.Errorf("cannot parse schema: %w", err)
 	}
+
 	if verifyRoot != "" && !parsedSchema.Type.Is(verifyRoot) {
-		return nil, fmt.Errorf("invalid schema type: %s, must be only object", parsedSchema.Type)
+		return nil, ErrInternalValidation(
+			"invalid schema type: %s, must be only object",
+			parsedSchema.Type,
+		)
 	}
+
 	schema, err := json.Marshal(&parsedSchema)
 	if err != nil {
-		panic(fmt.Errorf("cannot marshal schema back: %w", err))
+		// TODO: guarantee somehow that parsed schema will always be a valid
+		// json for serialization. This error should NEVER EVER exist.
+		return nil, fmt.Errorf("cannot marshal schema back: %w", err)
 	}
 
 	return schema, nil
@@ -132,6 +164,7 @@ func (t *Tool) Embedding() [embeddingSize]float32 { return t.embedding }
 
 // WRITE
 
+//nolint:gocritic // hugeparam: large array passed by value, architecture constraint
 func (t *Tool) SetEmbedding(embedding [embeddingSize]float32) {
 	previous := t.embedding
 	t.embedding = embedding
@@ -144,7 +177,11 @@ func (t *Tool) SetEmbedding(embedding [embeddingSize]float32) {
 
 // EVENTS
 
-// [ToolEventEmbeddingUpdated]
+// ToolEvent defines event for tool entity.
+//
+// Implements by:
+//
+//   - [ToolEventEmbeddingUpdated]
 type ToolEvent interface {
 	_ToolEvent()
 }
@@ -154,6 +191,8 @@ type ToolEventEmbeddingUpdated struct {
 	embedding [embeddingSize]float32
 }
 
+//nolint:gocritic // hugeparam, architecture mistake.
 func (e ToolEventEmbeddingUpdated) _ToolEvent() {}
 
+//nolint:gocritic // hugeparam, architecture mistake.
 func (e ToolEventEmbeddingUpdated) Embedding() [embeddingSize]float32 { return e.embedding }

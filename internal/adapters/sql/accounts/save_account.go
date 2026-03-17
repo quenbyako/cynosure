@@ -11,59 +11,79 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 )
 
+var emptyTxOptions pgx.TxOptions
+
 func (a *Accounts) SaveAccount(ctx context.Context, info entities.AccountReadOnly) error {
-	tx, err := a.tx.BeginTx(ctx, pgx.TxOptions{})
+	transaction, err := a.tx.BeginTx(ctx, emptyTxOptions)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
 
-	q := a.q.WithTx(tx)
+	//nolint:errcheck // Rollback is called in defer and it makes no sense to check the error
+	defer transaction.Rollback(ctx)
 
-	err = q.UpsertAccount(ctx, db.UpsertAccountParams{
+	queries := a.q.WithTx(transaction)
+
+	if err := queries.UpsertAccount(ctx, db.UpsertAccountParams{
 		ID:          info.ID().ID(),
 		UserID:      info.ID().User().ID(),
 		ServerID:    info.ID().Server().ID(),
 		Name:        info.Name(),
 		Description: info.Description(),
-	})
-	if err != nil {
+		Embedding:   nil,
+	}); err != nil {
 		return fmt.Errorf("upserting account: %w", err)
 	}
 
-	// Handle OAuth token - always delete old and upsert new (one-to-one relation)
-	if err := q.DeleteAccountToken(ctx, info.ID().ID()); err != nil {
-		return fmt.Errorf("deleting old oauth token: %w", err)
+	if err := a.upsertToken(ctx, queries, info); err != nil {
+		return err
 	}
 
-	if token := info.Token(); token != nil {
-		var tokenType *string
-		if token.TokenType != "" {
-			tokenType = ptr(token.TokenType)
-		}
-		var refreshToken *string
-
-		if token.RefreshToken != "" {
-			refreshToken = ptr(token.RefreshToken)
-		}
-
-		if err := q.AddOAuthToken(ctx, db.AddOAuthTokenParams{
-			AccountID:    info.ID().ID(),
-			Type:         tokenType,
-			AccessToken:  token.AccessToken,
-			RefreshToken: refreshToken,
-			Expiry: pgtype.Timestamptz{
-				Time:  token.Expiry,
-				Valid: !token.Expiry.IsZero(),
-			},
-		}); err != nil {
-			return fmt.Errorf("adding oauth token: %w", err)
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
+	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 
 	return nil
+}
+
+func (a *Accounts) upsertToken(
+	ctx context.Context,
+	queries *db.Queries,
+	info entities.AccountReadOnly,
+) error {
+	if err := queries.DeleteAccountToken(ctx, info.ID().ID()); err != nil {
+		return fmt.Errorf("deleting old oauth token: %w", err)
+	}
+
+	token := info.Token()
+	if token == nil {
+		return nil
+	}
+
+	params := db.AddOAuthTokenParams{
+		AccountID:    info.ID().ID(),
+		Type:         optional(token.TokenType),
+		AccessToken:  token.AccessToken,
+		RefreshToken: optional(token.RefreshToken),
+		Expiry: pgtype.Timestamptz{
+			Time:             token.Expiry,
+			Valid:            !token.Expiry.IsZero(),
+			InfinityModifier: pgtype.Finite,
+		},
+	}
+
+	if err := queries.AddOAuthToken(ctx, params); err != nil {
+		return fmt.Errorf("adding oauth token: %w", err)
+	}
+
+	return nil
+}
+
+func optional[T comparable](value T) *T {
+	var zero T
+	if value == zero {
+		return nil
+	}
+
+	return &value
 }

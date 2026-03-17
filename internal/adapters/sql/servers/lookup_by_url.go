@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 
 	"github.com/quenbyako/cynosure/internal/adapters/sql/datatransfer"
@@ -20,10 +22,20 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ports.ErrNotFound
 		}
+
 		return nil, fmt.Errorf("failed to lookup server: %w", err)
 	}
 
-	info, err := datatransfer.ServerInfoFromDB(db.GetServerInfoRow{
+	info, err := datatransfer.ServerInfoFromDB(mapServerInfoRow(&row))
+	if err != nil {
+		return nil, fmt.Errorf("mapping server info: %w", err)
+	}
+
+	return info, nil
+}
+
+func mapServerInfoRow(row *db.LookupByURLRow) *db.GetServerInfoRow {
+	return &db.GetServerInfoRow{
 		ID:           row.ID,
 		Url:          row.Url,
 		ClientID:     row.ClientID,
@@ -33,10 +45,11 @@ func (s *Servers) LookupByURL(ctx context.Context, u *url.URL) (*entities.Server
 		TokenUrl:     row.TokenUrl,
 		Expiration:   row.Expiration,
 		Scopes:       row.Scopes,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert server info: %w", err)
+		DeletedAt: pgtype.Timestamptz{
+			Valid:            false,
+			Time:             time.Time{},
+			InfinityModifier: pgtype.Finite,
+		},
+		Embedding: nil,
 	}
-
-	return info, nil
 }

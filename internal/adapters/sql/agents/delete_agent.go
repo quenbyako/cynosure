@@ -12,5 +12,6 @@ func (s *Agents) DeleteAgent(ctx context.Context, id ids.AgentID) error {
 	if err != nil {
 		return fmt.Errorf("delete agent: %w", err)
 	}
+
 	return nil
 }

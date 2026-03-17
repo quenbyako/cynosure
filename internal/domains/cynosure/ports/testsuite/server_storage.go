@@ -1,6 +1,7 @@
 package testsuite
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"testing"
@@ -21,61 +22,77 @@ import (
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunServerStorageTests(a ports.ServerStorage, opts ...ServerStorageTestSuiteOption) func(t *testing.T) {
-	s := &ServerStorageTestSuite{
+func RunServerStorageTests(
+	a ports.ServerStorage, opts ...ServerStorageTestSuiteOption,
+) func(t *testing.T) {
+	suite := &ServerStorageTestSuite{
 		adapter: a,
+		cleanup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
-	}
-	if err := s.validate(); err != nil {
-		panic(err)
+		opt(suite)
 	}
 
-	return runSuite(s)
+	if err := suite.validate(); err != nil {
+		panic(err) //nolint:forbidigo // ok for tests
+	}
+
+	return runSuite(suite)
 }
 
 type ServerStorageTestSuite struct {
 	adapter ports.ServerStorage
 
-	cleanup func() error
+	cleanup func(context.Context) error
 }
 
 var _ afterTest = (*ServerStorageTestSuite)(nil)
 
 type ServerStorageTestSuiteOption func(*ServerStorageTestSuite)
 
-func WithServerStorageCleanup(f func() error) ServerStorageTestSuiteOption {
+func WithServerStorageCleanup(f func(context.Context) error) ServerStorageTestSuiteOption {
 	return func(s *ServerStorageTestSuite) { s.cleanup = f }
 }
 
 func (s *ServerStorageTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil
 }
 
 func (s *ServerStorageTestSuite) afterTest(t *testing.T) {
+	t.Helper()
+
 	if s.cleanup != nil {
-		if err := s.cleanup(); err != nil {
+		if err := s.cleanup(t.Context()); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
 		}
 	}
 }
 
+const (
+	oneDay = 24 * time.Hour
+)
+
+//nolint:funlen // ok for tests
 func (s *ServerStorageTestSuite) TestSaveServer(t *testing.T) {
 	serverID := ids.RandomServerID()
 	link := must(url.Parse("https://example.com/sse"))
 	opts := []entities.ServerConfigOption{
-		entities.WithExpiration(time.Now().Add(24 * time.Hour)),
+		entities.WithExpiration(time.Now().Add(oneDay)),
 		entities.WithAuthConfig(&oauth2.Config{
 			ClientID: "client-id",
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  "https://example.com/auth",
-				TokenURL: "https://example.com/token",
+			Endpoint: oauth2.Endpoint{ //nolint:gosec // not a credential
+				AuthURL:       "https://example.com/auth",
+				TokenURL:      "https://example.com/token",
+				DeviceAuthURL: "",
+				AuthStyle:     0,
 			},
+			ClientSecret: "",
+			RedirectURL:  "",
+			Scopes:       nil,
 		}),
 	}
 	server := must(entities.NewServerConfig(serverID, link, opts...))

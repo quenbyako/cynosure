@@ -12,6 +12,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
+//nolint:gosec // lmao, it's not a credential
 const (
 	attrAccountID attribute.Key = "cynosure.account.id"
 	connHasToken  attribute.Key = "cynosure.mcp.has_token"
@@ -24,7 +25,7 @@ type observable struct {
 
 func newObservable(stack ports.ObserveStack) *observable {
 	if stack == nil {
-		panic("required observable stack")
+		stack = ports.NoOpObserveStack()
 	}
 
 	return &observable{
@@ -35,11 +36,12 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-type discoverToolsCallback interface {
-	span
-}
-
-func (o *observable) discoverTools(ctx context.Context, accountID, serverURL string, hasToken bool) (context.Context, discoverToolsCallback) {
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+func (o *observable) discoverTools(
+	ctx context.Context,
+	accountID, serverURL string,
+	hasToken bool,
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.tool.discover_tools",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -48,11 +50,12 @@ func (o *observable) discoverTools(ctx context.Context, accountID, serverURL str
 			connHasToken.Bool(hasToken),
 		),
 	)
+
 	return ctx, &spanCallback{span: span}
 }
 
 type executeToolCallback interface {
-	recordResponse(json.RawMessage)
+	recordResponse(response json.RawMessage)
 	span
 }
 
@@ -66,8 +69,17 @@ func (c *executeToolSpan) recordResponse(response json.RawMessage) {
 	}
 }
 
-func (o *observable) executeTool(ctx context.Context, toolName string, args map[string]json.RawMessage, toolCallID string) (context.Context, executeToolCallback) {
-	serialized, _ := json.Marshal(args)
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+func (o *observable) executeTool(
+	ctx context.Context,
+	toolName string,
+	args map[string]json.RawMessage,
+	toolCallID string,
+) (context.Context, executeToolCallback) {
+	serialized, err := json.Marshal(args)
+	if err != nil {
+		serialized = []byte("SERIALIZATION ERROR: " + err.Error())
+	}
 
 	ctx, span := o.t.Start(ctx, "cynosure.ports.tool.execute_tool",
 		trace.WithSpanKind(trace.SpanKindInternal),

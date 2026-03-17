@@ -7,7 +7,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
 // ToolStorage manages persistence of MCP tools with their semantic embeddings.
 // Each tool represents a callable function exposed by an MCP server account,
@@ -48,7 +50,12 @@ type ToolStorageRead interface {
 	// Parameters:
 	//  - embedding: Query vector from ToolSemanticIndex.BuildToolEmbedding
 	//  - limit: Maximum number of results (top-K)
-	LookupTools(ctx context.Context, user ids.UserID, embedding [embeddingSize]float32, limit int) ([]*entities.Tool, error)
+	LookupTools(
+		ctx context.Context,
+		user ids.UserID,
+		embedding [embeddingSize]float32,
+		limit int,
+	) ([]*entities.Tool, error)
 }
 
 type ToolStorageWrite interface {
@@ -75,6 +82,7 @@ type ToolStorageFactory interface {
 	ToolStorage() ToolStorage
 }
 
+//nolint:ireturn // standard port pattern: hiding implementation details
 func NewToolStorage(f ToolStorageFactory) ToolStorage {
 	return f.ToolStorage()
 }

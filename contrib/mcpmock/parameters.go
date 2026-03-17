@@ -1,3 +1,4 @@
+// Package mcpmock provides parameters for the mock MCP server.
 package mcpmock
 
 // Parameters for EACH test:
@@ -59,7 +60,8 @@ const (
 	MetadataDiscoveryNone MetadataDiscovery = iota // none
 	// https://example.com/.well-known/oauth-protected-resource
 	MetadataDiscoveryRoot // root
-	// for https://example.com/public/mcp it will be https://example.com/.well-known/oauth-protected-resource/public/mcp
+	// for https://example.com/public/mcp it will be
+	// https://example.com/.well-known/oauth-protected-resource/public/mcp
 	MetadataDiscoveryPathSpecific // path_specific
 	// writes into WWW-Authenticate header
 	MetadataDiscoveryPathExplicit // path_explicit

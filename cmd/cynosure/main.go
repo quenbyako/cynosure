@@ -27,5 +27,6 @@ func main() {
 	main := runtime.Run(root.Cmd)
 	exitCode := main(ctx, os.Args[1:])
 
+	//nolint:forbidigo // it's main package.
 	os.Exit(int(exitCode))
 }

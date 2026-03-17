@@ -2,7 +2,6 @@ package toolclient
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 )
 
@@ -24,6 +23,7 @@ type RequiresAuthError struct {
 	suggestedMetadataEndpoint *url.URL
 }
 
+//nolint:errcheck // interface check
 var _ error = (*RequiresAuthError)(nil)
 
 func ErrRequiresAuth(metadataEndpoint *url.URL) *RequiresAuthError {
@@ -36,7 +36,9 @@ func (e *RequiresAuthError) Error() string {
 	if e.suggestedMetadataEndpoint == nil {
 		return "requires authentication, no metadata endpoint suggested"
 	}
-	return fmt.Sprintf("requires authentication, should use metadata endpoint: %s", e.suggestedMetadataEndpoint.String())
+
+	return "requires authentication, should use metadata endpoint: " +
+		e.suggestedMetadataEndpoint.String()
 }
 
 func (e *RequiresAuthError) Endpoint() *url.URL { return e.suggestedMetadataEndpoint }

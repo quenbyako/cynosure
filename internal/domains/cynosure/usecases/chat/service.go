@@ -1,36 +1,51 @@
+// Package chat implements chat usecases.
 package chat
 
 import (
-	"errors"
-
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
+const (
+	pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
+
+	defaultAgentLoopTurns = 10
+)
 
 type Usecase struct {
-	storage     ports.ThreadStorage
-	model       ports.ChatModel
-	tools       toolclient.Port
-	indexer     ports.ToolSemanticIndex
-	toolStorage ports.ToolStorage
-	servers     ports.ServerStorage
-	accounts    ports.AccountStorage
-	models      ports.AgentStorage
-
+	storage        ports.ThreadStorage
+	model          chatmodel.Port
+	tools          toolclient.Port
+	indexer        ports.ToolSemanticIndex
+	toolStorage    ports.ToolStorage
+	servers        ports.ServerStorage
+	accounts       ports.AccountStorage
+	models         ports.AgentStorage
+	log            LogCallbacks
+	trace          trace.Tracer
 	agentLoopTurns uint8
-
-	log   LogCallbacks
-	trace trace.Tracer
 }
 
 type newParams struct {
 	log    LogCallbacks
 	tracer trace.TracerProvider
+}
+
+func buildNewParams(opts ...NewOpt) *newParams {
+	params := newParams{
+		log:    NoOpLogCallbacks{},
+		tracer: noop.NewTracerProvider(),
+	}
+
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return &params
 }
 
 type NewOpt func(*newParams)
@@ -45,7 +60,7 @@ func WithTracer(tracer trace.TracerProvider) NewOpt {
 
 func New(
 	storage ports.ThreadStorage,
-	model ports.ChatModel,
+	model chatmodel.Port,
 	tool toolclient.Port,
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
@@ -53,62 +68,48 @@ func New(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	opts ...NewOpt,
-) *Usecase {
-	p := newParams{
-		log:    NoOpLogCallbacks{},
-		tracer: noop.NewTracerProvider(),
-	}
-	for _, opt := range opts {
-		opt(&p)
-	}
-
-	u := &Usecase{
-		storage:     storage,
-		model:       model,
-		tools:       tool,
-		indexer:     indexer,
-		toolStorage: toolStorage,
-		servers:     server,
-		accounts:    account,
-		models:      models,
-
-		agentLoopTurns: 10,
-
-		log:   p.log,
-		trace: p.tracer.Tracer(pkgName),
-	}
-	if err := u.validate(); err != nil {
-		panic(err)
+) (*Usecase, error) {
+	params := buildNewParams(opts...)
+	usecase := &Usecase{
+		storage:        storage,
+		model:          model,
+		tools:          tool,
+		indexer:        indexer,
+		toolStorage:    toolStorage,
+		servers:        server,
+		accounts:       account,
+		models:         models,
+		agentLoopTurns: defaultAgentLoopTurns,
+		log:            params.log,
+		trace:          params.tracer.Tracer(pkgName),
 	}
 
-	return u
+	if err := usecase.validate(); err != nil {
+		return nil, err
+	}
+
+	return usecase, nil
 }
 
 func (u *Usecase) validate() error {
-	if u.storage == nil {
-		return errors.New("storage repository is required")
+	switch {
+	case u.storage == nil:
+		return errInternalValidation("storage repository is required")
+	case u.model == nil:
+		return errInternalValidation("chat model is required")
+	case u.tools == nil:
+		return errInternalValidation("tool manager is required")
+	case u.indexer == nil:
+		return errInternalValidation("indexer is required")
+	case u.toolStorage == nil:
+		return errInternalValidation("tool storage is required")
+	case u.servers == nil:
+		return errInternalValidation("server storage is required")
+	case u.accounts == nil:
+		return errInternalValidation("account storage is required")
+	case u.models == nil:
+		return errInternalValidation("model settings storage is required")
+	default:
+		return nil
 	}
-	if u.model == nil {
-		return errors.New("chat model is required")
-	}
-	if u.tools == nil {
-		return errors.New("tool manager is required")
-	}
-	if u.indexer == nil {
-		return errors.New("indexer is required")
-	}
-	if u.toolStorage == nil {
-		return errors.New("tool storage is required")
-	}
-	if u.servers == nil {
-		return errors.New("server storage is required")
-	}
-	if u.accounts == nil {
-		return errors.New("account storage is required")
-	}
-	if u.models == nil {
-		return errors.New("model settings storage is required")
-	}
-
-	return nil
 }

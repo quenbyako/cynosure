@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -9,16 +8,17 @@ import (
 )
 
 type Thread struct {
-	id       ids.ThreadID
-	agentID  ids.AgentID
 	messages []messages.Message
-
 	pendingEvents[ThreadEvent]
-	valid bool
+	id      ids.ThreadID
+	agentID ids.AgentID
+	_valid  bool
 }
 
-var _ EventsReader[ThreadEvent] = (*Thread)(nil)
-var _ ThreadReadOnly = (*Thread)(nil)
+var (
+	_ EventsReader[ThreadEvent] = (*Thread)(nil)
+	_ ThreadReadOnly            = (*Thread)(nil)
+)
 
 type ThreadOption func(*Thread)
 
@@ -26,42 +26,52 @@ func WithAgent(id ids.AgentID) ThreadOption {
 	return func(t *Thread) { t.agentID = id }
 }
 
-func NewThread(id ids.ThreadID, messages []messages.Message, opts ...ThreadOption) (*Thread, error) {
-	c := &Thread{
-		id:       id,
-		messages: messages,
+func NewThread(
+	id ids.ThreadID,
+	history []messages.Message,
+	opts ...ThreadOption,
+) (*Thread, error) {
+	thread := &Thread{
+		id:            id,
+		messages:      history,
+		pendingEvents: nil,
+		agentID:       ids.AgentID{},
+		_valid:        false,
 	}
 	for _, opt := range opts {
-		opt(c)
+		opt(thread)
 	}
 
-	if err := c.Validate(); err != nil {
+	if err := thread.Validate(); err != nil {
 		return nil, err
 	}
-	c.valid = true
 
-	return c, nil
+	thread._valid = true
+
+	return thread, nil
 }
 
-func (c *Thread) Valid() bool { return c.valid || c.Validate() == nil }
+func (c *Thread) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *Thread) Validate() error {
 	if !c.id.Valid() {
-		return fmt.Errorf("thread ID is invalid")
+		return ErrInternalValidation("thread ID is invalid")
 	}
+
 	if len(c.messages) == 0 {
-		return fmt.Errorf("messages cannot be empty")
+		return ErrInternalValidation("messages cannot be empty")
 	}
 
 	return nil
 }
 
-func (c *Thread) validateMessages(messages []messages.Message) error {
-	if len(messages) == 0 {
-		return fmt.Errorf("messages cannot be empty")
+func (c *Thread) validateMessages(history []messages.Message) error {
+	if len(history) == 0 {
+		return ErrInternalValidation("messages cannot be empty")
 	}
-	for i, msg := range messages {
+
+	for i, msg := range history {
 		if !msg.Valid() {
-			return fmt.Errorf("message %d is invalid", i)
+			return ErrInternalValidation("message %d is invalid", i)
 		}
 	}
 
@@ -99,11 +109,12 @@ func (c *Thread) Messages() []messages.Message { return c.messages }
 // WRITE
 
 func (c *Thread) AddMessage(message messages.Message) error {
-	messages := append(c.messages, message)
-	if err := c.validateMessages(messages); err != nil {
+	msgs := cloneWithAppend(c.messages, message)
+	if err := c.validateMessages(msgs); err != nil {
 		return err
 	}
-	c.messages = messages
+
+	c.messages = msgs
 
 	c.pendingEvents = append(c.pendingEvents, ThreadEventMessageAdded{
 		message: message,
@@ -132,12 +143,14 @@ func (c *Thread) SetAgent(agentID ids.AgentID) bool {
 
 type ThreadEvent interface{ undo(c *Thread) }
 
+//nolint:exhaustruct // interface check
 var _ ThreadEvent = ThreadEventMessageAdded{}
 
 type ThreadEventMessageAdded struct {
 	message messages.Message
 }
 
+//nolint:ireturn // returns polymorphic message type
 func (e ThreadEventMessageAdded) Message() messages.Message { return e.message }
 
 func (e ThreadEventMessageAdded) undo(c *Thread) {
@@ -155,3 +168,11 @@ type ThreadEventAgentSet struct {
 func (e ThreadEventAgentSet) AgentID() ids.AgentID { return e.agentID }
 
 func (e ThreadEventAgentSet) undo(c *Thread) { c.agentID = e.previous }
+
+func cloneWithAppend[S ~[]T, T any](other S, others ...T) S {
+	res := make([]T, len(other), len(other)+len(others))
+	copy(res, other)
+	res = append(res, others...)
+
+	return res
+}

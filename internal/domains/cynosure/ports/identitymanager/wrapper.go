@@ -25,9 +25,10 @@ var _ PortWrapped = (*portWrapped)(nil)
 
 func (i *portWrapped) _PortWrapped() {}
 
+//nolint:ireturn // wrapping adapter as interface
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
-		panic("required observable stack")
+		observable = ports.NoOpObserveStack()
 	}
 
 	t := portWrapped{
@@ -45,6 +46,7 @@ func (i *portWrapped) HasUser(ctx context.Context, id ids.UserID) (bool, error) 
 	res, err := i.w.HasUser(ctx, id)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }
 
@@ -55,16 +57,20 @@ func (i *portWrapped) LookupUser(ctx context.Context, telegramID string) (ids.Us
 	res, err := i.w.LookupUser(ctx, telegramID)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }
 
-func (i *portWrapped) CreateUser(ctx context.Context, telegramID, nickname, firstName, lastName string) (ids.UserID, error) {
+func (i *portWrapped) CreateUser(
+	ctx context.Context, telegramID, nickname, firstName, lastName string,
+) (ids.UserID, error) {
 	ctx, span := i.t.createUser(ctx, telegramID, nickname, firstName, lastName)
 	defer span.end()
 
 	res, err := i.w.CreateUser(ctx, telegramID, nickname, firstName, lastName)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }
 
@@ -75,5 +81,6 @@ func (i *portWrapped) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.To
 	res, err := i.w.IssueToken(ctx, id)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }

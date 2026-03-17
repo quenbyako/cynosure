@@ -1,3 +1,4 @@
+// Package tools implements SQL tool storage.
 package tools
 
 import (
@@ -14,7 +15,9 @@ type conn interface {
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 }
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
 type Tools struct {
 	tx conn

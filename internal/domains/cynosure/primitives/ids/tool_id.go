@@ -1,7 +1,7 @@
 package ids
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -13,49 +13,42 @@ type ToolID struct {
 	_valid bool
 }
 
-// Implelements:
-// - [WithSlug]
-type ToolIDOption interface {
-	applyToolID(*ToolID)
+func RandomToolID(account AccountID) (ToolID, error) {
+	return NewToolID(account, uuid.New())
 }
 
-func RandomToolID(account AccountID, opts ...ToolIDOption) (ToolID, error) {
-	return NewToolID(account, uuid.New(), opts...)
-}
-
-func NewToolIDFromString(account AccountID, id string, opts ...ToolIDOption) (ToolID, error) {
+func NewToolIDFromString(account AccountID, id string) (ToolID, error) {
 	toolID, err := uuid.Parse(id)
 	if err != nil {
-		return ToolID{}, err
+		return ToolID{}, fmt.Errorf("parsing tool id: %w", err)
 	}
 
-	return NewToolID(account, toolID, opts...)
+	return NewToolID(account, toolID)
 }
 
-func NewToolID(account AccountID, id uuid.UUID, opts ...ToolIDOption) (ToolID, error) {
-	u := ToolID{
+func NewToolID(account AccountID, id uuid.UUID) (ToolID, error) {
+	tool := ToolID{
 		id:      id,
 		account: account,
-	}
-	for _, opt := range opts {
-		opt.applyToolID(&u)
+		_valid:  false,
 	}
 
-	if err := u.validate(); err != nil {
+	if err := tool.validate(); err != nil {
 		return ToolID{}, err
 	}
-	u._valid = true
 
-	return u, nil
+	tool._valid = true
+
+	return tool, nil
 }
 
 func (u ToolID) Valid() bool { return u._valid || u.validate() == nil }
 func (u ToolID) validate() error {
 	switch {
 	case u.id == uuid.Nil:
-		return errors.New("tool id cannot be nil")
+		return ErrInternalValidation("tool id cannot be nil")
 	case !u.account.Valid():
-		return errors.New("account id is invalid")
+		return ErrInternalValidation("account id is invalid")
 	default:
 		return nil
 	}

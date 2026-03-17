@@ -1,9 +1,10 @@
 package cynosure
 
 import (
-	"github.com/goforj/wire"
+	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
@@ -12,16 +13,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
-var (
-	chatUsecase     = wire.NewSet(newChatUsecase)
-	accountsUsecase = wire.NewSet(newAccountsUsecase)
-	usersUsecase    = wire.NewSet(newUsersUsecase)
-)
-
 func newChatUsecase(
-	p *appParams,
+	params *appParams,
 	storage ports.ThreadStorageWrapped,
-	model ports.ChatModel,
+	model chatmodel.PortWrapped,
 	tool toolclient.PortWrapped,
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
@@ -29,8 +24,8 @@ func newChatUsecase(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	logger chat.LogCallbacks,
-) *chat.Usecase {
-	return chat.New(
+) (*chat.Usecase, error) {
+	usecase, err := chat.New(
 		storage,
 		model,
 		tool,
@@ -40,12 +35,17 @@ func newChatUsecase(
 		account,
 		models,
 		chat.WithLogger(logger),
-		chat.WithTracer(p.observability),
+		chat.WithTracer(params.observability),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chat usecase: %w", err)
+	}
+
+	return usecase, nil
 }
 
 func newAccountsUsecase(
-	p *appParams,
+	params *appParams,
 	servers ports.ServerStorage,
 	oauth oauthhandler.PortWrapped,
 	accountsPort ports.AccountStorage,
@@ -53,8 +53,8 @@ func newAccountsUsecase(
 	index ports.ToolSemanticIndex,
 	toolClient toolclient.PortWrapped,
 	identities identitymanager.PortWrapped,
-) *accounts.Usecase {
-	return must(accounts.New(
+) (*accounts.Usecase, error) {
+	usecase, err := accounts.New(
 		servers,
 		oauth,
 		accountsPort,
@@ -62,30 +62,40 @@ func newAccountsUsecase(
 		index,
 		toolClient,
 		identities,
-		accounts.WithOAuthRedirectURL(p.oauthCallback),
-		accounts.WithTracerProvider(p.observability),
-	))
+		accounts.WithOAuthRedirectURL(params.ory.callback),
+		accounts.WithTracerProvider(params.observability),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create accounts usecase: %w", err)
+	}
+
+	return usecase, nil
 }
 
 func newUsersUsecase(
-	p *appParams,
+	params *appParams,
 	identities identitymanager.PortWrapped,
 	agents ports.AgentStorage,
-	accounts ports.AccountStorage,
+	accStorage ports.AccountStorage,
 	servers ports.ServerStorage,
 	tools ports.ToolStorage,
 	toolClient toolclient.PortWrapped,
 	index ports.ToolSemanticIndex,
-) *users.Usecase {
-	return users.New(
+) (*users.Usecase, error) {
+	usecase, err := users.New(
 		identities,
 		agents,
-		accounts,
+		accStorage,
 		servers,
 		tools,
 		toolClient,
 		index,
-		p.adminMCPID,
-		users.WithTracerProvider(p.observability),
+		params.adminMCPID,
+		users.WithTracerProvider(params.observability),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("creating users usecase: %w", err)
+	}
+
+	return usecase, nil
 }

@@ -1,3 +1,4 @@
+// Package telegram implements Telegram controller.
 package telegram
 
 import (
@@ -16,25 +17,42 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
+const (
+	pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
+)
 
 type Handler struct {
+	// TODO: maybe it's not the best pattern? Maybe channels or mutexes are better? idk
+	//nolint:containedctx // lifecycleCtx provides context for handler worker.
+	lifecycleCtx   context.Context
+	log            LogCallbacks
+	tracer         trace.Tracer
 	srv            *chat.Usecase
 	users          *users.Usecase
 	client         *botapi.ClientWithResponses
 	updateInterval time.Duration
-	lifecycleCtx   context.Context
-
-	log    LogCallbacks
-	tracer trace.Tracer
 }
 
 var _ botapi.StrictWebhookInterface = (*Handler)(nil)
 
 type newParams struct {
-	updateInterval time.Duration
 	log            LogCallbacks
 	tracer         trace.TracerProvider
+	updateInterval time.Duration
+}
+
+func buildNewParams(opts ...NewOption) newParams {
+	params := newParams{
+		updateInterval: defaultUpdateInterval,
+		log:            NoOpLogCallbacks{},
+		tracer:         noopTrace.NewTracerProvider(),
+	}
+
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return params
 }
 
 type NewOption func(*newParams)
@@ -51,46 +69,70 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
-func New(ctx context.Context, srv *chat.Usecase, users *users.Usecase, serverPublicAddress *url.URL, token []byte, opts ...NewOption) (http.Handler, error) {
-	p := newParams{
-		updateInterval: time.Second * 2,
-		log:            NoOpLogCallbacks{},
-		tracer:         noopTrace.NewTracerProvider(),
+func (p *newParams) httpClient() *http.Client {
+	return &http.Client{
+		Transport: otelhttp.NewTransport(
+			http.DefaultTransport,
+			otelhttp.WithTracerProvider(p.tracer),
+		),
+		Timeout:       0,
+		CheckRedirect: nil,
+		Jar:           nil,
 	}
-	for _, opt := range opts {
-		opt(&p)
-	}
+}
+
+const (
+	defaultUpdateInterval = 2 * time.Second
+)
+
+func New(
+	ctx context.Context, srv *chat.Usecase, usecase *users.Usecase,
+	serverPublicAddress *url.URL, token []byte, opts ...NewOption,
+) (http.Handler, error) {
+	params := buildNewParams(opts...)
 
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
-		botapi.WithHTTPClient(&http.Client{
-			Transport: otelhttp.NewTransport(http.DefaultTransport, otelhttp.WithTracerProvider(p.tracer)),
-		}),
+		botapi.WithHTTPClient(params.httpClient()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating telegram client: %w", err)
 	}
 
-	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
-		Url: serverPublicAddress.String(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("setting telegram webhook: %w", err)
-	}
-	if resp.JSON200 == nil || !(resp.JSON200.Ok && resp.JSON200.Result) {
-		return nil, fmt.Errorf("failed to set telegram webhook: %s", resp.Status())
+	if err = setWebhook(ctx, client, serverPublicAddress); err != nil {
+		return nil, err
 	}
 
-	h := &Handler{
-		log:            p.log,
-		tracer:         p.tracer.Tracer(pkgName),
+	handler := &Handler{
+		log:            params.log,
+		tracer:         params.tracer.Tracer(pkgName),
 		srv:            srv,
-		users:          users,
+		users:          usecase,
 		client:         client,
-		updateInterval: p.updateInterval,
+		updateInterval: params.updateInterval,
 		lifecycleCtx:   ctx,
 	}
 
-	inner := botapi.NewStrictWebhookHandler(h, []botapi.StrictMiddlewareFunc{})
+	inner := botapi.NewStrictWebhookHandler(handler, []botapi.StrictMiddlewareFunc{})
 
 	return botapi.WebhookHandler(inner), nil
+}
+
+func setWebhook(ctx context.Context, client *botapi.ClientWithResponses, addr *url.URL) error {
+	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
+		Url:                addr.String(),
+		AllowedUpdates:     nil,
+		DropPendingUpdates: nil,
+		IpAddress:          nil,
+		MaxConnections:     nil,
+		SecretToken:        nil,
+	})
+	if err != nil {
+		return fmt.Errorf("setting telegram webhook: %w", err)
+	}
+
+	if resp.JSON200 == nil || (!resp.JSON200.Ok || !resp.JSON200.Result) {
+		return errAPI("setting telegram webhook", resp.Status())
+	}
+
+	return nil
 }

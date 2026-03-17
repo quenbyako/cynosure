@@ -1,3 +1,4 @@
+// Package chat implements chat aggregate.
 package chat
 
 import (
@@ -39,21 +40,19 @@ import (
 // Service manually juggles history updates and RAG calls, increasing the risk
 // of inconsistent state (e.g., history updated but tools not refreshed).
 type Chat struct {
-	thread  *entities.Thread
-	toolbox tools.Toolbox // Immutable collection of relevant tools
-	// tools caches the actual entities.Tool objects for execution after model
-	// picks them
-	tools map[ids.ToolID]*entities.Tool
-	// list of active tool calls that didn't get response yet.
-	activeCalls map[string]struct{}
-
 	storage     ports.ThreadStorage
 	indexer     ports.ToolSemanticIndex
 	toolStorage ports.ToolStorage
 	accounts    ports.AccountStorage
 	agents      ports.AgentStorage
-
-	mu sync.RWMutex
+	thread      *entities.Thread
+	// tools caches the actual entities.Tool objects for execution after model
+	// picks them
+	tools map[ids.ToolID]*entities.Tool
+	// list of active tool calls that didn't get response yet.
+	activeCalls map[string]struct{}
+	toolbox     tools.Toolbox // Immutable collection of relevant tools
+	mu          sync.RWMutex
 }
 
 func New(
@@ -81,9 +80,9 @@ func CreateChatAggregate(
 	accounts ports.AccountStorage,
 	agents ports.AgentStorage,
 	threadID ids.ThreadID,
-	messages []messages.Message,
+	history []messages.Message,
 ) (*Chat, error) {
-	thread, err := entities.NewThread(threadID, messages)
+	thread, err := entities.NewThread(threadID, history)
 	if err != nil {
 		return nil, fmt.Errorf("creating thread: %w", err)
 	}
@@ -105,7 +104,37 @@ func newChatAggregate(
 	accounts ports.AccountStorage,
 	agents ports.AgentStorage,
 ) (*Chat, error) {
-	c := &Chat{
+	chat := initChat(
+		thread,
+		storage,
+		indexer,
+		toolStorage,
+		accounts,
+		agents,
+	)
+	if err := chat.validate(); err != nil {
+		return nil, err
+	}
+
+	var err error
+
+	chat.toolbox, err = chat.buildToolbox(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("building toolbox: %w", err)
+	}
+
+	return chat, nil
+}
+
+func initChat(
+	thread *entities.Thread,
+	storage ports.ThreadStorage,
+	indexer ports.ToolSemanticIndex,
+	toolStorage ports.ToolStorage,
+	accounts ports.AccountStorage,
+	agents ports.AgentStorage,
+) *Chat {
+	return &Chat{
 		thread:      thread,
 		toolbox:     tools.NewToolbox(),
 		tools:       make(map[ids.ToolID]*entities.Tool),
@@ -119,37 +148,31 @@ func newChatAggregate(
 
 		mu: sync.RWMutex{},
 	}
-	if err := c.validate(); err != nil {
-		return nil, err
-	}
-
-	var err error
-	c.toolbox, err = c.buildToolbox(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("building toolbox: %w", err)
-	}
-
-	return c, nil
 }
 
 func (c *Chat) validate() error {
 	if c.storage == nil {
-		return fmt.Errorf("storage is nil")
+		return errInternalValidation("storage is nil")
 	}
+
 	if c.indexer == nil {
-		return fmt.Errorf("indexer is nil")
+		return errInternalValidation("indexer is nil")
 	}
+
 	if c.toolStorage == nil {
-		return fmt.Errorf("toolStorage is nil")
+		return errInternalValidation("toolStorage is nil")
 	}
+
 	if c.accounts == nil {
-		return fmt.Errorf("accounts is nil")
+		return errInternalValidation("accounts is nil")
 	}
+
 	if c.agents == nil {
-		return fmt.Errorf("models is nil")
+		return errInternalValidation("models is nil")
 	}
+
 	if !c.thread.Valid() {
-		return fmt.Errorf("userthread is invalid")
+		return errInternalValidation("userthread is invalid")
 	}
 
 	return nil
@@ -161,24 +184,28 @@ func (c *Chat) validate() error {
 func (c *Chat) RelevantTools() tools.Toolbox {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.toolbox
 }
 
 func (c *Chat) ThreadID() ids.ThreadID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thread.ID()
 }
 
 func (c *Chat) Messages() []messages.Message {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thread.Messages()
 }
 
 func (c *Chat) AgentID() ids.AgentID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thread.AgentID()
 }
 
@@ -195,5 +222,6 @@ func (c *Chat) SetAgent(ctx context.Context, agentID ids.AgentID) error {
 	}
 
 	c.thread.ClearEvents()
+
 	return nil
 }

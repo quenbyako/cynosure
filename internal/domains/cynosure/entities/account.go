@@ -1,8 +1,6 @@
 package entities
 
 import (
-	"fmt"
-
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -12,19 +10,18 @@ import (
 // cache of received tools, if any. In addition, it provides methods to refresh
 // the token and update instructions for this tools set.
 type Account struct {
-	id          ids.AccountID
+	token       *oauth2.Token
 	name        string
 	description string
-	token       *oauth2.Token
-
-	// meta fields
-
 	pendingEvents[AccountEvent]
+	id     ids.AccountID
 	_valid bool
 }
 
-var _ EventsReader[AccountEvent] = (*Account)(nil)
-var _ AccountReadOnly = (*Account)(nil)
+var (
+	_ EventsReader[AccountEvent] = (*Account)(nil)
+	_ AccountReadOnly            = (*Account)(nil)
+)
 
 type NewAccountOption func(*Account)
 
@@ -32,8 +29,12 @@ func WithAuthToken(token *oauth2.Token) NewAccountOption {
 	return func(c *Account) { c.token = token }
 }
 
-func NewAccount(id ids.AccountID, name, description string, opts ...NewAccountOption) (*Account, error) {
-	c := &Account{
+func NewAccount(
+	id ids.AccountID,
+	name, description string,
+	opts ...NewAccountOption,
+) (*Account, error) {
+	account := &Account{
 		id:          id,
 		name:        name,
 		description: description,
@@ -43,26 +44,29 @@ func NewAccount(id ids.AccountID, name, description string, opts ...NewAccountOp
 		_valid:        false,
 	}
 	for _, opt := range opts {
-		opt(c)
+		opt(account)
 	}
 
-	if err := c.validate(); err != nil {
+	if err := account.validate(); err != nil {
 		return nil, err
 	}
-	c._valid = true
 
-	return c, nil
+	account._valid = true
+
+	return account, nil
 }
 
 // VALIDATION
 
 func (c *Account) Valid() bool { return c != nil && (c._valid || c.validate() == nil) }
+
 func (c *Account) validate() error {
 	if c.name == "" {
-		return fmt.Errorf("name is required")
+		return ErrInternalValidation("name is required")
 	}
+
 	if c.description == "" {
-		return fmt.Errorf("description is required")
+		return ErrInternalValidation("description is required")
 	}
 
 	return nil
@@ -90,10 +94,11 @@ func (c *Account) UpdateToken(token *oauth2.Token) error {
 			return nil
 		}
 
-		return fmt.Errorf("token cannot be nil")
+		return ErrInternalValidation("token cannot be nil")
 	}
+
 	if !token.Valid() {
-		return fmt.Errorf("invalid token")
+		return ErrInternalValidation("invalid token")
 	}
 
 	c.token = token
@@ -106,7 +111,12 @@ func (c *Account) UpdateToken(token *oauth2.Token) error {
 
 // EVENTS
 
-// [AccountEventTokenUpdated]
+// AccountEvent is an unify interface to aggregate all event types related to
+// [Account] modifications.
+//
+// Available types:
+//
+//   - [AccountEventTokenUpdated]
 type AccountEvent interface {
 	_AccountEvent()
 }

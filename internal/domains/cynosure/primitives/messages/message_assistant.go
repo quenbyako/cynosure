@@ -9,20 +9,16 @@ import (
 )
 
 type MessageAssistant struct {
-	mergeTag uint64
-
 	reasoning   string
 	content     string
-	agentID     ids.AgentID
 	attachments []ChatContent
-
 	// TODO: выпилить нахуй отсюда, это очень временное решение, просто чтоб
 	// попробовать. сюда запихивается thought sig от gemini, и не сохраняется в
 	// базу (и ни в коем случае не должен!)
 	protocolMetadata []byte
-
-	// Indicates that struct correctly initialized
-	valid bool
+	mergeTag         uint64
+	agentID          ids.AgentID
+	_valid           bool // Indicates that struct correctly initialized
 }
 
 func (am MessageAssistant) _Message() {}
@@ -52,26 +48,33 @@ func WithMessageAssistantProtocolMetadata(metadata []byte) NewMessageAssistantOp
 // NewMessageAssistant creates a new assistant message with reasoning, text, and
 // optional attachments.
 func NewMessageAssistant(content string, opts ...NewMessageAssistantOpt) (MessageAssistant, error) {
-	m := MessageAssistant{
-		content: content,
+	message := MessageAssistant{
+		content:          content,
+		reasoning:        "",
+		attachments:      nil,
+		protocolMetadata: nil,
+		mergeTag:         0,
+		agentID:          ids.AgentID{},
+		_valid:           false,
 	}
 	for _, opt := range opts {
-		opt(&m)
+		opt(&message)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := message.Validate(); err != nil {
 		return MessageAssistant{}, err
 	}
-	m.valid = true
 
-	return m, nil
+	message._valid = true
+
+	return message, nil
 }
 
-func (am MessageAssistant) Valid() bool { return am.valid || am.Validate() == nil }
+func (am MessageAssistant) Valid() bool { return am._valid || am.Validate() == nil }
 func (am MessageAssistant) Validate() error {
 	switch {
 	case am.content == "":
-		return fmt.Errorf("text cannot be empty")
+		return ErrInternalValidation("assistant message content cannot be empty")
 	case len(am.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	default:
@@ -84,7 +87,13 @@ func (am MessageAssistant) Reasoning() string        { return am.reasoning }
 func (am MessageAssistant) Content() string          { return am.content }
 func (am MessageAssistant) AgentID() ids.AgentID     { return am.agentID }
 func (am MessageAssistant) ProtocolMetadata() []byte { return bytes.Clone(am.protocolMetadata) }
-func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
+
+//nolint:ireturn // assistant message format
+func (am MessageAssistant) Format(
+	ctx context.Context,
+	vs map[string]any,
+	formatType FormatType,
+) (Message, error) {
 	changedText, err := formatContent(am.content, vs, formatType)
 	if err != nil {
 		return nil, fmt.Errorf("format assistant message text: %w", err)
@@ -98,6 +107,6 @@ func (am MessageAssistant) Format(ctx context.Context, vs map[string]any, format
 		agentID:          am.agentID,
 		attachments:      am.attachments,
 		protocolMetadata: am.protocolMetadata,
-		valid:            true,
+		_valid:           true,
 	}, nil
 }

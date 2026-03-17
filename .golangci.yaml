@@ -1,4 +1,4 @@
-﻿version: "2"
+version: "2"
 run:
   timeout: 40s # default is 1m
 output:
@@ -15,13 +15,16 @@ formatters:
     - gci
     - gofumpt
   settings:
+    gofumpt:
+      extra-rules: true
     gci:
+      custom-order: true
       sections:
         - standard # go packages
-        - dot # imports starting with "."
         - default # all external go.mod dependencies
         - blank # separated by blank line
-        - prefix(github.com/releaseband/txservice/) # all other imports starting with this prefix
+        - prefix(github.com/quenbyako/cynosure/internal) # all internal imports
+        - dot # imports starting with "."
 linters:
   # disabling all linters by default
   default: none
@@ -228,10 +231,21 @@ linters:
       ignore-package-globs:
         - encoding/*
         - github.com/golang/protobuf/proto
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        - status.Error(
     grouper:
       const-require-grouping: true
       import-require-grouping: true
-      var-require-grouping: true
+      var-require-grouping: false
       var-require-single-var: false
     varnamelen: # TODO: Need to make an agreement of exceptions and variable length
       ignore-names:
@@ -256,7 +270,8 @@ linters:
         - wg sync.WaitGroup
     funlen:
       ignore-comments: true
-      # lines: 20
+      # default 60
+      lines: 30
     lll:
       line-length: 100
       tab-width: 4
@@ -277,6 +292,13 @@ linters:
         - error
         - generic
         - go.uber.org/mock/gomock.Matcher
+        # otel traces
+        - "go.opentelemetry.io/otel/trace.Tracer"
+        - "go.opentelemetry.io/otel/trace.TraceProvider"
+        # read only interfaces
+        - "ReadOnly$"
+        # option pattern
+        - "Option$"
     nestif:
       min-complexity: 2
     nlreturn:
@@ -290,12 +312,24 @@ linters:
         - '.*_test\.go'
     gocognit:
       min-complexity: 10 # default is 30
+    tagliatelle:
+      case:
+        rules:
+          json: snake
     forbidigo:
       # TODO: agree on list of forbidden functions, add new ones
       forbid:
-        - pattern: "slog.Logger"
+        - pattern: "^slog.Logger$"
+          msg: >-
+            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
+        - pattern: "^slog.New$"
+          msg: >-
+            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
+        - pattern: "^slog.Default$"
+          msg: >-
+            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
         - pattern: '^reflect\.'
-        - pattern: "panic" # don't panic in code
+        - pattern: "^panic$" # don't panic in code
         - pattern: "^print$"
         - pattern: "fmt.Println"
         - pattern: "fmt.Fprintln"
@@ -627,5 +661,16 @@ linters:
     rules:
       - path: '(.+)_test\.go'
         linters:
+          - err113
+          - exhaustruct
+          - forbidigo
+          - funlen
           - govet
           - gosec
+          - ireturn
+      - path: "cmd/(.+).go"
+        linters:
+          # reason: gci configured to use internal, not cmd. It's easier to just
+          # ignore that linter in cmd, cause it doesn't make a lot of sense in
+          # that specific usecase.
+          - gci

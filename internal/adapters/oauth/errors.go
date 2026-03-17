@@ -1,13 +1,7 @@
 package oauth
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-)
-
-var (
-	errNotFound = errors.New("not found")
 )
 
 // OAuthError represents a standard OAuth 2.0 error response
@@ -23,17 +17,35 @@ func (e OAuthError) Error() string {
 		return fmt.Sprintf("OAuth error: %s - %s", e.ErrorCode, e.ErrorDescription)
 	}
 
-	return fmt.Sprintf("OAuth error: %s", e.ErrorCode)
+	return "OAuth error: " + e.ErrorCode
 }
 
-// extractOAuthError attempts to parse an OAuth error response from the response body
-func extractOAuthError(body []byte, statusCode int, context string) error {
-	// Try to parse the error as an OAuth error response
-	var oauthErr OAuthError
-	if err := json.Unmarshal(body, &oauthErr); err == nil && oauthErr.ErrorCode != "" {
-		return fmt.Errorf("%s: %w", context, oauthErr)
+// RegistrationError is returned when server responds with unexpected status
+// during client registration. It is an interface error that callers can inspect.
+type RegistrationError struct {
+	Endpoint   string
+	Body       string
+	StatusCode int
+}
+
+func (e *RegistrationError) Error() string {
+	msg := fmt.Sprintf(
+		"unexpected status code %d when registering client at %s",
+		e.StatusCode, e.Endpoint,
+	)
+	if e.Body != "" {
+		return msg + ": " + e.Body
 	}
 
-	// If not a valid OAuth error, return the raw response
-	return fmt.Errorf("%s with status %d: %s", context, statusCode, body)
+	return msg
+}
+
+// InternalValidationError is a non-handleable validation error for developer
+// mistakes (nil URLs, empty required fields, etc).
+type InternalValidationError string
+
+func (e InternalValidationError) Error() string { return string(e) }
+
+func errInternalValidation(format string, a ...any) error {
+	return InternalValidationError(fmt.Sprintf(format, a...))
 }

@@ -1,3 +1,4 @@
+// Package oauthhandler defines OAuth handler port.
 package oauthhandler
 
 import (
@@ -26,10 +27,15 @@ type Port interface {
 	//
 	// Throws:
 	//
-	//  - [ErrAuthUnsupported] if auth is not supported, server may just connect without auth.
+	//  - [ErrAuthUnsupported] if auth is not supported, server may just connect
+	//    without auth.
 	//  - [ErrServerUnreachable] if registration endpoint is unavailable.
-	//  - [DynamicClientRegistrationNotSupportedError] if server does not support dynamic client registration.
-	RegisterClient(ctx context.Context, resourceURL *url.URL, clientName string, setRedirect *url.URL, opts ...RegisterClientOption) (cfg *oauth2.Config, expiresAt time.Time, err error)
+	//  - [DynamicClientRegistrationNotSupportedError] if server does not support
+	//    dynamic client registration.
+	RegisterClient(
+		ctx context.Context, resourceURL *url.URL, clientName string, setRedirect *url.URL,
+		opts ...RegisterClientOption,
+	) (cfg *oauth2.Config, expiresAt time.Time, err error)
 
 	// RefreshToken obtains a new access token using refresh token. Implements
 	// standard OAuth 2.0 refresh flow.
@@ -41,7 +47,9 @@ type Port interface {
 	// Throws:
 	//
 	//  - [ErrInvalidCredentials] if refresh token is invalid or expired.
-	RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error)
+	RefreshToken(
+		ctx context.Context, config *oauth2.Config, token *oauth2.Token,
+	) (*oauth2.Token, error)
 
 	// Exchange exchanges authorization code for access token. Supports PKCE
 	// flow via verifier parameter. Standard OAuth 2.0 authorization code flow.
@@ -53,7 +61,9 @@ type Port interface {
 	// Throws:
 	//
 	//  - [ErrInvalidCredentials] if authorization code is invalid.
-	Exchange(ctx context.Context, config *oauth2.Config, code string, verifier []byte) (*oauth2.Token, error)
+	Exchange(
+		ctx context.Context, config *oauth2.Config, code string, verifier []byte,
+	) (*oauth2.Token, error)
 }
 
 func defaultRegisterClientParams() *registerClientParams {

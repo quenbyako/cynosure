@@ -2,7 +2,6 @@ package oauthhandler
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 )
 
@@ -12,7 +11,9 @@ var (
 
 	ErrToolsNotCached = errors.New("tools were not cached")
 
-	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
+	ErrAuthUnsupported = errors.New(
+		"authorization for this server is not supported, allowed to connect anonymously",
+	)
 
 	// ErrServerUnreachable indicates that all connection protocols failed.
 	// Use case should inform user that server is offline or unreachable.
@@ -31,6 +32,7 @@ type RequiresAuthError struct {
 	suggestedMetadataEndpoint *url.URL
 }
 
+//nolint:errcheck // interface check
 var _ error = (*RequiresAuthError)(nil)
 
 func ErrRequiresAuth(metadataEndpoint *url.URL) *RequiresAuthError {
@@ -43,7 +45,9 @@ func (e *RequiresAuthError) Error() string {
 	if e.suggestedMetadataEndpoint == nil {
 		return "requires authentication, no metadata endpoint suggested"
 	}
-	return fmt.Sprintf("requires authentication, should use metadata endpoint: %s", e.suggestedMetadataEndpoint.String())
+
+	return "requires authentication, should use metadata endpoint: " +
+		e.suggestedMetadataEndpoint.String()
 }
 
 func (e *RequiresAuthError) Endpoint() *url.URL { return e.suggestedMetadataEndpoint }
@@ -52,9 +56,12 @@ type DynamicClientRegistrationNotSupportedError struct {
 	resourceDocumentationEndpoint *url.URL
 }
 
+//nolint:errcheck // interface check
 var _ error = (*DynamicClientRegistrationNotSupportedError)(nil)
 
-func ErrDynamicClientRegistrationNotSupported(resourceDocumentationEndpoint *url.URL) *DynamicClientRegistrationNotSupportedError {
+func ErrDynamicClientRegistrationNotSupported(
+	resourceDocumentationEndpoint *url.URL,
+) *DynamicClientRegistrationNotSupportedError {
 	return &DynamicClientRegistrationNotSupportedError{
 		resourceDocumentationEndpoint: resourceDocumentationEndpoint,
 	}
@@ -64,7 +71,9 @@ func (e *DynamicClientRegistrationNotSupportedError) Error() string {
 	if e.resourceDocumentationEndpoint == nil {
 		return "server does not support dynamic client registration"
 	}
-	return fmt.Sprintf("server does not support dynamic client registration. Check resource documentation: %s", e.resourceDocumentationEndpoint.String())
+
+	return "server does not support dynamic client registration. Check resource documentation: " +
+		e.resourceDocumentationEndpoint.String()
 }
 
 func (e *DynamicClientRegistrationNotSupportedError) Documentation() *url.URL {

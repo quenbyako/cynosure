@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"fmt"
 	"net/url"
 	"slices"
 	"time"
@@ -13,24 +12,25 @@ import (
 )
 
 type ServerConfig struct {
-	id         ids.ServerID
-	sseLink    *url.URL
-	authConfig *oauth2.Config
 	// If expiration of OAuth config is empty — probably config works
 	// indefinitely. usually it's temporary when client creates
 	// pseudo-application through oauth process.
 	configExpiration time.Time
+	sseLink          *url.URL
+	authConfig       *oauth2.Config
+	pendingEvents[ServerConfigEvent]
+	id ids.ServerID
 
 	// default protocol is a type of protocol that vas detected on server.
 	// Value MAY be empty (invalid)
 	protocol tools.Protocol
-
-	pendingEvents[ServerConfigEvent]
-	_valid bool
+	_valid   bool
 }
 
-var _ EventsReader[ServerConfigEvent] = (*ServerConfig)(nil)
-var _ ServerConfigReadOnly = (*ServerConfig)(nil)
+var (
+	_ EventsReader[ServerConfigEvent] = (*ServerConfig)(nil)
+	_ ServerConfigReadOnly            = (*ServerConfig)(nil)
+)
 
 type ServerConfigOption func(*ServerConfig)
 
@@ -47,33 +47,43 @@ func WithProtocol(protocol tools.Protocol) ServerConfigOption {
 	return func(c *ServerConfig) { c.protocol = protocol }
 }
 
-func NewServerConfig(id ids.ServerID, link *url.URL, opts ...ServerConfigOption) (*ServerConfig, error) {
-	c := &ServerConfig{
+func NewServerConfig(
+	id ids.ServerID,
+	link *url.URL,
+	opts ...ServerConfigOption,
+) (*ServerConfig, error) {
+	serverConfig := ServerConfig{
 		id:               id,
 		sseLink:          link,
 		authConfig:       nil,
 		configExpiration: time.Time{},
+		pendingEvents:    nil,
+		protocol:         0,
+		_valid:           false,
 	}
 	for _, opt := range opts {
-		opt(c)
+		opt(&serverConfig)
 	}
 
-	if err := c.Validate(); err != nil {
+	if err := serverConfig.Validate(); err != nil {
 		return nil, err
 	}
-	c._valid = true
 
-	return c, nil
+	serverConfig._valid = true
+
+	return &serverConfig, nil
 }
 
 func (c *ServerConfig) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *ServerConfig) Validate() error {
 	if !c.id.Valid() {
-		return fmt.Errorf("invalid server ID")
+		return ErrInternalValidation("invalid server ID")
 	}
+
 	if c.sseLink == nil {
-		return fmt.Errorf("SSE link is nil")
+		return ErrInternalValidation("SSE link is nil")
 	}
+
 	if err := c.validateConfig(c.authConfig); err != nil {
 		return err
 	}
@@ -90,7 +100,9 @@ func (c *ServerConfig) validateConfig(cfg *oauth2.Config) error {
 
 func (c *ServerConfig) Synchronized() bool                 { return len(c.pendingEvents) == 0 }
 func (c *ServerConfig) PendingEvents() []ServerConfigEvent { return slices.Clone(c.pendingEvents) }
-func (c *ServerConfig) ClearEvents()                       { c.pendingEvents = c.pendingEvents[:0:0] }
+func (c *ServerConfig) ClearEvents() {
+	c.pendingEvents = c.pendingEvents[:0:0]
+}
 
 func (c *ServerConfig) Reset() {
 	for _, event := range slices.Backward(c.pendingEvents) {
@@ -121,6 +133,7 @@ func (c *ServerConfig) SSELink() *url.URL {
 	}
 
 	cloned := *c.sseLink
+
 	return &cloned
 }
 
@@ -142,6 +155,7 @@ func (c *ServerConfig) SetOAuthConfig(cfg *oauth2.Config) error {
 	if err := c.validateConfig(cfg); err != nil {
 		return err
 	}
+
 	previous := c.authConfig
 	c.authConfig = cloneConfig(cfg)
 
@@ -153,7 +167,7 @@ func (c *ServerConfig) SetOAuthConfig(cfg *oauth2.Config) error {
 	return nil
 }
 
-// UpdateSupportedProtocols updates the list of protocols the server supports.
+// SetProtocol updates the list of protocols the server supports.
 // The order matters: first element is the preferred protocol.
 // Valid values: "streamable", "sse"
 func (c *ServerConfig) SetProtocol(protocol tools.Protocol) bool {
@@ -182,12 +196,26 @@ func (c *ServerConfig) UnsetProcotocol() {
 	})
 }
 
+func (c *ServerConfig) SetConfigExpiration(t time.Time) {
+	previous := c.configExpiration
+	c.configExpiration = t
+
+	c.pendingEvents = append(c.pendingEvents, ServerConfigEventConfigExpirationUpdated{
+		previous: previous,
+		value:    c.configExpiration,
+	})
+}
+
 // EVENTS
 
 type ServerConfigEvent interface{ undo(c *ServerConfig) }
 
-var _ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
-var _ ServerConfigEvent = ServerConfigEventProtocolUpdated{}
+//nolint:exhaustruct // interface check
+var (
+	_ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
+	_ ServerConfigEvent = ServerConfigEventProtocolUpdated{}
+	_ ServerConfigEvent = ServerConfigEventConfigExpirationUpdated{}
+)
 
 type ServerConfigEventOauthConfigUpdated struct {
 	previous *oauth2.Config
@@ -209,6 +237,17 @@ func (e ServerConfigEventProtocolUpdated) Value() tools.Protocol { return e.valu
 
 func (e ServerConfigEventProtocolUpdated) undo(c *ServerConfig) {
 	c.protocol = e.previous
+}
+
+type ServerConfigEventConfigExpirationUpdated struct {
+	previous time.Time
+	value    time.Time
+}
+
+func (e ServerConfigEventConfigExpirationUpdated) Value() time.Time { return e.value }
+
+func (e ServerConfigEventConfigExpirationUpdated) undo(c *ServerConfig) {
+	c.configExpiration = e.previous
 }
 
 func cloneConfig(cfg *oauth2.Config) *oauth2.Config {

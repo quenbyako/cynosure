@@ -1,3 +1,4 @@
+// Package accounts implements SQL account storage.
 package accounts
 
 import (
@@ -27,5 +28,3 @@ func New(conn conn) Accounts {
 		q:  db.New(conn),
 	}
 }
-
-func ptr[T any](v T) *T { return &v }

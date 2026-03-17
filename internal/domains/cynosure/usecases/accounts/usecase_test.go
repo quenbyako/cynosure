@@ -10,5 +10,8 @@ func TestAddAccount(t *testing.T) {
 	// TODO: implelement test, where ALL of defined in testmcp.txt servers will
 	// be added, or url link will be created.
 	t.Skip("unimplemented")
-	New(nil, nil, nil, nil, nil, nil, nil)
+
+	if _, err := New(nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Logf("expected error in test: %v", err)
+	}
 }

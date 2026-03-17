@@ -8,14 +8,10 @@ import (
 )
 
 type MessageUser struct {
+	extra    map[string]json.RawMessage
+	content  string
 	mergeTag uint64
-
-	content string
-
-	extra map[string]json.RawMessage
-
-	// Indicates that struct correctly initialized
-	valid bool
+	_valid   bool // Indicates that struct correctly initialized
 }
 
 func (m MessageUser) _Message() {}
@@ -31,30 +27,34 @@ func WithMessageUserMergeTag(mergeTag uint64) NewMessageUserOpt {
 }
 
 func NewMessageUser(content string, opts ...NewMessageUserOpt) (MessageUser, error) {
-	m := MessageUser{
-		content: content,
+	message := MessageUser{
+		content:  content,
+		extra:    nil,
+		mergeTag: 0,
+		_valid:   false,
 	}
 	for _, opt := range opts {
-		opt(&m)
+		opt(&message)
 	}
 
-	if err := m.Validate(); err != nil {
+	if err := message.Validate(); err != nil {
 		return MessageUser{}, err
 	}
-	m.valid = true
 
-	return m, nil
+	message._valid = true
+
+	return message, nil
 }
 
-func (m MessageUser) Valid() bool { return m.valid || m.Validate() == nil }
+func (m MessageUser) Valid() bool { return m._valid || m.Validate() == nil }
 func (m MessageUser) Validate() error {
 	switch {
 	case m.content == "":
-		return fmt.Errorf("content cannot be empty")
+		return ErrInternalValidation("user message content cannot be empty")
 	case len(m.content) > maxMessageLength:
 		return ErrMessageTooLarge
 	case !validateExtra(m.extra):
-		return fmt.Errorf("extra must be valid JSON")
+		return ErrInternalValidation("extra must be valid JSON")
 	default:
 		return nil
 	}
@@ -63,8 +63,17 @@ func (m MessageUser) Validate() error {
 func (m MessageUser) MergeTag() uint64                  { return m.mergeTag }
 func (m MessageUser) Content() string                   { return m.content }
 func (m MessageUser) Extra() map[string]json.RawMessage { return m.extra }
-func (m MessageUser) Format(ctx context.Context, vs map[string]any, formatType FormatType) (Message, error) {
-	changed, err := formatContent(m.content, vs, formatType)
+
+//nolint:ireturn // user message format
+func (m MessageUser) Format(
+	_ context.Context,
+	properties map[string]any,
+	formatType FormatType,
+) (
+	Message,
+	error,
+) {
+	changed, err := formatContent(m.content, properties, formatType)
 	if err != nil {
 		return MessageUser{}, fmt.Errorf("format user message content: %w", err)
 	}
@@ -73,6 +82,6 @@ func (m MessageUser) Format(ctx context.Context, vs map[string]any, formatType F
 		mergeTag: m.mergeTag,
 		content:  changed,
 		extra:    maps.Clone(m.extra),
-		valid:    true,
+		_valid:   true,
 	}, nil
 }

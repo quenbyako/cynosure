@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"syscall"
 	"testing"
@@ -21,15 +22,15 @@ func TestClassifyError_Infrastructure(t *testing.T) {
 		want bool
 	}{{
 		name: "DNS lookup failure",
-		err:  &net.DNSError{Err: "no such host", Name: "nonexistent.example.com", IsNotFound: true},
+		err:  noSuchHostErr("nonexistent.example.com"),
 		want: true,
 	}, {
 		name: "Connection refused",
-		err:  &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED},
+		err:  netOpError("dial", "tcp", syscall.ECONNREFUSED),
 		want: true,
 	}, {
 		name: "Network unreachable",
-		err:  &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ENETUNREACH},
+		err:  netOpError("dial", "tcp", syscall.ENETUNREACH),
 		want: true,
 	}, {
 		name: "TLS handshake failure",
@@ -37,13 +38,18 @@ func TestClassifyError_Infrastructure(t *testing.T) {
 		want: true,
 	}, {
 		name: "Timeout error",
-		err:  &net.OpError{Op: "read", Net: "tcp", Err: &timeoutError{}},
+		err:  netOpError("read", "tcp", &timeoutError{}),
 		want: true, // Timeouts are infrastructure failures (not protocol mismatches)
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			classified := ClassifyTransportError(tt.err)
 			if e := new(InfrastructureError); errors.As(classified, &e) != tt.want {
-				t.Errorf("classifyError(%v).IsInfrastructure() = %v, want %v", tt.err, !tt.want, tt.want)
+				t.Errorf(
+					"classifyError(%v).IsInfrastructure() = %v, want %v",
+					tt.err, !tt.want, tt.want,
+				)
 			}
 		})
 	}
@@ -59,15 +65,15 @@ func TestClassifyError_Protocol(t *testing.T) {
 		want bool
 	}{{
 		name: "HTTP 400 Bad Request",
-		err:  &HTTPStatusError{StatusCode: 400, Status: "400 Bad Request"},
+		err:  newStatusError(http.StatusBadRequest, "400 Bad Request"),
 		want: true,
 	}, {
 		name: "HTTP 404 Not Found",
-		err:  &HTTPStatusError{StatusCode: 404, Status: "404 Not Found"},
+		err:  newStatusError(http.StatusNotFound, "404 Not Found"),
 		want: true,
 	}, {
 		name: "HTTP 405 Method Not Allowed",
-		err:  &HTTPStatusError{StatusCode: 405, Status: "405 Method Not Allowed"},
+		err:  newStatusError(http.StatusMethodNotAllowed, "405 Method Not Allowed"),
 		want: true,
 	}, {
 		name: "Unexpected EOF",
@@ -79,10 +85,12 @@ func TestClassifyError_Protocol(t *testing.T) {
 		want: true,
 	}, {
 		name: "HTTP 500 Server Error",
-		err:  &HTTPStatusError{StatusCode: 500, Status: "500 Internal Server Error"},
+		err:  newStatusError(http.StatusInternalServerError, "500 Internal Server Error"),
 		want: false, // 5xx are server errors, not protocol mismatches
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			classified := ClassifyTransportError(tt.err)
 			if e := new(ProtocolError); errors.As(classified, &e) != tt.want {
 				t.Errorf("classifyError(%v).IsProtocol() = %v, want %v", tt.err, !tt.want, tt.want)
@@ -101,11 +109,11 @@ func TestClassifyError_Auth(t *testing.T) {
 		want bool
 	}{{
 		name: "HTTP 401 Unauthorized",
-		err:  &HTTPStatusError{StatusCode: 401, Status: "401 Unauthorized"},
+		err:  newStatusError(http.StatusUnauthorized, "401 Unauthorized"),
 		want: true,
 	}, {
 		name: "HTTP 403 Forbidden",
-		err:  &HTTPStatusError{StatusCode: 403, Status: "403 Forbidden"},
+		err:  newStatusError(http.StatusForbidden, "403 Forbidden"),
 		want: true,
 	}, {
 		name: "Token expired",
@@ -113,28 +121,41 @@ func TestClassifyError_Auth(t *testing.T) {
 		want: true,
 	}, {
 		name: "HTTP 404 Not Found",
-		err:  &HTTPStatusError{StatusCode: 404, Status: "404 Not Found"},
-		want: false, // 404 is protocol, not auth
+		err:  newStatusError(404, "404 Not Found"),
+		want: false,
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			classified := ClassifyTransportError(tt.err)
-			var hErr *HTTPStatusError
-			isAuth := errors.As(classified, &hErr) && (hErr.StatusCode == 401 || hErr.StatusCode == 403)
-			if !isAuth && strings.Contains(strings.ToLower(tt.err.Error()), "token expired") {
-				isAuth = true
-			}
+			isAuth := isAuthenticationError(classified, tt.err)
+
 			if isAuth != tt.want {
-				t.Errorf("classifyError(%v).IsAuth() = %v, want %v", tt.err, isAuth, tt.want)
+				t.Errorf("isAuth = %v, want %v", isAuth, tt.want)
 			}
 		})
 	}
+}
+
+func isAuthenticationError(classified, original error) bool {
+	var hErr *HTTPStatusError
+	if errors.As(classified, &hErr) {
+		code := hErr.StatusCode
+		if code == http.StatusUnauthorized || code == http.StatusForbidden {
+			return true
+		}
+	}
+
+	errMsg := strings.ToLower(original.Error())
+
+	return strings.Contains(errMsg, "token expired")
 }
 
 // Test error wrapping preserves classification
 func TestErrorWrapping(t *testing.T) {
 	t.Parallel()
 
-	baseErr := &HTTPStatusError{StatusCode: 404, Status: "404 Not Found"}
+	baseErr := newStatusError(404, "404 Not Found")
 	wrappedErr := fmt.Errorf("connection failed: %w", baseErr)
 
 	classified := ClassifyTransportError(wrappedErr)
@@ -147,12 +168,13 @@ func TestErrorWrapping(t *testing.T) {
 func TestSynthesizeError_NotMCPServer(t *testing.T) {
 	t.Parallel()
 
-	streamableErr := &HTTPStatusError{StatusCode: 404, Status: "404 Not Found"}
+	streamableErr := newStatusError(404, "404 Not Found")
 	sseErr := errors.New("unexpected EOF")
 
 	synthesized := SynthesizeNotMCPServerError("https://example.com", streamableErr, sseErr)
 
 	expectedMsg := "address is not an MCP server"
+
 	if !errors.Is(synthesized, ErrNotMCPServer) {
 		t.Errorf("Synthesized error should wrap ErrNotMCPServer")
 	}
@@ -169,3 +191,33 @@ type timeoutError struct{}
 func (e *timeoutError) Error() string   { return "timeout" }
 func (e *timeoutError) Timeout() bool   { return true }
 func (e *timeoutError) Temporary() bool { return true }
+
+func newStatusError(statusCode int, status string) *HTTPStatusError {
+	return &HTTPStatusError{
+		StatusCode:     statusCode,
+		Status:         status,
+		ResponseHeader: nil,
+		URL:            "",
+	}
+}
+
+func noSuchHostErr(domain string) *net.DNSError {
+	return &net.DNSError{
+		Err:         "no such host",
+		Name:        domain,
+		IsNotFound:  true,
+		UnwrapErr:   nil,
+		Server:      "",
+		IsTimeout:   false,
+		IsTemporary: false,
+	}
+}
+
+func netOpError(op, network string, err error) *net.OpError {
+	return &net.OpError{
+		Op:   op,
+		Net:  network,
+		Addr: nil,
+		Err:  err,
+	}
+}

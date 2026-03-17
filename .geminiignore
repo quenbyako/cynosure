@@ -1,0 +1,4 @@
+
+# preventing any modifications in golangci file. AI suddenly modifies config
+# instead of fixing warnings to lie about issues count.
+.golangci.yaml

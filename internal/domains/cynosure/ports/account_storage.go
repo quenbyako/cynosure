@@ -22,7 +22,10 @@ type AccountStorageFactory interface {
 	AccountStorage() AccountStorage
 }
 
-func NewAccountStorage(factory AccountStorageFactory) AccountStorage { return factory.AccountStorage() }
+//nolint:ireturn // standard port pattern: hiding implementation details
+func NewAccountStorage(factory AccountStorageFactory) AccountStorage {
+	return factory.AccountStorage()
+}
 
 type AccountStorageRead interface {
 	// ListAccounts returns all account IDs owned by the user. Empty slice if

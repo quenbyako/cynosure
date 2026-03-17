@@ -22,48 +22,55 @@ type Schema struct {
 	valid bool
 }
 
-func NewSchema(schema json.RawMessage) (s Schema, err error) {
-	var parsedSchema openapi3.Schema
-	if err := json.Unmarshal(schema, &parsedSchema); err != nil {
-		return Schema{}, fmt.Errorf("cannot parse schema: %w", err)
-	}
-	if !parsedSchema.Type.Is(openapi3.TypeObject) {
-		return Schema{}, fmt.Errorf("invalid schema type: %s, must be only object", parsedSchema.Type)
-	}
-	if schema, err = json.Marshal(&parsedSchema); err != nil {
-		panic(fmt.Errorf("cannot marshal schema back: %w", err))
+// NewSchema creates a new Schema from json raw message.
+func NewSchema(raw json.RawMessage) (Schema, error) {
+	var parsed openapi3.Schema
+
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return Schema{}, fmt.Errorf("%w: %w", ErrSchemaParse, err)
 	}
 
-	s = Schema{
-		schema: &parsedSchema,
+	schema := Schema{
+		schema: &parsed,
+		valid:  false,
 	}
 
-	if err := s.Validate(); err != nil {
+	if err := schema.Validate(); err != nil {
 		return Schema{}, err
 	}
-	s.valid = true
 
-	return s, nil
+	schema.valid = true
+
+	return schema, nil
 }
 
+// Valid reports whether the schema is properly constructed.
 func (s Schema) Valid() bool { return s.valid || s.Validate() == nil }
+
+// Validate checks schema invariants.
 func (s Schema) Validate() error {
 	if s.schema == nil {
-		return fmt.Errorf("schema must not be nil")
-	} else if err := s.schema.Validate(context.Background()); err != nil {
-		return fmt.Errorf("invalid schema: %w", err)
-	} else if !s.schema.Type.Is(openapi3.TypeObject) {
-		return fmt.Errorf("invalid schema type: %s, must be only object", s.schema.Type)
+		return ErrSchemaNil
+	}
+
+	if err := s.schema.Validate(context.Background()); err != nil {
+		return fmt.Errorf("%w: %w", ErrSchemaInvalid, err)
+	}
+
+	if !s.schema.Type.Is(openapi3.TypeObject) {
+		return fmt.Errorf("%w: found %v", ErrSchemaMustBeObject, s.schema.Type)
 	}
 
 	return nil
 }
 
-func (s Schema) PlainSchema() json.RawMessage { return must(json.Marshal(s.schema)) }
-
-func must[T any](v T, err error) T {
+// PlainSchema returns the original json schema.
+func (s Schema) PlainSchema() json.RawMessage {
+	res, err := json.Marshal(s.schema)
 	if err != nil {
-		panic(err)
+		//nolint:forbidigo // unreachable, if we checked invariants
+		panic(fmt.Sprintf("unreachable: %v", err))
 	}
-	return v
+
+	return res
 }

@@ -25,9 +25,10 @@ type toolClientWrapped struct {
 
 func (t *toolClientWrapped) _PortWrapped() {}
 
+//nolint:ireturn // returns interface for hiding implementation details
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
-		panic("required observable stack")
+		observable = ports.NoOpObserveStack()
 	}
 
 	t := toolClientWrapped{
@@ -38,27 +39,46 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	return &t
 }
 
-func (t *toolClientWrapped) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawToolInfo, error) {
-	p := DiscoverToolsParams(opts...)
+func (t *toolClientWrapped) DiscoverTools(
+	ctx context.Context,
+	serverAddr *url.URL,
+	account ids.AccountID,
+	accountSlug, accountDesc string,
+	opts ...DiscoverToolsOption,
+) ([]tools.RawTool, error) {
+	params := DiscoverToolsParams(opts...)
 
-	ctx, span := t.t.discoverTools(ctx, account.ID().String(), u.String(), p.Token() != nil)
+	hasToken := params.Token() != nil
+
+	ctx, span := t.t.discoverTools(ctx, account.ID().String(), serverAddr.String(), hasToken)
 	defer span.end()
 
-	res, err := t.w.DiscoverTools(ctx, u, account, accountSlug, accountDesc, resolvedDiscoverToolsParams(p))
+	resolved := resolvedDiscoverToolsParams(params)
+
+	res, err := t.w.DiscoverTools(ctx, serverAddr, account, accountSlug, accountDesc, resolved)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }
 
-func (t *toolClientWrapped) ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error) {
+//nolint:ireturn // returns interface for polimorphism
+func (t *toolClientWrapped) ExecuteTool(
+	ctx context.Context,
+	tool entities.ToolReadOnly,
+	args map[string]json.RawMessage,
+	toolCallID string,
+) (messages.MessageTool, error) {
 	ctx, span := t.t.executeTool(ctx, tool.Name(), args, toolCallID)
 	defer span.end()
 
 	res, err := t.w.ExecuteTool(ctx, tool, args, toolCallID)
 	span.recordError(err)
+
 	if res != nil {
 		span.recordResponse(res.Content())
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }

@@ -1,12 +1,13 @@
 package ory_test
 
 import (
-	_ "embed"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	_ "embed"
 
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager/testsuite"
@@ -15,6 +16,7 @@ import (
 //go:embed ory.secret
 var secretsRaw []byte
 
+//nolint:tagliatelle // better to do in that way.
 type secrets struct {
 	Endpoint     string `yaml:"endpoint"`
 	AdminKey     string `yaml:"admin_key"`
@@ -23,15 +25,16 @@ type secrets struct {
 }
 
 func TestOryIdentityManager(t *testing.T) {
-	var s secrets
-	err := yaml.Unmarshal(secretsRaw, &s)
-	require.NoError(t, err)
+	var sec secrets
 
-	endpoint, err := url.Parse(s.Endpoint)
-	require.NoError(t, err)
+	err := yaml.Unmarshal(secretsRaw, &sec)
+	require.NoErrorf(t, err, "unmarshaling secrets")
 
-	adapter := ory.New(endpoint, s.AdminKey,
-		ory.WithClientCredentials(s.ClientID, s.ClientSecret),
+	endpoint, err := url.Parse(sec.Endpoint)
+	require.NoErrorf(t, err, "parsing endpoint")
+
+	adapter := ory.New(endpoint, sec.AdminKey,
+		ory.WithClientCredentials(sec.ClientID, sec.ClientSecret),
 		ory.WithScopes("mcp:read", "mcp:write", "offline_access"),
 		ory.WithRedirectURL("http://localhost:5001"),
 	)

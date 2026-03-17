@@ -45,7 +45,7 @@ func (_m *ToolClient) EXPECT() *ToolClient_Expecter {
 }
 
 // DiscoverTools provides a mock function for the type ToolClient
-func (_mock *ToolClient) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug string, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawToolInfo, error) {
+func (_mock *ToolClient) DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug string, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawTool, error) {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
 		tmpRet = _mock.Called(ctx, u, account, accountSlug, accountDesc, opts)
@@ -58,16 +58,16 @@ func (_mock *ToolClient) DiscoverTools(ctx context.Context, u *url.URL, account 
 		panic("no return value specified for DiscoverTools")
 	}
 
-	var r0 []tools.RawToolInfo
+	var r0 []tools.RawTool
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL, ids.AccountID, string, string, ...toolclient.DiscoverToolsOption) ([]tools.RawToolInfo, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL, ids.AccountID, string, string, ...toolclient.DiscoverToolsOption) ([]tools.RawTool, error)); ok {
 		return returnFunc(ctx, u, account, accountSlug, accountDesc, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL, ids.AccountID, string, string, ...toolclient.DiscoverToolsOption) []tools.RawToolInfo); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *url.URL, ids.AccountID, string, string, ...toolclient.DiscoverToolsOption) []tools.RawTool); ok {
 		r0 = returnFunc(ctx, u, account, accountSlug, accountDesc, opts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]tools.RawToolInfo)
+			r0 = ret.Get(0).([]tools.RawTool)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, *url.URL, ids.AccountID, string, string, ...toolclient.DiscoverToolsOption) error); ok {
@@ -135,12 +135,12 @@ func (_c *ToolClient_DiscoverTools_Call) Run(run func(ctx context.Context, u *ur
 	return _c
 }
 
-func (_c *ToolClient_DiscoverTools_Call) Return(rawToolInfos []tools.RawToolInfo, err error) *ToolClient_DiscoverTools_Call {
-	_c.Call.Return(rawToolInfos, err)
+func (_c *ToolClient_DiscoverTools_Call) Return(rawTools []tools.RawTool, err error) *ToolClient_DiscoverTools_Call {
+	_c.Call.Return(rawTools, err)
 	return _c
 }
 
-func (_c *ToolClient_DiscoverTools_Call) RunAndReturn(run func(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug string, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawToolInfo, error)) *ToolClient_DiscoverTools_Call {
+func (_c *ToolClient_DiscoverTools_Call) RunAndReturn(run func(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug string, accountDesc string, opts ...toolclient.DiscoverToolsOption) ([]tools.RawTool, error)) *ToolClient_DiscoverTools_Call {
 	_c.Call.Return(run)
 	return _c
 }

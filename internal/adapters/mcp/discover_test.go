@@ -7,120 +7,183 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+func noopAccountToken(
+	ctx context.Context, id ids.AccountID,
+) (entities.ServerConfigReadOnly, *oauth2.Token, error) {
+	return nil, nil, nil
+}
+
+func noopSaveToken(ctx context.Context, id ids.AccountID, t *oauth2.Token) error {
+	return nil
+}
+
 func TestDiscoverTools(t *testing.T) {
-	t.Skip("Too lazy to research, what LLM pooped out tbh")
+	mcpURL := setupMTLSTestServer(t)
 
-	// 1. Create a mock MCP server that speaks SSE and JSON-RPC
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			// SSE Setup
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.Header().Set("Cache-Control", "no-cache")
-			w.Header().Set("Connection", "keep-alive")
-			w.WriteHeader(http.StatusOK)
-
-			// Send endpoint event pointing back to this server for POSTs.
-			// Currently, the client uses the same URL for POST if no specific endpoint is given,
-			// or we can explicitly send it.
-			// Let's send the server URL as the endpoint for messages.
-			fmt.Fprintf(w, "event: endpoint\ndata: %s\n\n", r.URL.String())
-			w.(http.Flusher).Flush()
-
-			// Keep connection open
-			<-r.Context().Done()
-			return
-		}
-
-		if r.Method == http.MethodPost {
-			var req map[string]interface{}
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			id := req["id"]
-			method, _ := req["method"].(string)
-
-			var result interface{}
-
-			switch method {
-			case "initialize":
-				result = map[string]interface{}{
-					"protocolVersion": "2024-11-05",
-					"capabilities":    map[string]interface{}{},
-					"serverInfo": map[string]interface{}{
-						"name":    "test-server",
-						"version": "1.0.0",
-					},
-				}
-			case "notifications/initialized":
-				return // Notification, no response
-			case "tools/list":
-				result = map[string]interface{}{
-					"tools": []map[string]interface{}{
-						{
-							"name":        "test-tool",
-							"description": "A test tool",
-							"inputSchema": map[string]interface{}{"type": "object"},
-						},
-					},
-				}
-			default:
-				// ignore other methods
-			}
-
-			if result != nil {
-				w.Header().Set("Content-Type", "application/json")
-				resp := map[string]interface{}{
-					"jsonrpc": "2.0",
-					"id":      id,
-					"result":  result,
-				}
-				json.NewEncoder(w).Encode(resp)
-			}
-		}
-	}))
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	h := mcp.New(nil, nil, nil)
+	handler, err := mcp.New(noopSaveToken, noopAccountToken)
+	require.NoError(t, err)
 
 	t.Run("Valid Account Slug", func(t *testing.T) {
 		accID := mustAccountID(t)
+		ctx := context.Background()
 
-		tools, err := h.DiscoverTools(context.Background(), u, accID, "valid-slug", "desc")
-		if err != nil {
-			t.Fatalf("DiscoverTools failed: %v", err)
-		}
-		if len(tools) != 1 {
-			t.Errorf("expected 1 tool, got %d", len(tools))
-		}
-		if tools[0].Name() != "test-tool" {
-			t.Errorf("expected tool name 'test-tool', got %q", tools[0].Name())
-		}
+		tools, err := handler.DiscoverTools(ctx, mcpURL, accID, "valid-slug", "desc")
+		require.NoError(t, err)
+		require.NotEmpty(t, tools)
+		require.Len(t, tools, 1)
+		require.Equal(t, "test-tool", tools[0].Name())
 	})
 
 	t.Run("Empty Account Slug", func(t *testing.T) {
 		accID := mustAccountID(t)
-		_, err := h.DiscoverTools(context.Background(), u, accID, "", "desc")
-		// Based on the user report: `tool must be associated with at least one account`
-		// and validation error `account slug cannot be empty`.
-		// The error comes from RawToolInfo.Validate().
+		_, err := handler.DiscoverTools(context.Background(), mcpURL, accID, "", "desc")
 		require.Error(t, err)
 	})
+}
+
+func setupMTLSTestServer(t *testing.T) *url.URL {
+	t.Helper()
+
+	sseChan := make(chan string, 100)
+	handler := &testServerHandler{sseChan: sseChan}
+
+	testServer := httptest.NewServer(handler)
+
+	t.Cleanup(func() {
+		testServer.CloseClientConnections()
+		testServer.Close()
+	})
+
+	mcpURL, err := url.Parse(testServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return mcpURL
+}
+
+type testServerHandler struct {
+	sseChan chan string
+}
+
+func (h *testServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.handleSSEConnection(w, r)
+	case http.MethodPost:
+		h.handleJSONRPCRequest(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *testServerHandler) handleSSEConnection(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	if _, err := fmt.Fprintf(w, "event: endpoint\ndata: /rpc\n\n"); err != nil {
+		return
+	}
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	h.sseEventLoop(r.Context(), w)
+}
+
+func (h *testServerHandler) sseEventLoop(ctx context.Context, w http.ResponseWriter) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-h.sseChan:
+			if _, err := fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg); err != nil {
+				return
+			}
+
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+	}
+}
+
+func (h *testServerHandler) handleJSONRPCRequest(w http.ResponseWriter, r *http.Request) {
+	if !strings.HasSuffix(r.URL.Path, "/rpc") {
+		http.NotFound(w, r)
+		return
+	}
+
+	var req struct {
+		Method string `json:"method"`
+		ID     int    `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	switch req.Method {
+	case "initialize":
+		h.respondJSONRPC(w, req.ID, map[string]any{
+			"protocolVersion": "2024-11-05",
+			"capabilities":    map[string]any{},
+			"serverInfo": map[string]any{
+				"name":    "test-server",
+				"version": "1.0.0",
+			},
+		})
+	case "notifications/initialized":
+		w.WriteHeader(http.StatusAccepted)
+	case "tools/list":
+		h.respondJSONRPC(w, req.ID, map[string]any{
+			"tools": []any{
+				map[string]any{
+					"name":        "test-tool",
+					"description": "A test tool",
+					"inputSchema": map[string]any{"type": "object"},
+				},
+			},
+		})
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func (h *testServerHandler) respondJSONRPC(w http.ResponseWriter, id int, result any) {
+	resp := struct {
+		JSONRPC string `json:"jsonrpc"`
+		ID      int    `json:"id"`
+		Result  any    `json:"result"`
+	}{
+		JSONRPC: "2.0",
+		ID:      id,
+		Result:  result,
+	}
+
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.sseChan <- string(bytes)
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func mustAccountID(t *testing.T) ids.AccountID {
@@ -136,5 +199,6 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }

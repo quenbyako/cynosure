@@ -1,3 +1,4 @@
+// Package primitives defines domain primitives.
 package primitives
 
 import (
@@ -5,14 +6,13 @@ import (
 	"fmt"
 )
 
-var (
-	ErrNilObject = errors.New("nil value is not allowed")
-)
+var ErrNilObject = errors.New("nil value is not allowed")
 
 type InvalidEnumError struct {
 	Value string
 }
 
+//nolint:errcheck // interface check
 var _ error = (*InvalidEnumError)(nil)
 
 func ErrInvalidEnum(value string) *InvalidEnumError {
@@ -20,5 +20,5 @@ func ErrInvalidEnum(value string) *InvalidEnumError {
 }
 
 func (e *InvalidEnumError) Error() string {
-	return fmt.Sprintf("value %q is not valid", string(e.Value))
+	return fmt.Sprintf("value %q is not valid", e.Value)
 }

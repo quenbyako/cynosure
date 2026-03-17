@@ -3,6 +3,8 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,18 +12,29 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
+const (
+	defaultMaxAttempts = 3
+)
+
+// ConstructorFunc defines a function that initializes a new value for a given key.
 type ConstructorFunc[K comparable, V any] func(context.Context, K) (V, error)
+
+// DestructorFunc defines a function that cleans up a value when it is evicted from the cache.
 type DestructorFunc[K comparable, V any] func(K, V)
 
+// Cache provides a thread-safe LRU cache with duplicate function suppression (single-flight)
+// for cache misses. It is designed to handle "thundering herd" scenarios where multiple
+// concurrent requests miss the cache for the same key.
 type Cache[K comparable, V any] struct {
-	closed atomic.Bool
-
+	lru         *expirable.LRU[K, *cacheEntry[K, V]]
 	constructor ConstructorFunc[K, V]
-	lru         *expirable.LRU[K, *singleflight[K, V]]
-	mu          sync.Mutex // Protects LRU operations
+	mu          sync.Mutex // Protects LRU access
+	closed      atomic.Bool
 	maxAttempts int
 }
 
+// New creates a new Cache with the specified parameters.
+// maxSize must be greater than 0.
 func New[K comparable, V any](
 	constructor ConstructorFunc[K, V],
 	destructor DestructorFunc[K, V],
@@ -29,114 +42,132 @@ func New[K comparable, V any](
 	ttl time.Duration,
 ) *Cache[K, V] {
 	if maxSize == 0 {
+		//nolint:forbidigo // We specifically panic if maxSize is 0.
 		panic("maxSize must be greater than 0")
 	}
 
+	lruSize := math.MaxInt
+	if maxSize < math.MaxInt {
+		lruSize = int(maxSize)
+	}
+
 	return &Cache[K, V]{
-		constructor: constructor,
-		lru: expirable.NewLRU(int(maxSize), func(_ K, conn *singleflight[K, V]) {
-			conn.destruct(destructor)
+		lru: expirable.NewLRU(lruSize, func(_ K, entry *cacheEntry[K, V]) {
+			entry.destruct(destructor)
 		}, ttl),
+		constructor: constructor,
 		mu:          sync.Mutex{},
-		maxAttempts: 3,
+		closed:      atomic.Bool{},
+		maxAttempts: defaultMaxAttempts,
 	}
 }
 
-var (
-	ErrClosed     = errors.New("closed")
-	ErrDestructed = errors.New("entry was evicted from cache")
-)
-
-func (h *Cache[K, V]) Close() error {
-	if !h.closed.CompareAndSwap(false, true) {
+// Close stops the cache and clears all entries.
+func (c *Cache[K, V]) Close() error {
+	if !c.closed.CompareAndSwap(false, true) {
 		return ErrClosed
 	}
 
-	h.mu.Lock()
-	h.lru.Resize(0)
-	h.mu.Unlock()
+	c.mu.Lock()
+	c.lru.Resize(0)
+	c.mu.Unlock()
 
 	return nil
 }
 
-func (h *Cache[K, V]) Get(ctx context.Context, k K) (V, error) {
-	if h.closed.Load() {
+// Get retrieves a value from the cache for the given key. If the key is not present,
+// it uses the constructor to create a new value. Multiple concurrent calls for the
+// same missing key will only result in one constructor call.
+func (c *Cache[K, V]) Get(ctx context.Context, key K) (V, error) {
+	if c.closed.Load() {
 		var zero V
+
 		return zero, ErrClosed
 	}
 
-	// Retry loop to handle race between Get and LRU eviction
-	for range h.maxAttempts {
-		// Thread-safe LRU access: lock during Get+Add to prevent race conditions
-		h.mu.Lock()
-		conn, ok := h.lru.Get(k)
-		if !ok {
-			// Create new singleflight entry for this key
-			conn = &singleflight[K, V]{k: k, constructor: h.constructor}
-			h.lru.Add(k, conn)
-		}
-		h.mu.Unlock()
+	for range c.maxAttempts {
+		entry := c.getOrCreateEntry(key)
 
-		// retrieve() handles its own synchronization
-		v, err := conn.retrieve(ctx)
-
-		// If entry was evicted between Get and retrieve, retry
-		if errors.Is(err, ErrDestructed) {
+		val, err := entry.retrieve(ctx)
+		if errors.Is(err, ErrEvicted) {
 			continue
 		}
 
-		return v, err
+		return val, err
 	}
 
-	// If we still get ErrDestructed after retries, something is wrong
-	var zero V
-	return zero, errors.New("cache entry repeatedly evicted, possible cache thrashing")
+	return *new(V), fmt.Errorf("key %v repeatedly evicted: %w", key, ErrEvicted)
 }
 
-type singleflight[K comparable, V any] struct {
-	k           K
-	constructor func(context.Context, K) (V, error)
+func (c *Cache[K, V]) getOrCreateEntry(key K) *cacheEntry[K, V] {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	mu         sync.RWMutex
-	destructed atomic.Bool
-	group      group[V]
+	entry, ok := c.lru.Get(key)
+	if !ok {
+		entry = &cacheEntry[K, V]{ //nolint:exhaustruct
+			constructor: c.constructor,
+			key:         key,
+			group: group[V]{ //nolint:exhaustruct
+				mu: sync.Mutex{},
+			},
+			mu: sync.RWMutex{},
+		}
+		c.lru.Add(key, entry)
+	}
+
+	return entry
 }
 
-func (d *singleflight[K, V]) destruct(f func(K, V)) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+// cacheEntry wraps a single-flight Group to ensure that concurrent requests for the
+// same key are suppressed. It also handles cleanup when the entry is evicted.
+type cacheEntry[K comparable, V any] struct {
+	constructor ConstructorFunc[K, V]
+	key         K
+	group       group[V]
+	mu          sync.RWMutex
+	destructed  atomic.Bool
+}
 
-	if !d.destructed.CompareAndSwap(false, true) {
-		panic(errors.New("already destructed"))
+func (e *cacheEntry[K, V]) destruct(destructFunc DestructorFunc[K, V]) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if !e.destructed.CompareAndSwap(false, true) {
+		// Prevent double-destruction.
+		return
 	}
 
-	defer d.group.Forget()
-	if v, _, ok := d.group.Get(); ok {
-		f(d.k, v)
+	e.group.Forget()
+
+	val, err, ok := e.group.Get()
+	if ok && err == nil {
+		destructFunc(e.key, val)
 	}
 }
 
-func (d *singleflight[K, V]) retrieve(ctx context.Context) (v V, err error) {
-	d.mu.RLock()
+func (e *cacheEntry[K, V]) retrieve(ctx context.Context) (V, error) {
+	e.mu.RLock()
 
-	if d.destructed.Load() {
-		d.mu.RUnlock()
-		// Entry was evicted from cache, return error instead of panicking
-		return v, ErrDestructed
+	if e.destructed.Load() {
+		e.mu.RUnlock()
+
+		var zero V
+
+		return zero, ErrEvicted
 	}
 
-	res, err, _ := d.group.Do(ctx, func(ctx context.Context) (V, error) { return d.constructor(ctx, d.k) })
-	d.mu.RUnlock()
+	val, err, _ := e.group.Do(ctx, func(ctx context.Context) (V, error) {
+		return e.constructor(ctx, e.key)
+	})
+	e.mu.RUnlock()
 
-	// If constructor failed, forget the result so next attempt creates a fresh client.
-	// This is critical for HTTP clients: a failed connection should be retried, not cached.
-	// We call Forget() AFTER RUnlock because Do() has already completed and all waiting
-	// goroutines have received their results.
 	if err != nil {
-		d.mu.Lock()
-		d.group.Forget()
-		d.mu.Unlock()
+		// If constructor failed, forget the result so the next attempt can retry.
+		e.mu.Lock()
+		e.group.Forget()
+		e.mu.Unlock()
 	}
 
-	return res, err
+	return val, err
 }

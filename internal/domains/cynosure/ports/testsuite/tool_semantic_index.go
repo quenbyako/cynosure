@@ -14,7 +14,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-const embeddingSize = 1536
+const (
+	embeddingSize = 1536
+)
 
 type ToolSemanticIndexTestSuite struct {
 	adapter ports.ToolSemanticIndex
@@ -29,24 +31,26 @@ type ToolSemanticIndexTestSuiteOpts func(*ToolSemanticIndexTestSuite)
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunToolSemanticIndexTests(a ports.ToolSemanticIndex, opts ...ToolSemanticIndexTestSuiteOpts) func(t *testing.T) {
-	s := &ToolSemanticIndexTestSuite{
+func RunToolSemanticIndexTests(
+	a ports.ToolSemanticIndex, opts ...ToolSemanticIndexTestSuiteOpts,
+) func(t *testing.T) {
+	suite := &ToolSemanticIndexTestSuite{
 		adapter: a,
 	}
 	for _, opt := range opts {
-		opt(s)
+		opt(suite)
 	}
 
-	if err := s.validate(); err != nil {
-		panic(err)
+	if err := suite.validate(); err != nil {
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
-	return runSuite(s)
+	return runSuite(suite)
 }
 
 func (s *ToolSemanticIndexTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil
@@ -55,8 +59,8 @@ func (s *ToolSemanticIndexTestSuite) validate() error {
 // TestIndexTool verifies that IndexTool generates valid embeddings for various tool configurations.
 func (s *ToolSemanticIndexTestSuite) TestIndexTool(t *testing.T) {
 	tests := []struct {
-		name      string
 		buildTool func(t *testing.T) entities.ToolReadOnly
+		name      string
 	}{{
 		name:      "simple_tool",
 		buildTool: s.buildSimpleTool,
@@ -65,7 +69,7 @@ func (s *ToolSemanticIndexTestSuite) TestIndexTool(t *testing.T) {
 		buildTool: s.buildComplexTool,
 	}, {
 		name:      "empty_description",
-		buildTool: s.buildToolWithEmptyDescription,
+		buildTool: s.buildToolEmptyDesc,
 	}, {
 		name:      "minimal_schema",
 		buildTool: s.buildMinimalTool,
@@ -85,10 +89,31 @@ func (s *ToolSemanticIndexTestSuite) TestIndexTool(t *testing.T) {
 
 // TestBuildToolEmbedding verifies that BuildToolEmbedding handles various message combinations.
 func (s *ToolSemanticIndexTestSuite) TestBuildToolEmbedding(t *testing.T) {
-	tests := []struct {
-		name     string
-		messages []messages.Message
-	}{{
+	for _, tt := range toolEmbeddingTestCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			embedding, err := s.adapter.BuildToolEmbedding(t.Context(), tt.messages)
+			require.NoError(t, err, "BuildToolEmbedding should not fail")
+			s.assertValidEmbedding(t, embedding)
+		})
+	}
+}
+
+type toolEmbeddingTestCase struct {
+	name     string
+	messages []messages.Message
+}
+
+func toolEmbeddingTestCases() []toolEmbeddingTestCase {
+	tests := baseTestCases()
+	tests = append(tests, toolInteractionTestCases()...)
+	tests = append(tests, errorTestCases()...)
+	tests = append(tests, multiToolTestCases()...)
+
+	return tests
+}
+
+func baseTestCases() []toolEmbeddingTestCase {
+	return []toolEmbeddingTestCase{{
 		name:     "empty_messages",
 		messages: []messages.Message{},
 	}, {
@@ -103,90 +128,89 @@ func (s *ToolSemanticIndexTestSuite) TestBuildToolEmbedding(t *testing.T) {
 			must(messages.NewMessageUser("What's the weather?")),
 			must(messages.NewMessageAssistant("Let me check that for you.")),
 		},
-	}, {
+	}}
+}
+
+func toolInteractionTestCases() []toolEmbeddingTestCase {
+	return []toolEmbeddingTestCase{{
 		name: "full_tool_interaction",
 		messages: []messages.Message{
 			must(messages.NewMessageUser("What's the weather in New York?")),
 			must(messages.NewMessageAssistant("Let me check that for you.")),
 			must(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"location": json.RawMessage(`"New York"`)},
-				"get_weather",
-				"call_123",
+				"get_weather", "call_123",
 			)),
 			must(messages.NewMessageToolResponse(
 				json.RawMessage(`{"temperature": 72, "condition": "sunny"}`),
-				"get_weather",
-				"call_123",
+				"get_weather", "call_123",
 			)),
 		},
-	}, {
+	}}
+}
+
+func errorTestCases() []toolEmbeddingTestCase {
+	return []toolEmbeddingTestCase{{
 		name: "tool_error_handling",
 		messages: []messages.Message{
 			must(messages.NewMessageUser("Get weather")),
 			must(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"location": json.RawMessage(`"Invalid"`)},
-				"get_weather",
-				"call_456",
+				"get_weather", "call_456",
 			)),
 			must(messages.NewMessageToolError(
 				json.RawMessage(`{"error": "Invalid location"}`),
-				"get_weather",
-				"call_456",
+				"get_weather", "call_456",
 			)),
 		},
-	}, {
+	}}
+}
+
+func multiToolTestCases() []toolEmbeddingTestCase {
+	return []toolEmbeddingTestCase{{
 		name: "multiple_tool_calls",
 		messages: []messages.Message{
 			must(messages.NewMessageUser("Get weather and time")),
 			must(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"location": json.RawMessage(`"NYC"`)},
-				"get_weather",
-				"call_1",
+				"get_weather", "call_1",
 			)),
 			must(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"timezone": json.RawMessage(`"EST"`)},
-				"get_time",
-				"call_2",
+				"get_time", "call_2",
 			)),
 			must(messages.NewMessageToolResponse(
-				json.RawMessage(`{"temperature": 70}`),
-				"get_weather",
-				"call_1",
+				json.RawMessage(`{"temperature": 70}`), "get_weather", "call_1",
 			)),
 			must(messages.NewMessageToolResponse(
-				json.RawMessage(`{"time": "14:30"}`),
-				"get_time",
-				"call_2",
+				json.RawMessage(`{"time": "14:30"}`), "get_time", "call_2",
 			)),
 		},
 	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			embedding, err := s.adapter.BuildToolEmbedding(t.Context(), tt.messages)
-			require.NoError(t, err, "BuildToolEmbedding should not fail")
-
-			s.assertValidEmbedding(t, embedding)
-		})
-	}
 }
 
 // Helper: assertValidEmbedding checks that embedding is valid (correct size, non-zero).
-func (s *ToolSemanticIndexTestSuite) assertValidEmbedding(t *testing.T, embedding [embeddingSize]float32) {
+//
+//nolint:gocritic // hugeparam, architecture mistake.
+func (s *ToolSemanticIndexTestSuite) assertValidEmbedding(
+	t *testing.T, embedding [embeddingSize]float32,
+) {
 	t.Helper()
 
 	// Check that at least some values are non-zero (embedding is not all zeros)
 	hasNonZero := false
-	for _, v := range embedding {
+
+	for _, v := range &embedding {
 		if v != 0 {
 			hasNonZero = true
 			break
 		}
 	}
+
 	require.True(t, hasNonZero, "should have at least some non-zero values")
 
 	// Check that all values are finite (not NaN or Inf)
-	for i, v := range embedding {
+	for i, v := range &embedding {
 		require.False(t, math.IsNaN(float64(v)), "value at index %d is NaN", i)
 		require.False(t, math.IsInf(float64(v), 0), "value at index %d is Inf", i)
 	}
@@ -215,14 +239,23 @@ func (s *ToolSemanticIndexTestSuite) buildSimpleTool(t *testing.T) entities.Tool
 		}
 	}`)
 
-	return s.buildTool(t, "get_weather", "Get current weather for a location", schema, responseSchema)
+	return s.buildTool(
+		t, "get_weather", "Get current weather for a location", schema, responseSchema,
+	)
 }
 
-// buildComplexTool creates a tool with complex nested schema.
 func (s *ToolSemanticIndexTestSuite) buildComplexTool(t *testing.T) entities.ToolReadOnly {
 	t.Helper()
 
-	schema := json.RawMessage(`{
+	schema := s.getComplexToolSchema()
+	responseSchema := s.getComplexToolResponseSchema()
+	description := "Search database with complex filters and sorting"
+
+	return s.buildTool(t, "search_database", description, schema, responseSchema)
+}
+
+func (s *ToolSemanticIndexTestSuite) getComplexToolSchema() json.RawMessage {
+	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
 			"query": {
@@ -250,23 +283,20 @@ func (s *ToolSemanticIndexTestSuite) buildComplexTool(t *testing.T) entities.Too
 			}
 		}
 	}`)
+}
 
-	responseSchema := json.RawMessage(`{
+func (s *ToolSemanticIndexTestSuite) getComplexToolResponseSchema() json.RawMessage {
+	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"results": {
-				"type": "array",
-				"items": {"type": "object"}
-			},
+			"results": {"type": "array", "items": {"type": "object"}},
 			"total": {"type": "number"}
 		}
 	}`)
-
-	return s.buildTool(t, "search_database", "Search database with complex filters and sorting", schema, responseSchema)
 }
 
-// buildToolWithEmptyDescription creates a tool with empty description.
-func (s *ToolSemanticIndexTestSuite) buildToolWithEmptyDescription(t *testing.T) entities.ToolReadOnly {
+// buildToolEmptyDesc creates a tool with empty description.
+func (s *ToolSemanticIndexTestSuite) buildToolEmptyDesc(t *testing.T) entities.ToolReadOnly {
 	t.Helper()
 
 	schema := json.RawMessage(`{
@@ -292,7 +322,11 @@ func (s *ToolSemanticIndexTestSuite) buildMinimalTool(t *testing.T) entities.Too
 }
 
 // buildTool is a helper for creating tools with given parameters.
-func (s *ToolSemanticIndexTestSuite) buildTool(t *testing.T, name, description string, schema, responseSchema json.RawMessage) entities.ToolReadOnly {
+func (s *ToolSemanticIndexTestSuite) buildTool(
+	t *testing.T,
+	name, description string,
+	schema, responseSchema json.RawMessage,
+) entities.ToolReadOnly {
 	t.Helper()
 
 	account := must(ids.RandomAccountID(ids.RandomUserID(), ids.RandomServerID()))

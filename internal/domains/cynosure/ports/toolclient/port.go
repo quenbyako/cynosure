@@ -1,3 +1,5 @@
+// Package toolclient defines tool client port, commonly for MCP (Model Context
+// Protocol) operations.
 package toolclient
 
 import (
@@ -11,8 +13,11 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-// ToolClient executes MCP (Model Context Protocol) operations: tool discovery
-// and tool execution. Abstracts MCP server connections, protocol handling, and
+// ToolIDBuilder is a function that creates a tool ID for newly creating tools.
+type ToolIDBuilder = func(account ids.AccountID, name string) (ids.ToolID, error)
+
+// Port executes MCP (Model Context Protocol) operations: tool discovery and
+// tool execution. Abstracts MCP server connections, protocol handling, and
 // account-based access control.
 type Port interface {
 	// DiscoverTools retrieves available tools from an MCP server. Implements
@@ -20,7 +25,8 @@ type Port interface {
 	//
 	// Options:
 	//
-	//  - [WithToolIDBuilder] — sets the tool ID builder for newly creating tools.
+	//  - [WithToolIDBuilder] — sets the tool ID builder for newly creating
+	//    tools.
 	//
 	// See next test suites to find how it works:
 	//
@@ -33,7 +39,13 @@ type Port interface {
 	//  - [ErrInvalidCredentials] if OAuth token is invalid or expired.
 	//  - [RequiresAuthError] if server requires auth first, and there is no
 	//    data about mcp protocol yet.
-	DiscoverTools(ctx context.Context, u *url.URL, account ids.AccountID, accountSlug, accountDesc string, opts ...DiscoverToolsOption) ([]tools.RawToolInfo, error)
+	DiscoverTools(
+		ctx context.Context,
+		u *url.URL,
+		account ids.AccountID,
+		accountSlug, accountDesc string,
+		opts ...DiscoverToolsOption,
+	) ([]tools.RawTool, error)
 
 	// ExecuteTool executes a tool call and returns the result. Implements the
 	// MCP tool execution phase. Does not validate argument schemas - validation
@@ -48,8 +60,14 @@ type Port interface {
 	//  - [ErrServerUnreachable] if server connection fails.
 	//  - [ErrInvalidCredentials] if tool execution requires auth and token is
 	//    invalid.
-	//  - [RequiresAuthError] if server requires auth first, and there is no data about mcp protocol yet.
-	ExecuteTool(ctx context.Context, tool entities.ToolReadOnly, args map[string]json.RawMessage, toolCallID string) (messages.MessageTool, error)
+	//  - [RequiresAuthError] if server requires auth first, and there is no
+	//    data about mcp protocol yet.
+	ExecuteTool(
+		ctx context.Context,
+		tool entities.ToolReadOnly,
+		args map[string]json.RawMessage,
+		toolCallID string,
+	) (messages.MessageTool, error)
 }
 
 func defaultDiscoverToolsParams() discoverToolsParams {
@@ -57,5 +75,6 @@ func defaultDiscoverToolsParams() discoverToolsParams {
 		toolIDBuilder: func(account ids.AccountID, name string) (ids.ToolID, error) {
 			return ids.RandomToolID(account)
 		},
+		token: nil,
 	}
 }

@@ -18,7 +18,7 @@ type observable struct {
 
 func newObservable(stack ports.ObserveStack) *observable {
 	if stack == nil {
-		panic("required observable stack")
+		stack = ports.NoOpObserveStack()
 	}
 
 	return &observable{
@@ -29,11 +29,10 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-type registerClientCallback interface {
-	span
-}
-
-func (o *observable) registerClient(ctx context.Context, resourceURL string, clientName string) (context.Context, registerClientCallback) {
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+func (o *observable) registerClient(
+	ctx context.Context, resourceURL, clientName string,
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.register_client",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -45,11 +44,10 @@ func (o *observable) registerClient(ctx context.Context, resourceURL string, cli
 	return ctx, &spanCallback{span: span}
 }
 
-type refreshTokenCallback interface {
-	span
-}
-
-func (o *observable) refreshToken(ctx context.Context, clientID string, authURL string) (context.Context, refreshTokenCallback) {
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+func (o *observable) refreshToken(
+	ctx context.Context, clientID, authURL string,
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.refresh_token",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -61,11 +59,10 @@ func (o *observable) refreshToken(ctx context.Context, clientID string, authURL 
 	return ctx, &spanCallback{span: span}
 }
 
-type exchangeCallback interface {
-	span
-}
-
-func (o *observable) exchange(ctx context.Context, clientID string, authURL string) (context.Context, exchangeCallback) {
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+func (o *observable) exchange(
+	ctx context.Context, clientID, authURL string,
+) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.oauth.exchange",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -74,6 +71,7 @@ func (o *observable) exchange(ctx context.Context, clientID string, authURL stri
 		),
 	)
 
+	//nolint:spancheck // isolated in a wrapper
 	return ctx, &spanCallback{span: span}
 }
 

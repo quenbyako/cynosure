@@ -4,42 +4,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/k0kubun/pp/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+
 	. "github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
 
 func TestState(t *testing.T) {
-	state := must(NewState(
-		must(ids.RandomAccountID(
-			must(ids.NewUserID(must(uuid.NewRandom()))),
-			must(ids.NewServerID(must(uuid.NewRandom()))),
-		)),
+	userID := ids.RandomUserID()
+	serverID := ids.RandomServerID()
+	accountID, err := ids.RandomAccountID(userID, serverID)
+	require.NoError(t, err, "generating account id")
+
+	state, err := NewState(
+		accountID,
 		"test_account",
 		"some description just to be sure that it's not too huge for token",
 		[]byte{16, 32, 64, 128},
-		time.Now(),
-	))
+		time.Now().Truncate(time.Second).UTC(),
+	)
+	require.NoError(t, err, "generating state")
 
-	var key = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	key := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 
-	token := state.State("", key)
+	token, err := state.State("", key)
+	require.NoError(t, err, "generating state token")
 
 	t.Log("size of token is:", len(token))
 
 	reversed, err := StateFromToken(token, key)
 	require.NoError(t, err, "reversing state from token")
-
-	pp.Println(reversed)
-}
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	require.Equal(t, state, reversed)
 }

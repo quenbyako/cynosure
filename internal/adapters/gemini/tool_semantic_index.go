@@ -18,27 +18,28 @@ const (
 )
 
 // BuildToolEmbedding implements ports.ToolSemanticIndex.
-func (g *GeminiModel) BuildToolEmbedding(ctx context.Context, msgs []messages.Message) ([embeddingSize]float32, error) {
-	// Construct query from messages
-	var sb strings.Builder
+func (g *GeminiModel) BuildToolEmbedding(
+	ctx context.Context,
+	msgs []messages.Message,
+) (embedding, error) {
+	var builder strings.Builder
+
 	for _, msg := range msgs {
-		// Extract text content from different message types
-		switch m := msg.(type) {
+		switch typedMsg := msg.(type) {
 		case messages.MessageUser:
-			sb.WriteString(fmt.Sprintf("User: %s\n\n", m.Content()))
+			builder.WriteString("User: " + typedMsg.Content() + "\n\n")
 		case messages.MessageAssistant:
-			sb.WriteString(fmt.Sprintf("Model: %s\n\n", m.Content()))
+			builder.WriteString("Model: " + typedMsg.Content() + "\n\n")
 		case messages.MessageToolRequest:
-			sb.WriteString(fmt.Sprintf("Tool Request: %s\n\n", m.ToolName()))
+			builder.WriteString("Tool Request: " + typedMsg.ToolName() + "\n\n")
 		case messages.MessageToolResponse:
-			sb.WriteString(fmt.Sprintf("Tool Response: %s\n\n", string(m.Content())))
+			builder.WriteString("Tool Response: " + string(typedMsg.Content()) + "\n\n")
 		case messages.MessageToolError:
-			sb.WriteString(fmt.Sprintf("Tool Error: %s\n\n", string(m.Content())))
+			builder.WriteString("Tool Error: " + string(typedMsg.Content()) + "\n\n")
 		}
 	}
 
-	// Handle empty messages: provide a default query
-	content := sb.String()
+	content := builder.String()
 	if content == "" {
 		content = "No conversation context"
 	}
@@ -47,10 +48,16 @@ func (g *GeminiModel) BuildToolEmbedding(ctx context.Context, msgs []messages.Me
 }
 
 // IndexTool implements ports.ToolSemanticIndex.
-func (g *GeminiModel) IndexTool(ctx context.Context, tool entities.ToolReadOnly) ([embeddingSize]float32, error) {
-	// Serialize tool definition
+func (g *GeminiModel) IndexTool(
+	ctx context.Context,
+	tool entities.ToolReadOnly,
+) ([embeddingSize]float32, error) {
 	schema := tool.InputSchema()
-	schemaBytes, _ := json.Marshal(schema)
+
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return [embeddingSize]float32{}, fmt.Errorf("failed to marshal tool schema: %w", err)
+	}
 
 	content := fmt.Sprintf("Tool Name: %s\nAccount: %s\nDescription: %s\nArguments: %s",
 		tool.Name(),
@@ -62,31 +69,45 @@ func (g *GeminiModel) IndexTool(ctx context.Context, tool entities.ToolReadOnly)
 	return g.embed(ctx, content, "RETRIEVAL_DOCUMENT")
 }
 
-func (g *GeminiModel) embed(ctx context.Context, content string, taskType string) ([embeddingSize]float32, error) {
-	ctx, span := g.trace.Start(ctx, "Gemini.embed")
-	defer span.End()
+type embedding = [embeddingSize]float32
 
-	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, []*genai.Content{
-		{Parts: []*genai.Part{genai.NewPartFromText(content)}},
-	}, &genai.EmbedContentConfig{
+func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embedding, error) {
+	input := []*genai.Content{{
+		Parts: []*genai.Part{
+			genai.NewPartFromText(content),
+		},
+		Role: "",
+	}}
+
+	config := &genai.EmbedContentConfig{
 		TaskType:             taskType,
 		OutputDimensionality: ptr(int32(embeddingSize)),
-	})
-	if err != nil {
-		return [embeddingSize]float32{}, fmt.Errorf("embedding generation failed: %w", err)
+		HTTPOptions:          nil,
+		Title:                "",
+		MIMEType:             "",
+		AutoTruncate:         false,
 	}
 
+	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, input, config)
+	if err != nil {
+		return embedding{}, fmt.Errorf("embedding generation failed: %w", err)
+	}
+
+	return getEmbeddingResponse(res)
+}
+
+func getEmbeddingResponse(res *genai.EmbedContentResponse) (embedding, error) {
 	if len(res.Embeddings) == 0 {
-		return [embeddingSize]float32{}, fmt.Errorf("no embeddings returned")
+		return embedding{}, ErrNoEmbeddings
 	}
 
 	values := res.Embeddings[0].Values
 	if len(values) != embeddingSize {
-		return [embeddingSize]float32{}, fmt.Errorf("unexpected embedding dimension: got %d, want %d", len(values), embeddingSize)
+		return embedding{}, ErrEmbeddingDimension(len(values), embeddingSize)
 	}
 
-	var embedding [embeddingSize]float32
-	copy(embedding[:], values)
+	var result embedding
+	copy(result[:], values)
 
-	return embedding, nil
+	return result, nil
 }

@@ -1,7 +1,7 @@
 package ids
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -14,51 +14,61 @@ type AccountID struct {
 	_valid bool
 }
 
-// Implements:
-//
-// - [WithSlug]
-type AccountIDOption interface{ applyAccountID(*AccountID) }
+// AccountIDOption defines optional parameters for AccountID.
+type AccountIDOption interface{ applyAccountID(p *AccountID) }
 
 func RandomAccountID(user UserID, server ServerID, opts ...AccountIDOption) (AccountID, error) {
 	return NewAccountID(user, server, uuid.New(), opts...)
 }
 
-func NewAccountIDFromString(user UserID, server ServerID, id string, opts ...AccountIDOption) (AccountID, error) {
+func NewAccountIDFromString(
+	user UserID,
+	server ServerID,
+	id string,
+	opts ...AccountIDOption,
+) (AccountID, error) {
 	accountID, err := uuid.Parse(id)
 	if err != nil {
-		return AccountID{}, err
+		return AccountID{}, fmt.Errorf("parsing account id: %w", err)
 	}
 
 	return NewAccountID(user, server, accountID, opts...)
 }
 
-func NewAccountID(user UserID, server ServerID, id uuid.UUID, opts ...AccountIDOption) (AccountID, error) {
-	u := AccountID{
+func NewAccountID(
+	user UserID,
+	server ServerID,
+	id uuid.UUID,
+	opts ...AccountIDOption,
+) (AccountID, error) {
+	account := AccountID{
 		id:     id,
 		user:   user,
 		server: server,
+		_valid: false,
 	}
 	for _, opt := range opts {
-		opt.applyAccountID(&u)
+		opt.applyAccountID(&account)
 	}
 
-	if err := u.validate(); err != nil {
+	if err := account.validate(); err != nil {
 		return AccountID{}, err
 	}
-	u._valid = true
 
-	return u, nil
+	account._valid = true
+
+	return account, nil
 }
 
 func (u AccountID) Valid() bool { return u._valid || u.validate() == nil }
 func (u AccountID) validate() error {
 	switch {
 	case u.id == uuid.Nil:
-		return errors.New("account id cannot be nil")
+		return ErrInternalValidation("account id cannot be nil")
 	case !u.user.Valid():
-		return errors.New("user id is invalid")
+		return ErrInternalValidation("user is invalid")
 	case !u.server.Valid():
-		return errors.New("server id is invalid")
+		return ErrInternalValidation("server is invalid")
 	default:
 		return nil
 	}

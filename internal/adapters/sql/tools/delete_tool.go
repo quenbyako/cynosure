@@ -12,5 +12,6 @@ func (t *Tools) DeleteTool(ctx context.Context, tool ids.ToolID) error {
 	if err != nil {
 		return fmt.Errorf("delete tool: %w", err)
 	}
+
 	return nil
 }

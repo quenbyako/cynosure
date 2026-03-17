@@ -1,3 +1,4 @@
+// Package agents implements SQL agent storage.
 package agents
 
 import (

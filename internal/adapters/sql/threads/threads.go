@@ -1,3 +1,4 @@
+// Package threads implements SQL thread storage.
 package threads
 
 import (

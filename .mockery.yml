@@ -11,9 +11,6 @@ packages:
       AgentStorage:
         config:
           filename: "agent_storage.go"
-      ChatModel:
-        config:
-          filename: "chat_model.go"
       ServerStorage:
         config:
           filename: "server_storage.go"
@@ -26,15 +23,15 @@ packages:
       ToolStorage:
         config:
           filename: "tool_storage.go"
-  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient:
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel:
     config:
       pkgname: "mocks"
       dir: ./internal/adapters/mocks
     interfaces:
       Port:
         config:
-          filename: "tool_client.go"
-          structname: "ToolClient"
+          filename: "chat_model.go"
+          structname: "ChatModel"
   github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler:
     config:
       pkgname: "mocks"
@@ -44,3 +41,12 @@ packages:
         config:
           filename: "oauth_handler.go"
           structname: "OAuthHandler"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "tool_client.go"
+          structname: "ToolClient"

@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"syscall"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
 // MapError maps internal transport errors to domain port errors.
@@ -16,31 +18,57 @@ func MapError(err error) error {
 		return nil
 	}
 
-	// If it's already a domain error or auth error, don't re-map it
-	if errors.As(err, new(*ports.RequiresAuthError)) {
-		return err
-	}
-	if errors.Is(err, ports.ErrServerUnreachable) ||
-		errors.Is(err, ports.ErrProtocolNotSupported) ||
-		errors.Is(err, ports.ErrInvalidCredentials) {
-		return err
+	if mapped, ok := tryMapKnownError(err); ok {
+		return mapped
 	}
 
 	classified := ClassifyTransportError(err)
 
-	if e := new(InfrastructureError); errors.As(classified, &e) {
-		return fmt.Errorf("%w: %v", ports.ErrServerUnreachable, e.cause)
+	var infraErr *InfrastructureError
+	if errors.As(classified, &infraErr) {
+		return fmt.Errorf("%w: %w", toolclient.ErrServerUnreachable, infraErr.cause)
 	}
 
-	if e := new(ProtocolError); errors.As(classified, &e) {
-		return fmt.Errorf("%w: %v", ports.ErrProtocolNotSupported, e.cause)
+	var protoErr *ProtocolError
+	if errors.As(classified, &protoErr) {
+		return fmt.Errorf("%w: %w", toolclient.ErrProtocolNotSupported, protoErr.cause)
 	}
 
 	if errors.Is(err, ErrNotMCPServer) {
-		return fmt.Errorf("%w: %v", ports.ErrServerUnreachable, err)
+		return fmt.Errorf("%w: %w", toolclient.ErrServerUnreachable, err)
 	}
 
 	return err
+}
+
+func tryMapKnownError(err error) (error, bool) {
+	if errors.Is(err, toolclient.ErrServerUnreachable) ||
+		errors.Is(err, toolclient.ErrProtocolNotSupported) ||
+		errors.Is(err, toolclient.ErrInvalidCredentials) {
+		return err, true
+	}
+
+	if e := new(toolclient.RequiresAuthError); errors.As(err, &e) {
+		return err, true
+	}
+
+	if e := new(ports.RequiresAuthError); errors.As(err, &e) {
+		return toolclient.ErrRequiresAuth(e.Endpoint()), true
+	}
+
+	if errors.Is(err, ports.ErrServerUnreachable) {
+		return toolclient.ErrServerUnreachable, true
+	}
+
+	if errors.Is(err, ports.ErrProtocolNotSupported) {
+		return toolclient.ErrProtocolNotSupported, true
+	}
+
+	if errors.Is(err, ports.ErrInvalidCredentials) {
+		return toolclient.ErrInvalidCredentials, true
+	}
+
+	return nil, false
 }
 
 // ClassifyTransportError categorizes an error into InfrastructureError or ProtocolError.
@@ -65,6 +93,10 @@ func ClassifyTransportError(err error) error {
 	}
 
 	// Check error message patterns
+	return classifyErrorByMessage(err)
+}
+
+func classifyErrorByMessage(err error) error {
 	errMsg := strings.ToLower(err.Error())
 
 	// TLS errors are infrastructure
@@ -73,19 +105,32 @@ func ClassifyTransportError(err error) error {
 	}
 
 	// Protocol-related errors
-	if strings.Contains(errMsg, "unexpected eof") ||
-		strings.Contains(errMsg, "unknown response") ||
-		strings.Contains(errMsg, "invalid response") ||
-		strings.Contains(errMsg, "malformed") ||
-		strings.Contains(errMsg, "bad request") ||
-		strings.Contains(errMsg, "not found") ||
-		strings.Contains(errMsg, "session not found") ||
-		strings.Contains(errMsg, "initialize") {
+	if isProtocolErrorMessage(errMsg) {
 		return &ProtocolError{cause: err}
 	}
 
 	// Default: treat as infrastructure error (fail fast)
 	return &InfrastructureError{cause: err}
+}
+
+func isProtocolErrorMessage(errMsg string) bool {
+	patterns := []string{
+		"unexpected eof",
+		"unknown response",
+		"invalid response",
+		"malformed",
+		"bad request",
+		"not found",
+		"session not found",
+		"initialize",
+	}
+	for _, p := range patterns {
+		if strings.Contains(errMsg, p) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // classifyHTTPError classifies HTTP status codes into error categories
@@ -97,7 +142,7 @@ func classifyHTTPError(statusCode int, err error) error {
 		return err
 	case statusCode == 400 || statusCode == 404 || statusCode == 405:
 		return &ProtocolError{cause: err}
-	case statusCode >= 500:
+	case statusCode >= http.StatusInternalServerError:
 		return &InfrastructureError{cause: err}
 	default:
 		return &ProtocolError{cause: err}
@@ -106,21 +151,25 @@ func classifyHTTPError(statusCode int, err error) error {
 
 // classifyNetworkError classifies network operation errors
 func classifyNetworkError(netErr *net.OpError, err error) error {
-	if netErr.Err != nil {
-		if errors.Is(netErr.Err, syscall.ECONNREFUSED) ||
-			errors.Is(netErr.Err, syscall.ENETUNREACH) ||
-			errors.Is(netErr.Err, syscall.EHOSTUNREACH) {
-			return &InfrastructureError{cause: err}
-		}
-		if netErr.Timeout() {
-			return &InfrastructureError{cause: err}
-		}
+	if netErr.Err == nil {
+		return &InfrastructureError{cause: err}
 	}
+
+	if errors.Is(netErr.Err, syscall.ECONNREFUSED) ||
+		errors.Is(netErr.Err, syscall.ENETUNREACH) ||
+		errors.Is(netErr.Err, syscall.EHOSTUNREACH) {
+		return &InfrastructureError{cause: err}
+	}
+
+	if netErr.Timeout() {
+		return &InfrastructureError{cause: err}
+	}
+
 	return &InfrastructureError{cause: err}
 }
 
 // SynthesizeNotMCPServerError creates a comprehensive error when both protocols fail.
-func SynthesizeNotMCPServerError(url string, streamableErr, sseErr error) error {
-	return fmt.Errorf("%w (both protocols failed for %s): streamable=%v, sse=%v",
-		ErrNotMCPServer, url, streamableErr, sseErr)
+func SynthesizeNotMCPServerError(targetURL string, streamableErr, sseErr error) error {
+	return fmt.Errorf("%w (both protocols failed for %s): streamable=%w, sse=%w",
+		ErrNotMCPServer, targetURL, streamableErr, sseErr)
 }

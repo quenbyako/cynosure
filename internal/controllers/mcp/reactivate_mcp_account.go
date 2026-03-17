@@ -2,8 +2,11 @@ package mcp
 
 import (
 	"context"
-	"errors"
-	"fmt"
+)
+
+const (
+	reactivateMcpAccountName = "reactivate_mcp_account"
+	reactivateMcpAccountDesc = "Reactivates a previously disabled MCP account."
 )
 
 type (
@@ -15,12 +18,19 @@ type (
 	}
 )
 
-func (c *Controller) ReactivateMcpAccount(ctx context.Context, in ReactivateMcpAccountInput) (ReactivateMcpAccountOutput, error) {
+func (c *Controller) ReactivateMcpAccount(
+	ctx context.Context,
+	in ReactivateMcpAccountInput,
+) (
+	ReactivateMcpAccountOutput,
+	error,
+) {
 	userID, ok := FromContext(ctx)
 	if !ok {
-		return ReactivateMcpAccountOutput{}, fmt.Errorf("missing user ID in context")
+		return ReactivateMcpAccountOutput{}, ErrUnauthorized
 	}
+
 	_ = userID
 
-	return ReactivateMcpAccountOutput{}, errors.New("unimplemented")
+	return ReactivateMcpAccountOutput{}, ErrUnimplemented
 }

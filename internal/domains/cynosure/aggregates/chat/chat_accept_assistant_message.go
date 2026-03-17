@@ -22,7 +22,9 @@ import (
 // Atomicity:
 // - Adds message to history.
 // - Persists to storage.
-func (c *Chat) AcceptAssistantMessage(ctx context.Context, message messages.MessageAssistant) error {
+func (c *Chat) AcceptAssistantMessage(
+	ctx context.Context, message messages.MessageAssistant,
+) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

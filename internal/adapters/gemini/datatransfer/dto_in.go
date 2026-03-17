@@ -11,138 +11,242 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-func MessageFromGenAIContent(resp *genai.GenerateContentResponse, thoughtBuffer string, metadataBuffer []byte, mergeTag uint64, agentID ids.AgentID) (res []messages.Message, thoughtsLeft string, metadataLeft []byte, err error) {
+// MessageFromGenAIContent converts Gemini response to internal messages.
+//
+//nolint:gocritic // responging 4 types by intention
+func MessageFromGenAIContent(
+	resp *genai.GenerateContentResponse,
+	thoughtBuffer string,
+	metadataBuffer []byte,
+	mergeTag uint64,
+	agentID ids.AgentID,
+) (res []messages.Message, thoughtsLeft string, metadataLeft []byte, err error) {
 	if resp == nil || len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, "", nil, fmt.Errorf("received empty response from model")
+		return nil, "", nil, ErrEmptyResponse
 	}
 
 	if len(resp.Candidates) > 1 {
-		return nil, "", nil, fmt.Errorf("multiple candidates are not supported, got %d candidates", len(resp.Candidates))
+		return nil, "", nil, fmt.Errorf("%w: got %d", ErrMultipleCandidates, len(resp.Candidates))
 	}
 
 	candidate := resp.Candidates[0]
 	if candidate.Content == nil {
-		return nil, "", nil, fmt.Errorf("candidate content is nil")
+		return nil, "", nil, ErrCandidateContentNil
 	}
 
+	return processCandidate(candidate, thoughtBuffer, metadataBuffer, mergeTag, agentID)
+}
+
+//nolint:gocritic // responging 4 types by intention
+func processCandidate(
+	candidate *genai.Candidate,
+	thought string,
+	metadata []byte,
+	tag uint64,
+	agentID ids.AgentID,
+) ([]messages.Message, string, []byte, error) {
 	switch candidate.Content.Role {
 	case genai.RoleModel, "":
-		parts := candidate.Content.Parts
-		if len(parts) == 0 {
-			return nil, "", nil, fmt.Errorf("candidate content has no parts")
-		}
-
-		currentMetadata := metadataBuffer
-		for _, part := range parts {
-			// Extract thought signature if present in this part.
-			// Gemini often includes this in the same part as the function call or reasoning.
-			if part.ThoughtSignature != nil {
-				sig, err := json.Marshal(struct {
-					Sig []byte `json:"gemini_thought_signature"`
-				}{
-					Sig: part.ThoughtSignature,
-				})
-				if err != nil {
-					return nil, "", nil, fmt.Errorf("failed to marshal thought signature: %w", err)
-				}
-				currentMetadata = sig
-			}
-
-			switch {
-			case part.Text != "" || part.Thought:
-				if part.Thought {
-					thoughtBuffer += part.Text
-				} else {
-					msg, err := messages.NewMessageAssistant(part.Text,
-						messages.WithMessageAssistantMergeTag(mergeTag),
-						messages.WithMessageAssistantReasoning(thoughtBuffer),
-						messages.WithMessageAssistantAgentID(agentID),
-						messages.WithMessageAssistantProtocolMetadata(currentMetadata),
-					)
-					if err != nil {
-						return nil, "", nil, fmt.Errorf("failed to create assistant message: %w", err)
-					}
-					res = append(res, msg)
-					thoughtBuffer = "" // reset thought buffer after sending a message
-				}
-
-			case part.FunctionCall != nil:
-				call := part.FunctionCall
-
-				args := make(map[string]json.RawMessage)
-				for k, v := range call.Args {
-					if args[k], err = json.Marshal(v); err != nil {
-						return nil, "", nil, fmt.Errorf("failed to marshal function call argument %q: %w", k, err)
-					}
-				}
-				if call.Name == "" {
-					return nil, "", nil, fmt.Errorf("function call has no name")
-				}
-
-				if call.ID == "" {
-					// call ID should not be empty, we have to generate it
-					call.ID = uuid.NewString()
-				}
-
-				msg, err := messages.NewMessageToolRequest(args, call.Name, call.ID,
-					messages.WithMessageToolRequestMergeTag(mergeTag),
-					messages.WithMessageToolRequestReasoning(thoughtBuffer),
-					messages.WithMessageToolRequestProtocolMetadata(currentMetadata),
-				)
-				if err != nil {
-					return nil, "", nil, fmt.Errorf("failed to create tool request message: %w", err)
-				}
-				res = append(res, msg)
-
-			case part.FunctionResponse != nil:
-				resp := part.FunctionResponse
-
-				var output any = resp.Response
-				if out, ok := resp.Response["output"]; ok {
-					output = out
-				}
-
-				response, err := json.Marshal(output)
-				if err != nil {
-					return nil, "", nil, fmt.Errorf("failed to marshal function response output: %w", err)
-				}
-
-				msg, err := messages.NewMessageToolResponse(response, resp.Name, resp.ID)
-				if err != nil {
-					return nil, "", nil, fmt.Errorf("failed to create tool response message: %w", err)
-				}
-				res = append(res, msg)
-
-			case part.FileData != nil:
-				return nil, "", nil, fmt.Errorf("file data is not yet supported, unfortunately")
-
-			case part.ExecutableCode != nil, part.CodeExecutionResult != nil, part.VideoMetadata != nil:
-				return nil, "", nil, fmt.Errorf("content is not supported")
-
-			case part.ThoughtSignature != nil && part.Text == "" && !part.Thought && part.FunctionCall == nil:
-				// This part only contained a signature, which we already handled above.
-				continue
-
-			//TODO: handle artifacts through default.
-			case part.Text == "" && part.FunctionCall == nil && part.FunctionResponse == nil:
-				// Skip empty parts (metadata or stream artifacts)
-				continue
-
-			default:
-				data, err := json.Marshal(part)
-				if err != nil {
-					return nil, "", nil, fmt.Errorf("failed to marshal part: %w", err)
-				}
-
-				return nil, "", nil, fmt.Errorf("unexpected part type in candidate content: %s", string(data))
-			}
-		}
-
-		return res, thoughtBuffer, currentMetadata, nil
-
+		return processModelParts(candidate.Content.Parts, thought, metadata, tag, agentID)
 	case genai.RoleUser:
-		return nil, "", nil, fmt.Errorf("user role is not expected in candidate content")
+		return nil, "", nil, ErrUnexpectedRole
 	default:
-		return nil, "", nil, fmt.Errorf("unexpected role %q in candidate content", candidate.Content.Role)
+		return nil, "", nil, fmt.Errorf("%w: %q", ErrUnexpectedRole, candidate.Content.Role)
 	}
+}
+
+//nolint:gocritic // responging 4 types by intention
+func processModelParts(
+	parts []*genai.Part,
+	thought string,
+	metadata []byte,
+	tag uint64,
+	agentID ids.AgentID,
+) (res []messages.Message, thoughtsLeft string, metadataLeft []byte, err error) {
+	if len(parts) == 0 {
+		return nil, thought, metadata, nil
+	}
+
+	curMeta, curThought := metadata, thought
+
+	for _, part := range parts {
+		if part.ThoughtSignature != nil {
+			if curMeta, err = marshalThoughtSig(part.ThoughtSignature); err != nil {
+				return nil, "", nil, err
+			}
+		}
+
+		var msgs []messages.Message
+
+		msgs, curThought, err = processPart(part, curThought, curMeta, tag, agentID)
+		if err != nil {
+			return nil, "", nil, err
+		}
+
+		res = append(res, msgs...)
+	}
+
+	return res, curThought, curMeta, nil
+}
+
+func marshalThoughtSig(sig []byte) ([]byte, error) {
+	wrapped := struct {
+		Sig []byte `json:"gemini_thought_signature"`
+	}{Sig: sig}
+
+	data, err := json.Marshal(wrapped)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal thought signature: %w", err)
+	}
+
+	return data, nil
+}
+
+func processPart(
+	part *genai.Part,
+	thought string,
+	metadata []byte,
+	tag uint64,
+	agentID ids.AgentID,
+) ([]messages.Message, string, error) {
+	switch {
+	case part.Text != "" || part.Thought:
+		return processTextPart(part, thought, metadata, tag, agentID)
+	case part.FunctionCall != nil:
+		msg, err := processFuncCall(part.FunctionCall, thought, metadata, tag)
+		return []messages.Message{msg}, thought, err
+	case part.FunctionResponse != nil:
+		msg, err := processFuncResp(part.FunctionResponse)
+		return []messages.Message{msg}, thought, err
+	default:
+		return processMiscPart(part, thought)
+	}
+}
+
+func processMiscPart(part *genai.Part, thought string) ([]messages.Message, string, error) {
+	switch {
+	case part.FileData != nil:
+		return nil, "", ErrFileDataUnsupported
+	case part.ExecutableCode != nil || part.CodeExecutionResult != nil || part.VideoMetadata != nil:
+		return nil, "", ErrContentUnsupported
+	case isMetadataPart(part):
+		return nil, thought, nil
+	default:
+		return nil, "", unexpectedPartError(part)
+	}
+}
+
+func processTextPart(
+	part *genai.Part,
+	thought string,
+	meta []byte,
+	tag uint64,
+	agentID ids.AgentID,
+) ([]messages.Message, string, error) {
+	if part.Thought {
+		return nil, thought + part.Text, nil
+	}
+
+	msg, err := messages.NewMessageAssistant(
+		part.Text,
+		messages.WithMessageAssistantMergeTag(tag),
+		messages.WithMessageAssistantReasoning(thought),
+		messages.WithMessageAssistantAgentID(agentID),
+		messages.WithMessageAssistantProtocolMetadata(meta),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create assistant message: %w", err)
+	}
+
+	return []messages.Message{msg}, "", nil
+}
+
+//nolint:ireturn // conversion to domain object
+func processFuncCall(
+	call *genai.FunctionCall,
+	thought string,
+	metadata []byte,
+	tag uint64,
+) (messages.Message, error) {
+	args, err := marshalArgs(call.Args)
+	if err != nil {
+		return nil, err
+	}
+
+	if call.Name == "" {
+		return nil, ErrFunctionCallNoName
+	}
+
+	callID := call.ID
+	if callID == "" {
+		callID = uuid.NewString()
+	}
+
+	msg, err := messages.NewMessageToolRequest(args, call.Name, callID,
+		messages.WithMessageToolRequestMergeTag(tag),
+		messages.WithMessageToolRequestReasoning(thought),
+		messages.WithMessageToolRequestProtocolMetadata(metadata),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tool request message: %w", err)
+	}
+
+	return msg, nil
+}
+
+func marshalArgs(rawArgs map[string]any) (map[string]json.RawMessage, error) {
+	args := make(map[string]json.RawMessage)
+
+	for key, val := range rawArgs {
+		data, err := json.Marshal(val)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal function call argument %q: %w", key, err)
+		}
+
+		args[key] = data
+	}
+
+	return args, nil
+}
+
+//nolint:ireturn // conversion to domain object
+func processFuncResp(resp *genai.FunctionResponse) (messages.Message, error) {
+	var output any = resp.Response
+	if out, ok := resp.Response["output"]; ok {
+		output = out
+	}
+
+	responseData, err := json.Marshal(output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal function response output: %w", err)
+	}
+
+	msg, err := messages.NewMessageToolResponse(responseData, resp.Name, resp.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tool response message: %w", err)
+	}
+
+	return msg, nil
+}
+
+func isMetadataPart(part *genai.Part) bool {
+	if part.ThoughtSignature != nil && part.Text == "" && !part.Thought &&
+		part.FunctionCall == nil {
+		return true
+	}
+
+	if part.Text == "" && part.FunctionCall == nil && part.FunctionResponse == nil {
+		return true
+	}
+
+	return false
+}
+
+func unexpectedPartError(part *genai.Part) error {
+	data, err := json.Marshal(part)
+	if err != nil {
+		return fmt.Errorf("failed to marshal part: %w", err)
+	}
+
+	return UnexpectedPartError(string(data))
 }

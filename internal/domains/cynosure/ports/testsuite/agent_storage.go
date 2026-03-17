@@ -1,6 +1,7 @@
 package testsuite
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -13,63 +14,80 @@ import (
 
 // RunModelSettingsStorageTests runs tests for the given adapter. These tests are predefined
 // and REQUIRED to be used for ANY adapter implementation.
-func RunModelSettingsStorageTests(a ports.AgentStorage, opts ...ModelSettingsStorageTestSuiteOption) func(t *testing.T) {
-	s := &ModelSettingsStorageTestSuite{
+func RunModelSettingsStorageTests(
+	a ports.AgentStorage, opts ...ModelSettingsStorageTestSuiteOption,
+) func(t *testing.T) {
+	suite := &ModelSettingsStorageTestSuite{
 		adapter: a,
+		cleanup: nil,
 	}
 	for _, opt := range opts {
-		opt(s)
-	}
-	if err := s.validate(); err != nil {
-		panic(err)
+		opt(suite)
 	}
 
-	return runSuite(s)
+	if err := suite.validate(); err != nil {
+		panic(err) //nolint:forbidigo // ok for tests
+	}
+
+	return runSuite(suite)
 }
 
 type ModelSettingsStorageTestSuite struct {
 	adapter ports.AgentStorage
 
-	cleanup func() error
+	cleanup CleanupFunc
 }
 
 var _ afterTest = (*ModelSettingsStorageTestSuite)(nil)
 
 type ModelSettingsStorageTestSuiteOption func(*ModelSettingsStorageTestSuite)
 
-func WithModelSettingsStorageCleanup(f func() error) ModelSettingsStorageTestSuiteOption {
+type CleanupFunc = func(context.Context) error
+
+func WithModelSettingsStorageCleanup(f CleanupFunc) ModelSettingsStorageTestSuiteOption {
 	return func(s *ModelSettingsStorageTestSuite) { s.cleanup = f }
 }
 
 func (s *ModelSettingsStorageTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil
 }
 
 func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
+	t.Helper()
+
 	if s.cleanup != nil {
-		if err := s.cleanup(); err != nil {
+		if err := s.cleanup(t.Context()); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
 		}
 	}
 }
 
+// TestSaveModel tests saving, retrieving and listing agents.
+//
 // TODO: this test is poorly formatted, it's extremely necessary to refactor it
 // TODO: need to verify that adapters understand filtering by user id, by
 // creating two users with two ids and retrieving models for each of them.
+//
+//nolint:funlen // ok for tests
 func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 	userID := ids.RandomUserID()
-	modelID:= must(ids.RandomAgentID(userID))
+	modelID := must(ids.RandomAgentID(userID))
+
+	const (
+		temperature = 0.7
+		topP        = 0.9
+	)
 
 	model := must(entities.NewModelSettings(
 		modelID,
 		"oompa-loompa-6000",
 		entities.WithSystemMessage("You are a helpful Oompa-Loompa... Wait, what?"),
-		entities.WithTemperature(0.7),
-		entities.WithTopP(0.9),
+		entities.WithTemperature(temperature),
+		entities.WithTopP(topP),
 		entities.WithStopWords([]string{"STOP"}),
 	))
 
