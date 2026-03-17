@@ -24,8 +24,8 @@ func newChatUsecase(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	logger chat.LogCallbacks,
-) *chat.Usecase {
-	return chat.New(
+) (*chat.Usecase, error) {
+	usecase, err := chat.New(
 		storage,
 		model,
 		tool,
@@ -37,6 +37,11 @@ func newChatUsecase(
 		chat.WithLogger(logger),
 		chat.WithTracer(params.observability),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chat usecase: %w", err)
+	}
+
+	return usecase, nil
 }
 
 func newAccountsUsecase(
@@ -76,7 +81,7 @@ func newUsersUsecase(
 	tools ports.ToolStorage,
 	toolClient toolclient.PortWrapped,
 	index ports.ToolSemanticIndex,
-) *users.Usecase {
+) (*users.Usecase, error) {
 	return users.New(
 		identities,
 		agents,

@@ -62,8 +62,14 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	threadStorageWrapped := ports.NewThreadStorage(adapter)
 	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	agentStorage := ports.NewAgentStorage(adapter)
-	usecase2 := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
-	usecase3 := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
+	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	if err != nil {
+		return nil, err
+	}
+	usecase3, err := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
+	if err != nil {
+		return nil, err
+	}
 	cynosureTelegramControllerWireBind, err := bindTelegramController(ctx, config, baseLogger, usecase2, usecase3)
 	if err != nil {
 		return nil, err

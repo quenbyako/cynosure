@@ -2,8 +2,6 @@
 package users
 
 import (
-	"errors"
-
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -33,6 +31,18 @@ type newParams struct {
 	tracer trace.TracerProvider
 }
 
+func buildNewParams(opts ...NewOption) newParams {
+	params := newParams{
+		tracer: noop.NewTracerProvider(),
+	}
+
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return params
+}
+
 type NewOption func(*newParams)
 
 func WithTracerProvider(tp trace.TracerProvider) NewOption {
@@ -49,13 +59,8 @@ func New(
 	index ports.ToolSemanticIndex,
 	adminMCPID ids.ServerID,
 	opts ...NewOption,
-) *Usecase {
-	params := newParams{
-		tracer: noop.NewTracerProvider(),
-	}
-	for _, opt := range opts {
-		opt(&params)
-	}
+) (*Usecase, error) {
+	params := buildNewParams(opts...)
 
 	usecase := &Usecase{
 		users:      users,
@@ -65,50 +70,36 @@ func New(
 		tools:      tools,
 		toolClient: toolClient,
 		index:      index,
-
 		adminMCPID: adminMCPID,
-
-		trace: params.tracer.Tracer(pkgName),
+		trace:      params.tracer.Tracer(pkgName),
 	}
+
 	if err := usecase.validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return usecase
+	return usecase, nil
 }
 
-func (s *Usecase) validate() error {
-	if s.users == nil {
-		return errors.New("user storage is required")
+func (u *Usecase) validate() error {
+	switch {
+	case u.users == nil:
+		return errInternalValidation("user storage is required")
+	case u.agents == nil:
+		return errInternalValidation("agent storage is required")
+	case u.accounts == nil:
+		return errInternalValidation("account storage is required")
+	case u.servers == nil:
+		return errInternalValidation("server storage is required")
+	case u.tools == nil:
+		return errInternalValidation("tool storage is required")
+	case u.toolClient == nil:
+		return errInternalValidation("tool client is required")
+	case u.index == nil:
+		return errInternalValidation("tool semantic index is required")
+	case !u.adminMCPID.Valid():
+		return errInternalValidation("admin MCP ID is required")
+	default:
+		return nil
 	}
-
-	if s.agents == nil {
-		return errors.New("agent storage is required")
-	}
-
-	if s.accounts == nil {
-		return errors.New("account storage is required")
-	}
-
-	if s.servers == nil {
-		return errors.New("server storage is required")
-	}
-
-	if s.tools == nil {
-		return errors.New("tool storage is required")
-	}
-
-	if s.toolClient == nil {
-		return errors.New("tool client is required")
-	}
-
-	if s.index == nil {
-		return errors.New("tool semantic index is required")
-	}
-
-	if !s.adminMCPID.Valid() {
-		return errors.New("admin MCP ID is required")
-	}
-
-	return nil
 }

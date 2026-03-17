@@ -30,15 +30,36 @@ func WithToolChoice(toolChoice tools.ToolChoice) GenerateResponseOpt {
 	return func(params *generateResponseParams) { params.toolChoice = toolChoice }
 }
 
-func (s *Usecase) GenerateResponse(
+func (u *Usecase) GenerateResponse(
 	ctx context.Context,
 	threadID ids.ThreadID,
 	msg messages.MessageUser,
 	opts ...GenerateResponseOpt,
 ) (iter.Seq2[messages.Message, error], error) {
-	ctx, span := s.trace.Start(ctx, "Service.GenerateResponse")
+	ctx, span := u.trace.Start(ctx, "Service.GenerateResponse")
 	defer span.End()
 
+	params := u.resolveGenerateResponseParams(opts)
+
+	chatAgg, err := u.loadOrCreateChat(ctx, threadID, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	agentID, err := u.resolveAgentID(ctx, threadID, chatAgg, params.model)
+	if err != nil {
+		return nil, err
+	}
+
+	modelConfig, err := u.models.GetAgent(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("getting model: %w", err)
+	}
+
+	return u.agentLoop(ctx, chatAgg, modelConfig, params.toolChoice), nil
+}
+
+func (u *Usecase) resolveGenerateResponseParams(opts []GenerateResponseOpt) generateResponseParams {
 	params := generateResponseParams{
 		toolChoice: tools.ToolChoiceAllowed,
 		model:      ids.AgentID{},
@@ -47,123 +68,157 @@ func (s *Usecase) GenerateResponse(
 		opt(&params)
 	}
 
-	chat, err := s.loadOrCreateChat(ctx, threadID, msg)
+	return params
+}
+
+func (u *Usecase) resolveAgentID(
+	ctx context.Context,
+	threadID ids.ThreadID,
+	chatAgg *chat.Chat,
+	requestedAgent ids.AgentID,
+) (ids.AgentID, error) {
+	if requestedAgent.Valid() {
+		return requestedAgent, nil
+	}
+
+	agentID := chatAgg.AgentID()
+	if agentID.Valid() {
+		return agentID, nil
+	}
+
+	return u.deduceAgentID(ctx, threadID, chatAgg)
+}
+
+func (u *Usecase) deduceAgentID(
+	ctx context.Context,
+	threadID ids.ThreadID,
+	chatAgg *chat.Chat,
+) (ids.AgentID, error) {
+	agents, err := u.models.ListAgents(ctx, threadID.User())
 	if err != nil {
-		return nil, err
+		return ids.AgentID{}, fmt.Errorf("listing user agents: %w", err)
 	}
 
-	agentID := params.model
-	if !agentID.Valid() {
-		agentID = chat.AgentID()
+	if len(agents) == 0 {
+		return ids.AgentID{}, fmt.Errorf("listing user agents: %w", ErrNoAgentsFound)
 	}
 
-	if !agentID.Valid() {
-		// Deduced from user
-		agents, err := s.models.ListAgents(ctx, threadID.User())
-		if err != nil {
-			return nil, fmt.Errorf("listing user agents: %w", err)
-		}
-
-		if len(agents) == 0 {
-			return nil, fmt.Errorf("no agents found for user %v", threadID.User())
-		}
-
-		// TODO: need to select agent. For now, just take the first one.
-		agentID = agents[0].ID()
-		if err := chat.SetAgent(ctx, agentID); err != nil {
-			return nil, fmt.Errorf("setting default agent to thread: %w", err)
-		}
+	// TODO: need to select agent. For now, just take the first one.
+	agentID := agents[0].ID()
+	if err := chatAgg.SetAgent(ctx, agentID); err != nil {
+		return ids.AgentID{}, fmt.Errorf("setting default agent to thread: %w", err)
 	}
 
-	modelConfig, err := s.models.GetAgent(ctx, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("getting model: %w", err)
-	}
-
-	return s.agentLoop(ctx, chat, modelConfig, params.toolChoice), nil
+	return agentID, nil
 }
 
 // loadOrCreateChat retrieves an existing chat session by its thread ID or
 // creates a new one if it doesn't exist. It then appends the incoming user
 // message to the chat history.
-func (s *Usecase) loadOrCreateChat(
+func (u *Usecase) loadOrCreateChat(
 	ctx context.Context,
 	id ids.ThreadID,
 	msg messages.MessageUser,
 ) (*chat.Chat, error) {
-	thread, err := chat.New(ctx, s.storage, s.indexer, s.toolStorage, s.accounts, s.models, id)
-	if errors.Is(err, ports.ErrNotFound) {
-		thread, err = chat.CreateChatAggregate(
-			ctx, s.storage, s.indexer, s.toolStorage, s.accounts,
-			s.models, id, []messages.Message{msg},
+	agg, err := chat.New(ctx, u.storage, u.indexer, u.toolStorage, u.accounts, u.models, id)
+	switch {
+	case errors.Is(err, ports.ErrNotFound):
+		agg, err = chat.CreateChatAggregate(
+			ctx, u.storage, u.indexer, u.toolStorage, u.accounts,
+			u.models, id, []messages.Message{msg},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating chat: %w", err)
 		}
-	} else if err != nil {
+	case err != nil:
 		return nil, fmt.Errorf("loading chat: %w", err)
-	} else {
-		if err = thread.AcceptUserMessage(ctx, msg); err != nil {
+	default:
+		if err = agg.AcceptUserMessage(ctx, msg); err != nil {
 			return nil, fmt.Errorf("adding user message: %w", err)
 		}
 	}
 
-	return thread, nil
+	return agg, nil
 }
 
-func (s *Usecase) agentLoop(
+func (u *Usecase) agentLoop(
 	ctx context.Context,
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 ) iter.Seq2[messages.Message, error] {
 	return func(yield func(messages.Message, error) bool) {
-		ctx, span := s.trace.Start(ctx, "Usecase.agentLoop")
+		loopCtx, span := u.trace.Start(ctx, "Usecase.agentLoop")
 		defer span.End()
 
-		for turn := range s.agentLoopTurns {
-			span.AddEvent("set.turn", trace.WithAttributes(
-				attribute.Int("turn", int(turn)),
-			))
-
-			toolRequests, shouldContinue := s.askModel(ctx, thread, config, toolChoice, yield)
-			if !shouldContinue {
+		for turn := range u.agentLoopTurns {
+			if !u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield) {
 				return
-			}
-
-			if len(toolRequests) == 0 {
-				return
-			}
-
-			s.log.ToolCalled(ctx, thread.ThreadID().String(), toolRequests)
-
-			if !s.executeTools(ctx, thread, toolRequests, yield) {
-				return
-			}
-
-			if turn == s.agentLoopTurns-1 {
-				s.log.MaxTurnsReached(ctx, thread.ThreadID().String())
 			}
 		}
 	}
 }
 
-func (s *Usecase) askModel(
+func (u *Usecase) agentTurn(
+	ctx context.Context,
+	thread *chat.Chat,
+	config entities.AgentReadOnly,
+	toolChoice tools.ToolChoice,
+	turn uint8,
+	yield func(messages.Message, error) bool,
+) bool {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("set.turn", trace.WithAttributes(attribute.Int("turn", int(turn))))
+
+	toolRequests, shouldContinue := u.askModel(ctx, thread, config, toolChoice, yield)
+	if !shouldContinue || len(toolRequests) == 0 {
+		return false
+	}
+
+	if !u.handleToolRequests(ctx, thread, turn, toolRequests, yield) {
+		return false
+	}
+
+	return true
+}
+
+func (u *Usecase) handleToolRequests(
+	ctx context.Context,
+	thread *chat.Chat,
+	turn uint8,
+	toolRequests []messages.MessageToolRequest,
+	yield func(messages.Message, error) bool,
+) bool {
+	u.log.ToolCalled(ctx, thread.ThreadID().String(), toolRequests)
+
+	if !u.executeTools(ctx, thread, toolRequests, yield) {
+		return false
+	}
+
+	if turn == u.agentLoopTurns-1 {
+		u.log.MaxTurnsReached(ctx, thread.ThreadID().String())
+	}
+
+	return true
+}
+
+func (u *Usecase) askModel(
 	ctx context.Context,
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 	yield func(messages.Message, error) bool,
 ) ([]messages.MessageToolRequest, bool) {
-	stream, err := s.callModel(ctx, thread, config, toolChoice)
+	stream, err := u.callModel(ctx, thread, config, toolChoice)
 	if err != nil {
-		return nil, s.handleModelError(ctx, thread, err, yield)
+		u.handleModelError(ctx, thread, err, yield)
+		return nil, false
 	}
 
-	return s.streamModelMessages(ctx, thread, stream, yield)
+	return u.streamModelMessages(ctx, thread, stream, yield)
 }
 
-func (s *Usecase) callModel(
+func (u *Usecase) callModel(
 	ctx context.Context,
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
@@ -174,15 +229,20 @@ func (s *Usecase) callModel(
 		opts = append(opts, chatmodel.WithStreamToolbox(thread.RelevantTools()))
 	}
 
-	return s.model.Stream(ctx, thread.Messages(), config, opts...)
+	resp, err := u.model.Stream(ctx, thread.Messages(), config, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("calling model stream: %w", err)
+	}
+
+	return resp, nil
 }
 
-func (s *Usecase) handleModelError(
+func (u *Usecase) handleModelError(
 	ctx context.Context,
 	thread *chat.Chat,
 	err error,
 	yield func(messages.Message, error) bool,
-) bool {
+) {
 	errorMsg, msgErr := messages.NewMessageAssistant(
 		fmt.Sprintf(
 			"I apologize, but I encountered a technical error while processing your request: %v",
@@ -191,20 +251,18 @@ func (s *Usecase) handleModelError(
 	)
 	if msgErr != nil {
 		yield(nil, fmt.Errorf("creating error message: %w", msgErr))
-		return false
+		return
 	}
 
 	if acceptErr := thread.AcceptAssistantMessage(ctx, errorMsg); acceptErr != nil {
 		yield(nil, fmt.Errorf("saving error message: %w", acceptErr))
-		return false
+		return
 	}
 
 	yield(errorMsg, err)
-
-	return false
 }
 
-func (s *Usecase) streamModelMessages(
+func (u *Usecase) streamModelMessages(
 	ctx context.Context,
 	thread *chat.Chat,
 	stream iter.Seq2[messages.Message, error],
@@ -218,7 +276,7 @@ func (s *Usecase) streamModelMessages(
 			return nil, false
 		}
 
-		if !s.saveAndYieldMessage(ctx, thread, msg, &toolRequests, yield) {
+		if !u.saveAndYieldMessage(ctx, thread, msg, &toolRequests, yield) {
 			return nil, false
 		}
 	}
@@ -226,7 +284,7 @@ func (s *Usecase) streamModelMessages(
 	return toolRequests, true
 }
 
-func (s *Usecase) saveAndYieldMessage(
+func (u *Usecase) saveAndYieldMessage(
 	ctx context.Context,
 	thread *chat.Chat,
 	msg messages.Message,
@@ -242,7 +300,7 @@ func (s *Usecase) saveAndYieldMessage(
 		err = thread.AcceptToolRequest(ctx, v)
 		*toolRequests = append(*toolRequests, v)
 	default:
-		err = fmt.Errorf("unexpected message type: %T", msg)
+		err = errInternalValidation("unexpected message type: %T", msg)
 	}
 
 	if err != nil {
@@ -253,14 +311,14 @@ func (s *Usecase) saveAndYieldMessage(
 	return yield(msg, nil)
 }
 
-func (s *Usecase) executeTools(
+func (u *Usecase) executeTools(
 	ctx context.Context,
 	c *chat.Chat,
 	toolRequests []messages.MessageToolRequest,
 	yield func(messages.Message, error) bool,
 ) bool {
 	for _, req := range toolRequests {
-		if !s.executeTool(ctx, c, req, yield) {
+		if !u.executeTool(ctx, c, req, yield) {
 			return false
 		}
 	}
@@ -268,7 +326,7 @@ func (s *Usecase) executeTools(
 	return true
 }
 
-func (s *Usecase) executeTool(
+func (u *Usecase) executeTool(
 	ctx context.Context,
 	thread *chat.Chat,
 	req messages.MessageToolRequest,
@@ -281,12 +339,12 @@ func (s *Usecase) executeTool(
 		)
 	}
 
-	tool, err := s.toolStorage.GetTool(ctx, toolID.Account(), toolID)
+	tool, err := u.toolStorage.GetTool(ctx, toolID.Account(), toolID)
 	if err != nil {
 		return yieldToolError(ctx, thread, req, fmt.Sprintf("Tool not found: %v", err), yield)
 	}
 
-	result, err := s.tools.ExecuteTool(ctx, tool, cleanArgs, req.ToolCallID())
+	result, err := u.tools.ExecuteTool(ctx, tool, cleanArgs, req.ToolCallID())
 	if err != nil {
 		return yieldToolError(ctx, thread, req, fmt.Sprintf("Execution failed: %v", err), yield)
 	}
@@ -306,7 +364,11 @@ func yieldToolError(
 	errMsg string,
 	yield func(messages.Message, error) bool,
 ) bool {
-	content, _ := json.Marshal(map[string]string{"error": errMsg})
+	content, err := json.Marshal(map[string]string{"error": errMsg})
+	if err != nil {
+		yield(nil, fmt.Errorf("building tool error json: %w", err))
+		return false
+	}
 
 	toolErr, err := messages.NewMessageToolError(
 		content,
