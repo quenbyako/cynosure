@@ -50,7 +50,6 @@ func DiscoverToolsParams(opts ...DiscoverToolsOption) discoverToolsParams {
 	return p
 }
 
-//nolint:ireturn // option pattern
 func resolvedDiscoverToolsParams(value discoverToolsParams) DiscoverToolsOption {
 	return discoverToolsFunc(func(p *discoverToolsParams) { *p = value })
 }

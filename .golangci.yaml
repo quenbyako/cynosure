@@ -1,4 +1,4 @@
-﻿version: "2"
+version: "2"
 run:
   timeout: 40s # default is 1m
 output:
@@ -656,4 +656,3 @@ linters:
           # ignore that linter in cmd, cause it doesn't make a lot of sense in
           # that specific usecase.
           - gci
-

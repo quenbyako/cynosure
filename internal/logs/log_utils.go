@@ -31,6 +31,7 @@ var (
 )
 
 type eventBuilder struct {
+	//nolint:containedctx // it's impossible in other ways provide context values
 	ctx context.Context
 	h   slog.Handler
 	r   slog.Record

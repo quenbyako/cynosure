@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
@@ -40,7 +41,7 @@ func RunOAuthHandlerTests(
 	}
 
 	if err := suite.validate(); err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
 	return runSuite(suite)
@@ -116,7 +117,11 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 							"registration_endpoint":  "http://" + r.Host + "/register",
 						})
 					case registerPath:
-						require.Equal(t, http.MethodPost, r.Method)
+						// using assert cause http handler
+						if !assert.Equal(t, http.MethodPost, r.Method) {
+							return
+						}
+
 						w.WriteHeader(http.StatusCreated)
 						_ = json.NewEncoder(w).Encode(map[string]any{
 							"client_id":     "client-123",
@@ -230,6 +235,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 			redirectURL: must(url.Parse("http://localhost/callback")),
 			opts: func(srv *httptest.Server) []oauthhandler.RegisterClientOption {
 				u, _ := url.Parse(srv.URL + "/custom-protected-resource")
+
 				return []oauthhandler.RegisterClientOption{
 					oauthhandler.WithSuggestedProtectedResource(u),
 				}
@@ -296,9 +302,12 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 
 				return nil // no server needed
 			},
-			originURL: func(srv *httptest.Server) *url.URL {
-				u, _ := url.Parse("http://%%invalid")
-				return u
+			originURL: func(*httptest.Server) *url.URL {
+				//nolint:exhaustruct // just simulating invalid url, no need to fill all fields
+				return &url.URL{
+					Scheme: "http",
+					Host:   "%%invalid",
+				}
 			},
 			redirectURL: must(url.Parse("http://localhost/callback")),
 			assertErr: func(t *testing.T, err error) {
@@ -349,7 +358,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					w http.ResponseWriter, r *http.Request,
 				) {
 					w.Header().Set("Content-Type", "application/json")
-					_, _ = w.Write([]byte(`{ "authorization_servers": [`)) // malformed json
+					//nolint:errcheck,gosec // makes no sense to check error here
+					w.Write([]byte(`{ "authorization_servers": [`)) // malformed json
 				}))
 			},
 			originURL: func(srv *httptest.Server) *url.URL {
@@ -494,7 +504,7 @@ func (s *OAuthHandlerTestSuite) TestExchange(t *testing.T) {
 
 func must[T any](v T, err error) T {
 	if err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo
 	}
 
 	return v

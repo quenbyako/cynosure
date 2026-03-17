@@ -27,8 +27,7 @@ func (i *portWrapped) _PortWrapped() {}
 //nolint:ireturn // it's a factory function
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
-		// TODO: FIX
-		panic("required observable stack")
+		observable = ports.NoOpObserveStack()
 	}
 
 	t := portWrapped{

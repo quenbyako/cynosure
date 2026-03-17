@@ -1,6 +1,8 @@
 package testsuite
 
 import (
+	"errors"
+	"fmt"
 	"iter"
 	"net/url"
 	"testing"
@@ -40,6 +42,8 @@ type ToolClientTestSuiteOpts func(*ToolClientTestSuite)
 func WithAfterServerSetup(f func(u *url.URL)) ToolClientTestSuiteOpts {
 	return func(s *ToolClientTestSuite) { s.afterServerSetup = f }
 }
+
+var ErrUnexpectedToolNameCollision = errors.New("unexpected tool name collision")
 
 func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 	srvAccountMaker := map[string]func(srv *mcpmock.MockServer) *oauth2.Token{
@@ -97,10 +101,14 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 						account ids.AccountID, name string,
 					) (ids.ToolID, error) {
 						if _, ok := nameToID[name]; ok {
-							panic("unexpected tool name collision")
+							return ids.ToolID{}, ErrUnexpectedToolNameCollision
 						}
 
-						id := must(ids.RandomToolID(account))
+						id, err := ids.RandomToolID(account)
+						if err != nil {
+							return ids.ToolID{}, fmt.Errorf("generating tool id: %w", err)
+						}
+
 						nameToID[name] = id
 
 						return id, nil
@@ -232,12 +240,4 @@ func accessTokenOnly(accessToken string) *oauth2.Token {
 		Expiry:       time.Time{},
 		ExpiresIn:    0,
 	}
-}
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-
-	return v
 }

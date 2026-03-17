@@ -9,8 +9,6 @@ import (
 // Applies to:
 //
 //   - [ChatModel.Stream]
-//
-//nolint:ireturn // option
 func WithStreamToolbox(toolbox tools.Toolbox) StreamOption {
 	return streamFunc(func(p *streamParams) { p.tools = toolbox })
 }
@@ -20,8 +18,6 @@ func WithStreamToolbox(toolbox tools.Toolbox) StreamOption {
 // Applies to:
 //
 //   - [ChatModel.Stream]
-//
-//nolint:ireturn // option
 func WithStreamToolChoice(choice tools.ToolChoice) StreamOption {
 	return streamFunc(func(p *streamParams) { p.toolChoice = choice })
 }
@@ -54,7 +50,6 @@ func StreamParams(opts ...StreamOption) streamParams {
 	return p
 }
 
-//nolint:ireturn // it's a factory function
 func resolvedStreamParams(value streamParams) StreamOption {
 	return streamFunc(func(p *streamParams) { *p = value })
 }

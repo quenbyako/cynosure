@@ -89,10 +89,9 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	pp.Println("Thoughts from model:", thought)
 }
 
-//nolint:thelper // it's not a typical test helper, it's a wrapper for mandatory results
 func must[T any](v T, err error) T {
 	if err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo
 	}
 
 	return v

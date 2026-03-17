@@ -85,13 +85,18 @@ func (s *Usecase) completeOAuthLink(
 ) (SetupAuthLinkResponse, error) {
 	validUntil := s.clock().Add(s.stateExpiration)
 
-	state, err := oauth.NewState(account, name, desc, verifier, validUntil)
+	stateRaw, err := oauth.NewState(account, name, desc, verifier, validUntil)
 	if err != nil {
 		return SetupAuthLinkResponse{}, fmt.Errorf("creating state: %w", err)
 	}
 
+	state, err := stateRaw.State("", s.key)
+	if err != nil {
+		return SetupAuthLinkResponse{}, fmt.Errorf("generating state: %w", err)
+	}
+
 	authURL, err := url.Parse(info.AuthConfig().AuthCodeURL(
-		state.State("", s.key),
+		state,
 		oauth2.S256ChallengeOption(verifierStr),
 	))
 	if err != nil {

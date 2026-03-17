@@ -17,7 +17,7 @@ type observable struct {
 
 func newObservable(stack ports.ObserveStack) *observable {
 	if stack == nil {
-		panic("required observable stack")
+		stack = ports.NoOpObserveStack()
 	}
 
 	return &observable{
@@ -28,7 +28,7 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-//nolint:spancheck // isolated in a wrapper
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
 func (o *observable) hasUser(
 	ctx context.Context, userID string,
 ) (context.Context, span) {
@@ -56,7 +56,7 @@ func (o *observable) lookupUser(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck // isolated in a wrapper
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
 func (o *observable) createUser(
 	ctx context.Context, telegramID, nickname, firstName, lastName string,
 ) (context.Context, span) {
@@ -73,7 +73,7 @@ func (o *observable) createUser(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck // isolated in a wrapper
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
 func (o *observable) issueToken(
 	ctx context.Context, userID string,
 ) (context.Context, span) {

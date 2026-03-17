@@ -17,6 +17,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
+//nolint:ireturn // polymorphic bot api response
 func (h *Handler) SendUpdate(
 	ctx context.Context, request botapi.SendUpdateRequestObject,
 ) (botapi.SendUpdateResponseObject, error) {
@@ -31,25 +32,24 @@ func (h *Handler) SendUpdate(
 	updateID := update.UpdateId
 	switch {
 	case update.Message != nil:
-		if res, err := h.processMessage(ctx, updateID, update.Message); err != nil {
-			return nil, err
-		} else {
-			return res, nil
-		}
+		h.processMessage(ctx, updateID, update.Message)
+
+		return noContentResponse{}, nil
 	default:
 		// Unknown update type, ignore
 		return noContentResponse{}, nil
 	}
 }
 
+//nolint:ireturn // polymorphic response
 func (h *Handler) processMessage(
 	requestCtx context.Context, _ int, msg *botapi.Message,
-) (botapi.SendUpdateResponseObject, error) {
+) {
 	chatID := msg.Chat.Id
 
 	if msg.Chat.Type != "private" {
 		// Only supporting private chats for now to avoid group spamming
-		return noContentResponse{}, nil
+		return
 	}
 
 	// We resolve basic info synchronously to ensure we can respond with error
@@ -102,12 +102,12 @@ func (h *Handler) processMessage(
 				)
 			}
 
-			return noContentResponse{}, nil
+			return
 		}
 
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making user id: %w", err))
 
-		return noContentResponse{}, nil
+		return
 	}
 
 	thread := strconv.Itoa(msg.Chat.Id)
@@ -118,7 +118,7 @@ func (h *Handler) processMessage(
 	threadID, err := ids.NewThreadID(userID, thread)
 	if err != nil {
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making thread id: %w", err))
-		return noContentResponse{}, nil
+		return
 	}
 
 	var text string
@@ -127,13 +127,13 @@ func (h *Handler) processMessage(
 	}
 
 	if text == "" {
-		return noContentResponse{}, nil
+		return
 	}
 
 	userMessage, err := messages.NewMessageUser(text)
 	if err != nil {
 		h.log.ProcessMessageIssue(requestCtx, chatID, fmt.Errorf("making user message: %w", err))
-		return noContentResponse{}, nil
+		return
 	}
 
 	// Detach processing to avoid Telegram timeout (and subsequent retries)
@@ -173,7 +173,11 @@ func (h *Handler) processMessage(
 			case messages.MessageUser:
 				// ignoring user messages
 			default:
-				panic(fmt.Sprintf("unexpected messages.Message: %#v", res))
+				h.log.ProcessMessageIssue(ctx, chatID,
+					fmt.Errorf("unexpected messages.Message: %#v", res),
+				)
+
+				return
 			}
 
 			if accumulated == "" {
@@ -265,8 +269,6 @@ func (h *Handler) processMessage(
 		duration := time.Since(startTime)
 		h.log.ProcessMessageSuccess(ctx, chatID, duration.String())
 	}(ctxMergeValuesOnly(h.lifecycleCtx, requestCtx))
-
-	return noContentResponse{}, nil
 }
 
 type noContentResponse struct{}
@@ -276,6 +278,7 @@ func (noContentResponse) VisitSendUpdateResponse(w http.ResponseWriter) error {
 	return nil
 }
 
+//nolint:containedctx // that's extension for context mechanism.
 type merged struct {
 	context.Context
 	valuesOnly context.Context
@@ -285,6 +288,7 @@ func ctxMergeValuesOnly(ctx, values context.Context) context.Context {
 	return &merged{Context: ctx, valuesOnly: context.WithoutCancel(values)}
 }
 
+//nolint:ireturn // context.Value returns any
 func (d *merged) Value(k any) any {
 	if val := d.valuesOnly.Value(k); val != nil {
 		return val

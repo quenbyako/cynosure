@@ -226,13 +226,18 @@ func (s *Usecase) createOAuthAuthResponse(
 ) (AddAccountResponse, error) {
 	validUntil := s.clock().Add(s.stateExpiration)
 
-	state, err := oauth.NewState(account, name, description, verifier, validUntil)
+	stateRaw, err := oauth.NewState(account, name, description, verifier, validUntil)
 	if err != nil {
 		return nil, fmt.Errorf("creating state: %w", err)
 	}
 
+	state, err := stateRaw.State("", s.key)
+	if err != nil {
+		return nil, fmt.Errorf("generating state: %w", err)
+	}
+
 	authURL, err := url.Parse(server.AuthConfig().AuthCodeURL(
-		state.State("", s.key),
+		state,
 		oauth2.S256ChallengeOption(verifierStr),
 	))
 	if err != nil {

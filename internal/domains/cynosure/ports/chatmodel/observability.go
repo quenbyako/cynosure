@@ -21,8 +21,7 @@ type observable struct {
 
 func newObservable(stack ports.ObserveStack) *observable {
 	if stack == nil {
-		//nolint:forbidigo // we'll fix it later
-		panic("required observable stack")
+		stack = ports.NoOpObserveStack()
 	}
 
 	return &observable{

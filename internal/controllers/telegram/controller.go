@@ -22,6 +22,8 @@ const (
 )
 
 type Handler struct {
+	// TODO: maybe it's not the best pattern? Maybe channels or mutexes are better? idk
+	//nolint:containedctx // lifecycleCtx provides context for handler worker.
 	lifecycleCtx   context.Context
 	log            LogCallbacks
 	tracer         trace.Tracer
@@ -53,12 +55,16 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
+const (
+	defaultUpdateInterval = 2 * time.Second
+)
+
 func New(
-	ctx context.Context, srv *chat.Usecase, users *users.Usecase,
+	ctx context.Context, srv *chat.Usecase, usecase *users.Usecase,
 	serverPublicAddress *url.URL, token []byte, opts ...NewOption,
 ) (http.Handler, error) {
 	params := newParams{
-		updateInterval: time.Second * 2,
+		updateInterval: defaultUpdateInterval,
 		log:            NoOpLogCallbacks{},
 		tracer:         noopTrace.NewTracerProvider(),
 	}
@@ -101,7 +107,7 @@ func New(
 		log:            params.log,
 		tracer:         params.tracer.Tracer(pkgName),
 		srv:            srv,
-		users:          users,
+		users:          usecase,
 		client:         client,
 		updateInterval: params.updateInterval,
 		lifecycleCtx:   ctx,

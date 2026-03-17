@@ -42,45 +42,45 @@ func Register(srv *chat.Usecase, anonUser ids.UserID) func(server grpc.ServiceRe
 
 // CancelTask implements a2a.A2AServiceServer.
 func (h *Handler) CancelTask(context.Context, *a2a.CancelTaskRequest) (*a2a.Task, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // CreateTaskPushNotificationConfig implements a2a.A2AServiceServer.
 func (h *Handler) CreateTaskPushNotificationConfig(
 	ctx context.Context, req *a2a.CreateTaskPushNotificationConfigRequest,
 ) (*a2a.TaskPushNotificationConfig, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // DeleteTaskPushNotificationConfig implements a2a.A2AServiceServer.
 func (h *Handler) DeleteTaskPushNotificationConfig(
 	ctx context.Context, req *a2a.DeleteTaskPushNotificationConfigRequest,
 ) (*emptypb.Empty, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // GetAgentCard implements a2a.A2AServiceServer.
 func (h *Handler) GetAgentCard(context.Context, *a2a.GetAgentCardRequest) (*a2a.AgentCard, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // GetTask implements a2a.A2AServiceServer.
 func (h *Handler) GetTask(context.Context, *a2a.GetTaskRequest) (*a2a.Task, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // GetTaskPushNotificationConfig implements a2a.A2AServiceServer.
 func (h *Handler) GetTaskPushNotificationConfig(
 	ctx context.Context, req *a2a.GetTaskPushNotificationConfigRequest,
 ) (*a2a.TaskPushNotificationConfig, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // ListTaskPushNotificationConfig implements a2a.A2AServiceServer.
 func (h *Handler) ListTaskPushNotificationConfig(
 	ctx context.Context, req *a2a.ListTaskPushNotificationConfigRequest,
 ) (*a2a.ListTaskPushNotificationConfigResponse, error) {
-	panic("unimplemented")
+	return nil, errors.New("unimplemented")
 }
 
 // SendMessage implements a2a.A2AServiceServer.
@@ -142,22 +142,32 @@ func (h *Handler) SendMessage(
 				argsRaw[key] = x
 			}
 
+			args, err := structpb.NewValue(argsRaw)
+			if err != nil {
+				return nil, fmt.Errorf("creating args value: %w", err)
+			}
+
 			parts = append(parts, &a2a.Part{
 				Part: &a2a.Part_Data{
 					Data: &a2a.DataPart{
 						Data: &structpb.Struct{
 							Fields: map[string]*structpb.Value{
 								"tool": structpb.NewStringValue(msg.ToolName()),
-								"args": must(structpb.NewValue(argsRaw)),
+								"args": args,
 							},
 						},
 					},
 				},
 			})
 		case messages.MessageToolResponse:
-			var content any
-			if err := json.Unmarshal(msg.Content(), &content); err != nil {
+			var contentRaw any
+			if err := json.Unmarshal(msg.Content(), &contentRaw); err != nil {
 				return nil, fmt.Errorf("unmarshalling arg: %w", err)
+			}
+
+			content, err := structpb.NewValue(contentRaw)
+			if err != nil {
+				return nil, fmt.Errorf("creating args value: %w", err)
 			}
 
 			parts = append(parts, &a2a.Part{
@@ -166,7 +176,7 @@ func (h *Handler) SendMessage(
 						Data: &structpb.Struct{
 							Fields: map[string]*structpb.Value{
 								"tool":    structpb.NewStringValue(msg.ToolName()),
-								"content": must(structpb.NewValue(content)),
+								"content": content,
 							},
 						},
 					},
@@ -255,13 +265,5 @@ func (h *Handler) SendStreamingMessage(
 func (h *Handler) TaskSubscription(
 	req *a2a.TaskSubscriptionRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse],
 ) error {
-	panic("unimplemented")
-}
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return errors.New("unimplemented")
 }

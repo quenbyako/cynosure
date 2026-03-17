@@ -82,6 +82,7 @@ type ToolStorageFactory interface {
 	ToolStorage() ToolStorage
 }
 
+//nolint:ireturn // standard port pattern: hiding implementation details
 func NewToolStorage(f ToolStorageFactory) ToolStorage {
 	return f.ToolStorage()
 }

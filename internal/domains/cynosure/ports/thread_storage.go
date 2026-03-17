@@ -51,6 +51,7 @@ type ThreadStorageFactory interface {
 	ThreadStorage() ThreadStorageWrapped
 }
 
+//nolint:ireturn // standard port pattern: hiding implementation details
 func NewThreadStorage(factory ThreadStorageFactory) ThreadStorageWrapped {
 	return factory.ThreadStorage()
 }
@@ -69,6 +70,7 @@ type threadStorageWrapped struct {
 
 func (t *threadStorageWrapped) _ThreadStorage() {}
 
+//nolint:ireturn // standard port pattern: hiding implementation details
 func WrapThreadStorage(
 	storage ThreadStorage,
 	opts ...WrapThreadStorageOption,

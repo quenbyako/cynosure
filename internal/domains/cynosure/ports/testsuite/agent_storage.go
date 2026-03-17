@@ -26,7 +26,7 @@ func RunModelSettingsStorageTests(
 	}
 
 	if err := suite.validate(); err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
 	return runSuite(suite)
@@ -75,12 +75,17 @@ func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 	userID := ids.RandomUserID()
 	modelID := must(ids.RandomAgentID(userID))
 
+	const (
+		temperature = 0.7
+		topP        = 0.9
+	)
+
 	model := must(entities.NewModelSettings(
 		modelID,
 		"oompa-loompa-6000",
 		entities.WithSystemMessage("You are a helpful Oompa-Loompa... Wait, what?"),
-		entities.WithTemperature(0.7),
-		entities.WithTopP(0.9),
+		entities.WithTemperature(temperature),
+		entities.WithTopP(topP),
 		entities.WithStopWords([]string{"STOP"}),
 	))
 

@@ -37,6 +37,7 @@ func Register(usecase *accounts.Usecase) func(server grpc.ServiceRegistrar) {
 func (h *Handler) AddServer(
 	ctx context.Context, req *admin.AddServerRequest,
 ) (*admin.AddServerResponse, error) {
+	//nolint:wrapcheck // yes, that's the point to use external error!
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
@@ -70,6 +71,8 @@ func (h *Handler) Authorize(
 			Link: "",
 		}, nil
 	default:
-		panic(fmt.Errorf("unexpected accounts.AddAccountResponse: %#v", link))
+		return nil, status.Errorf(codes.Internal,
+			"unexpected accounts.AddAccountResponse: %#v", link,
+		)
 	}
 }

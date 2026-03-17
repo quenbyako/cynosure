@@ -25,7 +25,7 @@ type observable struct {
 
 func newObservable(stack ports.ObserveStack) *observable {
 	if stack == nil {
-		panic("required observable stack")
+		stack = ports.NoOpObserveStack()
 	}
 
 	return &observable{
@@ -36,7 +36,7 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-//nolint:spancheck // isolated in a wrapper
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
 func (o *observable) discoverTools(
 	ctx context.Context,
 	accountID, serverURL string,
@@ -69,14 +69,17 @@ func (c *executeToolSpan) recordResponse(response json.RawMessage) {
 	}
 }
 
-//nolint:spancheck // isolated in a wrapper
+//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
 func (o *observable) executeTool(
 	ctx context.Context,
 	toolName string,
 	args map[string]json.RawMessage,
 	toolCallID string,
 ) (context.Context, executeToolCallback) {
-	serialized, _ := json.Marshal(args)
+	serialized, err := json.Marshal(args)
+	if err != nil {
+		serialized = []byte("SERIALIZATION ERROR: " + err.Error())
+	}
 
 	ctx, span := o.t.Start(ctx, "cynosure.ports.tool.execute_tool",
 		trace.WithSpanKind(trace.SpanKindInternal),

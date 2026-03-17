@@ -202,7 +202,6 @@ func (s *Usecase) validateConfig() error {
 	return nil
 }
 
-//nolint:ireturn // ReadOnly interface is intentional for domain boundary
 func (s *Usecase) GetServerInfo(
 	ctx context.Context,
 	id ids.ServerID,

@@ -57,15 +57,15 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 			continue
 		}
 
-		rawTool, err := tools.NewRawTool(
+		rawTool, toolErr := tools.NewRawTool(
 			tool.Name(),
 			tool.Description(),
 			tool.InputSchema(),
 			tool.OutputSchema(),
 			tool.ID(), desc.slug, desc.desc,
 		)
-		if err != nil {
-			return tools.Toolbox{}, fmt.Errorf("creating raw tool %q: %w", tool.Name(), err)
+		if toolErr != nil {
+			return tools.Toolbox{}, fmt.Errorf("creating raw tool %q: %w", tool.Name(), toolErr)
 		}
 
 		rawTools = append(rawTools, rawTool)

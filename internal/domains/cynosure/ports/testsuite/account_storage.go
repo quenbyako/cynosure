@@ -32,7 +32,7 @@ func RunAccountStorageTests(
 	}
 
 	if err := suite.validate(); err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
 	return runSuite(suite)
@@ -137,7 +137,7 @@ func (s *AccountStorageTestSuite) buildSaveAccountSeed() SaveAccountFixture {
 
 func must[T any](v T, err error) T {
 	if err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo
 	}
 
 	return v

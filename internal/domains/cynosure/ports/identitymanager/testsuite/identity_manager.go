@@ -26,7 +26,7 @@ func RunIdentityManagerTests(
 	}
 
 	if err := suite.validate(); err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
 	return runSuite(suite)
@@ -65,7 +65,7 @@ func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
 }
 
 func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
-	id := time.Now().UnixNano() / 1000
+	id := time.Now().UnixNano() / int64(time.Microsecond)
 
 	externalID := strconv.FormatInt(id, 10)
 	nickname := fmt.Sprintf("go-test-user-%d", id)

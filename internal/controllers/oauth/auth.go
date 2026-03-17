@@ -24,7 +24,7 @@ func NewHandler(srv *accounts.Usecase) http.Handler {
 
 	inner, err := httpapi.NewServer(h)
 	if err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for app initialization
 	}
 
 	return inner
@@ -33,6 +33,8 @@ func NewHandler(srv *accounts.Usecase) http.Handler {
 var emptyBool = httpapi.OptBool{Value: false, Set: false}
 
 // GetAgentCard implements httpapi.Handler.
+//
+//nolint:ireturn // polymorphic http api response
 func (h *Handler) GetAgentCard(
 	ctx context.Context, params httpapi.GetAgentCardParams,
 ) (httpapi.GetAgentCardRes, error) {
@@ -66,7 +68,7 @@ func (h *Handler) GetAgentCard(
 	}, nil
 }
 
-// OAuthCallbackGet implements httpapi.Handler.
+//nolint:ireturn // polymorphic response
 func (h *Handler) OAuthCallbackGet(
 	ctx context.Context, params httpapi.OAuthCallbackGetParams,
 ) (httpapi.OAuthCallbackGetRes, error) {

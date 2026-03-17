@@ -28,7 +28,7 @@ func (t *toolClientWrapped) _PortWrapped() {}
 //nolint:ireturn // returns interface for hiding implementation details
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
-		panic("required observable stack")
+		observable = ports.NoOpObserveStack()
 	}
 
 	t := toolClientWrapped{

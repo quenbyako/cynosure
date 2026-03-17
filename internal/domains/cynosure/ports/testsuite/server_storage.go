@@ -34,7 +34,7 @@ func RunServerStorageTests(
 	}
 
 	if err := suite.validate(); err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
 	return runSuite(suite)
@@ -72,11 +72,15 @@ func (s *ServerStorageTestSuite) afterTest(t *testing.T) {
 	}
 }
 
+const (
+	oneDay = 24 * time.Hour
+)
+
 func (s *ServerStorageTestSuite) TestSaveServer(t *testing.T) {
 	serverID := ids.RandomServerID()
 	link := must(url.Parse("https://example.com/sse"))
 	opts := []entities.ServerConfigOption{
-		entities.WithExpiration(time.Now().Add(24 * time.Hour)),
+		entities.WithExpiration(time.Now().Add(oneDay)),
 		entities.WithAuthConfig(&oauth2.Config{
 			ClientID: "client-id",
 			Endpoint: oauth2.Endpoint{ //nolint:gosec // not a credential

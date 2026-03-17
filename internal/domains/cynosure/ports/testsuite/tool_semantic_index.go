@@ -42,7 +42,7 @@ func RunToolSemanticIndexTests(
 	}
 
 	if err := suite.validate(); err != nil {
-		panic(err)
+		panic(err) //nolint:forbidigo // ok for tests
 	}
 
 	return runSuite(suite)
@@ -230,7 +230,6 @@ func (s *ToolSemanticIndexTestSuite) buildSimpleTool(t *testing.T) entities.Tool
 	)
 }
 
-// buildComplexTool creates a tool with complex nested schema.
 func (s *ToolSemanticIndexTestSuite) buildComplexTool(t *testing.T) entities.ToolReadOnly {
 	t.Helper()
 

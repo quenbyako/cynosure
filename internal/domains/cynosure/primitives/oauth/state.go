@@ -3,7 +3,6 @@ package oauth
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -59,16 +58,33 @@ func StateFromToken(token string, key [16]byte) (State, error) {
 
 	kk, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, key[:])
 	if err != nil {
-		panic(err)
+		return State{}, ErrInternalValidation("invalid key")
 	}
 
-	res, err := cose.DecryptEncrypt0Message[claims](must(kk.Encryptor()), tokenRaw, nil)
+	encryptor, err := kk.Encryptor()
+	if err != nil {
+		return State{}, fmt.Errorf("creating decription stack: %w", err)
+	}
+
+	res, err := cose.DecryptEncrypt0Message[claims](encryptor, tokenRaw, nil)
 	if err != nil {
 		return State{}, fmt.Errorf("decrypting token: %w", err)
 	}
 
-	user := must(ids.NewUserID(res.Payload.UserID))
-	server := must(ids.NewServerID(res.Payload.ServerID))
+	user, err := ids.NewUserID(res.Payload.UserID)
+	if err != nil {
+		return State{}, fmt.Errorf("parsing user id: %w", err)
+	}
+
+	server, err := ids.NewServerID(res.Payload.ServerID)
+	if err != nil {
+		return State{}, fmt.Errorf("parsing server id: %w", err)
+	}
+
+	accountID, err := ids.NewAccountID(user, server, res.Payload.AccountID)
+	if err != nil {
+		return State{}, fmt.Errorf("parsing account id: %w", err)
+	}
 
 	expirationUnix := res.Payload.Expiration
 	if expirationUnix > math.MaxInt64 {
@@ -76,7 +92,7 @@ func StateFromToken(token string, key [16]byte) (State, error) {
 	}
 
 	state := State{
-		account:   must(ids.NewAccountID(user, server, res.Payload.AccountID)),
+		account:   accountID,
 		name:      res.Payload.AccountName,
 		desc:      res.Payload.AccountDesc,
 		challenge: res.Payload.Challenge,
@@ -92,15 +108,19 @@ func StateFromToken(token string, key [16]byte) (State, error) {
 	return state, nil
 }
 
+const (
+	maxDescriptionLength = 100
+)
+
 func (s *State) Valid() bool { return s._valid || s.validate() == nil }
 func (s *State) validate() error {
 	switch {
 	case s.name == "":
-		return errors.New("name is required")
+		return ErrInternalValidation("name is required")
 	case s.desc == "":
-		return errors.New("description is required")
-	case len(s.desc) > 100:
-		return errors.New("description must be 100 characters or less")
+		return ErrInternalValidation("description is required")
+	case len(s.desc) > maxDescriptionLength:
+		return ErrInternalValidation("description must be 100 characters or less")
 	}
 
 	return nil
@@ -121,10 +141,10 @@ func (s *State) Name() string           { return s.name }
 func (s *State) Description() string    { return s.desc }
 func (s *State) Challenge() []byte      { return s.challenge }
 
-func (s *State) State(kid string, k [16]byte) string {
+func (s *State) State(kid string, k [16]byte) (string, error) {
 	aesKey, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, k[:])
 	if err != nil {
-		panic(err)
+		return "", ErrInternalValidation("invalid state: key returned %q", err.Error())
 	}
 
 	protectedValues := cose.Headers{}
@@ -154,15 +174,15 @@ func (s *State) State(kid string, k [16]byte) string {
 		Unprotected: nil,
 	}
 
-	data := must(msg.EncryptAndEncode(must(aesKey.Encryptor()), nil))
-
-	return base64.RawURLEncoding.EncodeToString(data)
-}
-
-func must[T any](v T, err error) T {
+	encryptor, err := aesKey.Encryptor()
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("creating encryptor: %w", err)
 	}
 
-	return v
+	data, err := msg.EncryptAndEncode(encryptor, nil)
+	if err != nil {
+		return "", fmt.Errorf("encrypting state: %w", err)
+	}
+
+	return base64.RawURLEncoding.EncodeToString(data), nil
 }
