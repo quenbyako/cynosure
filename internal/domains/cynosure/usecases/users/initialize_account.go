@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/oauth2"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -112,6 +114,14 @@ func (u *Usecase) ensureAdminAccountValid(
 		return nil, fmt.Errorf("refreshing token for admin mcp: %w", err)
 	}
 
+	return u.createAccount(ctx, acc, token)
+}
+
+func (u *Usecase) createAccount(
+	ctx context.Context,
+	acc entities.AccountReadOnly,
+	token *oauth2.Token,
+) (*entities.Account, error) {
 	updatedAcc, err := entities.NewAccount(
 		acc.ID(),
 		acc.Name(),
@@ -194,6 +204,24 @@ func (u *Usecase) importTool(
 		break
 	}
 
+	tool, err := u.newToolWithEmbedding(ctx, toolID, account, rawTool)
+	if err != nil {
+		return err
+	}
+
+	if err := u.tools.SaveTool(ctx, tool); err != nil {
+		return fmt.Errorf("saving tool %q: %w", tool.Name(), err)
+	}
+
+	return nil
+}
+
+func (u *Usecase) newToolWithEmbedding(
+	ctx context.Context,
+	toolID ids.ToolID,
+	account entities.AccountReadOnly,
+	rawTool tools.RawTool,
+) (*entities.Tool, error) {
 	tool, err := entities.NewTool(
 		toolID,
 		account.Name(),
@@ -203,19 +231,18 @@ func (u *Usecase) importTool(
 		rawTool.Response(),
 	)
 	if err != nil {
-		return fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
+		return nil, fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 	}
 
 	embedding, err := u.index.IndexTool(ctx, tool)
 	if err != nil {
-		return fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
+		return nil, fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
 	}
 
 	tool.SetEmbedding(embedding)
 
-	if err := u.tools.SaveTool(ctx, tool); err != nil {
-		return fmt.Errorf("saving tool %q: %w", tool.Name(), err)
-	}
+	// cleaning events, cause it's newly created tool
+	tool.ClearEvents()
 
-	return nil
+	return tool, nil
 }

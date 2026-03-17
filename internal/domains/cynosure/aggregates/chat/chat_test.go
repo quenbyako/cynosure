@@ -56,7 +56,8 @@ func newChatFixture(t *testing.T) *chatFixture {
 	t.Helper()
 
 	user := ids.RandomUserID()
-	tid, _ := ids.NewThreadID(user, "test-thread-id")
+	tid, err := ids.NewThreadID(user, "test-thread-id")
+	require.NoError(t, err)
 
 	return &chatFixture{
 		t:              t,

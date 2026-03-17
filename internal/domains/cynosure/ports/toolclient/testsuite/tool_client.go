@@ -46,33 +46,7 @@ func WithAfterServerSetup(f func(u *url.URL)) ToolClientTestSuiteOpts {
 var ErrUnexpectedToolNameCollision = errors.New("unexpected tool name collision")
 
 func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
-	srvAccountMaker := map[string]func(srv *mcpmock.MockServer) *oauth2.Token{
-		"no_account": func(srv *mcpmock.MockServer) *oauth2.Token {
-			return nil
-		},
-		"valid_account": func(srv *mcpmock.MockServer) *oauth2.Token {
-			token := "someValidToken=="
-			srv.IssueToken(token)
-
-			return accessTokenOnly(token)
-		},
-		"invalid_account": func(srv *mcpmock.MockServer) *oauth2.Token {
-			token := "someValidToken=="
-			srv.IssueToken(token)
-
-			return accessTokenOnly("wrongToken==")
-		},
-		//TODO: test this too.
-		// "invalid_token_valid_refresh": func(srv *mcpmock.MockServer) *oauth2.Token {
-		//	token := "someValidToken=="
-		//	srv.IssueToken(token)
-		//
-		//	return &oauth2.Token{
-		//		AccessToken: "wrongToken==",
-		//	}
-		// },
-
-	}
+	srvAccountMaker := serverAccountsFactory(t)
 
 	name := "some-account"
 	desc := "Some Account Description"
@@ -82,7 +56,7 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 			t.Run(config.String()+"/"+testName, func(t *testing.T) {
 				t.Parallel()
 
-				account := dummyAccount()
+				account := dummyAccount(t)
 
 				srv := mcpmock.New(config)
 				defer srv.Close()
@@ -125,52 +99,89 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 					expectError = false
 				}
 
-				if expectError {
-					if testName == "invalid_account" {
-						// when we have invalid account, we are throwing generic
-						// errors. adapter MUST implement automatic refresh at
-						// least once.
-						require.ErrorIs(t, err, toolclient.ErrInvalidCredentials)
-						return
-					}
-
-					reqAuthErr := new(toolclient.RequiresAuthError)
-					require.ErrorAs(t, err, &reqAuthErr)
-
-					// Endpoint is only provided by server if it sends
-					// WWW-Authenticate header. For AuthNoHeader, server does
-					// not send it, so Endpoint() will naturally be nil.
-					if config.Protected == mcpmock.MetadataDiscoveryPathExplicit &&
-						config.Auth != mcpmock.AuthNoHeader {
-						require.NotNil(t, reqAuthErr.Endpoint())
-						require.NotEmpty(t, reqAuthErr.Endpoint().String())
-					}
+				if !expectError {
+					require.NoError(t, err)
+					require.ElementsMatch(
+						t,
+						srv.Tools(name, desc, func(name string) ids.ToolID {
+							return nameToID[name]
+						}),
+						tools,
+					)
 
 					return
 				}
 
-				if require.NoError(t, err); err != nil {
+				if testName == "invalid_account" {
+					// when we have invalid account, we are throwing generic
+					// errors. adapter MUST implement automatic refresh at
+					// least once.
+					require.ErrorIs(t, err, toolclient.ErrInvalidCredentials)
 					return
 				}
 
-				require.ElementsMatch(
-					t,
-					srv.Tools(name, desc, func(name string) ids.ToolID { return nameToID[name] }),
-					tools,
-				)
+				reqAuthErr := new(toolclient.RequiresAuthError)
+				require.ErrorAs(t, err, &reqAuthErr)
+
+				// Endpoint is only provided by server if it sends
+				// WWW-Authenticate header. For AuthNoHeader, server does
+				// not send it, so Endpoint() will naturally be nil.
+				if config.Protected == mcpmock.MetadataDiscoveryPathExplicit &&
+					config.Auth != mcpmock.AuthNoHeader {
+					require.NotNil(t, reqAuthErr.Endpoint())
+					require.NotEmpty(t, reqAuthErr.Endpoint().String())
+				}
 			})
 		}
 	}
 }
 
-func dummyAccount() ids.AccountID {
+func serverAccountsFactory(t *testing.T) map[string]func(srv *mcpmock.MockServer) *oauth2.Token {
+	t.Helper()
+
+	return map[string]func(srv *mcpmock.MockServer) *oauth2.Token{
+		"no_account": func(srv *mcpmock.MockServer) *oauth2.Token {
+			return nil
+		},
+		"valid_account": func(srv *mcpmock.MockServer) *oauth2.Token {
+			token := "someValidToken=="
+			srv.IssueToken(token)
+
+			return accessTokenOnly(token)
+		},
+		"invalid_account": func(srv *mcpmock.MockServer) *oauth2.Token {
+			token := "someValidToken=="
+			srv.IssueToken(token)
+
+			return accessTokenOnly("wrongToken==")
+		},
+		//TODO: test this too.
+		// "invalid_token_valid_refresh": func(srv *mcpmock.MockServer) *oauth2.Token {
+		//	token := "someValidToken=="
+		//	srv.IssueToken(token)
+		//
+		//	return &oauth2.Token{
+		//		AccessToken: "wrongToken==",
+		//	}
+		// },
+
+	}
+}
+
+func dummyAccount(t *testing.T) ids.AccountID {
+	t.Helper()
+
 	user := ids.RandomUserID()
-	server, _ := ids.NewServerID(uuid.New())
-	account, _ := ids.NewAccountID(user, server, uuid.New())
+	server, err := ids.NewServerID(uuid.New())
+	require.NoError(t, err)
+
+	account, err := ids.NewAccountID(user, server, uuid.New())
+	require.NoError(t, err)
 
 	return account
 }
 
+//nolint:gocognit,funlen // only single exception: it works as parametric tests. Weird? yes.
 func configIterator() iter.Seq[mcpmock.MockServerConfig] {
 	transports := [...]mcpmock.TransportType{mcpmock.TransportSSE, mcpmock.TransportHTTP}
 	authReqs := [...]mcpmock.AuthRequirement{

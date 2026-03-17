@@ -101,7 +101,7 @@ func mapUserMessage(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages
 	return msg, nil
 }
 
-//nolint:ireturn // returning interface is intended for polymorphic messages
+//nolint:ireturn // polymorphic messages
 func mapAssistantMessage(
 	row *db.GetThreadWithMessagesRow,
 	mergeTag uint64,

@@ -48,7 +48,7 @@ func WithIdentityManagerCleanup(f func() error) IdentityManagerTestSuiteOption {
 
 func (s *IdentityManagerTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // come on
 	}
 
 	return nil
@@ -72,7 +72,18 @@ func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
 	firstName := "Test"
 	lastName := "User"
 
-	t.Run("create_identity", func(t *testing.T) {
+	t.Run("create_identity", s.subtestCreateIdentity(externalID, nickname, firstName, lastName))
+
+	t.Run("not_found", func(t *testing.T) {
+		_, err := s.adapter.LookupUser(t.Context(), "nonexistent")
+		require.ErrorIs(t, err, identitymanager.ErrNotFound)
+	})
+}
+
+func (s *IdentityManagerTestSuite) subtestCreateIdentity(
+	externalID, nickname, firstName, lastName string,
+) func(*testing.T) {
+	return func(t *testing.T) { //nolint:thelper // it's a subtest, not helper
 		userID, err := s.adapter.CreateUser(t.Context(), externalID, nickname, firstName, lastName)
 		require.NoError(t, err)
 		require.True(t, userID.Valid())
@@ -95,10 +106,5 @@ func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
 			require.NotNil(t, token)
 			require.NotEmpty(t, token.AccessToken)
 		})
-	})
-
-	t.Run("not_found", func(t *testing.T) {
-		_, err := s.adapter.LookupUser(t.Context(), "nonexistent")
-		require.ErrorIs(t, err, identitymanager.ErrNotFound)
-	})
+	}
 }

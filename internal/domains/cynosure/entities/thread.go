@@ -28,12 +28,12 @@ func WithAgent(id ids.AgentID) ThreadOption {
 
 func NewThread(
 	id ids.ThreadID,
-	messages []messages.Message,
+	history []messages.Message,
 	opts ...ThreadOption,
 ) (*Thread, error) {
 	thread := &Thread{
 		id:            id,
-		messages:      messages,
+		messages:      history,
 		pendingEvents: nil,
 		agentID:       ids.AgentID{},
 		_valid:        false,
@@ -64,12 +64,12 @@ func (c *Thread) Validate() error {
 	return nil
 }
 
-func (c *Thread) validateMessages(messages []messages.Message) error {
-	if len(messages) == 0 {
+func (c *Thread) validateMessages(history []messages.Message) error {
+	if len(history) == 0 {
 		return ErrInternalValidation("messages cannot be empty")
 	}
 
-	for i, msg := range messages {
+	for i, msg := range history {
 		if !msg.Valid() {
 			return ErrInternalValidation("message %d is invalid", i)
 		}

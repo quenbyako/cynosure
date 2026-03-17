@@ -23,10 +23,7 @@ func (c *Chat) AcceptToolResult(ctx context.Context, message messages.MessageToo
 	defer c.mu.Unlock()
 
 	if _, ok := c.activeCalls[message.ToolCallID()]; !ok {
-		return fmt.Errorf(
-			"unexpected tool result: ID %q is not pending in the current turn",
-			message.ToolCallID(),
-		)
+		return errToolIDNotPending(message.ToolCallID())
 	}
 
 	if err := c.thread.AddMessage(message); err != nil {

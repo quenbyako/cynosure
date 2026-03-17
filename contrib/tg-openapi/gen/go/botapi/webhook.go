@@ -208,7 +208,7 @@ type StrictWebhookInterface interface {
 	) (SendUpdateResponseObject, error)
 }
 
-//nolint:ireturn // returns public interface instead of private struct.
+//nolint:ireturn // hiding implementation
 func NewStrictWebhookHandler(
 	ssi StrictWebhookInterface, middlewares []StrictMiddlewareFunc,
 ) WebhookInterface {
@@ -224,7 +224,7 @@ func NewStrictWebhookHandler(
 	}
 }
 
-//nolint:ireturn // returns public interface instead of private struct.
+//nolint:ireturn // hiding implementation
 func NewStrictWebhookHandlerWithOptions(
 	ssi StrictWebhookInterface,
 	middlewares []StrictMiddlewareFunc,

@@ -33,6 +33,7 @@ type RequiresAuthError struct {
 	suggestedMetadataEndpoint *url.URL
 }
 
+//nolint:errcheck // false positive, implementation check
 var _ error = (*RequiresAuthError)(nil)
 
 func ErrRequiresAuth(metadataEndpoint *url.URL) *RequiresAuthError {

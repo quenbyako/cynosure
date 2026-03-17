@@ -82,7 +82,7 @@ func newUsersUsecase(
 	toolClient toolclient.PortWrapped,
 	index ports.ToolSemanticIndex,
 ) (*users.Usecase, error) {
-	return users.New(
+	usecase, err := users.New(
 		identities,
 		agents,
 		accStorage,
@@ -93,4 +93,9 @@ func newUsersUsecase(
 		params.adminMCPID,
 		users.WithTracerProvider(params.observability),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("creating users usecase: %w", err)
+	}
+
+	return usecase, nil
 }

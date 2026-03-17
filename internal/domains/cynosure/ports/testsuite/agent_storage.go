@@ -50,7 +50,7 @@ func WithModelSettingsStorageCleanup(f CleanupFunc) ModelSettingsStorageTestSuit
 
 func (s *ModelSettingsStorageTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil
@@ -71,6 +71,8 @@ func (s *ModelSettingsStorageTestSuite) afterTest(t *testing.T) {
 // TODO: this test is poorly formatted, it's extremely necessary to refactor it
 // TODO: need to verify that adapters understand filtering by user id, by
 // creating two users with two ids and retrieving models for each of them.
+//
+//nolint:funlen // ok for tests
 func (s *ModelSettingsStorageTestSuite) TestSaveModel(t *testing.T) {
 	userID := ids.RandomUserID()
 	modelID := must(ids.RandomAgentID(userID))

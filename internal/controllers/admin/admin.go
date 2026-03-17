@@ -37,7 +37,6 @@ func Register(usecase *accounts.Usecase) func(server grpc.ServiceRegistrar) {
 func (h *Handler) AddServer(
 	ctx context.Context, req *admin.AddServerRequest,
 ) (*admin.AddServerResponse, error) {
-	//nolint:wrapcheck // yes, that's the point to use external error!
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
@@ -61,6 +60,10 @@ func (h *Handler) Authorize(
 		return nil, fmt.Errorf("failed to setup auth link: %w", err)
 	}
 
+	return responseFromDomain(link)
+}
+
+func responseFromDomain(link accounts.AddAccountResponse) (*admin.AuthorizeResponse, error) {
 	switch link := link.(type) {
 	case accounts.AddAccountResponseAuthRequired:
 		return &admin.AuthorizeResponse{

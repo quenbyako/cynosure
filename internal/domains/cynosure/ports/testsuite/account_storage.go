@@ -61,7 +61,7 @@ func WithAccountStorageCleanup(f func(context.Context) error) AccountStorageTest
 
 func (s *AccountStorageTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil
@@ -115,10 +115,10 @@ func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 	})
 
 	t.Run("listing_accounts", func(t *testing.T) {
-		ids, err := s.adapter.ListAccounts(t.Context(), fixture.AccountID.User())
+		accountIDs, err := s.adapter.ListAccounts(t.Context(), fixture.AccountID.User())
 		require.NoError(t, err, "failed to list accounts")
-		require.Len(t, ids, 1, "adapter should return exactly one account")
-		require.Contains(t, ids, fixture.AccountID, "account ID not found in list")
+		require.Len(t, accountIDs, 1, "adapter should return exactly one account")
+		require.Contains(t, accountIDs, fixture.AccountID, "account ID not found in list")
 	})
 }
 

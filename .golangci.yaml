@@ -231,6 +231,17 @@ linters:
       ignore-package-globs:
         - encoding/*
         - github.com/golang/protobuf/proto
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        - status.Error(
     grouper:
       const-require-grouping: true
       import-require-grouping: true
@@ -281,6 +292,13 @@ linters:
         - error
         - generic
         - go.uber.org/mock/gomock.Matcher
+        # otel traces
+        - "go.opentelemetry.io/otel/trace.Tracer"
+        - "go.opentelemetry.io/otel/trace.TraceProvider"
+        # read only interfaces
+        - "ReadOnly$"
+        # option pattern
+        - "Option$"
     nestif:
       min-complexity: 2
     nlreturn:
@@ -650,7 +668,7 @@ linters:
           - govet
           - gosec
           - ireturn
-      - path: 'cmd/(.+).go'
+      - path: "cmd/(.+).go"
         linters:
           # reason: gci configured to use internal, not cmd. It's easier to just
           # ignore that linter in cmd, cause it doesn't make a lot of sense in

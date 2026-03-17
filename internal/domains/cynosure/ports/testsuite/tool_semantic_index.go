@@ -50,7 +50,7 @@ func RunToolSemanticIndexTests(
 
 func (s *ToolSemanticIndexTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil

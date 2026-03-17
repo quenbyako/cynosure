@@ -98,6 +98,7 @@ func (t *threadStorageWrapped) CreateThread(
 		span.RecordError(err)
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return err
 }
 
@@ -113,6 +114,7 @@ func (t *threadStorageWrapped) GetThread(
 		span.RecordError(err)
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }
 
@@ -128,5 +130,6 @@ func (t *threadStorageWrapped) UpdateThread(
 		span.RecordError(err)
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return err
 }

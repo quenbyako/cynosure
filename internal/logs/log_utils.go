@@ -73,7 +73,7 @@ func (e *eventBuilder) Context(attrs ...attribute.KeyValue) *eventBuilder {
 func (e *eventBuilder) Msgf(format string, v ...any) { e.Msg(fmt.Sprintf(format, v...)) }
 func (e *eventBuilder) Msg(msg string) {
 	e.r.Message = msg
-	e.h.Handle(e.ctx, e.r)
+	e.h.Handle(e.ctx, e.r) //nolint:errcheck,gosec // unnecessary
 }
 
 func omitOK[T any](s T, ok bool) T {

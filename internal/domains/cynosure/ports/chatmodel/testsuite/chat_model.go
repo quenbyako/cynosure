@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/k0kubun/pp/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -71,8 +70,6 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	)
 
 	for msg, err := range seq {
-		pp.Println("Received message:", msg)
-
 		require.NoError(t, err, "Streaming should not produce an error")
 
 		if assistantMsg, ok := msg.(messages.MessageAssistant); ok {
@@ -85,8 +82,6 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 	thought += thoughtSb62.String()
 
 	require.NotEmpty(t, responseText, "Model should have provided a non-empty response")
-	pp.Println("Response from model:", responseText)
-	pp.Println("Thoughts from model:", thought)
 }
 
 func must[T any](v T, err error) T {

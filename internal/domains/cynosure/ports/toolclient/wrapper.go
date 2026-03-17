@@ -58,6 +58,7 @@ func (t *toolClientWrapped) DiscoverTools(
 	res, err := t.w.DiscoverTools(ctx, serverAddr, account, accountSlug, accountDesc, resolved)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }
 
@@ -78,5 +79,6 @@ func (t *toolClientWrapped) ExecuteTool(
 		span.recordResponse(res.Content())
 	}
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }

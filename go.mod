@@ -27,7 +27,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/k0kubun/pp/v3 v3.5.1
 	github.com/ldclabs/cose v1.3.2
 	github.com/modelcontextprotocol/go-sdk v1.3.1
 	github.com/nikolalohinski/gonja v1.5.3

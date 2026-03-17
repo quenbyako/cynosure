@@ -50,6 +50,7 @@ func (t *portWrapped) RegisterClient(
 	cfg, expiresAt, err = t.w.RegisterClient(ctx, resourceURL, clientName, setRedirect, opts...)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return cfg, expiresAt, err
 }
 
@@ -62,6 +63,7 @@ func (t *portWrapped) RefreshToken(
 	res, err = t.w.RefreshToken(ctx, config, token)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }
 
@@ -74,5 +76,6 @@ func (t *portWrapped) Exchange(
 	res, err = t.w.Exchange(ctx, config, code, verifier)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap adapter errors
 	return res, err
 }

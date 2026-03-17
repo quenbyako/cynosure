@@ -41,6 +41,20 @@ type newParams struct {
 	updateInterval time.Duration
 }
 
+func buildNewParams(opts ...NewOption) newParams {
+	params := newParams{
+		updateInterval: defaultUpdateInterval,
+		log:            NoOpLogCallbacks{},
+		tracer:         noopTrace.NewTracerProvider(),
+	}
+
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return params
+}
+
 type NewOption func(*newParams)
 
 func WithUpdateInterval(interval time.Duration) NewOption {
@@ -55,6 +69,18 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
+func (p *newParams) httpClient() *http.Client {
+	return &http.Client{
+		Transport: otelhttp.NewTransport(
+			http.DefaultTransport,
+			otelhttp.WithTracerProvider(p.tracer),
+		),
+		Timeout:       0,
+		CheckRedirect: nil,
+		Jar:           nil,
+	}
+}
+
 const (
 	defaultUpdateInterval = 2 * time.Second
 )
@@ -63,44 +89,17 @@ func New(
 	ctx context.Context, srv *chat.Usecase, usecase *users.Usecase,
 	serverPublicAddress *url.URL, token []byte, opts ...NewOption,
 ) (http.Handler, error) {
-	params := newParams{
-		updateInterval: defaultUpdateInterval,
-		log:            NoOpLogCallbacks{},
-		tracer:         noopTrace.NewTracerProvider(),
-	}
-	for _, opt := range opts {
-		opt(&params)
-	}
+	params := buildNewParams(opts...)
 
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
-		botapi.WithHTTPClient(&http.Client{
-			Transport: otelhttp.NewTransport(
-				http.DefaultTransport,
-				otelhttp.WithTracerProvider(params.tracer),
-			),
-			Timeout:       0,
-			CheckRedirect: nil,
-			Jar:           nil,
-		}),
+		botapi.WithHTTPClient(params.httpClient()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating telegram client: %w", err)
 	}
 
-	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
-		Url:                serverPublicAddress.String(),
-		AllowedUpdates:     nil,
-		DropPendingUpdates: nil,
-		IpAddress:          nil,
-		MaxConnections:     nil,
-		SecretToken:        nil,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("setting telegram webhook: %w", err)
-	}
-
-	if resp.JSON200 == nil || (!resp.JSON200.Ok || !resp.JSON200.Result) {
-		return nil, fmt.Errorf("failed to set telegram webhook: %s", resp.Status())
+	if err = setWebhook(ctx, client, serverPublicAddress); err != nil {
+		return nil, err
 	}
 
 	handler := &Handler{
@@ -116,4 +115,24 @@ func New(
 	inner := botapi.NewStrictWebhookHandler(handler, []botapi.StrictMiddlewareFunc{})
 
 	return botapi.WebhookHandler(inner), nil
+}
+
+func setWebhook(ctx context.Context, client *botapi.ClientWithResponses, addr *url.URL) error {
+	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
+		Url:                addr.String(),
+		AllowedUpdates:     nil,
+		DropPendingUpdates: nil,
+		IpAddress:          nil,
+		MaxConnections:     nil,
+		SecretToken:        nil,
+	})
+	if err != nil {
+		return fmt.Errorf("setting telegram webhook: %w", err)
+	}
+
+	if resp.JSON200 == nil || (!resp.JSON200.Ok || !resp.JSON200.Result) {
+		return errAPI("setting telegram webhook", resp.Status())
+	}
+
+	return nil
 }

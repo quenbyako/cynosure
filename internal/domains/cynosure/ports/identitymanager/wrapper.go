@@ -25,7 +25,7 @@ var _ PortWrapped = (*portWrapped)(nil)
 
 func (i *portWrapped) _PortWrapped() {}
 
-//nolint:ireturn // standard port pattern: hiding implementation details
+//nolint:ireturn // wrapping adapter as interface
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
 		observable = ports.NoOpObserveStack()
@@ -46,6 +46,7 @@ func (i *portWrapped) HasUser(ctx context.Context, id ids.UserID) (bool, error) 
 	res, err := i.w.HasUser(ctx, id)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }
 
@@ -56,6 +57,7 @@ func (i *portWrapped) LookupUser(ctx context.Context, telegramID string) (ids.Us
 	res, err := i.w.LookupUser(ctx, telegramID)
 	span.recordError(err)
 
+	//nolint:wrapcheck // should not wrap errors from adapters
 	return res, err
 }
 

@@ -3,7 +3,6 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -81,9 +80,9 @@ func CreateChatAggregate(
 	accounts ports.AccountStorage,
 	agents ports.AgentStorage,
 	threadID ids.ThreadID,
-	messages []messages.Message,
+	history []messages.Message,
 ) (*Chat, error) {
-	thread, err := entities.NewThread(threadID, messages)
+	thread, err := entities.NewThread(threadID, history)
 	if err != nil {
 		return nil, fmt.Errorf("creating thread: %w", err)
 	}
@@ -135,27 +134,27 @@ func newChatAggregate(
 
 func (c *Chat) validate() error {
 	if c.storage == nil {
-		return errors.New("storage is nil")
+		return errInternalValidation("storage is nil")
 	}
 
 	if c.indexer == nil {
-		return errors.New("indexer is nil")
+		return errInternalValidation("indexer is nil")
 	}
 
 	if c.toolStorage == nil {
-		return errors.New("toolStorage is nil")
+		return errInternalValidation("toolStorage is nil")
 	}
 
 	if c.accounts == nil {
-		return errors.New("accounts is nil")
+		return errInternalValidation("accounts is nil")
 	}
 
 	if c.agents == nil {
-		return errors.New("models is nil")
+		return errInternalValidation("models is nil")
 	}
 
 	if !c.thread.Valid() {
-		return errors.New("userthread is invalid")
+		return errInternalValidation("userthread is invalid")
 	}
 
 	return nil

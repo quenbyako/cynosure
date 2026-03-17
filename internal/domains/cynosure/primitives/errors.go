@@ -12,6 +12,7 @@ type InvalidEnumError struct {
 	Value string
 }
 
+//nolint:errcheck // interface check
 var _ error = (*InvalidEnumError)(nil)
 
 func ErrInvalidEnum(value string) *InvalidEnumError {

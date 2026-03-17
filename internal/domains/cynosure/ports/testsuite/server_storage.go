@@ -56,7 +56,7 @@ func WithServerStorageCleanup(f func(context.Context) error) ServerStorageTestSu
 
 func (s *ServerStorageTestSuite) validate() error {
 	if s.adapter == nil {
-		return errors.New("adapter is nil")
+		return errors.New("adapter is nil") //nolint:err113 // ok for tests
 	}
 
 	return nil
@@ -76,6 +76,7 @@ const (
 	oneDay = 24 * time.Hour
 )
 
+//nolint:funlen // ok for tests
 func (s *ServerStorageTestSuite) TestSaveServer(t *testing.T) {
 	serverID := ids.RandomServerID()
 	link := must(url.Parse("https://example.com/sse"))

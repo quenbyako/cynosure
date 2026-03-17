@@ -9,8 +9,8 @@ import (
 // Applies to:
 //
 //   - [WrapThreadStorage]
-func WithTrace(trace trace.Tracer) traceWrapper {
-	return traceWrapper{trace: trace}
+func WithTrace(tracer trace.Tracer) traceWrapper {
+	return traceWrapper{trace: tracer}
 }
 
 type (
