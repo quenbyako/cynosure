@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"errors"
 	"net/url"
 	"slices"
 	"time"
@@ -78,11 +77,11 @@ func NewServerConfig(
 func (c *ServerConfig) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *ServerConfig) Validate() error {
 	if !c.id.Valid() {
-		return errors.New("invalid server ID")
+		return ErrInternalValidation("invalid server ID")
 	}
 
 	if c.sseLink == nil {
-		return errors.New("SSE link is nil")
+		return ErrInternalValidation("SSE link is nil")
 	}
 
 	if err := c.validateConfig(c.authConfig); err != nil {

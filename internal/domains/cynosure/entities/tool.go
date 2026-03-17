@@ -3,7 +3,6 @@ package entities
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -40,7 +39,7 @@ var (
 
 type ToolOption func(*Tool)
 
-//noling:gocritic // hugeparam, architecture mistake.
+//nolint:gocritic // hugeparam: large array passed by value, architecture constraint
 func WithEmbedding(embedding [embeddingSize]float32) ToolOption {
 	return func(t *Tool) { t.embedding = embedding }
 }
@@ -61,6 +60,19 @@ func NewTool(
 		return nil, err
 	}
 
+	return newToolFromNormalized(
+		id, accountName, name, description,
+		normalizedInput, normalizedOutput,
+		opts...,
+	)
+}
+
+func newToolFromNormalized(
+	id ids.ToolID,
+	accountName, name, description string,
+	normalizedInput, normalizedOutput json.RawMessage,
+	opts ...ToolOption,
+) (*Tool, error) {
 	tool := Tool{
 		id:            id,
 		accountName:   accountName,
@@ -91,7 +103,7 @@ func (t *Tool) Valid() bool { return t._valid || t.Validate() == nil }
 
 func (t *Tool) Validate() error {
 	if t.description == "" {
-		return errors.New("description is required, but empty")
+		return ErrInternalValidation("description is required, but empty")
 	}
 
 	return nil
@@ -114,12 +126,17 @@ func normalizeSchema(schema json.RawMessage, verifyRoot string) (json.RawMessage
 	}
 
 	if verifyRoot != "" && !parsedSchema.Type.Is(verifyRoot) {
-		return nil, fmt.Errorf("invalid schema type: %s, must be only object", parsedSchema.Type)
+		return nil, ErrInternalValidation(
+			"invalid schema type: %s, must be only object",
+			parsedSchema.Type,
+		)
 	}
 
 	schema, err := json.Marshal(&parsedSchema)
 	if err != nil {
-		panic(fmt.Errorf("cannot marshal schema back: %w", err))
+		// TODO: guarantee somehow that parsed schema will always be a valid
+		// json for serialization. This error should NEVER EVER exist.
+		return nil, fmt.Errorf("cannot marshal schema back: %w", err)
 	}
 
 	return schema, nil
@@ -147,7 +164,7 @@ func (t *Tool) Embedding() [embeddingSize]float32 { return t.embedding }
 
 // WRITE
 
-//noling:gocritic // hugeparam, architecture mistake.
+//nolint:gocritic // hugeparam: large array passed by value, architecture constraint
 func (t *Tool) SetEmbedding(embedding [embeddingSize]float32) {
 	previous := t.embedding
 	t.embedding = embedding

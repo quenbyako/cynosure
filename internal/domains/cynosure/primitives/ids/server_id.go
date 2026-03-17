@@ -1,4 +1,4 @@
-package ids
+package ids //nolint:dupl // TODO: need to come up with something, how to reduce duplication
 
 import (
 	"fmt"
@@ -12,18 +12,16 @@ type ServerID struct {
 	_valid bool
 }
 
+// RandomServerID returns a new random ServerID.
+// uuid.New() always produces a non-nil UUID so this never fails.
 func RandomServerID() ServerID {
-	if id, err := NewServerID(uuid.New()); err == nil {
-		return id
-	} else {
-		panic(err)
-	}
+	return ServerID{id: uuid.New(), _valid: true}
 }
 
 func NewServerIDFromString(id string) (ServerID, error) {
 	serverID, err := uuid.Parse(id)
 	if err != nil {
-		return ServerID{}, err
+		return ServerID{}, fmt.Errorf("parsing server id: %w", err)
 	}
 
 	return NewServerID(serverID)
@@ -46,12 +44,11 @@ func NewServerID(id uuid.UUID) (ServerID, error) {
 
 func (u ServerID) Valid() bool { return u._valid || u.validate() == nil }
 func (u ServerID) validate() error {
-	switch u.id {
-	case uuid.Nil:
-		return fmt.Errorf("invalid server ID: %s", u.id)
-	default:
-		return nil
+	if u.id == uuid.Nil {
+		return ErrInternalValidation("server id cannot be nil")
 	}
+
+	return nil
 }
 
 func (u ServerID) ID() uuid.UUID { return u.id }

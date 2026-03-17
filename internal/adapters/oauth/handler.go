@@ -4,7 +4,6 @@ package oauth
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -26,6 +25,7 @@ type Handler struct {
 
 var _ oauthhandler.Factory = (*Handler)(nil)
 
+//nolint:ireturn // wraps self into PortWrapped for dependency injection
 func (h *Handler) OAuthHandler() oauthhandler.PortWrapped { return oauthhandler.Wrap(h, h.tracer) }
 
 type newParams struct {
@@ -69,9 +69,14 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 func (h *Handler) Exchange(
 	ctx context.Context, config *oauth2.Config, code string, verifier []byte,
 ) (*oauth2.Token, error) {
-	return config.Exchange(ctx, code, oauth2.SetAuthURLParam(
+	token, err := config.Exchange(ctx, code, oauth2.SetAuthURLParam(
 		"code_verifier", base64.RawURLEncoding.EncodeToString(verifier),
 	))
+	if err != nil {
+		return nil, fmt.Errorf("exchanging token: %w", err)
+	}
+
+	return token, nil
 }
 
 // RefreshToken implements ports.OAuthHandler.
@@ -79,11 +84,11 @@ func (h *Handler) RefreshToken(
 	ctx context.Context, config *oauth2.Config, token *oauth2.Token,
 ) (*oauth2.Token, error) {
 	if token == nil {
-		return nil, errors.New("invalid token")
+		return nil, errInternalValidation("invalid token")
 	}
 
 	if token.RefreshToken == "" {
-		return nil, errors.New("no refresh token available")
+		return nil, errInternalValidation("no refresh token available")
 	}
 
 	newToken, err := config.TokenSource(ctx, token).Token()

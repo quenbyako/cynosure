@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"errors"
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -95,11 +94,11 @@ func NewModelSettings(
 func (c *Agent) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *Agent) Validate() error {
 	if !c.id.Valid() {
-		return errors.New("ID is invalid")
+		return ErrInternalValidation("ID is invalid")
 	}
 
 	if c.model == "" {
-		return errors.New("model is required")
+		return ErrInternalValidation("model is required")
 	}
 
 	return nil

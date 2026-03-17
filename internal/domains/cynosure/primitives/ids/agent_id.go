@@ -14,17 +14,13 @@ type AgentID struct {
 }
 
 func RandomAgentID(user UserID) (AgentID, error) {
-	if id, err := NewAgentID(user, uuid.New()); err != nil {
-		return AgentID{}, err
-	} else {
-		return id, nil
-	}
+	return NewAgentID(user, uuid.New())
 }
 
 func NewAgentIDFromString(user UserID, id string) (AgentID, error) {
 	modelConfigID, err := uuid.Parse(id)
 	if err != nil {
-		return AgentID{}, err
+		return AgentID{}, fmt.Errorf("parsing agent id: %w", err)
 	}
 
 	return NewAgentID(user, modelConfigID)
@@ -48,15 +44,14 @@ func NewAgentID(user UserID, id uuid.UUID) (AgentID, error) {
 
 func (u AgentID) Valid() bool { return u._valid || u.validate() == nil }
 func (u AgentID) validate() error {
-	if u.id == uuid.Nil {
-		return fmt.Errorf("invalid model config ID: %s", u.id)
+	switch {
+	case u.id == uuid.Nil:
+		return ErrInternalValidation("invalid model config ID: %s", u.id)
+	case !u.user.Valid():
+		return ErrInternalValidation("invalid user ID: %v", u.user.ID().String())
+	default:
+		return nil
 	}
-
-	if !u.user.Valid() {
-		return fmt.Errorf("invalid user ID: %v", u.user.ID().String())
-	}
-
-	return nil
 }
 
 func (u AgentID) ID() uuid.UUID  { return u.id }

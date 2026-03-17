@@ -1,7 +1,6 @@
 package ids
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -24,7 +23,7 @@ type ThreadID struct {
 func NewThreadIDFromString(s string) (ThreadID, error) {
 	str := strings.Split(s, "/")
 	if len(str) != 4 || str[0] != "users" || str[2] != "threads" {
-		return ThreadID{}, errors.New("invalid thread id format")
+		return ThreadID{}, ErrInternalValidation("invalid thread id format")
 	}
 
 	uRaw, err := uuid.Parse(str[1])
@@ -63,9 +62,9 @@ func (u ThreadID) Valid() bool { return u._valid || u.validate() == nil }
 func (u ThreadID) validate() error {
 	switch {
 	case u.id == "":
-		return errors.New("thread id cannot be empty")
+		return ErrInternalValidation("thread id cannot be empty")
 	case !u.user.Valid():
-		return errors.New("user id is invalid")
+		return ErrInternalValidation("user id is invalid")
 	default:
 		return nil
 	}

@@ -1,7 +1,6 @@
 package ids
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -47,9 +46,9 @@ func (u ToolID) Valid() bool { return u._valid || u.validate() == nil }
 func (u ToolID) validate() error {
 	switch {
 	case u.id == uuid.Nil:
-		return errors.New("tool id cannot be nil")
+		return ErrInternalValidation("tool id cannot be nil")
 	case !u.account.Valid():
-		return errors.New("account id is invalid")
+		return ErrInternalValidation("account id is invalid")
 	default:
 		return nil
 	}

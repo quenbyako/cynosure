@@ -1,7 +1,7 @@
 package ids
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -29,7 +29,7 @@ func NewAccountIDFromString(
 ) (AccountID, error) {
 	accountID, err := uuid.Parse(id)
 	if err != nil {
-		return AccountID{}, err
+		return AccountID{}, fmt.Errorf("parsing account id: %w", err)
 	}
 
 	return NewAccountID(user, server, accountID, opts...)
@@ -64,11 +64,11 @@ func (u AccountID) Valid() bool { return u._valid || u.validate() == nil }
 func (u AccountID) validate() error {
 	switch {
 	case u.id == uuid.Nil:
-		return errors.New("account id cannot be nil")
+		return ErrInternalValidation("account id cannot be nil")
 	case !u.user.Valid():
-		return errors.New("user id is invalid")
+		return ErrInternalValidation("user is invalid")
 	case !u.server.Valid():
-		return errors.New("server id is invalid")
+		return ErrInternalValidation("server is invalid")
 	default:
 		return nil
 	}

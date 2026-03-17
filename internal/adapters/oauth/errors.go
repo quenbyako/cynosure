@@ -19,3 +19,33 @@ func (e OAuthError) Error() string {
 
 	return "OAuth error: " + e.ErrorCode
 }
+
+// RegistrationError is returned when server responds with unexpected status
+// during client registration. It is an interface error that callers can inspect.
+type RegistrationError struct {
+	Endpoint   string
+	Body       string
+	StatusCode int
+}
+
+func (e *RegistrationError) Error() string {
+	msg := fmt.Sprintf(
+		"unexpected status code %d when registering client at %s",
+		e.StatusCode, e.Endpoint,
+	)
+	if e.Body != "" {
+		return msg + ": " + e.Body
+	}
+
+	return msg
+}
+
+// InternalValidationError is a non-handleable validation error for developer
+// mistakes (nil URLs, empty required fields, etc).
+type InternalValidationError string
+
+func (e InternalValidationError) Error() string { return string(e) }
+
+func errInternalValidation(format string, a ...any) error {
+	return InternalValidationError(fmt.Sprintf(format, a...))
+}

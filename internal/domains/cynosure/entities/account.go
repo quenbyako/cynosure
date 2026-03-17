@@ -1,8 +1,6 @@
 package entities
 
 import (
-	"errors"
-
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -64,11 +62,11 @@ func (c *Account) Valid() bool { return c != nil && (c._valid || c.validate() ==
 
 func (c *Account) validate() error {
 	if c.name == "" {
-		return errors.New("name is required")
+		return ErrInternalValidation("name is required")
 	}
 
 	if c.description == "" {
-		return errors.New("description is required")
+		return ErrInternalValidation("description is required")
 	}
 
 	return nil
@@ -96,11 +94,11 @@ func (c *Account) UpdateToken(token *oauth2.Token) error {
 			return nil
 		}
 
-		return errors.New("token cannot be nil")
+		return ErrInternalValidation("token cannot be nil")
 	}
 
 	if !token.Valid() {
-		return errors.New("invalid token")
+		return ErrInternalValidation("invalid token")
 	}
 
 	c.token = token

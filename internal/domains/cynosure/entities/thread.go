@@ -1,8 +1,6 @@
 package entities
 
 import (
-	"errors"
-	"fmt"
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -56,11 +54,11 @@ func NewThread(
 func (c *Thread) Valid() bool { return c._valid || c.Validate() == nil }
 func (c *Thread) Validate() error {
 	if !c.id.Valid() {
-		return errors.New("thread ID is invalid")
+		return ErrInternalValidation("thread ID is invalid")
 	}
 
 	if len(c.messages) == 0 {
-		return errors.New("messages cannot be empty")
+		return ErrInternalValidation("messages cannot be empty")
 	}
 
 	return nil
@@ -68,12 +66,12 @@ func (c *Thread) Validate() error {
 
 func (c *Thread) validateMessages(messages []messages.Message) error {
 	if len(messages) == 0 {
-		return errors.New("messages cannot be empty")
+		return ErrInternalValidation("messages cannot be empty")
 	}
 
 	for i, msg := range messages {
 		if !msg.Valid() {
-			return fmt.Errorf("message %d is invalid", i)
+			return ErrInternalValidation("message %d is invalid", i)
 		}
 	}
 
@@ -152,6 +150,7 @@ type ThreadEventMessageAdded struct {
 	message messages.Message
 }
 
+//nolint:ireturn // returns polymorphic message type
 func (e ThreadEventMessageAdded) Message() messages.Message { return e.message }
 
 func (e ThreadEventMessageAdded) undo(c *Thread) {
