@@ -104,7 +104,37 @@ func newChatAggregate(
 	accounts ports.AccountStorage,
 	agents ports.AgentStorage,
 ) (*Chat, error) {
-	chat := &Chat{
+	chat := initChat(
+		thread,
+		storage,
+		indexer,
+		toolStorage,
+		accounts,
+		agents,
+	)
+	if err := chat.validate(); err != nil {
+		return nil, err
+	}
+
+	var err error
+
+	chat.toolbox, err = chat.buildToolbox(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("building toolbox: %w", err)
+	}
+
+	return chat, nil
+}
+
+func initChat(
+	thread *entities.Thread,
+	storage ports.ThreadStorage,
+	indexer ports.ToolSemanticIndex,
+	toolStorage ports.ToolStorage,
+	accounts ports.AccountStorage,
+	agents ports.AgentStorage,
+) *Chat {
+	return &Chat{
 		thread:      thread,
 		toolbox:     tools.NewToolbox(),
 		tools:       make(map[ids.ToolID]*entities.Tool),
@@ -118,18 +148,6 @@ func newChatAggregate(
 
 		mu: sync.RWMutex{},
 	}
-	if err := chat.validate(); err != nil {
-		return nil, err
-	}
-
-	var err error
-
-	chat.toolbox, err = chat.buildToolbox(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("building toolbox: %w", err)
-	}
-
-	return chat, nil
 }
 
 func (c *Chat) validate() error {

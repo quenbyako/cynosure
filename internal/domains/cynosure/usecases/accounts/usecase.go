@@ -19,6 +19,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
 
 //nolint:lll // makes no sense actually.
@@ -78,7 +79,7 @@ const (
 
 func New(
 	servers ports.ServerStorage,
-	oauth oauthhandler.Port,
+	authHandler oauthhandler.Port,
 	accounts ports.AccountStorage,
 	tools ports.ToolStorage,
 	index ports.ToolSemanticIndex,
@@ -88,7 +89,16 @@ func New(
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
 
-	usecase := newUsecase(servers, oauth, accounts, tools, index, toolClient, users, &params)
+	usecase := newUsecase(
+		servers,
+		authHandler,
+		accounts,
+		tools,
+		index,
+		toolClient,
+		users,
+		&params,
+	)
 
 	if err := usecase.validate(); err != nil {
 		return nil, fmt.Errorf("usecase validation: %w", err)
@@ -99,7 +109,7 @@ func New(
 
 func newUsecase(
 	servers ports.ServerStorage,
-	oauth oauthhandler.Port,
+	authHandler oauthhandler.Port,
 	accounts ports.AccountStorage,
 	tools ports.ToolStorage,
 	index ports.ToolSemanticIndex,
@@ -109,7 +119,7 @@ func newUsecase(
 ) *Usecase {
 	return &Usecase{
 		toolClient: toolClient,
-		oauth:      oauth,
+		oauth:      authHandler,
 		servers:    servers,
 		accounts:   accounts,
 		tools:      tools,
@@ -232,4 +242,22 @@ func generateVerifier() (verifier []byte, verifierStr string, err error) {
 	}
 
 	return verifier, base64.RawURLEncoding.EncodeToString(verifier), nil
+}
+
+func (s *Usecase) generateOAuthState(
+	account ids.AccountID, name, desc string, verifier []byte,
+) (string, time.Time, error) {
+	validUntil := s.clock().Add(s.stateExpiration)
+
+	stateRaw, err := oauth.NewState(account, name, desc, verifier, validUntil)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("creating state: %w", err)
+	}
+
+	state, err := stateRaw.State("", s.key)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("generating state: %w", err)
+	}
+
+	return state, validUntil, nil
 }

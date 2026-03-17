@@ -126,7 +126,7 @@ func (a *JWTAuthenticator) resolveKeySet(
 func (a *JWTAuthenticator) verifyToken(
 	tok *jwt.JSONWebToken,
 	keySet *jose.JSONWebKeySet,
-	iss string,
+	issuerHostname string,
 ) (
 	jwt.Claims,
 	error,
@@ -135,6 +135,9 @@ func (a *JWTAuthenticator) verifyToken(
 	if err := tok.Claims(keySet, &claims); err != nil {
 		return jwt.Claims{}, fmt.Errorf("verifying signature: %w", err)
 	}
+
+	//nolint:exhaustruct // makes no sense, just for building URL
+	iss := (&url.URL{Scheme: "https", Host: issuerHostname}).String()
 
 	expected := jwt.Expected{
 		Issuer:      iss,

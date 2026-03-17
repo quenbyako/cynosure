@@ -25,16 +25,9 @@ import (
 // The toolbox is immutable once created and contains all information needed
 // for the LLM to make tool calls (schemas, account selectors, etc.)
 func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
-	embedding, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages())
+	relevantTools, err := c.lookupRelevantTools(ctx)
 	if err != nil {
-		return tools.Toolbox{}, fmt.Errorf("building embedding: %w", err)
-	}
-
-	const topK = 10 // TODO: make configurable. Through agent config maybe?
-
-	relevantTools, err := c.toolStorage.LookupTools(ctx, c.thread.ID().User(), embedding, topK)
-	if err != nil {
-		return tools.Toolbox{}, fmt.Errorf("looking up tools: %w", err)
+		return tools.Toolbox{}, err
 	}
 
 	if len(relevantTools) == 0 {
@@ -48,43 +41,42 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 		return tools.Toolbox{}, fmt.Errorf("loading account descriptions: %w", err)
 	}
 
-	// 5. Build RawToolInfo for each tool with account metadata
-	rawTools := make([]tools.RawTool, 0, len(relevantTools))
-	for _, tool := range relevantTools {
-		desc, ok := descriptions[tool.ID().Account()]
-		if !ok {
-			// TODO: log warning about stale data
-			continue
-		}
-
-		rawTool, toolErr := tools.NewRawTool(
-			tool.Name(),
-			tool.Description(),
-			tool.InputSchema(),
-			tool.OutputSchema(),
-			tool.ID(), desc.slug, desc.desc,
-		)
-		if toolErr != nil {
-			return tools.Toolbox{}, fmt.Errorf("creating raw tool %q: %w", tool.Name(), toolErr)
-		}
-
-		rawTools = append(rawTools, rawTool)
+	rawTools, err := buildRawTools(relevantTools, descriptions)
+	if err != nil {
+		return tools.Toolbox{}, err
 	}
 
-	// 6. Build toolbox by merging all tools
-	// Toolbox.Merge handles collision detection (same tool name from different accounts)
 	toolbox, err := tools.NewToolbox().Merge(rawTools...)
 	if err != nil {
 		return tools.Toolbox{}, fmt.Errorf("merging tools into toolbox: %w", err)
 	}
 
-	// 7. Update internal tool cache for rapid execution lookup
+	c.updateToolCache(relevantTools)
+
+	return toolbox, nil
+}
+
+func (c *Chat) lookupRelevantTools(ctx context.Context) ([]*entities.Tool, error) {
+	embedding, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages())
+	if err != nil {
+		return nil, fmt.Errorf("building embedding: %w", err)
+	}
+
+	const topK = 10
+
+	relevantTools, err := c.toolStorage.LookupTools(ctx, c.thread.ID().User(), embedding, topK)
+	if err != nil {
+		return nil, fmt.Errorf("looking up tools: %w", err)
+	}
+
+	return relevantTools, nil
+}
+
+func (c *Chat) updateToolCache(relevantTools []*entities.Tool) {
 	c.tools = make(map[ids.ToolID]*entities.Tool, len(relevantTools))
 	for _, tool := range relevantTools {
 		c.tools[tool.ID()] = tool
 	}
-
-	return toolbox, nil
 }
 
 type accountDesc struct{ slug, desc string }
@@ -118,4 +110,29 @@ func extractUniqueAccounts(toolList []*entities.Tool) []ids.AccountID {
 	}
 
 	return slices.Collect(maps.Keys(accountSet))
+}
+
+func buildRawTools(
+	relevantTools []*entities.Tool,
+	descriptions map[ids.AccountID]accountDesc,
+) ([]tools.RawTool, error) {
+	rawTools := make([]tools.RawTool, 0, len(relevantTools))
+	for _, tool := range relevantTools {
+		desc, ok := descriptions[tool.ID().Account()]
+		if !ok {
+			continue
+		}
+
+		rawTool, err := tools.NewRawTool(
+			tool.Name(), tool.Description(), tool.InputSchema(), tool.OutputSchema(),
+			tool.ID(), desc.slug, desc.desc,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating raw tool %q: %w", tool.Name(), err)
+		}
+
+		rawTools = append(rawTools, rawTool)
+	}
+
+	return rawTools, nil
 }

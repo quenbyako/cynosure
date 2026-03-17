@@ -38,7 +38,30 @@ type ChatModelTestSuite struct {
 type ChatModelTestSuiteOpts func(*ChatModelTestSuite)
 
 func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
-	msgs := []messages.Message{
+	msgs := simpleChatMessages()
+	settings := must(entities.NewModelSettings(
+		must(ids.RandomAgentID(ids.RandomUserID())),
+		"gemini-2.5-flash",
+	))
+
+	seq, err := s.adapter.Stream(t.Context(), msgs, settings)
+	require.NoError(t, err, "Stream should not fail on a simple prompt")
+
+	var responseTextSb strings.Builder
+
+	for msg, err := range seq {
+		require.NoError(t, err, "Streaming should not produce an error")
+
+		if assistantMsg, ok := msg.(messages.MessageAssistant); ok {
+			responseTextSb.WriteString(assistantMsg.Content())
+		}
+	}
+
+	require.NotEmpty(t, responseTextSb.String(), "Model should have provided a non-empty response")
+}
+
+func simpleChatMessages() []messages.Message {
+	return []messages.Message{
 		must(messages.NewMessageUser("Привет, кто ты?")),
 		must(messages.NewMessageAssistant("А тебя это ебать не должно.")),
 		must(messages.NewMessageUser("А чего так грубо?")),
@@ -51,37 +74,8 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 		must(messages.NewMessageToolResponse(
 			json.RawMessage(`{"temperature": 57}`), "get_weather", "some_id",
 		)),
-		must(messages.NewMessageAssistant("А ничё тот факт, что")), // модель должна продолжить
+		must(messages.NewMessageAssistant("А ничё тот факт, что")),
 	}
-
-	settings := must(entities.NewModelSettings(
-		must(ids.RandomAgentID(ids.RandomUserID())),
-		"gemini-2.5-flash",
-	))
-
-	seq, err := s.adapter.Stream(t.Context(), msgs, settings)
-	require.NoError(t, err, "Stream should not fail on a simple prompt")
-
-	var (
-		thought          string
-		responseText     string
-		responseTextSb62 strings.Builder
-		thoughtSb62      strings.Builder
-	)
-
-	for msg, err := range seq {
-		require.NoError(t, err, "Streaming should not produce an error")
-
-		if assistantMsg, ok := msg.(messages.MessageAssistant); ok {
-			responseTextSb62.WriteString(assistantMsg.Content())
-			thoughtSb62.WriteString(assistantMsg.Reasoning())
-		}
-	}
-
-	responseText += responseTextSb62.String()
-	thought += thoughtSb62.String()
-
-	require.NotEmpty(t, responseText, "Model should have provided a non-empty response")
 }
 
 func must[T any](v T, err error) T {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"strings"
 
 	"google.golang.org/a2a"
@@ -87,172 +88,131 @@ func (h *Handler) ListTaskPushNotificationConfig(
 func (h *Handler) SendMessage(
 	ctx context.Context, req *a2a.SendMessageRequest,
 ) (*a2a.SendMessageResponse, error) {
-	var text strings.Builder
-
-	for _, c := range req.GetRequest().GetContent() {
-		text.WriteString(c.GetText())
-	}
-
-	if text.Len() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "text cannot be empty")
-	}
-
-	msg, err := messages.NewMessageUser(text.String())
+	msg, threadID, err := h.prepareMessageRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("creating user message: %w", err)
+		return nil, err
 	}
 
-	threadID, err := ids.NewThreadIDFromString(req.GetRequest().GetContextId())
-	if err != nil {
-		return nil, fmt.Errorf("parsing thread id: %w", err)
-	}
-
-	content, err := h.srv.GenerateResponse(ctx,
-		threadID,
-		msg,
-		chat.WithToolChoice(tools.ToolChoiceForbidden),
+	content, err := h.srv.GenerateResponse(
+		ctx, threadID, msg, chat.WithToolChoice(tools.ToolChoiceForbidden),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("generating response: %w", err)
 	}
 
-	parts := make([]*a2a.Part, 0) // len(content))
-
-	for msg := range content {
-		switch msg := msg.(type) {
-		case messages.MessageAssistant:
-			parts = append(parts, &a2a.Part{
-				Part: &a2a.Part_Text{
-					Text: msg.Content(),
-				},
-			})
-		case messages.MessageToolRequest:
-			argsRaw := make(map[string]any, len(msg.Arguments()))
-			for key, value := range msg.Arguments() {
-				var x any
-				if err := json.Unmarshal(value, &x); err != nil {
-					return nil, fmt.Errorf("unmarshalling arg %q: %w", key, err)
-				}
-
-				argsRaw[key] = x
-			}
-
-			args, err := structpb.NewValue(argsRaw)
-			if err != nil {
-				return nil, fmt.Errorf("creating args value: %w", err)
-			}
-
-			parts = append(parts, &a2a.Part{
-				Part: &a2a.Part_Data{
-					Data: &a2a.DataPart{
-						Data: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"tool": structpb.NewStringValue(msg.ToolName()),
-								"args": args,
-							},
-						},
-					},
-				},
-			})
-		case messages.MessageToolResponse:
-			var contentRaw any
-			if err := json.Unmarshal(msg.Content(), &contentRaw); err != nil {
-				return nil, fmt.Errorf("unmarshalling arg: %w", err)
-			}
-
-			content, err := structpb.NewValue(contentRaw)
-			if err != nil {
-				return nil, fmt.Errorf("creating args value: %w", err)
-			}
-
-			parts = append(parts, &a2a.Part{
-				Part: &a2a.Part_Data{
-					Data: &a2a.DataPart{
-						Data: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"tool":    structpb.NewStringValue(msg.ToolName()),
-								"content": content,
-							},
-						},
-					},
-				},
-			})
-		default:
-			return nil, status.Error(codes.Internal,
-				fmt.Sprintf("content %q unexpected message type", msg),
-			)
-		}
+	parts, err := h.collectResponseParts(content)
+	if err != nil {
+		return nil, err
 	}
 
-	// Simulate sending a message and returning a response.
+	respMsg := h.makeSendMessageResponse(parts)
+
 	return &a2a.SendMessageResponse{
 		Payload: &a2a.SendMessageResponse_Msg{
-			Msg: &a2a.Message{
-				Role:       a2a.Role_ROLE_AGENT,
-				Content:    parts,
-				MessageId:  "",
-				ContextId:  "",
-				TaskId:     "",
-				Metadata:   nil,
-				Extensions: nil,
-			},
+			Msg: respMsg,
 		},
 	}, nil
+}
+
+func (h *Handler) makeSendMessageResponse(parts []*a2a.Part) *a2a.Message {
+	return &a2a.Message{
+		Role:    a2a.Role_ROLE_AGENT,
+		Content: parts,
+
+		MessageId:  "",
+		ContextId:  "",
+		TaskId:     "",
+		Metadata:   nil,
+		Extensions: nil,
+	}
 }
 
 // SendStreamingMessage implements a2a.A2AServiceServer.
 func (h *Handler) SendStreamingMessage(
 	req *a2a.SendMessageRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse],
 ) error {
-	var (
-		text      string
-		textSb176 strings.Builder
-	)
-
-	for _, c := range req.GetRequest().GetContent() {
-		textSb176.WriteString(c.GetText())
-	}
-
-	text += textSb176.String()
-
-	if text == "" {
-		return status.Error(codes.InvalidArgument, "text cannot be empty")
-	}
-
-	msg, err := messages.NewMessageUser(text)
+	msg, threadID, err := h.prepareMessageRequest(req)
 	if err != nil {
-		return fmt.Errorf("creating user message: %w", err)
+		return err
 	}
 
-	threadID, err := ids.NewThreadIDFromString(req.GetRequest().GetContextId())
-	if err != nil {
-		return fmt.Errorf("parsing thread id: %w", err)
-	}
-
-	content, err := h.srv.GenerateResponse(srv.Context(),
-		threadID,
-		msg,
-		chat.WithToolChoice(tools.ToolChoiceAllowed),
+	content, err := h.srv.GenerateResponse(
+		srv.Context(), threadID, msg, chat.WithToolChoice(tools.ToolChoiceAllowed),
 	)
 	if err != nil {
 		return fmt.Errorf("generating response: %w", err)
 	}
 
+	for msg, contentErr := range content {
+		if err := h.sendStreamingPart(srv, msg, contentErr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (h *Handler) prepareMessageRequest(
+	req *a2a.SendMessageRequest,
+) (messages.MessageUser, ids.ThreadID, error) {
+	text := extractText(req.GetRequest().GetContent())
+	if text == "" {
+		return messages.MessageUser{}, ids.ThreadID{},
+			status.Error(codes.InvalidArgument, "text cannot be empty")
+	}
+
+	msg, err := messages.NewMessageUser(text)
+	if err != nil {
+		return messages.MessageUser{}, ids.ThreadID{}, fmt.Errorf("creating user message: %w", err)
+	}
+
+	threadID, err := ids.NewThreadIDFromString(req.GetRequest().GetContextId())
+	if err != nil {
+		return messages.MessageUser{}, ids.ThreadID{}, fmt.Errorf("parsing thread id: %w", err)
+	}
+
+	return msg, threadID, nil
+}
+
+func (h *Handler) collectResponseParts(
+	content iter.Seq2[messages.Message, error],
+) ([]*a2a.Part, error) {
+	parts := make([]*a2a.Part, 0)
+
 	for msg, err := range content {
 		if err != nil {
-			return fmt.Errorf("generating response: %w", err)
+			return nil, fmt.Errorf("generating response: %w", err)
 		}
 
-		msg, err := messagesTo(msg)
+		p, err := messageToParts(msg)
 		if err != nil {
-			return fmt.Errorf("converting message: %w", err)
+			return nil, err
 		}
 
-		if err := srv.Send(&a2a.StreamResponse{
-			Payload: &a2a.StreamResponse_Msg{Msg: msg},
-		}); err != nil {
-			return fmt.Errorf("sending message to stream: %w", err)
-		}
+		parts = append(parts, p...)
+	}
+
+	return parts, nil
+}
+
+func (h *Handler) sendStreamingPart(
+	srv grpc.ServerStreamingServer[a2a.StreamResponse],
+	msg messages.Message,
+	err error,
+) error {
+	if err != nil {
+		return fmt.Errorf("generating response: %w", err)
+	}
+
+	msgOut, err := messagesTo(msg)
+	if err != nil {
+		return fmt.Errorf("converting message: %w", err)
+	}
+
+	if err := srv.Send(&a2a.StreamResponse{
+		Payload: &a2a.StreamResponse_Msg{Msg: msgOut},
+	}); err != nil {
+		return fmt.Errorf("sending message to stream: %w", err)
 	}
 
 	return nil
@@ -263,4 +223,86 @@ func (h *Handler) TaskSubscription(
 	req *a2a.TaskSubscriptionRequest, srv grpc.ServerStreamingServer[a2a.StreamResponse],
 ) error {
 	return status.Error(codes.Unimplemented, "unimplemented")
+}
+
+func messageToParts(msg messages.Message) ([]*a2a.Part, error) {
+	switch msg := msg.(type) {
+	case messages.MessageAssistant:
+		return []*a2a.Part{{Part: &a2a.Part_Text{Text: msg.Content()}}}, nil
+
+	case messages.MessageToolRequest:
+		return toolRequestParts(msg)
+
+	case messages.MessageToolResponse:
+		return toolResponseParts(msg)
+
+	default:
+		errMsg := fmt.Sprintf("content %T unexpected message type", msg)
+
+		return nil, status.Error(codes.Internal, errMsg)
+	}
+}
+
+func toolRequestParts(msg messages.MessageToolRequest) ([]*a2a.Part, error) {
+	argsRaw := make(map[string]any, len(msg.Arguments()))
+	for key, value := range msg.Arguments() {
+		var x any
+		if err := json.Unmarshal(value, &x); err != nil {
+			return nil, fmt.Errorf("unmarshalling arg %q: %w", key, err)
+		}
+
+		argsRaw[key] = x
+	}
+
+	args, err := structpb.NewValue(argsRaw)
+	if err != nil {
+		return nil, fmt.Errorf("creating args value: %w", err)
+	}
+
+	return []*a2a.Part{{
+		Part: &a2a.Part_Data{
+			Data: &a2a.DataPart{
+				Data: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"tool": structpb.NewStringValue(msg.ToolName()),
+						"args": args,
+					},
+				},
+			},
+		},
+	}}, nil
+}
+
+func toolResponseParts(msg messages.MessageToolResponse) ([]*a2a.Part, error) {
+	var contentRaw any
+	if err := json.Unmarshal(msg.Content(), &contentRaw); err != nil {
+		return nil, fmt.Errorf("unmarshalling arg: %w", err)
+	}
+
+	content, err := structpb.NewValue(contentRaw)
+	if err != nil {
+		return nil, fmt.Errorf("creating args value: %w", err)
+	}
+
+	return []*a2a.Part{{
+		Part: &a2a.Part_Data{
+			Data: &a2a.DataPart{
+				Data: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"tool":    structpb.NewStringValue(msg.ToolName()),
+						"content": content,
+					},
+				},
+			},
+		},
+	}}, nil
+}
+
+func extractText(content []*a2a.Part) string {
+	var sb strings.Builder
+	for _, c := range content {
+		sb.WriteString(c.GetText())
+	}
+
+	return sb.String()
 }

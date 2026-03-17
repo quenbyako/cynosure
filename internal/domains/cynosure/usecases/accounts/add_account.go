@@ -14,7 +14,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
@@ -224,16 +223,9 @@ func (s *Usecase) createOAuthAuthResponse(
 	verifierStr string,
 	server entities.ServerConfigReadOnly,
 ) (AddAccountResponse, error) {
-	validUntil := s.clock().Add(s.stateExpiration)
-
-	stateRaw, err := oauth.NewState(account, name, description, verifier, validUntil)
+	state, validUntil, err := s.generateOAuthState(account, name, description, verifier)
 	if err != nil {
-		return nil, fmt.Errorf("creating state: %w", err)
-	}
-
-	state, err := stateRaw.State("", s.key)
-	if err != nil {
-		return nil, fmt.Errorf("generating state: %w", err)
+		return nil, err
 	}
 
 	authURL, err := url.Parse(server.AuthConfig().AuthCodeURL(

@@ -54,85 +54,112 @@ func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 	for config := range configIterator() {
 		for testName, tokenMaker := range srvAccountMaker {
 			t.Run(config.String()+"/"+testName, func(t *testing.T) {
-				t.Parallel()
-
-				account := dummyAccount(t)
-
-				srv := mcpmock.New(config)
-				defer srv.Close()
-
-				token := tokenMaker(srv)
-
-				if s.afterServerSetup != nil {
-					s.afterServerSetup(srv.MCPURL())
-				}
-
-				nameToID := map[string]ids.ToolID{}
-
-				tools, err := s.adapter.DiscoverTools(
-					t.Context(), srv.MCPURL(), account, name, desc,
-					toolclient.WithToolIDBuilder(func(
-						account ids.AccountID, name string,
-					) (ids.ToolID, error) {
-						if _, ok := nameToID[name]; ok {
-							return ids.ToolID{}, ErrUnexpectedToolNameCollision
-						}
-
-						id, err := ids.RandomToolID(account)
-						if err != nil {
-							return ids.ToolID{}, fmt.Errorf("generating tool id: %w", err)
-						}
-
-						nameToID[name] = id
-
-						return id, nil
-					}),
-					toolclient.WithAuthToken(token),
-				)
-				expectError := config.Auth == mcpmock.AuthRequired ||
-					config.Auth == mcpmock.AuthNoHeader
-				// If we have a valid account and the server uses Bearer (which oauth defaults to),
-				// it will succeed.
-				if testName == "valid_account" &&
-					(config.AuthType == mcpmock.AuthTypeNone ||
-						config.AuthType == mcpmock.AuthTypeBearer) {
-					expectError = false
-				}
-
-				if !expectError {
-					require.NoError(t, err)
-					require.ElementsMatch(
-						t,
-						srv.Tools(name, desc, func(name string) ids.ToolID {
-							return nameToID[name]
-						}),
-						tools,
-					)
-
-					return
-				}
-
-				if testName == "invalid_account" {
-					// when we have invalid account, we are throwing generic
-					// errors. adapter MUST implement automatic refresh at
-					// least once.
-					require.ErrorIs(t, err, toolclient.ErrInvalidCredentials)
-					return
-				}
-
-				reqAuthErr := new(toolclient.RequiresAuthError)
-				require.ErrorAs(t, err, &reqAuthErr)
-
-				// Endpoint is only provided by server if it sends
-				// WWW-Authenticate header. For AuthNoHeader, server does
-				// not send it, so Endpoint() will naturally be nil.
-				if config.Protected == mcpmock.MetadataDiscoveryPathExplicit &&
-					config.Auth != mcpmock.AuthNoHeader {
-					require.NotNil(t, reqAuthErr.Endpoint())
-					require.NotEmpty(t, reqAuthErr.Endpoint().String())
-				}
+				s.runProbeTest(t, config, testName, tokenMaker, name, desc)
 			})
 		}
+	}
+}
+
+func (s *ToolClientTestSuite) runProbeTest(
+	t *testing.T,
+	config mcpmock.MockServerConfig,
+	testName string,
+	tokenMaker func(srv *mcpmock.MockServer) *oauth2.Token,
+	name, desc string,
+) {
+	t.Helper()
+
+	err := s.executeProbeTest(t, config, tokenMaker, name, desc)
+	expectError := s.isProbeErrorExpected(config, testName)
+
+	if !expectError {
+		require.NoError(t, err)
+		return
+	}
+
+	s.verifyProbeError(t, err, testName, config)
+}
+
+func (s *ToolClientTestSuite) executeProbeTest(
+	t *testing.T,
+	config mcpmock.MockServerConfig,
+	tokenMaker func(srv *mcpmock.MockServer) *oauth2.Token,
+	name, desc string,
+) error {
+	t.Helper()
+	account := dummyAccount(t)
+
+	srv := mcpmock.New(config)
+	defer srv.Close()
+
+	token := tokenMaker(srv)
+	if s.afterServerSetup != nil {
+		s.afterServerSetup(srv.MCPURL())
+	}
+
+	_, err := s.adapter.DiscoverTools(
+		t.Context(), srv.MCPURL(), account, name, desc,
+		toolclient.WithToolIDBuilder(buildToolID),
+		toolclient.WithAuthToken(token),
+	)
+	if err != nil {
+		return fmt.Errorf("discovering tools: %w", err)
+	}
+
+	return nil
+}
+
+func buildToolID(account ids.AccountID, _ string) (ids.ToolID, error) {
+	id, innerErr := ids.RandomToolID(account)
+	if innerErr != nil {
+		return ids.ToolID{}, fmt.Errorf("generating tool id: %w", innerErr)
+	}
+
+	return id, nil
+}
+
+func (s *ToolClientTestSuite) isProbeErrorExpected(
+	config mcpmock.MockServerConfig,
+	testName string,
+) bool {
+	if config.Auth == mcpmock.AuthRequired || config.Auth == mcpmock.AuthNoHeader {
+		if testName == "valid_account" &&
+			(config.AuthType == mcpmock.AuthTypeNone || config.AuthType == mcpmock.AuthTypeBearer) {
+			return false
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (s *ToolClientTestSuite) verifyProbeError(
+	t *testing.T,
+	err error,
+	testName string,
+	config mcpmock.MockServerConfig,
+) {
+	t.Helper()
+
+	if testName == "invalid_account" {
+		// when we have invalid account, we are throwing generic
+		// errors. adapter MUST implement automatic refresh at
+		// least once.
+		require.ErrorIs(t, err, toolclient.ErrInvalidCredentials)
+		return
+	}
+
+	reqAuthErr := new(toolclient.RequiresAuthError)
+	require.ErrorAs(t, err, &reqAuthErr)
+
+	// Endpoint is only provided by server if it sends
+	// WWW-Authenticate header. For AuthNoHeader, server does
+	// not send it, so Endpoint() will naturally be nil.
+	if config.Protected == mcpmock.MetadataDiscoveryPathExplicit &&
+		config.Auth != mcpmock.AuthNoHeader {
+		require.NotNil(t, reqAuthErr.Endpoint())
+		require.NotEmpty(t, reqAuthErr.Endpoint().String())
 	}
 }
 

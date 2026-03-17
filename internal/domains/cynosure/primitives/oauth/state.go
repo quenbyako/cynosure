@@ -50,56 +50,19 @@ func NewState(
 	return state, nil
 }
 
-func StateFromToken(token string, key [16]byte) (State, error) {
+func StateFromToken(token string, aesKey [16]byte) (State, error) {
 	tokenRaw, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return State{}, fmt.Errorf("invalid base64: %w", err)
 	}
 
-	kk, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, key[:])
+	payload, err := decryptClaims(tokenRaw, aesKey)
 	if err != nil {
-		return State{}, ErrInternalValidation("invalid key")
+		return State{}, err
 	}
 
-	encryptor, err := kk.Encryptor()
+	state, err := stateFromClaims(&payload)
 	if err != nil {
-		return State{}, fmt.Errorf("creating decription stack: %w", err)
-	}
-
-	res, err := cose.DecryptEncrypt0Message[claims](encryptor, tokenRaw, nil)
-	if err != nil {
-		return State{}, fmt.Errorf("decrypting token: %w", err)
-	}
-
-	user, err := ids.NewUserID(res.Payload.UserID)
-	if err != nil {
-		return State{}, fmt.Errorf("parsing user id: %w", err)
-	}
-
-	server, err := ids.NewServerID(res.Payload.ServerID)
-	if err != nil {
-		return State{}, fmt.Errorf("parsing server id: %w", err)
-	}
-
-	accountID, err := ids.NewAccountID(user, server, res.Payload.AccountID)
-	if err != nil {
-		return State{}, fmt.Errorf("parsing account id: %w", err)
-	}
-
-	expirationUnix := res.Payload.Expiration
-	if expirationUnix > math.MaxInt64 {
-		expirationUnix = math.MaxInt64
-	}
-
-	state := State{
-		account:   accountID,
-		name:      res.Payload.AccountName,
-		desc:      res.Payload.AccountDesc,
-		challenge: res.Payload.Challenge,
-		expireAt:  time.Unix(int64(expirationUnix), 0).UTC(),
-		_valid:    false,
-	}
-	if err := state.validate(); err != nil {
 		return State{}, err
 	}
 
@@ -141,48 +104,120 @@ func (s *State) Name() string           { return s.name }
 func (s *State) Description() string    { return s.desc }
 func (s *State) Challenge() []byte      { return s.challenge }
 
-func (s *State) State(kid string, k [16]byte) (string, error) {
-	aesKey, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, k[:])
+func (s *State) State(kid string, aesKey [16]byte) (string, error) {
+	data, err := s.encryptState(kid, aesKey)
 	if err != nil {
-		return "", ErrInternalValidation("invalid state: key returned %q", err.Error())
+		return "", err
 	}
 
-	protectedValues := cose.Headers{}
-	if kid != "" {
-		protectedValues[iana.HeaderParameterKid] = key.ByteStr(kid)
+	return base64.RawURLEncoding.EncodeToString(data), nil
+}
+
+func decryptClaims(tokenRaw []byte, aesKey [16]byte) (claims, error) {
+	kk, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, aesKey[:])
+	if err != nil {
+		return claims{}, ErrInternalValidation("invalid key")
 	}
+
+	encryptor, err := kk.Encryptor()
+	if err != nil {
+		return claims{}, fmt.Errorf("creating decryption stack: %w", err)
+	}
+
+	res, err := cose.DecryptEncrypt0Message[claims](encryptor, tokenRaw, nil)
+	if err != nil {
+		return claims{}, fmt.Errorf("decrypting token: %w", err)
+	}
+
+	return res.Payload, nil
+}
+
+func stateFromClaims(payloadClaims *claims) (State, error) {
+	user, err := ids.NewUserID(payloadClaims.UserID)
+	if err != nil {
+		return State{}, fmt.Errorf("parsing user id: %w", err)
+	}
+
+	server, err := ids.NewServerID(payloadClaims.ServerID)
+	if err != nil {
+		return State{}, fmt.Errorf("parsing server id: %w", err)
+	}
+
+	accountID, err := ids.NewAccountID(user, server, payloadClaims.AccountID)
+	if err != nil {
+		return State{}, fmt.Errorf("parsing account id: %w", err)
+	}
+
+	exp := payloadClaims.Expiration
+	if exp > math.MaxInt64 {
+		exp = math.MaxInt64
+	}
+
+	state := State{
+		account: accountID, name: payloadClaims.AccountName, desc: payloadClaims.AccountDesc,
+		challenge: payloadClaims.Challenge, expireAt: time.Unix(int64(exp), 0).UTC(),
+		_valid: true,
+	}
+	if err := state.validate(); err != nil {
+		return State{}, err
+	}
+
+	return state, nil
+}
+
+func (s *State) encryptState(kid string, aesKey [16]byte) ([]byte, error) {
+	coseKey, err := aesgcm.KeyFrom(iana.AlgorithmA128GCM, aesKey[:])
+	if err != nil {
+		return nil, ErrInternalValidation("invalid state: key returned %q", err.Error())
+	}
+
+	protected := s.makeProtectedHeaders(kid)
+	cl := s.makeClaims()
 
 	msg := cose.Encrypt0Message[claims]{
-		Protected: protectedValues,
-		Payload: claims{
-			Claims: cwt.Claims{
-				Issuer:     "",
-				Subject:    "",
-				Audience:   "",
-				Expiration: uint64(max(0, s.expireAt.Unix())),
-				NotBefore:  0,
-				IssuedAt:   0,
-				CWTID:      key.ByteStr(nil),
-			},
-			AccountID:   s.account.ID(),
-			AccountName: s.name,
-			AccountDesc: s.desc,
-			UserID:      s.account.User().ID(),
-			ServerID:    s.account.Server().ID(),
-			Challenge:   s.challenge,
-		},
-		Unprotected: nil,
+		Protected:   protected,
+		Unprotected: cose.Headers{},
+		Payload:     cl,
 	}
 
-	encryptor, err := aesKey.Encryptor()
+	encryptor, err := coseKey.Encryptor()
 	if err != nil {
-		return "", fmt.Errorf("creating encryptor: %w", err)
+		return nil, fmt.Errorf("creating encryptor: %w", err)
 	}
 
 	data, err := msg.EncryptAndEncode(encryptor, nil)
 	if err != nil {
-		return "", fmt.Errorf("encrypting state: %w", err)
+		return nil, fmt.Errorf("encrypting state: %w", err)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(data), nil
+	return data, nil
+}
+
+func (s *State) makeProtectedHeaders(kid string) cose.Headers {
+	protected := cose.Headers{}
+	if kid != "" {
+		protected[iana.HeaderParameterKid] = key.ByteStr(kid)
+	}
+
+	return protected
+}
+
+func (s *State) makeClaims() claims {
+	return claims{
+		Claims: cwt.Claims{
+			Expiration: uint64(max(0, s.expireAt.Unix())),
+			Issuer:     "",
+			Subject:    "",
+			Audience:   "",
+			NotBefore:  0,
+			IssuedAt:   0,
+			CWTID:      nil,
+		},
+		AccountID:   s.account.ID(),
+		AccountName: s.name,
+		AccountDesc: s.desc,
+		UserID:      s.account.User().ID(),
+		ServerID:    s.account.Server().ID(),
+		Challenge:   s.challenge,
+	}
 }

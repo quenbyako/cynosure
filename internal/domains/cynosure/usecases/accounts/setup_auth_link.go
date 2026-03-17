@@ -10,7 +10,6 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
 
 type SetupAuthLinkResponse struct {
@@ -83,16 +82,9 @@ func (s *Usecase) completeOAuthLink(
 	account ids.AccountID,
 	info entities.ServerConfigReadOnly,
 ) (SetupAuthLinkResponse, error) {
-	validUntil := s.clock().Add(s.stateExpiration)
-
-	stateRaw, err := oauth.NewState(account, name, desc, verifier, validUntil)
+	state, validUntil, err := s.generateOAuthState(account, name, desc, verifier)
 	if err != nil {
-		return SetupAuthLinkResponse{}, fmt.Errorf("creating state: %w", err)
-	}
-
-	state, err := stateRaw.State("", s.key)
-	if err != nil {
-		return SetupAuthLinkResponse{}, fmt.Errorf("generating state: %w", err)
+		return SetupAuthLinkResponse{}, err
 	}
 
 	authURL, err := url.Parse(info.AuthConfig().AuthCodeURL(

@@ -86,19 +86,7 @@ type SaveAccountFixture struct {
 }
 
 func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
-	fixture := s.buildSaveAccountSeed()
-
-	if s.saveAccountFixture != nil {
-		if err := s.saveAccountFixture(t.Context(), fixture); err != nil {
-			t.Fatalf("failed to setup fixtures: %v", err)
-		}
-	}
-
-	account := must(entities.NewAccount(
-		fixture.AccountID,
-		fixture.Name,
-		fixture.Description,
-	))
+	fixture, account := s.setupSaveAccountTest(t)
 
 	t.Run("saving_account", func(t *testing.T) {
 		err := s.adapter.SaveAccount(t.Context(), account)
@@ -120,6 +108,24 @@ func (s *AccountStorageTestSuite) TestSaveAccount(t *testing.T) {
 		require.Len(t, accountIDs, 1, "adapter should return exactly one account")
 		require.Contains(t, accountIDs, fixture.AccountID, "account ID not found in list")
 	})
+}
+
+func (s *AccountStorageTestSuite) setupSaveAccountTest(
+	t *testing.T,
+) (SaveAccountFixture, *entities.Account) {
+	t.Helper()
+
+	fixture := s.buildSaveAccountSeed()
+
+	if s.saveAccountFixture != nil {
+		if err := s.saveAccountFixture(t.Context(), fixture); err != nil {
+			t.Fatalf("failed to setup fixtures: %v", err)
+		}
+	}
+
+	account := must(entities.NewAccount(fixture.AccountID, fixture.Name, fixture.Description))
+
+	return fixture, account
 }
 
 func (s *AccountStorageTestSuite) buildSaveAccountSeed() SaveAccountFixture {

@@ -22,7 +22,7 @@ func TestState(t *testing.T) {
 		"test_account",
 		"some description just to be sure that it's not too huge for token",
 		[]byte{16, 32, 64, 128},
-		time.Now(),
+		time.Now().Truncate(time.Second).UTC(),
 	)
 	require.NoError(t, err, "generating state")
 
