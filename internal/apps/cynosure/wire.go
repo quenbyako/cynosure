@@ -9,6 +9,7 @@ import (
 	"github.com/quenbyako/core/contrib/runtime"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
@@ -18,6 +19,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/logs"
@@ -52,6 +54,9 @@ var (
 	oryAdapter = wire.NewSet(newOryClient,
 		wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)),
 	)
+	ratelimiterAdapter = wire.NewSet(newRateLimiter,
+		wire.Bind(new(ratelimiter.PortFactory), new(*inmemory.RateLimiter)),
+	)
 )
 
 var (
@@ -73,6 +78,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		chatmodel.New,
 		identitymanager.New,
 		oauthhandler.New,
+		ratelimiter.New,
 		toolclient.New,
 
 		loggerConstructor,
@@ -82,6 +88,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		mcpAdapter,
 		oauthAdapter,
 		oryAdapter,
+		ratelimiterAdapter,
 
 		chatUsecase,
 		accountsUsecase,

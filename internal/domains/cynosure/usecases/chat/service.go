@@ -7,6 +7,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
 
@@ -24,7 +25,8 @@ type Usecase struct {
 	toolStorage    ports.ToolStorage
 	servers        ports.ServerStorage
 	accounts       ports.AccountStorage
-	models         ports.AgentStorage
+	agents         ports.AgentStorage
+	limiter        ratelimiter.Port
 	log            LogCallbacks
 	trace          trace.Tracer
 	agentLoopTurns uint8
@@ -58,6 +60,9 @@ func WithTracer(tracer trace.TracerProvider) NewOpt {
 	return func(p *newParams) { p.tracer = tracer }
 }
 
+// New creates a new usecase instance.
+//
+// TODO: find a way, how to reduce amount of ports in usecases
 func New(
 	storage ports.ThreadStorage,
 	model chatmodel.Port,
@@ -67,6 +72,7 @@ func New(
 	server ports.ServerStorage,
 	account ports.AccountStorage,
 	models ports.AgentStorage,
+	limiter ratelimiter.Port,
 	opts ...NewOpt,
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
@@ -78,7 +84,8 @@ func New(
 		toolStorage:    toolStorage,
 		servers:        server,
 		accounts:       account,
-		models:         models,
+		agents:         models,
+		limiter:        limiter,
 		agentLoopTurns: defaultAgentLoopTurns,
 		log:            params.log,
 		trace:          params.tracer.Tracer(pkgName),
@@ -107,8 +114,10 @@ func (u *Usecase) validate() error {
 		return errInternalValidation("server storage is required")
 	case u.accounts == nil:
 		return errInternalValidation("account storage is required")
-	case u.models == nil:
+	case u.agents == nil:
 		return errInternalValidation("model settings storage is required")
+	case u.limiter == nil:
+		return errInternalValidation("rate limiter is required")
 	default:
 		return nil
 	}

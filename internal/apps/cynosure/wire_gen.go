@@ -11,6 +11,7 @@ import (
 	"github.com/goforj/wire"
 	"github.com/quenbyako/core/contrib/runtime"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
@@ -20,6 +21,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/logs"
@@ -62,7 +64,9 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	threadStorageWrapped := ports.NewThreadStorage(adapter)
 	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	agentStorage := ports.NewAgentStorage(adapter)
-	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, baseLogger)
+	rateLimiter := newRateLimiter(ctx, config)
+	ratelimiterPortWrapped := ratelimiter.New(rateLimiter)
+	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, ratelimiterPortWrapped, baseLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -92,11 +96,12 @@ var loggerConstructor = wire.NewSet(
 )
 
 var (
-	sqlAdapter    = wire.NewSet(newSQLAdapter, wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)))
-	geminiAdapter = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
-	oauthAdapter  = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
-	mcpAdapter    = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
-	oryAdapter    = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)))
+	sqlAdapter         = wire.NewSet(newSQLAdapter, wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)))
+	geminiAdapter      = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
+	oauthAdapter       = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
+	mcpAdapter         = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
+	oryAdapter         = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)))
+	ratelimiterAdapter = wire.NewSet(newRateLimiter, wire.Bind(new(ratelimiter.PortFactory), new(*inmemory.RateLimiter)))
 )
 
 var (

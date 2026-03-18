@@ -1,5 +1,19 @@
 # Working with ports
 
+## Common port structure
+
+Common structure of port package is:
+
+- `port.go` — Definition of port + default parameters initialization, if some of port methods provide optional pattern
+- `opts.go` — all option utility functions and types that providing optional parameters for port methods. File is optional, and should be created only if there are any options.
+- `errors.go` — all errors that port can throw. IMPORTANT: **NEVER EVER** define errors outside of this file
+- `wrapper.go` — implementation of wrapper, that contains all observability and other middlewares for ports.
+- `factory.go` — API for port implementations (adapters), that will be useful for creating
+- `observability.go` — callbacks, related to OpenTelemetry spans/metrics/logs construction.
+
+## Observability
+
+Port **MUST** provide observability tools (such as metrics, tracing, etc.) for each method.
 
 ## How to be sure that port is good
 

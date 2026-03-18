@@ -77,3 +77,4 @@ func (u AccountID) validate() error {
 func (u AccountID) ID() uuid.UUID    { return u.id }
 func (u AccountID) User() UserID     { return u.user }
 func (u AccountID) Server() ServerID { return u.server }
+func (u AccountID) String() string   { return u.id.String() }

@@ -3,11 +3,14 @@ package cynosure
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/time/rate"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
@@ -142,4 +145,18 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
 		ory.WithScopes(params.ory.scopes...),
 		ory.WithRedirectURL(params.ory.redirectURL),
 	), nil
+}
+
+const (
+	defaultQuotaDrop  = time.Hour
+	defaultQuotaBurst = 20
+)
+
+func newRateLimiter(ctx context.Context, params *appParams) *inmemory.RateLimiter {
+	return inmemory.NewRateLimiter(
+		rate.Every(defaultQuotaDrop),
+		defaultQuotaBurst,
+		time.Now,
+		params.observability,
+	)
 }
