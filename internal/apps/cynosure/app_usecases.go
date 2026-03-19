@@ -7,6 +7,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
@@ -23,6 +24,7 @@ func newChatUsecase(
 	server ports.ServerStorage,
 	account ports.AccountStorage,
 	models ports.AgentStorage,
+	limiter ratelimiter.PortWrapped,
 	logger chat.LogCallbacks,
 ) (*chat.Usecase, error) {
 	usecase, err := chat.New(
@@ -34,6 +36,7 @@ func newChatUsecase(
 		server,
 		account,
 		models,
+		limiter,
 		chat.WithLogger(logger),
 		chat.WithTracer(params.observability),
 	)
