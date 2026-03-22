@@ -3,8 +3,6 @@
 This file tracks the project's roadmap and backlog using the [TODO.md standard](https://github.com/todomd/todo.md).
 
 ## 🔴 High Priority
-- [ ] **Implement Internal MCP Server** #feature #architecture @dev
-  - [ ] Create server for project-internal tools to follow the "Adapter-as-a-Service" pattern.
 - [ ] **Grafana Stack Completion** #observability @dev
   - [ ] **Tempo:** Link `TraceID` across Telegram gateway, Gemini adapter, and MCP client for end-to-end visibility.
   - [ ] **Loki:** Implement Trace-Log Correlation using labels for seamless jump from trace to logs.
@@ -32,11 +30,18 @@ This file tracks the project's roadmap and backlog using the [TODO.md standard](
 - [ ] **Agent Loop Interruption** #resilience @dev
   - [ ] Implement "Circuit Breaker" for tools in database, not just in runtime, to stop the agent loop immediately upon tool failure.
 - [ ] **Strict MCP Typing** #refactoring @dev
-  - [ ] Replace `any`/`json.RawMessage` with concrete types in MCP adapters.
+  - [ ] Replace `any`/`json.RawMessage` with concrete JSONSchema objects.
 
 ---
+
+## Nice to have
+
+- [ ] Refactor all project to Event Driven Architecture in agent loop domain.
+- [ ] Implement URL shortener, cause AI corrupting long or binary data links.
+- [ ] Implement smart rate limiter: with reservation of tokens.
+- [ ] RedisConn: refactor it to suit golangci.
+
 ## ✅ Completed
-- [x] **Fix broken `Text()` method calls** (Updated to `Content()`)
 - [x] **Fix Trace Role Mapping** (Corrected `MessageUser` mapping in Gemini OTel attributes)
 - [x] **Metrics wiring** (Connected `CYNOSURE_METRICS_ADDR` to configuration)
 - [x] **Nil guards for TracerProviders** (Added safety in SQL and Gemini adapters)

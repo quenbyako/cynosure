@@ -42,6 +42,10 @@ dist/
 *.secret
 .artifacts/
 
+# local grafana config
+
+config.alloy
+
 # ignore all other cmd binaries, but official
 
 cmd/
