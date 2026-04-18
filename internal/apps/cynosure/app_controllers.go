@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	mcpraw "github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
 	"github.com/quenbyako/cynosure/internal/controllers/mcp"
@@ -86,7 +87,7 @@ func bindMCPController(
 	handler, err := mcp.New(
 		usecase,
 		mcpImpl,
-		mcp.WithLogger(params.observability),
+		mcp.WithLogger(otelslog.NewHandler("mcp", otelslog.WithLoggerProvider(params.observability))),
 		mcp.WithAllowedIssuers(params.ory.endpoint.Host),
 	)
 	if err != nil {

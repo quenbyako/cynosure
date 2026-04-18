@@ -80,24 +80,24 @@ func (l *BaseLogger) ToolCalled(
 		Msg("Tool called during generation")
 }
 
-func (l *BaseLogger) EffectiveEnvironment(env map[string]string) {
-	l.event(context.Background(), slog.LevelInfo, eventEffectiveEnvironment).
+func (l *BaseLogger) EffectiveEnvironment(ctx context.Context, env map[string]string) {
+	l.event(ctx, slog.LevelInfo, eventEffectiveEnvironment).
 		Context(
 			asEnvs(env)...,
 		).
 		Msg("Parsed effective environment")
 }
 
-func (l *BaseLogger) MetricsStarted(addr net.Addr) {
-	l.event(context.Background(), slog.LevelInfo, eventMetricsStarted).
+func (l *BaseLogger) MetricsStarted(ctx context.Context, addr net.Addr) {
+	l.event(ctx, slog.LevelInfo, eventMetricsStarted).
 		Context(
 			attribute.Key("addr").String(addr.String()),
 		).
 		Msg("Metrics server started")
 }
 
-func (l *BaseLogger) MetricsStopped(addr net.Addr) {
-	l.event(context.Background(), slog.LevelInfo, eventMetricsStopped).
+func (l *BaseLogger) MetricsStopped(ctx context.Context, addr net.Addr) {
+	l.event(ctx, slog.LevelInfo, eventMetricsStopped).
 		Context(
 			attribute.Key("addr").String(addr.String()),
 		).
