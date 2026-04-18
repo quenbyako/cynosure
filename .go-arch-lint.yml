@@ -5,38 +5,37 @@ allow:
 
 excludeFiles:
   - ".*_test.go"
-  - "openai/*"
-  - "neural/*"
   - "main.go"
 
   # contrib should have each goarchlint rule
-  - "contrib/*"
+  - "contrib/.*"
 
 components:
-  aggregates: { in: "internal/domains/aggregates/*" }
-  components:
-    in:
-      - "internal/domains/components"
-      - "internal/domains/components/ids"
-      - "internal/domains/components/tools"
-      - "internal/domains/components/messages"
-      - "internal/domains/components/oauth"
+  aggregates: { in: "internal/domains/cynosure/aggregates/**" }
+  primitives: { in: "internal/domains/cynosure/primitives/**" }
+  entities: { in: "internal/domains/cynosure/entities/**" }
+  ports: { in: "internal/domains/cynosure/ports/**" }
+  usecases: { in: "internal/domains/cynosure/usecases/**" }
 
-  entities: { in: "internal/domains/entities" }
-  ports: { in: "internal/domains/ports" }
-  services: { in: "internal/domains/services/*" }
+  adapters.gemini: { in: "internal/adapters/gemini/**" }
+  adapters.mcp: { in: "internal/adapters/mcp/**" }
+  adapters.mocks: { in: "internal/adapters/mocks/**" }
+  adapters.oauth: { in: "internal/adapters/oauth/**" }
+  adapters.ory: { in: "internal/adapters/ory/**" }
+  adapters.sql: { in: "internal/adapters/sql/**" }
+  adapters.inmemory: { in: "internal/adapters/inmemory/**" }
 
-  adapters.mocks: { in: "internal/adapters/mocks" }
-  adapters.gemini: { in: "internal/adapters/gemini" }
-  adapters.zep: { in: "internal/adapters/zep" }
+  controllers.a2a: { in: "internal/controllers/a2a/**" }
+  controllers.admin: { in: "internal/controllers/admin/**" }
+  controllers.mcp: { in: "internal/controllers/mcp/**" }
+  controllers.oauth: { in: "internal/controllers/oauth/**" }
+  controllers.telegram: { in: "internal/controllers/telegram/**" }
 
-  controllers.a2a: { in: "internal/controllers/a2a" }
-  controllers.admin: { in: "internal/controllers/admin" }
-  controllers.oauth: { in: "internal/controllers/oauth" }
+  cmds.cynosure: { in: "cmd/cynosure/**" }
 
-  cmds.cynosure: { in: "cmd/cynosure/*" }
+  logs: { in: "internal/logs/**" }
 
-  apps.cynosure: { in: "internal/apps/cynosure" }
+  apps.cynosure: { in: "internal/apps/cynosure/**" }
 
 vendors:
   uuid: { in: github.com/google/uuid }
@@ -45,9 +44,12 @@ vendors:
     in:
       - go.opentelemetry.io/otel/trace
       - go.opentelemetry.io/otel/trace/noop
+      - go.opentelemetry.io/otel/log
+      - go.opentelemetry.io/otel/log/noop
       - go.opentelemetry.io/otel/sdk/resource
       - go.opentelemetry.io/otel/semconv/*
       - go.opentelemetry.io/otel/sdk/trace
+      - go.opentelemetry.io/contrib/bridges/otelslog
   cose:
     in:
       - github.com/ldclabs/cose/**
@@ -79,18 +81,35 @@ vendors:
 
   apis.a2a:
     in:
-      - google.golang.org/a2a
-      - google.golang.org/grpc
-      - google.golang.org/protobuf/types/known/structpb
-      - google.golang.org/protobuf/types/known/emptypb
+      - google.golang.org/a2a/**
+      - google.golang.org/grpc/**
+      - google.golang.org/protobuf/**
+
+  apis.telegram:
+    in:
+      - github.com/quenbyako/cynosure/contrib/telegram-proto/**
+      - github.com/quenbyako/cynosure/contrib/telegram-bot-api/**
+
+  apis.wire:
+    in:
+      - github.com/goforj/wire/**
 
   apis.admin:
     in:
-      - tg-helper/contrib/agent-proto/pkg/xelaj/agent/v1alpha1
+      - github.com/quenbyako/cynosure/contrib/agent-proto/**
 
   apis.oauth:
     in:
-      - tg-helper/contrib/oauth-openapi/v1/go
+      - github.com/quenbyako/cynosure/contrib/oauth-openapi/gen/go
+
+  apis.core:
+    in:
+      - github.com/quenbyako/core
+      - github.com/quenbyako/core/**
+
+  apis.mcp:
+    in:
+      - github.com/modelcontextprotocol/go-sdk/**
 
 commonVendors:
   - uuid
@@ -100,79 +119,125 @@ commonVendors:
   - debug_tools
 
 deps:
-  components: { mayDependOn: [components] }
+  primitives: { mayDependOn: [ primitives ] }
 
   entities:
     mayDependOn:
-      - components
+      - primitives
 
   ports:
     mayDependOn:
-      - components
+      - primitives
       - entities
 
   aggregates:
     mayDependOn:
-      - components
+      - primitives
       - entities
       - ports
 
-  services:
+  usecases:
     mayDependOn:
-      - components
+      - primitives
       - entities
       - aggregates
       - ports
 
   adapters.gemini:
     mayDependOn:
-      - components
+      - primitives
       - entities
       - ports
     canUse:
       - apis.gemini
 
-  adapters.zep:
+  adapters.mcp:
     mayDependOn:
-      - components
+      - primitives
       - entities
       - ports
-    canUse:
-      - apis.zep
 
   adapters.mocks:
     mayDependOn:
-      - components
+      - primitives
       - entities
       - ports
     canUse:
       - mockery
 
+  adapters.oauth:
+    mayDependOn:
+      - primitives
+      - entities
+      - ports
+
+  adapters.ory:
+    mayDependOn:
+      - primitives
+      - entities
+      - ports
+
+  adapters.sql:
+    mayDependOn:
+      - primitives
+      - entities
+      - ports
+
   controllers.a2a:
     mayDependOn:
-      - components
-      - services
+      - primitives
+      - usecases
     canUse:
       - apis.a2a
 
   controllers.admin:
     mayDependOn:
-      - components
-      - services
+      - primitives
+      - usecases
     canUse:
       - apis.admin
 
+  controllers.mcp:
+    mayDependOn:
+      - primitives
+      - usecases
+
+  controllers.oauth:
+    mayDependOn:
+      - primitives
+      - usecases
+
+  controllers.telegram:
+    mayDependOn:
+      - primitives
+      - usecases
+
   apps.cynosure:
     mayDependOn:
-      - components
-      - services
+      - primitives
+      - entities
+      - ports
+      - usecases
+      - aggregates
+      - logs
       - adapters.gemini
-      - adapters.zep
+      - adapters.mcp
+      - adapters.mocks
+      - adapters.oauth
+      - adapters.ory
+      - adapters.sql
+      - adapters.inmemory
       - controllers.a2a
       - controllers.admin
+      - controllers.mcp
       - controllers.oauth
+      - controllers.telegram
     canUse:
       - network.grpc
+      - apis.gemini
+      - apis.core
+      - apis.mcp
+      - apis.wire
 
   cmds.cynosure:
     mayDependOn:
