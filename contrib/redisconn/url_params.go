@@ -341,11 +341,10 @@ func getHostPortWithDefaults(hostRaw, defaultHost string, defaultPort uint16) (h
 		return "", 0, err
 	}
 
-	if port64, err := strconv.ParseUint(portRaw, 10, 16); err != nil && portRaw == "" {
+	port64, err := strconv.ParseUint(portRaw, 10, 16)
+	if err != nil {
 		return "", 0, &net.AddrError{Err: netErrInvalidPort, Addr: hostRaw}
-	} else {
-		port = uint16(port64)
 	}
 
-	return host, port, nil
+	return host, uint16(port64), nil
 }

@@ -41,10 +41,12 @@ func (u *Usecase) GenerateResponse(
 	defer span.End()
 
 	params := u.resolveGenerateResponseParams(opts)
-	if allow, err := u.allowLimits(ctx, threadID.User()); !allow {
-		return u.yieldRateLimitError(err)
-	} else if err != nil {
+	allow, err := u.allowLimits(ctx, threadID.User())
+
+	if err != nil {
 		return nil, err
+	} else if !allow {
+		return u.yieldRateLimitError(err)
 	}
 
 	chatAgg, modelConfig, err := u.getAgentWithChat(ctx, threadID, params.model, msg)
