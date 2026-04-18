@@ -14,8 +14,6 @@ replace google.golang.org/a2a => ./contrib/a2aproto/a2a/v1
 
 replace github.com/quenbyako/cynosure/contrib/db => ./contrib/db
 
-replace github.com/quenbyako/cynosure/contrib/telegram-proto => ./contrib/telegram-proto
-
 replace github.com/quenbyako/cynosure/contrib/redisconn => ./contrib/redisconn
 
 require (

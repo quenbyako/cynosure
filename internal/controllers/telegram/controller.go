@@ -91,6 +91,49 @@ func New(
 ) (http.Handler, error) {
 	params := buildNewParams(opts...)
 
+	client, err := newClient(token, &params)
+	if err != nil {
+		return nil, err
+	}
+
+	hookSecret, err := setWebhook(ctx, client, serverPublicAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	handler := newHandler(ctx, srv, usecase, client, &params)
+	inner := botapi.NewStrictWebhookHandler(handler, []botapi.StrictMiddlewareFunc{})
+
+	return wrapWebhookHandler(inner, hookSecret), nil
+}
+
+func newHandler(
+	ctx context.Context, chatUsecase *chat.Usecase, usersUsecase *users.Usecase,
+	client *botapi.ClientWithResponses, params *newParams,
+) *Handler {
+	return &Handler{
+		log:            params.log,
+		tracer:         params.tracer.Tracer(pkgName),
+		srv:            chatUsecase,
+		users:          usersUsecase,
+		client:         client,
+		updateInterval: params.updateInterval,
+		lifecycleCtx:   ctx,
+	}
+}
+
+func wrapWebhookHandler(inner botapi.WebhookInterface, secret string) http.Handler {
+	return botapi.WebhookHandlerWithOptions(inner, botapi.WebhookServerOptions{
+		BaseRouter:       nil,
+		ErrorHandlerFunc: nil,
+		BaseURL:          "",
+		Middlewares: []botapi.MiddlewareFunc{
+			botapi.AuthenticateWebhook(secret),
+		},
+	})
+}
+
+func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, error) {
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
 		botapi.WithHTTPClient(params.httpClient()),
 	)
@@ -98,41 +141,46 @@ func New(
 		return nil, fmt.Errorf("creating telegram client: %w", err)
 	}
 
-	if err = setWebhook(ctx, client, serverPublicAddress); err != nil {
-		return nil, err
-	}
-
-	handler := &Handler{
-		log:            params.log,
-		tracer:         params.tracer.Tracer(pkgName),
-		srv:            srv,
-		users:          usecase,
-		client:         client,
-		updateInterval: params.updateInterval,
-		lifecycleCtx:   ctx,
-	}
-
-	inner := botapi.NewStrictWebhookHandler(handler, []botapi.StrictMiddlewareFunc{})
-
-	return botapi.WebhookHandler(inner), nil
+	return client, nil
 }
 
-func setWebhook(ctx context.Context, client *botapi.ClientWithResponses, addr *url.URL) error {
+type ArgumentError string
+
+func (e ArgumentError) Error() string {
+	return string(e)
+}
+
+const (
+	errAddressIsNil ArgumentError = "server public address is nil"
+)
+
+func setWebhook(
+	ctx context.Context, client *botapi.ClientWithResponses, addr *url.URL,
+) (string, error) {
+	if addr == nil {
+		return "", errAddressIsNil
+	}
+
+	token, err := botapi.MakeSecretToken()
+	if err != nil {
+		return "", fmt.Errorf("generating secret token: %w", err)
+	}
+
 	resp, err := client.SetWebhookWithResponse(ctx, botapi.SetWebhookJSONRequestBody{
 		Url:                addr.String(),
 		AllowedUpdates:     nil,
 		DropPendingUpdates: nil,
 		IpAddress:          nil,
 		MaxConnections:     nil,
-		SecretToken:        nil,
+		SecretToken:        &token,
 	})
 	if err != nil {
-		return fmt.Errorf("setting telegram webhook: %w", err)
+		return "", fmt.Errorf("setting telegram webhook: %w", err)
 	}
 
 	if resp.JSON200 == nil || (!resp.JSON200.Ok || !resp.JSON200.Result) {
-		return errAPI("setting telegram webhook", resp.Status())
+		return "", errAPI("setting telegram webhook", resp.Status(), resp.JSONDefault)
 	}
 
-	return nil
+	return token, nil
 }

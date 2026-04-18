@@ -62,7 +62,9 @@ func WithTracer(tracer trace.TracerProvider) NewOpt {
 
 // New creates a new usecase instance.
 //
-// TODO: find a way, how to reduce amount of ports in usecases
+// TODO: find a way, how to reduce amount of ports in usecases.
+//
+//nolint:funlen // it's impossible for now to reduce size, cause there are too many required ports
 func New(
 	storage ports.ThreadStorage,
 	model chatmodel.Port,
