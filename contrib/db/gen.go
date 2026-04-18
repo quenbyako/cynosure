@@ -1,6 +1,9 @@
+// Package db provides schema-based client to database.
 package db
 
-import "embed"
+import (
+	"embed"
+)
 
 //go:embed schema
 var Schema embed.FS

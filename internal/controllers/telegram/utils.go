@@ -39,24 +39,14 @@ func (h *Handler) sendRateLimitedMessage(ctx context.Context, msg *botapi.Messag
 		text += fmt.Sprintf(" (trace id: %s)", traceID.String())
 	}
 
-	_, err := h.client.SendMessageWithResponse(ctx, botapi.SendMessageJSONRequestBody{
-		ChatId:                  msg.Chat.Id,
-		Text:                    text,
-		MessageThreadId:         msg.MessageThreadId,
-		AllowPaidBroadcast:      nil,
-		BusinessConnectionId:    nil,
-		DirectMessagesTopicId:   nil,
-		DisableNotification:     nil,
-		Entities:                nil,
-		LinkPreviewOptions:      nil,
-		MessageEffectId:         nil,
-		ParseMode:               nil,
-		ProtectContent:          nil,
-		ReplyMarkup:             nil,
-		ReplyParameters:         nil,
-		SuggestedPostParameters: nil,
-	})
-	if err != nil {
+	//nolint:exhaustruct // too many optional fields.
+	params := botapi.SendMessageJSONRequestBody{
+		ChatId:          msg.Chat.Id,
+		Text:            text,
+		MessageThreadId: msg.MessageThreadId,
+	}
+
+	if _, err := h.client.SendMessageWithResponse(ctx, params); err != nil {
 		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
 			fmt.Errorf("sending rate limit message: %w", err),
 		)

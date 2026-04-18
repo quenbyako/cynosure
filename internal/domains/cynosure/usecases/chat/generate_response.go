@@ -14,6 +14,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -40,23 +41,54 @@ func (u *Usecase) GenerateResponse(
 	defer span.End()
 
 	params := u.resolveGenerateResponseParams(opts)
+	allow, err := u.allowLimits(ctx, threadID.User())
 
-	chatAgg, err := u.loadOrCreateChat(ctx, threadID, msg)
 	if err != nil {
 		return nil, err
+	} else if !allow {
+		return u.yieldRateLimitError(err)
 	}
 
-	agentID, err := u.resolveAgentID(ctx, threadID, chatAgg, params.model)
-	if err != nil {
-		return nil, err
-	}
-
-	modelConfig, err := u.models.GetAgent(ctx, agentID)
+	chatAgg, modelConfig, err := u.getAgentWithChat(ctx, threadID, params.model, msg)
 	if err != nil {
 		return nil, fmt.Errorf("getting model: %w", err)
 	}
 
 	return u.agentLoop(ctx, chatAgg, modelConfig, params.toolChoice), nil
+}
+
+func (u *Usecase) allowLimits(ctx context.Context, id ids.UserID) (bool, error) {
+	err := u.limiter.Consume(ctx, id, 1)
+	if err == nil {
+		return true, nil
+	}
+
+	if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("checking rate limit: %w", err)
+}
+
+func (u *Usecase) getAgentWithChat(
+	ctx context.Context, thread ids.ThreadID, agent ids.AgentID, msg messages.MessageUser,
+) (*chat.Chat, entities.AgentReadOnly, error) {
+	chatAgg, err := u.loadOrCreateChat(ctx, thread, msg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	agentID, err := u.resolveAgentID(ctx, thread, chatAgg, agent)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	modelConfig, err := u.agents.GetAgent(ctx, agentID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting model: %w", err)
+	}
+
+	return chatAgg, modelConfig, nil
 }
 
 func (u *Usecase) resolveGenerateResponseParams(opts []GenerateResponseOpt) generateResponseParams {
@@ -94,7 +126,7 @@ func (u *Usecase) deduceAgentID(
 	threadID ids.ThreadID,
 	chatAgg *chat.Chat,
 ) (ids.AgentID, error) {
-	agents, err := u.models.ListAgents(ctx, threadID.User())
+	agents, err := u.agents.ListAgents(ctx, threadID.User())
 	if err != nil {
 		return ids.AgentID{}, fmt.Errorf("listing user agents: %w", err)
 	}
@@ -120,12 +152,12 @@ func (u *Usecase) loadOrCreateChat(
 	id ids.ThreadID,
 	msg messages.MessageUser,
 ) (*chat.Chat, error) {
-	agg, err := chat.New(ctx, u.storage, u.indexer, u.toolStorage, u.accounts, u.models, id)
+	agg, err := chat.New(ctx, u.storage, u.indexer, u.toolStorage, u.accounts, u.agents, id)
 	switch {
 	case errors.Is(err, ports.ErrNotFound):
 		agg, err = chat.CreateChatAggregate(
 			ctx, u.storage, u.indexer, u.toolStorage, u.accounts,
-			u.models, id, []messages.Message{msg},
+			u.agents, id, []messages.Message{msg},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating chat: %w", err)
@@ -386,4 +418,19 @@ func yieldToolError(
 	}
 
 	return yield(toolErr, nil)
+}
+
+func (u *Usecase) yieldRateLimitError(err error) (iter.Seq2[messages.Message, error], error) {
+	return func(yield func(messages.Message, error) bool) {
+		errorMsg, msgErr := messages.NewMessageAssistant(
+			"I apologize, but you have reached your message rate limit. " +
+				"Please wait a moment before sending another message.",
+		)
+		if msgErr != nil {
+			yield(nil, fmt.Errorf("creating rate limit error message: %w", msgErr))
+			return
+		}
+
+		yield(errorMsg, nil)
+	}, nil
 }

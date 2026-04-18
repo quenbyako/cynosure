@@ -37,6 +37,7 @@ type (
 		telegram telegramParams
 		gemini   geminiParams
 		storage  storageParams
+		redis    redisParams
 
 		observability      core.Metrics
 		grpcAddr           grpc.ServiceRegistrar
@@ -69,6 +70,10 @@ type (
 
 	storageParams struct {
 		databaseURL *url.URL
+	}
+
+	redisParams struct {
+		url *url.URL
 	}
 )
 
@@ -186,6 +191,10 @@ func WithDatabaseURL(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.storage.databaseURL = addr }
 }
 
+func WithRedis(addr *url.URL) AppOpts {
+	return func(p *appParams) { p.redis.url = addr }
+}
+
 func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
 	return func(p *appParams) {
 		p.ory.endpoint = endpoint
@@ -258,6 +267,9 @@ func defaultParams() appParams {
 		},
 		storage: storageParams{
 			databaseURL: nil,
+		},
+		redis: redisParams{
+			url: nil,
 		},
 		observability:      core.NoopMetrics(),
 		grpcAddr:           nil,
