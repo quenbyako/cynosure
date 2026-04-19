@@ -3,6 +3,7 @@ package inmemory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -79,6 +80,8 @@ func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped { return ratelimiter
 
 // Consume consumes message quota for the given user.
 func (r *RateLimiter) Consume(ctx context.Context, user ids.UserID, count int) error {
+	now := r.now()
+
 	r.entiresMux.RLock()
 	entry, ok := r.entries[user]
 	r.entiresMux.RUnlock()
@@ -92,12 +95,13 @@ func (r *RateLimiter) Consume(ctx context.Context, user ids.UserID, count int) e
 				limiter:  rate.NewLimiter(r.limit, r.burst),
 				lastSeen: atomic.Int64{},
 			}
+			// must set while locking to prevent leacing entry in zero value.
+			entry.lastSeen.Store(now.UnixNano())
 			r.entries[user] = entry
 		}
 		r.entiresMux.Unlock()
 	}
 
-	now := r.now()
 	entry.lastSeen.Store(now.UnixNano())
 
 	if !entry.limiter.AllowN(now, count) {
@@ -123,7 +127,15 @@ func (r *RateLimiter) Cleanup(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("cleanup job: %w", ctx.Err())
+			err := ctx.Err()
+			if errors.Is(err, context.Canceled) {
+				// returnin nil, cause cleanup is optional and it doesn't affect
+				// on logic so much.
+				return nil
+			}
+
+			return fmt.Errorf("cleanup job: %w", err)
+
 		case <-ticker.C:
 			r.evictStaleEntries()
 		}
@@ -136,7 +148,8 @@ func (r *RateLimiter) evictStaleEntries() {
 	defer r.entiresMux.Unlock()
 
 	for user, entry := range r.entries {
-		if now-entry.lastSeen.Load() > int64(r.ttl) {
+		lastSeen := entry.lastSeen.Load()
+		if lastSeen != 0 && now-lastSeen > int64(r.ttl) {
 			delete(r.entries, user)
 		}
 	}

@@ -3,6 +3,7 @@ package root
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/quenbyako/core"
@@ -61,6 +62,10 @@ func runJobs(
 	}
 
 	if err := core.RunJobs(ctx, jobs...); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return 0
+		}
+
 		//nolint:forbidigo // it's WAY easier to log like that. we don't expect any issues here
 		fmt.Println("Oopsie: ", err)
 
