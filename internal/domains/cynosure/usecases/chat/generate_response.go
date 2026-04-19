@@ -41,8 +41,8 @@ func (u *Usecase) GenerateResponse(
 	defer span.End()
 
 	params := u.resolveGenerateResponseParams(opts)
-	allow, err := u.allowLimits(ctx, threadID.User())
 
+	allow, err := u.allowLimits(ctx, threadID.User())
 	if err != nil {
 		return nil, err
 	} else if !allow {

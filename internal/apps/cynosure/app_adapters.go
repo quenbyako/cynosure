@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/time/rate"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -148,14 +147,17 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
 }
 
 const (
-	defaultQuotaDrop  = time.Hour
-	defaultQuotaBurst = 20
+	ttlPeriodMultiplier = 2
 )
 
-func newRateLimiter(ctx context.Context, params *appParams) *inmemory.RateLimiter {
+func newRateLimiter(params *appParams) *inmemory.RateLimiter {
+	limit := params.rateLimit.Limit()
+	burst := params.rateLimit.Burst()
+
 	return inmemory.NewRateLimiter(
-		rate.Every(defaultQuotaDrop),
-		defaultQuotaBurst,
+		limit,
+		burst,
+		params.rateLimit.Period()*ttlPeriodMultiplier,
 		time.Now,
 		params.observability,
 	)

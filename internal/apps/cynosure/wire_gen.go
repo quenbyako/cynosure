@@ -8,6 +8,7 @@ package cynosure
 
 import (
 	"context"
+
 	"github.com/goforj/wire"
 	"github.com/quenbyako/core/contrib/runtime"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -30,6 +31,7 @@ import (
 // Injectors from wire.go:
 
 func buildApp(ctx context.Context, config *appParams) (*App, error) {
+	rateLimiter := newRateLimiter(config)
 	adapter, err := newSQLAdapter(ctx, config)
 	if err != nil {
 		return nil, err
@@ -64,7 +66,6 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	threadStorageWrapped := ports.NewThreadStorage(adapter)
 	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	agentStorage := ports.NewAgentStorage(adapter)
-	rateLimiter := newRateLimiter(ctx, config)
 	ratelimiterPortWrapped := ratelimiter.New(rateLimiter)
 	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, ratelimiterPortWrapped, baseLogger)
 	if err != nil {
@@ -82,7 +83,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app, err := connectDependencies(config, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind)
+	app, err := connectDependencies(config, rateLimiter, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind)
 	if err != nil {
 		return nil, err
 	}

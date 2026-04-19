@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/quenbyako/core"
@@ -19,22 +20,38 @@ const (
 	pkgName = "github.com/quenbyako/cynosure/internal/adapters/inmemory"
 )
 
-// RateLimiter is an in-memory implementation of the ratelimiter.Port.
-type RateLimiter struct {
-	tracer   ports.ObserveStack
-	limiters map[ids.UserID]*rate.Limiter
-	now      func() time.Time
-	limit    rate.Limit
-	burst    int
-	mu       sync.Mutex
+// userEntry stores the rate limiter and the last seen timestamp for a user.
+type userEntry struct {
+	limiter  *rate.Limiter
+	lastSeen atomic.Int64
 }
 
-var _ ratelimiter.PortFactory = (*RateLimiter)(nil)
+// RateLimiter is an in-memory implementation of the ratelimiter.Port.
+type RateLimiter struct {
+	tracer     ports.ObserveStack
+	now        func() time.Time
+	entries    map[ids.UserID]*userEntry
+	limit      rate.Limit
+	ttl        time.Duration
+	burst      int
+	entiresMux sync.RWMutex
+}
+
+var (
+	_ ratelimiter.PortFactory = (*RateLimiter)(nil)
+	_ ratelimiter.Port        = (*RateLimiter)(nil)
+)
 
 type clock = func() time.Time
 
 // NewRateLimiter creates a new in-memory rate limiter.
-func NewRateLimiter(limit rate.Limit, burst int, now clock, tracer core.Metrics) *RateLimiter {
+func NewRateLimiter(
+	limit rate.Limit,
+	burst int,
+	ttl time.Duration,
+	now clock,
+	tracer core.Metrics,
+) *RateLimiter {
 	if now == nil {
 		now = time.Now
 	}
@@ -45,12 +62,13 @@ func NewRateLimiter(limit rate.Limit, burst int, now clock, tracer core.Metrics)
 	}
 
 	return &RateLimiter{
-		limit:    limit,
-		burst:    burst,
-		now:      now,
-		mu:       sync.Mutex{},
-		limiters: make(map[ids.UserID]*rate.Limiter),
-		tracer:   observability,
+		limit:      limit,
+		burst:      burst,
+		ttl:        ttl,
+		now:        now,
+		entiresMux: sync.RWMutex{},
+		entries:    make(map[ids.UserID]*userEntry),
+		tracer:     observability,
 	}
 }
 
@@ -61,19 +79,65 @@ func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped { return ratelimiter
 
 // Consume consumes message quota for the given user.
 func (r *RateLimiter) Consume(ctx context.Context, user ids.UserID, count int) error {
-	r.mu.Lock()
+	r.entiresMux.RLock()
+	entry, ok := r.entries[user]
+	r.entiresMux.RUnlock()
 
-	lim, ok := r.limiters[user]
 	if !ok {
-		lim = rate.NewLimiter(r.limit, r.burst)
-		r.limiters[user] = lim
+		r.entiresMux.Lock()
+		// Double-check after acquiring write lock
+		entry, ok = r.entries[user]
+		if !ok {
+			entry = &userEntry{
+				limiter:  rate.NewLimiter(r.limit, r.burst),
+				lastSeen: atomic.Int64{},
+			}
+			r.entries[user] = entry
+		}
+		r.entiresMux.Unlock()
 	}
 
-	r.mu.Unlock()
+	now := r.now()
+	entry.lastSeen.Store(now.UnixNano())
 
-	if !lim.AllowN(r.now(), count) {
+	if !entry.limiter.AllowN(now, count) {
 		return fmt.Errorf("%w for user %q", ratelimiter.ErrRateLimitExceeded, user.ID().String())
 	}
 
 	return nil
+}
+
+const (
+	tickerPeriodFactor = 2
+)
+
+// Cleanup periodically removes stale rate limiters from memory.
+func (r *RateLimiter) Cleanup(ctx context.Context) error {
+	if r.ttl <= 0 {
+		return nil
+	}
+
+	ticker := time.NewTicker(r.ttl / tickerPeriodFactor)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("cleanup job: %w", ctx.Err())
+		case <-ticker.C:
+			r.evictStaleEntries()
+		}
+	}
+}
+
+func (r *RateLimiter) evictStaleEntries() {
+	now := r.now().UnixNano()
+	r.entiresMux.Lock()
+	defer r.entiresMux.Unlock()
+
+	for user, entry := range r.entries {
+		if now-entry.lastSeen.Load() > int64(r.ttl) {
+			delete(r.entries, user)
+		}
+	}
 }

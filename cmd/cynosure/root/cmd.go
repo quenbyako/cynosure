@@ -22,11 +22,13 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithTelegramKey(cfg.TelegramKey),
 		cynosure.WithTelegramServer(cfg.TelegramPort.Register),
 		cynosure.WithTelegramPublicAddr(cfg.TelegramPublicAddr),
+		cynosure.WithTelegramRateLimit(cfg.TelegramRateLimit),
 		cynosure.WithOry(cfg.OryEndpoint, cfg.OryAdminKey),
 		cynosure.WithOryClientCredentials(cfg.OryClientID, cfg.OryClientSecret),
 		cynosure.WithOAuthCallbackURL(cfg.OAuthRedirectURL),
 		cynosure.WithMCP(cfg.MCPPort.Register),
 		cynosure.WithAdminMCPID(cfg.AdminMCPServerID),
+		cynosure.WithRateLimit(cfg.RateLimit),
 	}
 	if cfg.DatabaseURL != nil && cfg.DatabaseURL.Scheme != "" {
 		opts = append(opts, cynosure.WithDatabaseURL(cfg.DatabaseURL))
@@ -37,20 +39,25 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		opts = append(opts, cynosure.WithObservability(metrics))
 	}
 
-	_, err := cynosure.Build(ctx, opts...)
+	app, err := cynosure.Build(ctx, opts...)
 	if err != nil {
 		panic(err) //nolint:forbidigo // safe to use here.
 	}
 
-	return runJobs(ctx, &cfg)
+	return runJobs(ctx, &cfg, app)
 }
 
-func runJobs(ctx context.Context, cfg *Config) core.ExitCode {
+func runJobs(
+	ctx context.Context,
+	cfg *Config,
+	app *cynosure.App,
+) core.ExitCode {
 	jobs := []func(context.Context) error{
 		cfg.Port.Serve,
 		cfg.HTTPPort.Serve,
 		cfg.TelegramPort.Serve,
 		cfg.MCPPort.Serve, // TODO: force disable for mcp servers? How to do that?
+		app.Run,
 	}
 
 	if err := core.RunJobs(ctx, jobs...); err != nil {
