@@ -8,8 +8,10 @@ import (
 	"net/url"
 
 	"github.com/quenbyako/core"
+	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
 	"google.golang.org/grpc"
 
+	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -25,6 +27,7 @@ var (
 	ErrGeminiKey       = errors.New("missing geminiKey")
 	ErrDatabaseURL     = errors.New("missing database URL")
 	ErrAdminMCPID      = errors.New("missing adminMCPID")
+	ErrRateLimit       = errors.New("invalid rate limit")
 )
 
 type SecretGetter interface {
@@ -45,6 +48,7 @@ type (
 		mcpAddr            func(http.Handler)
 		constructionErrors []error
 		adminMCPID         ids.ServerID
+		rateLimit          ratelimit.Policy
 	}
 
 	oryParams struct {
@@ -59,9 +63,10 @@ type (
 	}
 
 	telegramParams struct {
-		key        SecretGetter
-		publicAddr *url.URL
-		addr       func(http.Handler)
+		key               SecretGetter
+		publicAddr        *url.URL
+		register          func(http.Handler)
+		outgoingRateLimit ratelimit.Policy
 	}
 
 	geminiParams struct {
@@ -88,6 +93,7 @@ func (p *appParams) validate() error {
 		p.validateGemini(),
 		p.validateStorage(),
 		p.validateInfra(),
+		p.validateRateLimit(),
 	)
 }
 
@@ -157,6 +163,14 @@ func (p *appParams) validateInfra() error {
 	return nil
 }
 
+func (p *appParams) validateRateLimit() error {
+	if p.rateLimit.Period() <= 0 || p.rateLimit.Burst() <= 0 {
+		return ErrRateLimit
+	}
+
+	return nil
+}
+
 type AppOpts func(*appParams)
 
 func WithGRPCServer(port grpc.ServiceRegistrar) AppOpts {
@@ -168,7 +182,11 @@ func WithHTTPServer(registrar func(http.Handler)) AppOpts {
 }
 
 func WithTelegramServer(registrar func(http.Handler)) AppOpts {
-	return func(p *appParams) { p.telegram.addr = registrar }
+	return func(p *appParams) { p.telegram.register = registrar }
+}
+
+func WithTelegramRateLimit(policy ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.telegram.outgoingRateLimit = policy }
 }
 
 func WithTelegramPublicAddr(addr *url.URL) AppOpts {
@@ -193,6 +211,10 @@ func WithDatabaseURL(addr *url.URL) AppOpts {
 
 func WithRedis(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.redis.url = addr }
+}
+
+func WithRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rateLimit = limit }
 }
 
 func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
@@ -258,9 +280,10 @@ func defaultParams() appParams {
 	return appParams{
 		ory: defaultOryParams(),
 		telegram: telegramParams{
-			key:        nil,
-			publicAddr: nil,
-			addr:       nil,
+			key:               nil,
+			publicAddr:        nil,
+			register:          func(h http.Handler) {},
+			outgoingRateLimit: ratelimit.Policy{},
 		},
 		gemini: geminiParams{
 			key: nil,
@@ -277,6 +300,7 @@ func defaultParams() appParams {
 		mcpAddr:            nil,
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
+		rateLimit:          ratelimit.Policy{},
 	}
 }
 
@@ -294,12 +318,18 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 	return buildApp(ctx, &params)
 }
 
+//nolint:unparam // wire needs these parameters to be present to correctly bind dependencies
 func connectDependencies(
 	params *appParams,
+	ratelimiter *inmemory.RateLimiter,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
 	_ telegramControllerWireBind,
 	_ mcpControllerWireBind,
 ) (*App, error) {
-	return &App{}, nil
+	return &App{
+		jobs: []func(context.Context) error{
+			ratelimiter.Cleanup,
+		},
+	}, nil
 }

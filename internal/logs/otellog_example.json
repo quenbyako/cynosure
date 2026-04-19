@@ -1,0 +1,49 @@
+{
+    "Severity": 9,
+    "SeverityText": "",
+    "Body": {
+        "Type": "String",
+        "Value": "hello"
+    },
+    "Attributes": [],
+    "TraceID": "00000000000000000000000000000000",
+    "SpanID": "0000000000000000",
+    "TraceFlags": "00",
+    "Resource": [
+        {
+            "Key": "service.name",
+            "Value": {
+                "Type": "STRING",
+                "Value": "unknown_service:test"
+            }
+        },
+        {
+            "Key": "telemetry.sdk.language",
+            "Value": {
+                "Type": "STRING",
+                "Value": "go"
+            }
+        },
+        {
+            "Key": "telemetry.sdk.name",
+            "Value": {
+                "Type": "STRING",
+                "Value": "opentelemetry"
+            }
+        },
+        {
+            "Key": "telemetry.sdk.version",
+            "Value": {
+                "Type": "STRING",
+                "Value": "1.40.0"
+            }
+        }
+    ],
+    "Scope": {
+        "Name": "",
+        "Version": "",
+        "SchemaURL": "",
+        "Attributes": {}
+    },
+    "DroppedAttributes": 0
+}

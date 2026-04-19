@@ -2,9 +2,9 @@ package identitymanager
 
 import (
 	"context"
-	"log/slog"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -12,7 +12,7 @@ import (
 
 type observable struct {
 	t trace.Tracer
-	l slog.Handler
+	l log.Logger
 }
 
 func newObservable(stack ports.ObserveStack) *observable {

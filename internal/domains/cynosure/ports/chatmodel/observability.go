@@ -2,9 +2,9 @@ package chatmodel
 
 import (
 	"context"
-	"log/slog"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/log"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"go.opentelemetry.io/otel/trace"
 
@@ -16,7 +16,7 @@ import (
 
 type observable struct {
 	t trace.Tracer
-	l slog.Handler
+	l log.Logger
 }
 
 func newObservable(stack ports.ObserveStack) *observable {

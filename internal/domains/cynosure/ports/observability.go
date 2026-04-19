@@ -1,15 +1,15 @@
 package ports
 
 import (
-	"log/slog"
-
 	"github.com/quenbyako/core"
+	"go.opentelemetry.io/otel/log"
+	nooplog "go.opentelemetry.io/otel/log/noop"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
+	nooptrace "go.opentelemetry.io/otel/trace/noop"
 )
 
 type ObserveStack interface {
-	Logger() slog.Handler
+	Logger() log.Logger
 	Tracer() trace.Tracer
 }
 
@@ -18,15 +18,15 @@ type observeStack struct {
 	name string
 }
 
-func (o *observeStack) Logger() slog.Handler { return o.m }
+func (o *observeStack) Logger() log.Logger { return o.m.Logger(o.name) }
 
 func (o *observeStack) Tracer() trace.Tracer { return o.m.Tracer(o.name) }
 
 type noopObserveStack struct{}
 
-func (noopObserveStack) Logger() slog.Handler { return slog.DiscardHandler }
+func (noopObserveStack) Logger() log.Logger { return nooplog.NewLoggerProvider().Logger("") }
 
-func (noopObserveStack) Tracer() trace.Tracer { return noop.NewTracerProvider().Tracer("") }
+func (noopObserveStack) Tracer() trace.Tracer { return nooptrace.NewTracerProvider().Tracer("") }
 
 // NoOpObserveStack returns an empty observer stack that does nothing.
 //

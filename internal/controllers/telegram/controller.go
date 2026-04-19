@@ -8,10 +8,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 	noopTrace "go.opentelemetry.io/otel/trace/noop"
+	"golang.org/x/time/rate"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
@@ -36,16 +38,18 @@ type Handler struct {
 var _ botapi.StrictWebhookInterface = (*Handler)(nil)
 
 type newParams struct {
-	log            LogCallbacks
-	tracer         trace.TracerProvider
-	updateInterval time.Duration
+	log              LogCallbacks
+	tracer           trace.TracerProvider
+	updateInterval   time.Duration
+	requestRateLimit ratelimit.Policy
 }
 
 func buildNewParams(opts ...NewOption) newParams {
 	params := newParams{
-		updateInterval: defaultUpdateInterval,
-		log:            NoOpLogCallbacks{},
-		tracer:         noopTrace.NewTracerProvider(),
+		updateInterval:   defaultUpdateInterval,
+		log:              NoOpLogCallbacks{},
+		tracer:           noopTrace.NewTracerProvider(),
+		requestRateLimit: ratelimit.Policy{},
 	}
 
 	for _, opt := range opts {
@@ -61,6 +65,10 @@ func WithUpdateInterval(interval time.Duration) NewOption {
 	return func(h *newParams) { h.updateInterval = interval }
 }
 
+func WithRateLimit(policy ratelimit.Policy) NewOption {
+	return func(h *newParams) { h.requestRateLimit = policy }
+}
+
 func WithLogCallbacks(log LogCallbacks) NewOption {
 	return func(h *newParams) { h.log = log }
 }
@@ -70,9 +78,18 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 }
 
 func (p *newParams) httpClient() *http.Client {
+	transport := http.DefaultTransport
+
+	if p.requestRateLimit.Burst() > 0 && p.requestRateLimit.Limit() > 0 {
+		transport = NewRateLimitTransport(
+			transport,
+			rate.NewLimiter(p.requestRateLimit.Limit(), p.requestRateLimit.Burst()),
+		)
+	}
+
 	return &http.Client{
 		Transport: otelhttp.NewTransport(
-			http.DefaultTransport,
+			transport,
 			otelhttp.WithTracerProvider(p.tracer),
 		),
 		Timeout:       0,
