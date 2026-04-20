@@ -62,12 +62,17 @@ func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 		return nil, fmt.Errorf(msg, parsedURL.Scheme) //nolint:err113 // industrial param
 	}
 
+	var defaultBase *http.Transport
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		defaultBase = t.Clone()
+	}
+
 	wrapper := &httpClientWrapper{
 		addr:      parsedURL,
 		timeout:   0,
 		rateLimit: ratelimit.Policy{},
-		base:      nil,
-		chain:     nil,
+		base:      defaultBase,
+		chain:     defaultBase,
 	}
 
 	if parsedURL.Fragment != "" {
@@ -151,12 +156,20 @@ func (h *httpClientWrapper) Acquire(_ context.Context, _ *core.AcquireData) erro
 }
 
 func (h *httpClientWrapper) Shutdown(_ context.Context, _ *core.ShutdownData) error {
+	if h.base == nil {
+		return nil
+	}
+
 	h.base.CloseIdleConnections()
 
 	return nil
 }
 
 func (h *httpClientWrapper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if h.chain == nil {
+		return nil, fmt.Errorf("http client not configured: Configure() must be called before RoundTrip()") //nolint:err113 // sentinel-free guard
+	}
+
 	ctx := req.Context()
 
 	var cancel context.CancelFunc
