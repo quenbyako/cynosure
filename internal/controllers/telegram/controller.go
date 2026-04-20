@@ -8,12 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 	noopTrace "go.opentelemetry.io/otel/trace/noop"
-	"golang.org/x/time/rate"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
@@ -38,18 +35,18 @@ type Handler struct {
 var _ botapi.StrictWebhookInterface = (*Handler)(nil)
 
 type newParams struct {
-	log              LogCallbacks
-	tracer           trace.TracerProvider
-	updateInterval   time.Duration
-	requestRateLimit ratelimit.Policy
+	log            LogCallbacks
+	tracer         trace.TracerProvider
+	client         http.RoundTripper
+	updateInterval time.Duration
 }
 
 func buildNewParams(opts ...NewOption) newParams {
 	params := newParams{
-		updateInterval:   defaultUpdateInterval,
-		log:              NoOpLogCallbacks{},
-		tracer:           noopTrace.NewTracerProvider(),
-		requestRateLimit: ratelimit.Policy{},
+		updateInterval: defaultUpdateInterval,
+		log:            NoOpLogCallbacks{},
+		tracer:         noopTrace.NewTracerProvider(),
+		client:         http.DefaultTransport,
 	}
 
 	for _, opt := range opts {
@@ -65,8 +62,8 @@ func WithUpdateInterval(interval time.Duration) NewOption {
 	return func(h *newParams) { h.updateInterval = interval }
 }
 
-func WithRateLimit(policy ratelimit.Policy) NewOption {
-	return func(h *newParams) { h.requestRateLimit = policy }
+func WithClient(client http.RoundTripper) NewOption {
+	return func(h *newParams) { h.client = client }
 }
 
 func WithLogCallbacks(log LogCallbacks) NewOption {
@@ -75,27 +72,6 @@ func WithLogCallbacks(log LogCallbacks) NewOption {
 
 func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
-}
-
-func (p *newParams) httpClient() *http.Client {
-	transport := http.DefaultTransport
-
-	if p.requestRateLimit.Burst() > 0 && p.requestRateLimit.Limit() > 0 {
-		transport = NewRateLimitTransport(
-			transport,
-			rate.NewLimiter(p.requestRateLimit.Limit(), p.requestRateLimit.Burst()),
-		)
-	}
-
-	return &http.Client{
-		Transport: otelhttp.NewTransport(
-			transport,
-			otelhttp.WithTracerProvider(p.tracer),
-		),
-		Timeout:       0,
-		CheckRedirect: nil,
-		Jar:           nil,
-	}
 }
 
 const (
@@ -152,7 +128,12 @@ func wrapWebhookHandler(inner botapi.WebhookInterface, secret string) http.Handl
 
 func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, error) {
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
-		botapi.WithHTTPClient(params.httpClient()),
+		botapi.WithHTTPClient(&http.Client{
+			Transport:     params.client,
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       0,
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating telegram client: %w", err)

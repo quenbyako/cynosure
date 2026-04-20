@@ -51,3 +51,7 @@ config.alloy
 cmd/
 
 !cmd/cynosure
+
+# using vendor only for AI assistance, it must not be come saved to repository.
+
+vendor/

@@ -53,8 +53,6 @@ type Handler struct {
 var _ toolclient.PortFactory = (*Handler)(nil)
 
 // ToolClient implements ports.PortFactory.
-//
-//nolint:ireturn // Implementing a PortFactory that by design returns a wrapped interface.
 func (h *Handler) ToolClient() toolclient.PortWrapped {
 	return toolclient.Wrap(h, h.tracer)
 }

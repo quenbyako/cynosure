@@ -70,7 +70,7 @@ func bindTelegramController(
 		telegramKey,
 		telegram.WithLogCallbacks(log),
 		telegram.WithTracer(params.observability),
-		telegram.WithRateLimit(params.telegram.outgoingRateLimit),
+		telegram.WithClient(params.telegram.apiClient),
 	)
 	if err != nil {
 		return telegramControllerWireBind{}, fmt.Errorf("creating telegram controller: %w", err)

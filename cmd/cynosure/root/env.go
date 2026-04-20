@@ -8,6 +8,7 @@ import (
 	"github.com/quenbyako/core/contrib/params/grpc"
 	"github.com/quenbyako/core/contrib/params/http"
 	"github.com/quenbyako/core/contrib/params/secrets"
+	"github.com/quenbyako/cynosure/contrib/core-params/httpclient"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
 )
 
@@ -23,24 +24,24 @@ type Config struct {
 	TLSKey       string   `env:"CYNOSURE_TLS_KEY"  default:""`
 	TLSCert      string   `env:"CYNOSURE_TLS_CERT" default:""`
 
-	LogLevel           slog.Level       `env:"CYNOSURE_LOG_LEVEL"     default:"info"`
-	Port               grpc.Server      `env:"CYNOSURE_GRPC_ADDR"     default:"grpc://0.0.0.0:5001"`
-	HTTPPort           http.Server      `env:"CYNOSURE_HTTP_ADDR"     default:"http://0.0.0.0:5002"`
-	TelegramPort       http.Server      `env:"CYNOSURE_TELEGRAM_ADDR" default:"http://0.0.0.0:5003"`
-	MCPPort            http.Server      `env:"CYNOSURE_MCP_ADDR"      default:"http://0.0.0.0:5004"`
-	DatabaseURL        *url.URL         `env:"CYNOSURE_DATABASE_URL"`
-	GeminiKey          secrets.Secret   `env:"CYNOSURE_GEMINI_KEY"`
-	TelegramKey        secrets.Secret   `env:"CYNOSURE_TELEGRAM_KEY"`
-	TelegramPublicAddr *url.URL         `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
-	FileSecret         *url.URL         `env:"CYNOSURE_FILE_SECRETS" default:""`
-	OryAdminKey        secrets.Secret   `env:"CYNOSURE_ORY_ADMIN_API_KEY"`
-	OryEndpoint        *url.URL         `env:"CYNOSURE_ORY_ISSUER_URL"`
-	OryClientID        string           `env:"CYNOSURE_ORY_CLIENT_ID"`
-	OryClientSecret    secrets.Secret   `env:"CYNOSURE_ORY_CLIENT_SECRET"`
-	AdminMCPServerID   string           `env:"CYNOSURE_ADMIN_MCP_SERVER_ID"`
-	OAuthRedirectURL   *url.URL         `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
-	RateLimit          ratelimit.Policy `env:"CYNOSURE_RATELIMIT"          default:"20/1h"`
-	TelegramRateLimit  ratelimit.Policy `env:"CYNOSURE_TELEGRAM_RATELIMIT" default:"30/1s"`
+	LogLevel           slog.Level        `env:"CYNOSURE_LOG_LEVEL"     default:"info"`
+	Port               grpc.Server       `env:"CYNOSURE_GRPC_ADDR"     default:"grpc://0.0.0.0:5001"`
+	HTTPPort           http.Server       `env:"CYNOSURE_HTTP_ADDR"     default:"http://0.0.0.0:5002"`
+	TelegramPort       http.Server       `env:"CYNOSURE_TELEGRAM_ADDR" default:"http://0.0.0.0:5003"`
+	MCPPort            http.Server       `env:"CYNOSURE_MCP_ADDR"      default:"http://0.0.0.0:5004"`
+	DatabaseURL        *url.URL          `env:"CYNOSURE_DATABASE_URL"`
+	GeminiKey          secrets.Secret    `env:"CYNOSURE_GEMINI_KEY"`
+	TelegramKey        secrets.Secret    `env:"CYNOSURE_TELEGRAM_KEY"`
+	TelegramPublicAddr *url.URL          `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
+	TelegramClient     httpclient.Client `env:"CYNOSURE_TELEGRAM_API"  default:"https://api.telegram.org#rate=30/1s"`
+	FileSecret         *url.URL          `env:"CYNOSURE_FILE_SECRETS" default:""`
+	OryAdminKey        secrets.Secret    `env:"CYNOSURE_ORY_ADMIN_API_KEY"`
+	OryEndpoint        *url.URL          `env:"CYNOSURE_ORY_ISSUER_URL"`
+	OryClientID        string            `env:"CYNOSURE_ORY_CLIENT_ID"`
+	OryClientSecret    secrets.Secret    `env:"CYNOSURE_ORY_CLIENT_SECRET"`
+	AdminMCPServerID   string            `env:"CYNOSURE_ADMIN_MCP_SERVER_ID"`
+	OAuthRedirectURL   *url.URL          `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
+	RateLimit          ratelimit.Policy  `env:"CYNOSURE_RATELIMIT"          default:"20/1h"`
 
 	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"          default:""`
 	OtlpHost     *url.URL          `env:"CYNOSURE_OTLP_HOST"             default:""`

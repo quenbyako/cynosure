@@ -32,13 +32,9 @@ var (
 )
 
 // ToolSemanticIndex returns ports.ToolSemanticIndex interface.
-//
-//nolint:ireturn // it's a port interface
 func (g *GeminiModel) ToolSemanticIndex() ports.ToolSemanticIndex { return g }
 
 // ChatModel returns ports.ChatModel interface.
-//
-//nolint:ireturn // it's a port interface
 func (g *GeminiModel) ChatModel() chatmodel.PortWrapped { return chatmodel.Wrap(g, g.tracer) }
 
 type newParams struct {

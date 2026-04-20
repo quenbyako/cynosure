@@ -25,7 +25,6 @@ var _ PortWrapped = (*portWrapped)(nil)
 
 func (i *portWrapped) _PortWrapped() {}
 
-//nolint:ireturn // wrapping adapter as interface
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
 		observable = ports.NoOpObserveStack()

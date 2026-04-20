@@ -295,10 +295,19 @@ linters:
         # otel traces
         - "go.opentelemetry.io/otel/trace.Tracer"
         - "go.opentelemetry.io/otel/trace.TraceProvider"
+        # otel logs
+        - "go.opentelemetry.io/otel/log.Logger"
+        - "go.opentelemetry.io/otel/log.LoggerProvider"
         # read only interfaces
         - "ReadOnly$"
         # option pattern
         - "Option$"
+        # internal domain ports
+        - "github.com/quenbyako/cynosure/internal/domains/cynosure/ports\\.ObserveStack"
+        - "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/.*\\.Port(Read|Write|Wrapped)?$"
+        - "github.com/quenbyako/cynosure/internal/domains/cynosure/ports\\..+$"
+        - "golang\\.org/x/oauth2\\.TokenSource"
+
     nestif:
       min-complexity: 2
     nlreturn:

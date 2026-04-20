@@ -63,10 +63,10 @@ type (
 	}
 
 	telegramParams struct {
-		key               SecretGetter
-		publicAddr        *url.URL
-		register          func(http.Handler)
-		outgoingRateLimit ratelimit.Policy
+		key        SecretGetter
+		publicAddr *url.URL
+		register   func(http.Handler)
+		apiClient  http.RoundTripper
 	}
 
 	geminiParams struct {
@@ -185,8 +185,8 @@ func WithTelegramServer(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.telegram.register = registrar }
 }
 
-func WithTelegramRateLimit(policy ratelimit.Policy) AppOpts {
-	return func(p *appParams) { p.telegram.outgoingRateLimit = policy }
+func WithTelegramClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.telegram.apiClient = client }
 }
 
 func WithTelegramPublicAddr(addr *url.URL) AppOpts {
@@ -280,10 +280,10 @@ func defaultParams() appParams {
 	return appParams{
 		ory: defaultOryParams(),
 		telegram: telegramParams{
-			key:               nil,
-			publicAddr:        nil,
-			register:          func(h http.Handler) {},
-			outgoingRateLimit: ratelimit.Policy{},
+			key:        nil,
+			publicAddr: nil,
+			register:   func(h http.Handler) {},
+			apiClient:  http.DefaultTransport,
 		},
 		gemini: geminiParams{
 			key: nil,

@@ -41,7 +41,6 @@ type ToolSemanticIndexFactory interface {
 	ToolSemanticIndex() ToolSemanticIndex
 }
 
-//nolint:ireturn // standard port pattern: hiding implementation details
 func NewToolSemanticIndex(f ToolSemanticIndexFactory) ToolSemanticIndex {
 	return f.ToolSemanticIndex()
 }
