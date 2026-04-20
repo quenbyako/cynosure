@@ -115,7 +115,7 @@ func valueSlog(attrs attribute.Value) slog.Value {
 		return slog.StringValue(attrs.AsString())
 	case attribute.STRINGSLICE:
 		return slog.AnyValue(attrs.AsStringSlice())
-	case attribute.INVALID:
+	case attribute.EMPTY:
 		return slog.AnyValue(attrs)
 	default:
 		return slog.AnyValue(attrs)

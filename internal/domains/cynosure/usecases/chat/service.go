@@ -100,6 +100,7 @@ func New(
 	return usecase, nil
 }
 
+//nolint:cyclop // it's just a bunch of nil checks
 func (u *Usecase) validate() error {
 	switch {
 	case u.storage == nil:

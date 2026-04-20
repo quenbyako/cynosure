@@ -13,6 +13,9 @@ import (
 
 var _ core.ActionFunc[Config] = Cmd
 
+// Cmd is the entry point for the cynosure application command.
+//
+//nolint:funlen // it's a bridge between config and app, mapping is naturally long.
 func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 	cfg := appCtx.Config()
 
@@ -23,7 +26,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithTelegramKey(cfg.TelegramKey),
 		cynosure.WithTelegramServer(cfg.TelegramPort.Register),
 		cynosure.WithTelegramPublicAddr(cfg.TelegramPublicAddr),
-		cynosure.WithTelegramRateLimit(cfg.TelegramRateLimit),
+		cynosure.WithTelegramClient(cfg.TelegramClient),
 		cynosure.WithOry(cfg.OryEndpoint, cfg.OryAdminKey),
 		cynosure.WithOryClientCredentials(cfg.OryClientID, cfg.OryClientSecret),
 		cynosure.WithOAuthCallbackURL(cfg.OAuthRedirectURL),
@@ -31,12 +34,12 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithAdminMCPID(cfg.AdminMCPServerID),
 		cynosure.WithRateLimit(cfg.RateLimit),
 	}
+
 	if cfg.DatabaseURL != nil && cfg.DatabaseURL.Scheme != "" {
 		opts = append(opts, cynosure.WithDatabaseURL(cfg.DatabaseURL))
 	}
 
-	metrics, ok := core.Observability(appCtx)
-	if ok {
+	if metrics, ok := core.Observability(appCtx); ok {
 		opts = append(opts, cynosure.WithObservability(metrics))
 	}
 
@@ -66,7 +69,7 @@ func runJobs(
 			return 0
 		}
 
-		//nolint:forbidigo // it's WAY easier to log like that. we don't expect any issues here
+		//nolint:forbidigo // logging to stdout is acceptable in the root command.
 		fmt.Println("Oopsie: ", err)
 
 		return 1

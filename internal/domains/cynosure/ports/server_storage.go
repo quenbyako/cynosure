@@ -74,5 +74,4 @@ type ServerStorageFactory interface {
 	ServerStorage() ServerStorage
 }
 
-//nolint:ireturn // standard port pattern: hiding implementation details
 func NewServerStorage(factory ServerStorageFactory) ServerStorage { return factory.ServerStorage() }

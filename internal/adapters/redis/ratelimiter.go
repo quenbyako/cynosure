@@ -58,8 +58,6 @@ func NewRateLimiter(
 }
 
 // RateLimiter returns ratelimiter.PortWrapped interface.
-//
-//nolint:ireturn // it's a port interface
 func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped { return ratelimiter.Wrap(r, r.tracer) }
 
 // Consume consumes message quota for the given user.

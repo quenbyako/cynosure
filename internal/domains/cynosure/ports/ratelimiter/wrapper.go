@@ -22,8 +22,6 @@ type portWrapped struct {
 func (t *portWrapped) _PortWrapped() {}
 
 // Wrap wraps the given port with observability tools.
-//
-//nolint:ireturn // standard port pattern: hiding implementation details
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
 		observable = ports.NoOpObserveStack()

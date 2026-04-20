@@ -22,7 +22,6 @@ type AccountStorageFactory interface {
 	AccountStorage() AccountStorage
 }
 
-//nolint:ireturn // standard port pattern: hiding implementation details
 func NewAccountStorage(factory AccountStorageFactory) AccountStorage {
 	return factory.AccountStorage()
 }

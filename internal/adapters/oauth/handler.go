@@ -25,7 +25,6 @@ type Handler struct {
 
 var _ oauthhandler.Factory = (*Handler)(nil)
 
-//nolint:ireturn // wraps self into PortWrapped for dependency injection
 func (h *Handler) OAuthHandler() oauthhandler.PortWrapped { return oauthhandler.Wrap(h, h.tracer) }
 
 type newParams struct {

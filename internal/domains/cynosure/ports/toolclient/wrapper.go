@@ -25,7 +25,6 @@ type toolClientWrapped struct {
 
 func (t *toolClientWrapped) _PortWrapped() {}
 
-//nolint:ireturn // returns interface for hiding implementation details
 func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	if observable == nil {
 		observable = ports.NoOpObserveStack()

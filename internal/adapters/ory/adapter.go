@@ -50,8 +50,6 @@ type Client struct {
 var _ identitymanager.PortFactory = (*Client)(nil)
 
 // IdentityManager returns the identity manager port.
-//
-//nolint:ireturn // Implementing interface from external package.
 func (a *Client) IdentityManager() identitymanager.PortWrapped {
 	return identitymanager.Wrap(a, a.trace)
 }

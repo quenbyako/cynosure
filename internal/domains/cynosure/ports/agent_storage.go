@@ -19,7 +19,6 @@ type AgentStorageFactory interface {
 	AgentStorage() AgentStorage
 }
 
-//nolint:ireturn // standard port pattern: hiding implementation details
 func NewAgentStorage(factory AgentStorageFactory) AgentStorage {
 	return factory.AgentStorage()
 }

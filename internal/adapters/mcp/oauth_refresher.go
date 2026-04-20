@@ -27,8 +27,6 @@ type tokenRefresher struct {
 var _ oauth2.TokenSource = (*tokenRefresher)(nil)
 
 // NewRefresher creates a new oauth2.TokenSource that refreshes tokens.
-//
-//nolint:ireturn // Returns oauth2.TokenSource interface as required by oauth2 package.
 func NewRefresher(
 	ctx context.Context,
 	token *oauth2.Token,

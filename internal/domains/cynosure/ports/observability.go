@@ -29,15 +29,11 @@ func (noopObserveStack) Logger() log.Logger { return nooplog.NewLoggerProvider()
 func (noopObserveStack) Tracer() trace.Tracer { return nooptrace.NewTracerProvider().Tracer("") }
 
 // NoOpObserveStack returns an empty observer stack that does nothing.
-//
-//nolint:ireturn // hiding implementation details
 func NoOpObserveStack() ObserveStack {
 	return noopObserveStack{}
 }
 
 // StackFromCore returns an observer stack that uses core metrics.
-//
-//nolint:ireturn // returns interface for hiding implementation details
 func StackFromCore(m core.Metrics, name string) ObserveStack {
 	return &observeStack{m: m, name: name}
 }

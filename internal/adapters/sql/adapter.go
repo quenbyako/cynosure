@@ -130,19 +130,14 @@ func (a *Adapter) Close() error {
 
 // Factory methods
 
-//nolint:ireturn // returning interface is intended for factory methods
 func (a *Adapter) AccountStorage() ports.AccountStorage { return a }
 
-//nolint:ireturn // returning interface is intended for factory methods
 func (a *Adapter) AgentStorage() ports.AgentStorage { return a }
 
-//nolint:ireturn // returning interface is intended for factory methods
 func (a *Adapter) ServerStorage() ports.ServerStorage { return a }
 
-//nolint:ireturn // returning interface is intended for factory methods
 func (a *Adapter) ThreadStorage() ports.ThreadStorageWrapped {
 	return ports.WrapThreadStorage(a, ports.WithTrace(a.trace))
 }
 
-//nolint:ireturn // returning interface is intended for factory methods
 func (a *Adapter) ToolStorage() ports.ToolStorage { return a }
