@@ -35,10 +35,10 @@ require (
 	github.com/oapi-codegen/runtime v1.2.0
 	github.com/ogen-go/ogen v1.19.0
 	github.com/pgvector/pgvector-go v0.3.0
-	github.com/quenbyako/core v0.0.0-20260408182937-91736d267719
-	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20260408182937-91736d267719
-	github.com/quenbyako/core/contrib/params/http v0.0.0-20260408182937-91736d267719
-	github.com/quenbyako/core/contrib/runtime v0.0.0-20260408182937-91736d267719
+	github.com/quenbyako/core v0.0.0-20260420004157-c5a938b351eb
+	github.com/quenbyako/core/contrib/params/grpc v0.0.0-20260420004157-c5a938b351eb
+	github.com/quenbyako/core/contrib/params/http v0.0.0-20260420004157-c5a938b351eb
+	github.com/quenbyako/core/contrib/runtime v0.0.0-20260420004157-c5a938b351eb
 	github.com/quenbyako/cynosure/contrib/db v0.0.0-20260217154459-faf08593396b
 	github.com/quenbyako/cynosure/contrib/redisconn v0.0.0-00010101000000-000000000000
 	github.com/quenbyako/ext v0.0.0-20250121192011-da7d14c0735c
@@ -214,7 +214,7 @@ require (
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
-	github.com/quenbyako/core/contrib/secrets v0.0.0-20260129141310-c57d2d24d777 // indirect
+	github.com/quenbyako/core/contrib/secrets v0.0.0-20260420004157-c5a938b351eb // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1 // indirect
