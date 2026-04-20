@@ -187,7 +187,15 @@ func (h *httpClientWrapper) RoundTrip(req *http.Request) (*http.Response, error)
 
 		basePath := strings.TrimSuffix(h.addr.Path, "/")
 		reqPath := strings.TrimPrefix(out.URL.Path, "/")
-		out.URL.Path = basePath + "/" + reqPath
+
+		switch {
+		case reqPath != "":
+			out.URL.Path = basePath + "/" + reqPath
+		case basePath != "":
+			out.URL.Path = basePath
+		default:
+			out.URL.Path = "/"
+		}
 	}
 
 	//nolint:wrapcheck // implementing interface
