@@ -3,6 +3,7 @@ package cynosure
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -92,14 +93,9 @@ func newGeminiModel(
 ) (
 	*gemini.GeminiModel, error,
 ) {
-	geminiKey, err := params.gemini.key.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
-	}
-
 	model, err := gemini.New(
 		ctx,
-		newGeminiConfig(geminiKey),
+		newGeminiConfig(params.gemini.key, params.gemini.apiClient),
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
 		gemini.WithHardCap(params.chat.hardCap),
@@ -111,14 +107,19 @@ func newGeminiModel(
 	return model, nil
 }
 
-func newGeminiConfig(apiKey []byte) *genai.ClientConfig {
+func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientConfig {
 	return &genai.ClientConfig{
-		APIKey:      string(apiKey),
+		APIKey:      "ROTATED", // genai requires non-empty key, but we override it in transport
 		Backend:     0,
 		Project:     "",
 		Location:    "",
 		Credentials: nil,
-		HTTPClient:  nil,
+		HTTPClient: &http.Client{
+			Transport: &rotatedKeyTransport{
+				base:   client,
+				getter: key,
+			},
+		},
 		HTTPOptions: genai.HTTPOptions{
 			BaseURL:               "",
 			BaseURLResourceScope:  "",
@@ -129,6 +130,23 @@ func newGeminiConfig(apiKey []byte) *genai.ClientConfig {
 			ExtrasRequestProvider: nil,
 		},
 	}
+}
+
+type rotatedKeyTransport struct {
+	base   http.RoundTripper
+	getter SecretGetter
+}
+
+func (t *rotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	key, err := t.getter.Get(req.Context())
+	if err != nil {
+		return nil, fmt.Errorf("getting api key: %w", err)
+	}
+
+	req.Header.Set("x-goog-api-key", string(key))
+
+	//nolint:wrapcheck // implementing RoundTripper
+	return t.base.RoundTrip(req)
 }
 
 func newOAuthHandler(p *appParams) *oauth.Handler {

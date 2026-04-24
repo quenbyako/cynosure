@@ -31,6 +31,7 @@ type Config struct {
 	MCPPort            http.Server       `env:"CYNOSURE_MCP_ADDR"      default:"http://0.0.0.0:5004"`
 	DatabaseURL        *url.URL          `env:"CYNOSURE_DATABASE_URL"`
 	GeminiKey          secrets.Secret    `env:"CYNOSURE_GEMINI_KEY"`
+	GeminiClient       httpclient.Client `env:"CYNOSURE_GEMINI_API"     default:"https://generativelanguage.googleapis.com#timeout=30s"`
 	TelegramKey        secrets.Secret    `env:"CYNOSURE_TELEGRAM_KEY"`
 	TelegramPublicAddr *url.URL          `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
 	TelegramClient     httpclient.Client `env:"CYNOSURE_TELEGRAM_API"  default:"https://api.telegram.org#rate=30/1s"`

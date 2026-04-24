@@ -23,6 +23,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithGRPCServer(cfg.Port),
 		cynosure.WithHTTPServer(cfg.HTTPPort.Register),
 		cynosure.WithGeminiKey(cfg.GeminiKey),
+		cynosure.WithGeminiClient(cfg.GeminiClient),
 		cynosure.WithTelegramKey(cfg.TelegramKey),
 		cynosure.WithTelegramServer(cfg.TelegramPort.Register),
 		cynosure.WithTelegramPublicAddr(cfg.TelegramPublicAddr),

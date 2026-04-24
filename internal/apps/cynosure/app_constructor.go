@@ -60,7 +60,8 @@ type (
 	}
 
 	geminiParams struct {
-		key SecretGetter
+		key       SecretGetter
+		apiClient http.RoundTripper
 	}
 
 	storageParams struct {
@@ -195,6 +196,10 @@ func WithGeminiKey(key SecretGetter) AppOpts {
 	return func(p *appParams) { p.gemini.key = key }
 }
 
+func WithGeminiClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.gemini.apiClient = client }
+}
+
 func WithObservability(metrics core.Metrics) AppOpts {
 	return func(p *appParams) { p.observability = metrics }
 }
@@ -287,7 +292,8 @@ func defaultParams() appParams {
 			apiClient:  http.DefaultTransport,
 		},
 		gemini: geminiParams{
-			key: nil,
+			key:       nil,
+			apiClient: http.DefaultTransport,
 		},
 		storage: storageParams{
 			databaseURL: nil,
