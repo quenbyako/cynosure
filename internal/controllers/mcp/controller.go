@@ -98,11 +98,13 @@ func buildMux(srv *mcp.Server) *http.ServeMux {
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(
 		func(r *http.Request) *mcp.Server { return srv },
 		&mcp.StreamableHTTPOptions{
-			JSONResponse:   true,
-			Stateless:      false,
-			Logger:         nil,
-			EventStore:     nil,
-			SessionTimeout: 0,
+			JSONResponse:               true,
+			Stateless:                  false,
+			Logger:                     nil,
+			EventStore:                 nil,
+			SessionTimeout:             0,
+			DisableLocalhostProtection: false,
+			CrossOriginProtection:      nil,
 		},
 	))
 

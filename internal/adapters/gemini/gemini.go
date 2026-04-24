@@ -14,6 +14,7 @@ import (
 
 const (
 	thinkingBudget = 32
+	defaultHardCap = 50
 )
 
 // GeminiModel implements Gemini adapter.
@@ -24,6 +25,8 @@ type GeminiModel struct {
 	log    LogCallbacks
 	trace  trace.Tracer
 	tracer ports.ObserveStack
+
+	hardCap uint
 }
 
 var (
@@ -40,6 +43,7 @@ func (g *GeminiModel) ChatModel() chatmodel.PortWrapped { return chatmodel.Wrap(
 type newParams struct {
 	log           LogCallbacks
 	traceProvider core.Metrics
+	hardCap       uint
 }
 
 // NewOption defines functional option for New.
@@ -49,6 +53,7 @@ func buildNewParams(opts ...NewOption) newParams {
 	params := newParams{
 		log:           NoOpLogCallbacks{},
 		traceProvider: core.NoopMetrics(),
+		hardCap:       defaultHardCap, // default fallback
 	}
 
 	for _, opt := range opts {
@@ -68,6 +73,11 @@ func WithTrace(traceProvider core.Metrics) NewOption {
 	return func(params *newParams) { params.traceProvider = traceProvider }
 }
 
+// WithHardCap sets systemic messages limit for Gemini model.
+func WithHardCap(limit uint) NewOption {
+	return func(params *newParams) { params.hardCap = limit }
+}
+
 // New creates a new Gemini adapter.
 func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*GeminiModel, error) {
 	params := buildNewParams(opts...)
@@ -84,9 +94,10 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 			ThinkingBudget:  ptr(int32(thinkingBudget)),
 			ThinkingLevel:   "",
 		},
-		log:    params.log,
-		trace:  params.traceProvider.Tracer(pkgName),
-		tracer: ports.StackFromCore(params.traceProvider, pkgName),
+		log:     params.log,
+		trace:   params.traceProvider.Tracer(pkgName),
+		tracer:  ports.StackFromCore(params.traceProvider, pkgName),
+		hardCap: params.hardCap,
 	}
 
 	if err := model.validate(); err != nil {

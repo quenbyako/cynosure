@@ -44,15 +44,15 @@ type Chat struct {
 	indexer     ports.ToolSemanticIndex
 	toolStorage ports.ToolStorage
 	accounts    ports.AccountStorage
-	agents      ports.AgentStorage
 	thread      *entities.Thread
 	// tools caches the actual entities.Tool objects for execution after model
 	// picks them
 	tools map[ids.ToolID]*entities.Tool
 	// list of active tool calls that didn't get response yet.
-	activeCalls map[string]struct{}
-	toolbox     tools.Toolbox // Immutable collection of relevant tools
-	mu          sync.RWMutex
+	activeCalls         map[string]struct{}
+	toolbox             tools.Toolbox // Immutable collection of relevant tools
+	toolboxContextLimit uint
+	mu                  sync.RWMutex
 }
 
 func New(
@@ -61,15 +61,17 @@ func New(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	agents ports.AgentStorage,
 	threadID ids.ThreadID,
+	toolboxContextLimit uint,
 ) (*Chat, error) {
 	thread, err := storage.GetThread(ctx, threadID)
 	if err != nil {
 		return nil, fmt.Errorf("getting thread: %w", err)
 	}
 
-	return newChatAggregate(ctx, thread, storage, indexer, toolStorage, accounts, agents)
+	return newChatAggregate(
+		ctx, thread, storage, indexer, toolStorage, accounts, toolboxContextLimit,
+	)
 }
 
 func CreateChatAggregate(
@@ -78,9 +80,9 @@ func CreateChatAggregate(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	agents ports.AgentStorage,
 	threadID ids.ThreadID,
 	history []messages.Message,
+	toolboxContextLimit uint,
 ) (*Chat, error) {
 	thread, err := entities.NewThread(threadID, history)
 	if err != nil {
@@ -92,7 +94,9 @@ func CreateChatAggregate(
 		return nil, fmt.Errorf("creating thread in storage: %w", err)
 	}
 
-	return newChatAggregate(ctx, thread, storage, indexer, toolStorage, accounts, agents)
+	return newChatAggregate(
+		ctx, thread, storage, indexer, toolStorage, accounts, toolboxContextLimit,
+	)
 }
 
 func newChatAggregate(
@@ -102,7 +106,7 @@ func newChatAggregate(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	agents ports.AgentStorage,
+	toolboxContextLimit uint,
 ) (*Chat, error) {
 	chat := initChat(
 		thread,
@@ -110,7 +114,7 @@ func newChatAggregate(
 		indexer,
 		toolStorage,
 		accounts,
-		agents,
+		toolboxContextLimit,
 	)
 	if err := chat.validate(); err != nil {
 		return nil, err
@@ -118,7 +122,7 @@ func newChatAggregate(
 
 	var err error
 
-	chat.toolbox, err = chat.buildToolbox(ctx)
+	chat.toolbox, err = chat.buildToolbox(ctx, chat.toolboxContextLimit)
 	if err != nil {
 		return nil, fmt.Errorf("building toolbox: %w", err)
 	}
@@ -132,7 +136,7 @@ func initChat(
 	indexer ports.ToolSemanticIndex,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	agents ports.AgentStorage,
+	toolboxContextLimit uint,
 ) *Chat {
 	return &Chat{
 		thread:      thread,
@@ -140,11 +144,11 @@ func initChat(
 		tools:       make(map[ids.ToolID]*entities.Tool),
 		activeCalls: make(map[string]struct{}),
 
-		storage:     storage,
-		indexer:     indexer,
-		toolStorage: toolStorage,
-		accounts:    accounts,
-		agents:      agents,
+		storage:             storage,
+		indexer:             indexer,
+		toolStorage:         toolStorage,
+		accounts:            accounts,
+		toolboxContextLimit: toolboxContextLimit,
 
 		mu: sync.RWMutex{},
 	}
@@ -165,10 +169,6 @@ func (c *Chat) validate() error {
 
 	if c.accounts == nil {
 		return errInternalValidation("accounts is nil")
-	}
-
-	if c.agents == nil {
-		return errInternalValidation("models is nil")
 	}
 
 	if !c.thread.Valid() {
@@ -195,11 +195,11 @@ func (c *Chat) ThreadID() ids.ThreadID {
 	return c.thread.ID()
 }
 
-func (c *Chat) Messages() []messages.Message {
+func (c *Chat) Messages(limit uint) []messages.Message {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.thread.Messages()
+	return c.thread.Messages(limit)
 }
 
 func (c *Chat) AgentID() ids.AgentID {
@@ -224,4 +224,24 @@ func (c *Chat) SetAgent(ctx context.Context, agentID ids.AgentID) error {
 	c.thread.ClearEvents()
 
 	return nil
+}
+
+// SetToolboxContext updates the limit of messages to be used for building the
+// toolbox. This is useful for agents that need to change the context limit
+// dynamically.
+//
+// This limit is ephemeral (DOES NOT save in any storage) and will be reset to
+// the default value after the next chat aggregate recreaction.
+func (c *Chat) SetToolboxContext(limit uint) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.toolboxContextLimit = limit
+}
+
+func (c *Chat) ToolboxContext() uint {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.toolboxContextLimit
 }

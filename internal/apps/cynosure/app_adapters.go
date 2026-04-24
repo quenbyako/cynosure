@@ -97,27 +97,38 @@ func newGeminiModel(
 		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
 	}
 
-	var emptyHTTPOptions genai.HTTPOptions
-
 	model, err := gemini.New(
 		ctx,
-		&genai.ClientConfig{
-			APIKey:      string(geminiKey),
-			Backend:     0,
-			Project:     "",
-			Location:    "",
-			Credentials: nil,
-			HTTPClient:  nil,
-			HTTPOptions: emptyHTTPOptions,
-		},
+		newGeminiConfig(geminiKey),
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
+		gemini.WithHardCap(params.chat.hardCap),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing gemini model: %w", err)
 	}
 
 	return model, nil
+}
+
+func newGeminiConfig(apiKey []byte) *genai.ClientConfig {
+	return &genai.ClientConfig{
+		APIKey:      string(apiKey),
+		Backend:     0,
+		Project:     "",
+		Location:    "",
+		Credentials: nil,
+		HTTPClient:  nil,
+		HTTPOptions: genai.HTTPOptions{
+			BaseURL:               "",
+			BaseURLResourceScope:  "",
+			APIVersion:            "",
+			Headers:               nil,
+			Timeout:               nil,
+			ExtraBody:             nil,
+			ExtrasRequestProvider: nil,
+		},
+	}
 }
 
 func newOAuthHandler(p *appParams) *oauth.Handler {

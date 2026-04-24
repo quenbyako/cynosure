@@ -25,7 +25,7 @@ func (t *Threads) GetThread(ctx context.Context, id ids.ThreadID) (*entities.Thr
 		return nil, fmt.Errorf("map thread: %w", err)
 	}
 
-	if len(thread.Messages()) == 0 {
+	if len(thread.Messages(0)) == 0 {
 		return nil, ports.ErrNotFound
 	}
 

@@ -47,7 +47,7 @@ func (t *Threads) processPendingEvents(
 	ctx context.Context, qtx *db.Queries, thread entities.ThreadReadOnly,
 ) error {
 	pending := thread.PendingEvents()
-	totalMessages := len(thread.Messages())
+	totalMessages := len(thread.Messages(0))
 	startPos := int64(totalMessages - len(pending))
 	currentPos := startPos
 

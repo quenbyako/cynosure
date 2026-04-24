@@ -49,7 +49,11 @@ func (h *Handler) dispatchProcessing(
 	threadID ids.ThreadID, text string,
 ) {
 	userMessage, err := messages.NewMessageUser(text)
-	if err != nil {
+	if errors.Is(err, messages.ErrMessageTooLarge) {
+		h.sendTooLargeMessage(ctx, msg.Chat.Id, msg.MessageThreadId)
+
+		return
+	} else if err != nil {
 		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
 			fmt.Errorf("making user message: %w", err),
 		)
@@ -90,6 +94,7 @@ func (h *Handler) asyncProcess(
 	response, err := h.srv.GenerateResponse(ctx, threadID, userMessage)
 	if err != nil {
 		h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("processing new message: %w", err))
+
 		return
 	}
 

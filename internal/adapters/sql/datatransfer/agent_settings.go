@@ -2,6 +2,7 @@ package datatransfer
 
 import (
 	"fmt"
+	"math"
 
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 
@@ -21,6 +22,10 @@ func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
 		return nil, fmt.Errorf("invalid agent id: %w", err)
 	}
 
+	// Unlike throwing error on int32 overflow, we just cap it, cause it's more
+	// likely to have negative values in database, rather than extremely large.
+	maxContext := uint(max(0, row.MaxContext))
+
 	agent, err := entities.NewModelSettings(
 		id,
 		row.Model,
@@ -28,6 +33,7 @@ func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
 		entities.WithTemperature(row.Temperature),
 		entities.WithTopP(row.TopP),
 		entities.WithStopWords(row.StopWords),
+		entities.WithMaxContext(maxContext),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new model settings: %w", err)
@@ -40,6 +46,11 @@ func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
 func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams, error) {
 	temp, _ := agent.Temperature()
 	topP, _ := agent.TopP()
+	maxContext, _ := agent.MaxContext()
+
+	if maxContext > math.MaxInt32 {
+		return db.UpsertAgentSettingsParams{}, ErrMaxContextOverflow
+	}
 
 	stopWords := agent.StopWords()
 	if stopWords == nil {
@@ -53,6 +64,7 @@ func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams
 		SystemMessage: agent.SystemMessage(),
 		Temperature:   max(0, temp),
 		TopP:          max(0, topP),
+		MaxContext:    int32(maxContext),
 		StopWords:     stopWords,
 	}, nil
 }

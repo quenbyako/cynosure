@@ -37,11 +37,11 @@ type Client interface {
 func init() { core.RegisterEnvParser(parseHTTPClient) }
 
 type httpClientWrapper struct {
-	addr      *url.URL
-	base      *http.Transport
-	chain     http.RoundTripper
-	timeout   time.Duration
-	rateLimit ratelimit.Policy
+	addr             *url.URL
+	chain            http.RoundTripper
+	closeConnections func()
+	timeout          time.Duration
+	rateLimit        ratelimit.Policy
 }
 
 var (
@@ -49,7 +49,7 @@ var (
 	_ http.RoundTripper = (*httpClientWrapper)(nil)
 )
 
-//nolint:ireturn // factory returns interface
+//nolint:ireturn // Client will be used in environment list.
 func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 	parsedURL, err := url.Parse(rawContent)
 	if err != nil {
@@ -68,11 +68,11 @@ func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 	}
 
 	wrapper := &httpClientWrapper{
-		addr:      parsedURL,
-		timeout:   0,
-		rateLimit: ratelimit.Policy{},
-		base:      defaultBase,
-		chain:     defaultBase,
+		addr:             parsedURL,
+		timeout:          0,
+		rateLimit:        ratelimit.Policy{},
+		chain:            defaultBase,
+		closeConnections: func() {},
 	}
 
 	if parsedURL.Fragment != "" {
@@ -110,7 +110,7 @@ func parseFragment(wrapper *httpClientWrapper, fragment string) error {
 
 func (h *httpClientWrapper) Configure(_ context.Context, data *core.ConfigureData) error {
 	//nolint:exhaustruct // too many optional parameters
-	h.base = &http.Transport{
+	base := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		//nolint:exhaustruct // standard dialer
 		DialContext: (&net.Dialer{
@@ -124,16 +124,18 @@ func (h *httpClientWrapper) Configure(_ context.Context, data *core.ConfigureDat
 		ExpectContinueTimeout: defaultExpectContinueTimeout,
 	}
 
-	h.chain = h.buildTransport(data.Metric, data.Trace)
+	h.chain = h.buildTransport(base, data.Metric, data.Trace)
+	h.closeConnections = base.CloseIdleConnections
 
 	return nil
 }
 
 func (h *httpClientWrapper) buildTransport(
+	base *http.Transport,
 	meter metric.MeterProvider,
 	tracer trace.TracerProvider,
 ) http.RoundTripper {
-	var transport http.RoundTripper = h.base
+	var transport http.RoundTripper = base
 
 	if h.rateLimit.Burst() > 0 && h.rateLimit.Limit() > 0 {
 		transport = NewRateLimitTransport(
@@ -156,50 +158,59 @@ func (h *httpClientWrapper) Acquire(_ context.Context, _ *core.AcquireData) erro
 }
 
 func (h *httpClientWrapper) Shutdown(_ context.Context, _ *core.ShutdownData) error {
-	if h.base == nil {
-		return nil
+	if h.closeConnections != nil {
+		h.closeConnections()
 	}
-
-	h.base.CloseIdleConnections()
 
 	return nil
 }
 
 func (h *httpClientWrapper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if h.chain == nil {
-		return nil, fmt.Errorf("http client not configured: Configure() must be called before RoundTrip()") //nolint:err113 // sentinel-free guard
+		return nil, errUnonfigured
 	}
 
-	ctx := req.Context()
-
-	var cancel context.CancelFunc
-
-	if h.timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, h.timeout)
+	ctx, cancel := h.prepareContext(req.Context())
+	if cancel != nil {
 		defer cancel()
 	}
 
 	out := req.WithContext(ctx)
+	h.prepareURL(out)
 
-	if out.URL.Host == "" {
-		out.URL.Scheme = h.addr.Scheme
-		out.URL.Host = h.addr.Host
+	//nolint:wrapcheck // should not wrap transport errors.
+	return h.chain.RoundTrip(out)
+}
 
-		basePath := strings.TrimSuffix(h.addr.Path, "/")
-		reqPath := strings.TrimPrefix(out.URL.Path, "/")
-
-		switch {
-		case reqPath != "":
-			out.URL.Path = basePath + "/" + reqPath
-		case basePath != "":
-			out.URL.Path = basePath
-		default:
-			out.URL.Path = "/"
-		}
+func (h *httpClientWrapper) prepareContext(
+	ctx context.Context,
+) (context.Context, context.CancelFunc) {
+	if h.timeout > 0 {
+		return context.WithTimeout(ctx, h.timeout)
 	}
 
-	//nolint:wrapcheck // implementing interface
-	return h.chain.RoundTrip(out)
+	return ctx, nil
+}
+
+func (h *httpClientWrapper) prepareURL(out *http.Request) {
+	if out.URL.Host != "" {
+		return
+	}
+
+	out.URL.Scheme = h.addr.Scheme
+	out.URL.Host = h.addr.Host
+
+	basePath := strings.TrimSuffix(h.addr.Path, "/")
+	reqPath := strings.TrimPrefix(out.URL.Path, "/")
+
+	switch {
+	case reqPath != "":
+		out.URL.Path = basePath + "/" + reqPath
+	case basePath != "":
+		out.URL.Path = basePath
+	default:
+		out.URL.Path = "/"
+	}
 }
 
 // RateLimitTransport provides a RoundTripper that enforces rate limiting.

@@ -43,6 +43,9 @@ type Config struct {
 	OAuthRedirectURL   *url.URL          `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
 	RateLimit          ratelimit.Policy  `env:"CYNOSURE_RATELIMIT"          default:"20/1h"`
 
+	ChatSoftLimit uint `env:"CYNOSURE_CHAT_SOFT_LIMIT" default:"20"`
+	ChatHardCap   uint `env:"CYNOSURE_CHAT_HARD_CAP"   default:"50"`
+
 	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"          default:""`
 	OtlpHost     *url.URL          `env:"CYNOSURE_OTLP_HOST"             default:""`
 	OtlpMetadata map[string]string `env:"CYNOSURE_OTLP_METADATA"         default:"" envSeparator:","`

@@ -43,11 +43,10 @@ func (i *portWrapped) Stream(
 	settings entities.AgentReadOnly,
 	opts ...StreamOption,
 ) (StreamIter, error) {
-	params := StreamParams(opts...)
-
 	ctx, span := i.t.stream(ctx, input, settings)
+	// not closing span to prevent premature closing.
 
-	res, err := i.w.Stream(ctx, input, settings, resolvedStreamParams(params))
+	res, err := i.w.Stream(ctx, input, settings, opts...)
 	if err != nil {
 		span.recordError(err)
 		span.end()

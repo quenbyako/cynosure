@@ -15,32 +15,36 @@ const (
 	pkgName = "github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 
 	defaultAgentLoopTurns = 10
+	defaultChatLimit      = 20
 )
 
 type Usecase struct {
-	storage        ports.ThreadStorage
-	model          chatmodel.Port
-	tools          toolclient.Port
-	indexer        ports.ToolSemanticIndex
-	toolStorage    ports.ToolStorage
-	servers        ports.ServerStorage
-	accounts       ports.AccountStorage
-	agents         ports.AgentStorage
-	limiter        ratelimiter.Port
-	log            LogCallbacks
-	trace          trace.Tracer
-	agentLoopTurns uint8
+	storage          ports.ThreadStorage
+	model            chatmodel.Port
+	tools            toolclient.Port
+	indexer          ports.ToolSemanticIndex
+	toolStorage      ports.ToolStorage
+	servers          ports.ServerStorage
+	accounts         ports.AccountStorage
+	agents           ports.AgentStorage
+	limiter          ratelimiter.Port
+	log              LogCallbacks
+	trace            trace.Tracer
+	agentLoopTurns   uint8
+	defaultChatLimit uint
 }
 
 type newParams struct {
-	log    LogCallbacks
-	tracer trace.TracerProvider
+	log       LogCallbacks
+	tracer    trace.TracerProvider
+	chatLimit uint
 }
 
 func buildNewParams(opts ...NewOpt) *newParams {
 	params := newParams{
-		log:    NoOpLogCallbacks{},
-		tracer: noop.NewTracerProvider(),
+		log:       NoOpLogCallbacks{},
+		tracer:    noop.NewTracerProvider(),
+		chatLimit: defaultChatLimit,
 	}
 
 	for _, opt := range opts {
@@ -58,6 +62,10 @@ func WithLogger(log LogCallbacks) NewOpt {
 
 func WithTracer(tracer trace.TracerProvider) NewOpt {
 	return func(p *newParams) { p.tracer = tracer }
+}
+
+func WithChatLimit(limit uint) NewOpt {
+	return func(p *newParams) { p.chatLimit = limit }
 }
 
 // New creates a new usecase instance.
@@ -79,18 +87,19 @@ func New(
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
 	usecase := &Usecase{
-		storage:        storage,
-		model:          model,
-		tools:          tool,
-		indexer:        indexer,
-		toolStorage:    toolStorage,
-		servers:        server,
-		accounts:       account,
-		agents:         models,
-		limiter:        limiter,
-		agentLoopTurns: defaultAgentLoopTurns,
-		log:            params.log,
-		trace:          params.tracer.Tracer(pkgName),
+		storage:          storage,
+		model:            model,
+		tools:            tool,
+		indexer:          indexer,
+		toolStorage:      toolStorage,
+		servers:          server,
+		accounts:         account,
+		agents:           models,
+		limiter:          limiter,
+		agentLoopTurns:   defaultAgentLoopTurns,
+		defaultChatLimit: params.chatLimit,
+		log:              params.log,
+		trace:            params.tracer.Tracer(pkgName),
 	}
 
 	if err := usecase.validate(); err != nil {

@@ -55,9 +55,24 @@ func TestMessageFromGenAIContent(t *testing.T) {
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
 			agentID := must(ids.RandomAgentID(ids.RandomUserID()))
+
+			want := make([]messages.Message, len(tt.want))
+			for i, m := range tt.want {
+				msg, ok := m.(messages.MessageAssistant)
+				require.True(t, ok, "message is not an assistant message")
+
+				msg, err := messages.NewMessageAssistant(
+					msg.Content(),
+					messages.WithMessageAssistantAgentID(agentID),
+				)
+				require.NoError(t, err, "expected no error")
+
+				want[i] = msg
+			}
+
 			got, _, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", nil, 0, agentID)
 			require.NoError(t, err, "expected no error")
-			require.Equal(t, tt.want, got, "unexpected message")
+			require.Equal(t, want, got, "unexpected message")
 		})
 	}
 }

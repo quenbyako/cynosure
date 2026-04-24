@@ -33,6 +33,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithMCP(cfg.MCPPort.Register),
 		cynosure.WithAdminMCPID(cfg.AdminMCPServerID),
 		cynosure.WithRateLimit(cfg.RateLimit),
+		cynosure.WithChatLimits(cfg.ChatSoftLimit, cfg.ChatHardCap),
 	}
 
 	if cfg.DatabaseURL != nil && cfg.DatabaseURL.Scheme != "" {

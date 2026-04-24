@@ -8,7 +8,6 @@ package cynosure
 
 import (
 	"context"
-
 	"github.com/goforj/wire"
 	"github.com/quenbyako/core/contrib/runtime"
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"

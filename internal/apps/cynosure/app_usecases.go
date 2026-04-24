@@ -14,6 +14,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
+//nolint:funlen // for now that's okay, maybe later we'll split to 3 usecases.
 func newChatUsecase(
 	params *appParams,
 	storage ports.ThreadStorageWrapped,
@@ -39,6 +40,7 @@ func newChatUsecase(
 		limiter,
 		chat.WithLogger(logger),
 		chat.WithTracer(params.observability),
+		chat.WithChatLimit(params.chat.softLimit),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chat usecase: %w", err)

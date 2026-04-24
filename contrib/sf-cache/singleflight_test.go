@@ -215,7 +215,7 @@ func TestSingleflight_PanicDo(t *testing.T) {
 	var group Group[struct{}]
 
 	panicFunction := func(context.Context) (struct{}, error) {
-		panic("invalid memory address or nil pointer dereference")
+		panic("some random panic")
 	}
 
 	const totalParallelCalls = 5
@@ -228,7 +228,6 @@ func TestSingleflight_PanicDo(t *testing.T) {
 		go func() {
 			defer func() {
 				if caught := recover(); caught != nil {
-					t.Logf("Got panic: %v", caught)
 					atomic.AddInt32(&panicsCaught, 1)
 				}
 

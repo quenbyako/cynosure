@@ -1,7 +1,9 @@
 package gemini
 
 import (
+	"errors"
 	"iter"
+	"sync"
 )
 
 // SafeMap wraps an iterator with a mapper function.
@@ -40,4 +42,175 @@ func IterExtract[K1 any](seq iter.Seq2[[]K1, error]) iter.Seq2[K1, error] {
 			return true
 		})
 	}
+}
+
+type IterCloser[V, T any] interface {
+	Next() (V, bool)
+	Close() (T, error)
+}
+
+type iterWrapper[V, T any] struct {
+	wrapped    IterCloser[V, T]
+	middleware func(V, bool) (V, bool)
+}
+
+func WrapIter[V, T any](
+	wrapped IterCloser[V, T],
+	middleware func(V, bool) (V, bool),
+) IterCloser[V, T] {
+	return &iterWrapper[V, T]{
+		wrapped:    wrapped,
+		middleware: middleware,
+	}
+}
+
+func (i *iterWrapper[V, T]) Next() (V, bool) {
+	return i.middleware(i.wrapped.Next())
+}
+
+func (i *iterWrapper[V, T]) Close() (T, error) {
+	return i.wrapped.Close() //nolint:wrapcheck // must not wrap wrapped object
+}
+
+type iterCloser[K1, K2, T any] struct {
+	state       T
+	err         error
+	mapper      func(K1) ([]K2, error)
+	collector   func(T, K1) T
+	stream      func() (K1, error, bool)
+	streamClose func()
+	cached      []K2
+	mu          sync.Mutex
+	finished    bool
+}
+
+func NewIterCloser[K1, K2, T any](
+	stream iter.Seq2[K1, error],
+	mapper func(K1) ([]K2, error),
+	collector func(T, K1) T,
+) IterCloser[K2, T] {
+	next, closeIter := iter.Pull2(stream)
+
+	return &iterCloser[K1, K2, T]{
+		mapper:    mapper,
+		collector: collector,
+
+		mu: sync.Mutex{},
+
+		stream:      next,
+		streamClose: closeIter,
+
+		cached:   nil,
+		finished: false,
+		state:    *new(T),
+		err:      nil,
+	}
+}
+
+func (s *iterCloser[K1, K2, T]) Next() (K2, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.finished || s.err != nil {
+		return *new(K2), false
+	}
+
+	if next, ok := s.nextFromCache(); ok {
+		return next, true
+	}
+
+	for {
+		converted, ok := s.pullAndConvert()
+		if !ok {
+			return *new(K2), false
+		}
+
+		if len(converted) == 0 {
+			continue
+		}
+
+		return s.takeFirstAndCache(converted), true
+	}
+}
+
+func (s *iterCloser[K1, K2, T]) nextFromCache() (K2, bool) {
+	if len(s.cached) == 0 {
+		return *new(K2), false
+	}
+
+	next := s.cached[0]
+	s.cached = s.cached[1:]
+
+	return next, true
+}
+
+func (s *iterCloser[K1, K2, T]) pullAndConvert() ([]K2, bool) {
+	nextRaw, nextErr, ok := s.stream()
+	if !ok {
+		return nil, false
+	}
+
+	if nextErr != nil {
+		s.err = nextErr
+		return nil, false
+	}
+
+	s.state = s.collector(s.state, nextRaw)
+
+	converted, err := s.mapper(nextRaw)
+	if err != nil {
+		s.err = err
+		return nil, false
+	}
+
+	return converted, true
+}
+
+func (s *iterCloser[K1, K2, T]) takeFirstAndCache(converted []K2) K2 {
+	if len(converted) > 1 {
+		s.cached = converted[1:]
+	}
+
+	return converted[0]
+}
+
+func (s *iterCloser[K1, K2, T]) Close() (T, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.finished {
+		return s.state, s.err
+	}
+
+	// draining the stream
+	lastErr := s.drain()
+
+	s.streamClose()
+
+	if lastErr != nil {
+		s.err = errors.Join(s.err, lastErr)
+	}
+
+	s.finished = true
+
+	return s.state, s.err
+}
+
+func (s *iterCloser[K1, K2, T]) drain() error {
+	var lastErr error
+
+	for {
+		val, err, ok := s.stream()
+		if !ok {
+			break
+		}
+
+		if err != nil {
+			lastErr = err
+		}
+
+		s.state = s.collector(s.state, val)
+	}
+
+	return lastErr
 }

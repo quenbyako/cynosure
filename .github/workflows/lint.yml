@@ -1,0 +1,46 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover Modules
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: set-modules
+        run: |
+          # Find modules excluding adk-go and redisconn
+          MODULES=$(find . -name go.mod -not -path '*/.*' -not -path './adk-go/*' -not -path './contrib/redisconn/*' -exec dirname {} \; | sort | jq -R . | jq -s -c .)
+          echo "modules=$MODULES" >> $GITHUB_OUTPUT
+
+  lint:
+    name: Lint (${{ matrix.module }})
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: true
+      - name: Generate
+        run: go generate ./...
+        working-directory: ${{ matrix.module }}
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: ${{ matrix.module }}
+          args: --timeout 10m
