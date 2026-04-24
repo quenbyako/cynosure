@@ -25,7 +25,6 @@ jobs:
         run: |
           go work init
           go work use .
-          go work use adk-go
           go work use contrib/redisconn
           go work use contrib/a2aproto/a2a/v1
           go work use contrib/db
