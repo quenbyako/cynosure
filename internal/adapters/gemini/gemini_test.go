@@ -56,11 +56,18 @@ func TestMessageFromGenAIContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agentID := must(ids.RandomAgentID(ids.RandomUserID()))
 
-			var want []messages.Message
-			for _, m := range tt.want {
-				ma := m.(messages.MessageAssistant)
-				ma, _ = messages.NewMessageAssistant(ma.Content(), messages.WithMessageAssistantAgentID(agentID))
-				want = append(want, ma)
+			want := make([]messages.Message, len(tt.want))
+			for i, m := range tt.want {
+				msg, ok := m.(messages.MessageAssistant)
+				require.True(t, ok, "message is not an assistant message")
+
+				msg, err := messages.NewMessageAssistant(
+					msg.Content(),
+					messages.WithMessageAssistantAgentID(agentID),
+				)
+				require.NoError(t, err, "expected no error")
+
+				want[i] = msg
 			}
 
 			got, _, _, err := datatransfer.MessageFromGenAIContent(tt.msgs, "", nil, 0, agentID)

@@ -90,6 +90,9 @@ func assistantReasoningPart(reasoning string) *genai.Part {
 		InlineData:          nil,
 		ThoughtSignature:    nil,
 		VideoMetadata:       nil,
+		ToolCall:            nil,
+		ToolResponse:        nil,
+		PartMetadata:        nil,
 	}
 }
 
@@ -106,6 +109,9 @@ func assistantContentPart(text string) *genai.Part {
 		Thought:             false,
 		ThoughtSignature:    nil,
 		VideoMetadata:       nil,
+		ToolCall:            nil,
+		ToolResponse:        nil,
+		PartMetadata:        nil,
 	}
 }
 

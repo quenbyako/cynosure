@@ -86,6 +86,8 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embe
 		Title:                "",
 		MIMEType:             "",
 		AutoTruncate:         false,
+		DocumentOcr:          nil,
+		AudioTrackExtraction: nil,
 	}
 
 	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, input, config)

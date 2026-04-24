@@ -27,16 +27,16 @@ type SecretGetter interface {
 type (
 	appParams struct {
 		telegram           telegramParams
-		gemini             geminiParams
-		storage            storageParams
-		redis              redisParams
-		ory                oryParams
-		chat               chatParams
 		observability      core.Metrics
+		gemini             geminiParams
 		grpcAddr           grpc.ServiceRegistrar
+		redis              redisParams
+		storage            storageParams
 		httpAddr           func(http.Handler)
 		mcpAddr            func(http.Handler)
+		ory                oryParams
 		constructionErrors []error
+		chat               chatParams
 		rateLimit          ratelimit.Policy
 		adminMCPID         ids.ServerID
 	}

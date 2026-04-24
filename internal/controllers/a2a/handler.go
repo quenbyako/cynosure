@@ -105,10 +105,6 @@ func (h *Handler) SendMessage(
 		return nil, err
 	}
 
-	if _, err := response.Close(); err != nil {
-		return nil, fmt.Errorf("generating response: %w", err)
-	}
-
 	respMsg := h.makeSendMessageResponse(parts)
 
 	return &a2a.SendMessageResponse{
@@ -147,14 +143,17 @@ func (h *Handler) SendStreamingMessage(
 		return fmt.Errorf("generating response: %w", err)
 	}
 
-	for msg := range response.Chunks() {
+	for msg, contentErr := range response {
+		if err != nil {
+			return contentErr
+		}
+
 		if err := h.sendStreamingPart(srv, msg); err != nil {
 			return err
 		}
 	}
 
-	_, err = response.Close()
-	return err
+	return nil
 }
 
 func (h *Handler) prepareMessageRequest(

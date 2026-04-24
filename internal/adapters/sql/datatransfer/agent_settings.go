@@ -1,7 +1,6 @@
 package datatransfer
 
 import (
-	"errors"
 	"fmt"
 	"math"
 
@@ -50,8 +49,7 @@ func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams
 	maxContext, _ := agent.MaxContext()
 
 	if maxContext > math.MaxInt32 {
-		return db.UpsertAgentSettingsParams{},
-			errors.New("max context messages overflowed int32")
+		return db.UpsertAgentSettingsParams{}, ErrMaxContextOverflow
 	}
 
 	stopWords := agent.StopWords()

@@ -9,28 +9,36 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test
+  discover:
+    name: Discover Modules
     runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
     steps:
       - uses: actions/checkout@v6
+      - id: set-modules
+        run: |
+          # Find modules excluding adk-go
+          MODULES=$(find . -name go.mod -not -path '*/.*' -not -path './adk-go/*' -exec dirname {} \; | sort | jq -R . | jq -s -c .)
+          echo "modules=$MODULES" >> $GITHUB_OUTPUT
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+  test:
+    name: Test (${{ matrix.module }})
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25"
           cache: true
-
-      - name: Create workspace
-        run: |
-          go work init
-          go work use .
-          go work use contrib/redisconn
-          go work use contrib/a2aproto/a2a/v1
-          go work use contrib/db
-
-      - name: Generate code
+      - name: Generate
         run: go generate ./...
-
+        working-directory: ${{ matrix.module }}
       - name: Run tests
         run: go test -v -race -shuffle=on ./...
+        working-directory: ${{ matrix.module }}

@@ -291,6 +291,7 @@ func autoConnectProtocol(
 			HTTPClient:           client,
 			MaxRetries:           0,
 			DisableStandaloneSSE: false,
+			OAuthHandler:         nil,
 		})
 
 		return session, protocol, err
@@ -319,6 +320,7 @@ func discoverProtocol(
 		HTTPClient:           client,
 		MaxRetries:           noRetries, // No retries - fail fast for protocol detection
 		DisableStandaloneSSE: false,
+		OAuthHandler:         nil,
 	})
 	if httpErr == nil {
 		return session, tools.ProtocolHTTP, nil
@@ -343,18 +345,19 @@ func connectWithTransport(
 	ctx context.Context, transport mcp.Transport,
 ) (*mcp.ClientSession, error) {
 	client := mcp.NewClient(clientImpl, &mcp.ClientOptions{
-		KeepAlive:                   keepAliveInterval,
-		Logger:                      nil, // TODO: add logger
-		CreateMessageHandler:        nil,
-		ElicitationHandler:          nil,
-		Capabilities:                nil,
-		ElicitationCompleteHandler:  nil,
-		ToolListChangedHandler:      nil,
-		PromptListChangedHandler:    nil,
-		ResourceListChangedHandler:  nil,
-		ResourceUpdatedHandler:      nil,
-		LoggingMessageHandler:       nil,
-		ProgressNotificationHandler: nil,
+		KeepAlive:                     keepAliveInterval,
+		Logger:                        nil, // TODO: add logger
+		CreateMessageHandler:          nil,
+		ElicitationHandler:            nil,
+		Capabilities:                  nil,
+		ElicitationCompleteHandler:    nil,
+		ToolListChangedHandler:        nil,
+		PromptListChangedHandler:      nil,
+		ResourceListChangedHandler:    nil,
+		ResourceUpdatedHandler:        nil,
+		LoggingMessageHandler:         nil,
+		ProgressNotificationHandler:   nil,
+		CreateMessageWithToolsHandler: nil,
 	})
 
 	session, err := client.Connect(ctx, transport, nil)

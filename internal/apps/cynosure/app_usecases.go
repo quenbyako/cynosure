@@ -14,6 +14,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
+//nolint:funlen // for now that's okay, maybe later we'll split to 3 usecases.
 func newChatUsecase(
 	params *appParams,
 	storage ports.ThreadStorageWrapped,

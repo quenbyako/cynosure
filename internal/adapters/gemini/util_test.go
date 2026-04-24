@@ -20,20 +20,20 @@ func TestIterCloser_Next(t *testing.T) {
 		}
 		collector := func(state []int, i int) []int { return append(state, i) }
 
-		ic := NewIterCloser(stream, mapper, collector)
+		iterCloser := NewIterCloser(stream, mapper, collector)
 
-		val, ok := ic.Next()
+		val, ok := iterCloser.Next()
 		require.True(t, ok)
 		require.Equal(t, "a", val)
 
-		val, ok = ic.Next()
+		val, ok = iterCloser.Next()
 		require.True(t, ok)
 		require.Equal(t, "b", val)
 
-		_, ok = ic.Next()
+		_, ok = iterCloser.Next()
 		require.False(t, ok)
 
-		state, err := ic.Close()
+		state, err := iterCloser.Close()
 		require.NoError(t, err)
 		require.Equal(t, []int{1, 2}, state)
 	})
@@ -45,24 +45,24 @@ func TestIterCloser_Next(t *testing.T) {
 		mapper := func(i int) ([]string, error) {
 			return []string{"a", "b"}, nil
 		}
-		collector := func(i int, state int) int {
+		collector := func(i, state int) int {
 			return state + i
 		}
 
-		ic := NewIterCloser(stream, mapper, collector)
+		iterCloser := NewIterCloser(stream, mapper, collector)
 
-		val, ok := ic.Next()
+		val, ok := iterCloser.Next()
 		require.True(t, ok)
 		require.Equal(t, "a", val)
 
-		val, ok = ic.Next()
+		val, ok = iterCloser.Next()
 		require.True(t, ok)
 		require.Equal(t, "b", val)
 
-		_, ok = ic.Next()
+		_, ok = iterCloser.Next()
 		require.False(t, ok)
 
-		state, err := ic.Close()
+		state, err := iterCloser.Close()
 		require.NoError(t, err)
 		require.Equal(t, 1, state)
 	})
@@ -76,20 +76,22 @@ func TestIterCloser_Next(t *testing.T) {
 			if i == 1 {
 				return nil, nil
 			}
+
 			return []string{"b"}, nil
 		}
-		collector := func(i int, state int) int { return state + i }
+		collector := func(i, state int) int { return state + i }
 
-		ic := NewIterCloser(stream, mapper, collector)
+		iterCloser := NewIterCloser(stream, mapper, collector)
 
-		val, ok := ic.Next()
+		val, ok := iterCloser.Next()
 		require.True(t, ok)
 		require.Equal(t, "b", val)
 
-		_, ok = ic.Next()
+		_, ok = iterCloser.Next()
 		require.False(t, ok)
 
-		state, _ := ic.Close()
+		state, err := iterCloser.Close()
+		require.NoError(t, err)
 		require.Equal(t, 3, state)
 	})
 
@@ -100,15 +102,15 @@ func TestIterCloser_Next(t *testing.T) {
 			yield(0, expectedErr)
 		}
 		mapper := func(i int) ([]string, error) { return []string{"val"}, nil }
-		collector := func(i int, state int) int { return state + i }
+		collector := func(i, state int) int { return state + i }
 
-		ic := NewIterCloser(stream, mapper, collector)
+		iterCloser := NewIterCloser(stream, mapper, collector)
 
-		ic.Next()
-		_, ok := ic.Next()
+		iterCloser.Next()
+		_, ok := iterCloser.Next()
 		require.False(t, ok)
 
-		_, err := ic.Close()
+		_, err := iterCloser.Close()
 		require.ErrorIs(t, err, expectedErr)
 	})
 
@@ -118,7 +120,7 @@ func TestIterCloser_Next(t *testing.T) {
 			yield(1, nil)
 		}
 		mapper := func(i int) ([]string, error) { return nil, expectedErr }
-		collector := func(i int, state int) int { return state + i }
+		collector := func(i, state int) int { return state + i }
 
 		ic := NewIterCloser(stream, mapper, collector)
 
@@ -137,7 +139,7 @@ func TestIterCloser_Close(t *testing.T) {
 			yield(2, nil)
 		}
 		mapper := func(i int) ([]string, error) { return []string{"val"}, nil }
-		collector := func(i int, state int) int { return state + i }
+		collector := func(i, state int) int { return state + i }
 
 		ic := NewIterCloser(stream, mapper, collector)
 

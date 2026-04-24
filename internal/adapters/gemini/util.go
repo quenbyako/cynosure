@@ -69,22 +69,19 @@ func (i *iterWrapper[V, T]) Next() (V, bool) {
 }
 
 func (i *iterWrapper[V, T]) Close() (T, error) {
-	return i.wrapped.Close()
+	return i.wrapped.Close() //nolint:wrapcheck // must not wrap wrapped object
 }
 
 type iterCloser[K1, K2, T any] struct {
-	mapper    func(K1) ([]K2, error)
-	collector func(T, K1) T
-
-	mu sync.Mutex
-
+	state       T
+	err         error
+	mapper      func(K1) ([]K2, error)
+	collector   func(T, K1) T
 	stream      func() (K1, error, bool)
 	streamClose func()
-
-	cached   []K2
-	finished bool
-	state    T
-	err      error
+	cached      []K2
+	mu          sync.Mutex
+	finished    bool
 }
 
 func NewIterCloser[K1, K2, T any](
@@ -92,7 +89,7 @@ func NewIterCloser[K1, K2, T any](
 	mapper func(K1) ([]K2, error),
 	collector func(T, K1) T,
 ) IterCloser[K2, T] {
-	next, close := iter.Pull2(stream)
+	next, closeIter := iter.Pull2(stream)
 
 	return &iterCloser[K1, K2, T]{
 		mapper:    mapper,
@@ -101,7 +98,7 @@ func NewIterCloser[K1, K2, T any](
 		mu: sync.Mutex{},
 
 		stream:      next,
-		streamClose: close,
+		streamClose: closeIter,
 
 		cached:   nil,
 		finished: false,
@@ -110,7 +107,7 @@ func NewIterCloser[K1, K2, T any](
 	}
 }
 
-func (s *iterCloser[K1, K2, T]) Next() (next K2, ok bool) {
+func (s *iterCloser[K1, K2, T]) Next() (K2, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -118,44 +115,63 @@ func (s *iterCloser[K1, K2, T]) Next() (next K2, ok bool) {
 		return *new(K2), false
 	}
 
-	if len(s.cached) > 0 {
-		next, s.cached = s.cached[0], s.cached[1:]
-
+	if next, ok := s.nextFromCache(); ok {
 		return next, true
 	}
 
 	for {
-		nextRaw, nextErr, ok := s.stream()
+		converted, ok := s.pullAndConvert()
 		if !ok {
 			return *new(K2), false
 		}
 
-		if nextErr != nil {
-			s.err = nextErr
-			return *new(K2), false
-		}
-
-		// mapping
-
-		s.state = s.collector(s.state, nextRaw)
-
-		converted, err := s.mapper(nextRaw)
-		if err != nil {
-			s.err = err
-			return *new(K2), false
-		}
-
-		switch len(converted) {
-		case 0:
+		if len(converted) == 0 {
 			continue
-		case 1:
-			return converted[0], true
-		default:
-			s.cached = converted[1:]
-			return converted[0], true
 		}
 
+		return s.takeFirstAndCache(converted), true
 	}
+}
+
+func (s *iterCloser[K1, K2, T]) nextFromCache() (K2, bool) {
+	if len(s.cached) == 0 {
+		return *new(K2), false
+	}
+
+	next := s.cached[0]
+	s.cached = s.cached[1:]
+
+	return next, true
+}
+
+func (s *iterCloser[K1, K2, T]) pullAndConvert() ([]K2, bool) {
+	nextRaw, nextErr, ok := s.stream()
+	if !ok {
+		return nil, false
+	}
+
+	if nextErr != nil {
+		s.err = nextErr
+		return nil, false
+	}
+
+	s.state = s.collector(s.state, nextRaw)
+
+	converted, err := s.mapper(nextRaw)
+	if err != nil {
+		s.err = err
+		return nil, false
+	}
+
+	return converted, true
+}
+
+func (s *iterCloser[K1, K2, T]) takeFirstAndCache(converted []K2) K2 {
+	if len(converted) > 1 {
+		s.cached = converted[1:]
+	}
+
+	return converted[0]
 }
 
 func (s *iterCloser[K1, K2, T]) Close() (T, error) {
@@ -166,9 +182,23 @@ func (s *iterCloser[K1, K2, T]) Close() (T, error) {
 		return s.state, s.err
 	}
 
+	// draining the stream
+	lastErr := s.drain()
+
+	s.streamClose()
+
+	if lastErr != nil {
+		s.err = errors.Join(s.err, lastErr)
+	}
+
+	s.finished = true
+
+	return s.state, s.err
+}
+
+func (s *iterCloser[K1, K2, T]) drain() error {
 	var lastErr error
 
-	// draining the stream
 	for {
 		val, err, ok := s.stream()
 		if !ok {
@@ -182,16 +212,5 @@ func (s *iterCloser[K1, K2, T]) Close() (T, error) {
 		s.state = s.collector(s.state, val)
 	}
 
-	s.streamClose()
-
-	if lastErr != nil {
-		if s.err == nil {
-			s.err = lastErr
-		} else {
-			s.err = errors.Join(s.err, lastErr)
-		}
-	}
-
-	s.finished = true
-	return s.state, s.err
+	return lastErr
 }
