@@ -35,9 +35,20 @@ type Agent struct {
 	// TopP is the top p for the model, which controls the diversity of the model.
 	//
 	// If topP is <= 0, then it's not set.
-	topP   float32
-	id     ids.AgentID
-	_valid bool
+	topP float32
+
+	// maxContenctMessages defines how many messages will be provided to agent
+	// in evaluation. If value is zero, it means, that agent doesn't have any
+	// limit and all messages in session will be provided.
+	//
+	// Controlling context window helps agent to concentrate on the most
+	// relevant tasks, instead of keeping in mind whole chat.
+	//
+	// If value is zero, it means, that agent doesn't have any limit and all
+	// messages in session will be provided.
+	maxContext uint
+	id         ids.AgentID
+	_valid     bool
 }
 
 var (
@@ -63,6 +74,10 @@ func WithStopWords(stopWords []string) NewModelSettingsOption {
 	return func(a *Agent) { a.stopWords = stopWords }
 }
 
+func WithMaxContext(limit uint) NewModelSettingsOption {
+	return func(a *Agent) { a.maxContext = limit }
+}
+
 func NewModelSettings(
 	id ids.AgentID,
 	model string,
@@ -74,6 +89,7 @@ func NewModelSettings(
 		systemMessage: "",
 		temperature:   -1,
 		topP:          -1,
+		maxContext:    0,
 		stopWords:     nil,
 		pendingEvents: nil,
 		_valid:        false,
@@ -119,6 +135,7 @@ type AgentReadOnly interface {
 	Temperature() (float32, bool)
 	TopP() (float32, bool)
 	StopWords() []string
+	MaxContext() (uint, bool)
 }
 
 func (c *Agent) ID() ids.AgentID              { return c.id }
@@ -127,6 +144,7 @@ func (c *Agent) SystemMessage() string        { return c.systemMessage }
 func (c *Agent) Temperature() (float32, bool) { return c.temperature, c.temperature > 0 }
 func (c *Agent) TopP() (float32, bool)        { return c.topP, c.topP > 0 }
 func (c *Agent) StopWords() []string          { return slices.Clone(c.stopWords) }
+func (c *Agent) MaxContext() (uint, bool)     { return c.maxContext, c.maxContext > 0 }
 
 // WRITE
 

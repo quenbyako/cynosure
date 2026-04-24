@@ -1,0 +1,43 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - .
+          # - contrib/redisconn # let's ignore that...
+          - contrib/a2aproto/a2a/v1
+          - contrib/db
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Generate code
+        working-directory: ${{ matrix.module }}
+        run: go generate ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: ${{ matrix.module }}
+          args: --timeout 10m

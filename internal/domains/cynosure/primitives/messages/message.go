@@ -3,7 +3,6 @@ package messages
 import (
 	"encoding/json"
 	"fmt"
-	"iter"
 	"maps"
 )
 

@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -98,17 +99,85 @@ type ThreadReadOnly interface {
 	EventsReader[ThreadEvent]
 
 	ID() ids.ThreadID
-	Messages() []messages.Message
+	Messages(limit uint) []messages.Message
 	AgentID() ids.AgentID
 }
 
-func (c *Thread) ID() ids.ThreadID             { return c.id }
-func (c *Thread) AgentID() ids.AgentID         { return c.agentID }
-func (c *Thread) Messages() []messages.Message { return c.messages }
+func (c *Thread) ID() ids.ThreadID     { return c.id }
+func (c *Thread) AgentID() ids.AgentID { return c.agentID }
+
+// Messages returns messages history trimmed to the given limit using
+// Sliding Window pattern with Tool-Safety guarantees.
+//
+// If limit is 0, then all messages will be returned.
+//
+// Tool-Safety rules:
+//  1. Orphaned Responses: If the first message in the window is a tool response/error,
+//     it's removed until the first message is MessageUser, MessageAssistant,
+//     or MessageToolRequest.
+//  2. Incomplete Pairs: If a tool response/error is in the window, but its
+//     corresponding request was trimmed, the response is removed.
+func (c *Thread) Messages(limit uint) []messages.Message {
+	if limit == 0 || uint(len(c.messages)) <= limit {
+		return slices.Clone(c.messages)
+	}
+
+	//nolint:gosec // safe conversion after length check
+	window := c.messages[len(c.messages)-int(limit):]
+	result := filterIncompletePairs(slices.Clone(window))
+
+	// 2. Handle Orphaned Responses at the beginning
+	for len(result) > 0 {
+		if isSafeStart(result[0]) {
+			break
+		}
+
+		result = result[1:]
+	}
+
+	return result
+}
+
+// filterIncompletePairs removes orphaned tool responses whose requests were trimmed.
+//
+// This function MODIFIES the input slice, so it MUST be a clone of the original
+// window to avoid side effects on the thread state.
+func filterIncompletePairs(window []messages.Message) []messages.Message {
+	requests := make(map[string]struct{})
+
+	return slices.DeleteFunc(window, func(msg messages.Message) bool {
+		if req, ok := msg.(messages.MessageToolRequest); ok {
+			requests[req.ToolCallID()] = struct{}{}
+
+			return false
+		}
+
+		if resp, ok := msg.(messages.MessageTool); ok {
+			_, hasReq := requests[resp.ToolCallID()]
+
+			return !hasReq
+		}
+
+		return false
+	})
+}
+
+func isSafeStart(m messages.Message) bool {
+	switch m.(type) {
+	case messages.MessageUser, messages.MessageAssistant, messages.MessageToolRequest:
+		return true
+	default:
+		return false
+	}
+}
 
 // WRITE
 
 func (c *Thread) AddMessage(message messages.Message) error {
+	if ok, err := c.tryMerge(message); ok {
+		return err
+	}
+
 	msgs := cloneWithAppend(c.messages, message)
 	if err := c.validateMessages(msgs); err != nil {
 		return err
@@ -121,6 +190,33 @@ func (c *Thread) AddMessage(message messages.Message) error {
 	})
 
 	return nil
+}
+
+func (c *Thread) tryMerge(message messages.Message) (bool, error) {
+	if len(c.messages) == 0 {
+		return false, nil
+	}
+
+	last := c.messages[len(c.messages)-1]
+	if last.MergeTag() != message.MergeTag() || last.MergeTag() == 0 {
+		return false, nil
+	}
+
+	previous := last
+
+	merged, err := messages.MergeMessages(previous, message)
+	if err != nil {
+		return true, fmt.Errorf("merging messages: %w", err)
+	}
+
+	c.messages[len(c.messages)-1] = merged
+
+	c.pendingEvents = append(c.pendingEvents, ThreadEventMessageUpdated{
+		message:  merged,
+		previous: previous,
+	})
+
+	return true, nil
 }
 
 func (c *Thread) SetAgent(agentID ids.AgentID) bool {
@@ -157,6 +253,17 @@ func (e ThreadEventMessageAdded) undo(c *Thread) {
 	if n := len(c.messages); n > 0 {
 		c.messages[n-1] = nil
 		c.messages = c.messages[:n-1]
+	}
+}
+
+type ThreadEventMessageUpdated struct {
+	message  messages.Message
+	previous messages.Message
+}
+
+func (e ThreadEventMessageUpdated) undo(c *Thread) {
+	if n := len(c.messages); n > 0 {
+		c.messages[n-1] = e.previous
 	}
 }
 
