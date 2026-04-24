@@ -50,9 +50,5 @@ func StreamParams(opts ...StreamOption) streamParams {
 	return p
 }
 
-func resolvedStreamParams(value streamParams) StreamOption {
-	return streamFunc(func(p *streamParams) { *p = value })
-}
-
 func (s *streamParams) Toolbox() tools.Toolbox       { return s.tools }
 func (s *streamParams) ToolChoice() tools.ToolChoice { return s.toolChoice }

@@ -39,15 +39,15 @@ func TestChat_AcceptUserMessage_RAG_Orchestration(t *testing.T) {
 // --- Fixture ---
 
 type chatFixture struct {
-	t              *testing.T
-	user           ids.UserID
-	server         ids.ServerID
-	threadID       ids.ThreadID
-	indexer        *mocks.MockToolSemanticIndex
-	toolStorage    *mocks.MockToolStorage
-	accountStorage *mocks.MockAccountStorage
-	threadStorage  *mocks.MockThreadStorage
-	agentStorage   *mocks.MockAgentStorage
+	t                   *testing.T
+	user                ids.UserID
+	server              ids.ServerID
+	threadID            ids.ThreadID
+	indexer             *mocks.MockToolSemanticIndex
+	toolStorage         *mocks.MockToolStorage
+	accountStorage      *mocks.MockAccountStorage
+	threadStorage       *mocks.MockThreadStorage
+	toolboxContextLimit uint
 
 	_chat *chat.Chat
 }
@@ -60,15 +60,15 @@ func newChatFixture(t *testing.T) *chatFixture {
 	require.NoError(t, err)
 
 	return &chatFixture{
-		t:              t,
-		user:           user,
-		server:         ids.RandomServerID(),
-		threadID:       tid,
-		indexer:        new(mocks.MockToolSemanticIndex),
-		toolStorage:    new(mocks.MockToolStorage),
-		accountStorage: new(mocks.MockAccountStorage),
-		threadStorage:  new(mocks.MockThreadStorage),
-		agentStorage:   new(mocks.MockAgentStorage),
+		t:                   t,
+		user:                user,
+		server:              ids.RandomServerID(),
+		threadID:            tid,
+		indexer:             new(mocks.MockToolSemanticIndex),
+		toolStorage:         new(mocks.MockToolStorage),
+		accountStorage:      new(mocks.MockAccountStorage),
+		threadStorage:       new(mocks.MockThreadStorage),
+		toolboxContextLimit: 10,
 	}
 }
 
@@ -129,7 +129,7 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 
 	chatAggregate, err := chat.New(
 		ctx, f.threadStorage, f.indexer, f.toolStorage,
-		f.accountStorage, f.agentStorage, f.threadID,
+		f.accountStorage, f.threadID, f.toolboxContextLimit,
 	)
 	require.NoError(f.t, err)
 	f._chat = chatAggregate

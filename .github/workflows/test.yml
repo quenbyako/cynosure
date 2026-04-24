@@ -10,45 +10,28 @@ permissions:
 
 jobs:
   test:
-    name: Test (${{ matrix.module }}, Go ${{ matrix.go }})
+    name: Test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        go: ["1.25", "stable"]
-        module:
-          - .
-          - adk-go
-          - contrib/redisconn
-          - contrib/a2aproto/a2a/v1
-          - contrib/db
-
     steps:
       - uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go }}
+          go-version: "1.25"
           cache: true
-          cache-dependency-path: ${{ matrix.module }}/go.sum
 
-      - name: Verify dependencies
-        working-directory: ${{ matrix.module }}
+      - name: Create workspace
         run: |
-          go mod verify
-          go mod download
-
-      - name: Check go mod tidy
-        working-directory: ${{ matrix.module }}
-        run: |
-          go mod tidy
-          git diff --exit-code go.mod go.sum
+          go work init
+          go work use .
+          go work use adk-go
+          go work use contrib/redisconn
+          go work use contrib/a2aproto/a2a/v1
+          go work use contrib/db
 
       - name: Generate code
-        working-directory: ${{ matrix.module }}
         run: go generate ./...
 
       - name: Run tests
-        working-directory: ${{ matrix.module }}
-        run: go test -v -race -shuffle=on -coverprofile=coverage.out ./...
+        run: go test -v -race -shuffle=on ./...

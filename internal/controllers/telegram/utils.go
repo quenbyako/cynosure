@@ -53,6 +53,23 @@ func (h *Handler) sendRateLimitedMessage(ctx context.Context, msg *botapi.Messag
 	}
 }
 
+func (h *Handler) sendTooLargeMessage(ctx context.Context, chatID int, tgThreadID *int) {
+	text := "Your message is too long, please shorten it and try again."
+
+	//nolint:exhaustruct // too many optional fields.
+	params := botapi.SendMessageJSONRequestBody{
+		ChatId:          chatID,
+		Text:            text,
+		MessageThreadId: tgThreadID,
+	}
+
+	if _, err := h.client.SendMessageWithResponse(ctx, params); err != nil {
+		h.log.ProcessMessageIssue(ctx, chatID,
+			fmt.Errorf("sending too large message error: %w", err),
+		)
+	}
+}
+
 func (h *Handler) upsertTelegramMessage(
 	ctx context.Context, chatID, threadID, msgID int, text string,
 ) (sentMessageID int, err error) {

@@ -24,8 +24,8 @@ import (
 //
 // The toolbox is immutable once created and contains all information needed
 // for the LLM to make tool calls (schemas, account selectors, etc.)
-func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
-	relevantTools, err := c.lookupRelevantTools(ctx)
+func (c *Chat) buildToolbox(ctx context.Context, contextLimit uint) (tools.Toolbox, error) {
+	relevantTools, err := c.lookupRelevantTools(ctx, contextLimit)
 	if err != nil {
 		return tools.Toolbox{}, err
 	}
@@ -56,8 +56,8 @@ func (c *Chat) buildToolbox(ctx context.Context) (tools.Toolbox, error) {
 	return toolbox, nil
 }
 
-func (c *Chat) lookupRelevantTools(ctx context.Context) ([]*entities.Tool, error) {
-	embedding, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages())
+func (c *Chat) lookupRelevantTools(ctx context.Context, msgLimit uint) ([]*entities.Tool, error) {
+	embedding, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages(msgLimit))
 	if err != nil {
 		return nil, fmt.Errorf("building embedding: %w", err)
 	}

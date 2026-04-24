@@ -12,15 +12,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - .
-          # - contrib/redisconn # let's ignore that...
-          - contrib/a2aproto/a2a/v1
-          - contrib/db
-
     steps:
       - uses: actions/checkout@v6
 
@@ -29,15 +20,19 @@ jobs:
         with:
           go-version: stable
           cache: true
-          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: Create workspace
+        run: |
+          go work init
+          go work use .
+          go work use contrib/a2aproto/a2a/v1
+          go work use contrib/db
 
       - name: Generate code
-        working-directory: ${{ matrix.module }}
         run: go generate ./...
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-          working-directory: ${{ matrix.module }}
           args: --timeout 10m

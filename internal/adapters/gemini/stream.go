@@ -23,6 +23,10 @@ func (g *GeminiModel) Stream(
 	settings entities.AgentReadOnly,
 	opts ...chatmodel.StreamOption,
 ) (iter.Seq2[messages.Message, error], error) {
+	if uint(len(input)) > g.hardCap {
+		return nil, chatmodel.ErrHistoryTooLong
+	}
+
 	params := chatmodel.StreamParams(opts...)
 
 	genConfig, err := g.buildGenConfig(settings, &params)
@@ -134,7 +138,8 @@ func toolConfig(mode genai.FunctionCallingConfigMode) *genai.ToolConfig {
 			AllowedFunctionNames:        nil,
 			StreamFunctionCallArguments: nil,
 		},
-		RetrievalConfig: nil,
+		RetrievalConfig:                  nil,
+		IncludeServerSideToolInvocations: nil,
 	}
 }
 

@@ -112,6 +112,7 @@ func newGeminiModel(
 		},
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
+		gemini.WithHardCap(params.chat.hardCap),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing gemini model: %w", err)

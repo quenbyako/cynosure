@@ -3,6 +3,7 @@ package httpclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -49,7 +50,6 @@ var (
 	_ http.RoundTripper = (*httpClientWrapper)(nil)
 )
 
-//nolint:ireturn // factory returns interface
 func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 	parsedURL, err := url.Parse(rawContent)
 	if err != nil {

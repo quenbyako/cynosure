@@ -29,6 +29,10 @@ type Port interface {
 	//
 	//  - [TestStreamBasicResponse] — generating simple text responses
 	//  - [TestStreamWithTools] — tool calling flow and message formatting
+	//
+	// Throws:
+	//
+	//  - [ErrHistoryTooLong] if history is too long.
 	Stream(
 		ctx context.Context,
 		input []messages.Message,
@@ -39,7 +43,7 @@ type Port interface {
 
 func defaultStreamParams() streamParams {
 	return streamParams{
-		toolChoice: tools.ToolChoiceAllowed,
 		tools:      tools.Toolbox{},
+		toolChoice: tools.ToolChoiceAllowed,
 	}
 }

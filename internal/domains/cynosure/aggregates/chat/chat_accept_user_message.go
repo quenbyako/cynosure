@@ -21,7 +21,7 @@ func (c *Chat) AcceptUserMessage(ctx context.Context, message messages.MessageUs
 		return fmt.Errorf("adding user message to thread: %w", err)
 	}
 
-	toolbox, err := c.buildToolbox(ctx)
+	toolbox, err := c.buildToolbox(ctx, c.toolboxContextLimit)
 	if err != nil {
 		c.thread.Reset() // Rollback: remove the message we just added
 		return fmt.Errorf("updating context after user message: %w", err)

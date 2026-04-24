@@ -39,6 +39,7 @@ func newChatUsecase(
 		limiter,
 		chat.WithLogger(logger),
 		chat.WithTracer(params.observability),
+		chat.WithChatLimit(params.chat.softLimit),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chat usecase: %w", err)

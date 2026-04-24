@@ -15,19 +15,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-var (
-	ErrOryAdminKey     = errors.New("missing oryAdminKey")
-	ErrOryEndpoint     = errors.New("missing oryEndpoint")
-	ErrOryClientID     = errors.New("missing oryClientID")
-	ErrOryClientSecret = errors.New("missing oryClientSecret")
-	ErrOryScopes       = errors.New("missing oryScopes")
-	ErrOryRedirectURL  = errors.New("missing oryRedirectURL")
-	ErrTelegramKey     = errors.New("missing telegramKey")
-	ErrTelegramPublic  = errors.New("missing telegramPublicAddr")
-	ErrGeminiKey       = errors.New("missing geminiKey")
-	ErrDatabaseURL     = errors.New("missing database URL")
-	ErrAdminMCPID      = errors.New("missing adminMCPID")
-	ErrRateLimit       = errors.New("invalid rate limit")
+const (
+	DefaultSoftLimit = 20
+	DefaultHardCap   = 50
 )
 
 type SecretGetter interface {
@@ -36,19 +26,19 @@ type SecretGetter interface {
 
 type (
 	appParams struct {
-		ory      oryParams
-		telegram telegramParams
-		gemini   geminiParams
-		storage  storageParams
-		redis    redisParams
-
+		telegram           telegramParams
+		gemini             geminiParams
+		storage            storageParams
+		redis              redisParams
+		ory                oryParams
+		chat               chatParams
 		observability      core.Metrics
 		grpcAddr           grpc.ServiceRegistrar
 		httpAddr           func(http.Handler)
 		mcpAddr            func(http.Handler)
 		constructionErrors []error
-		adminMCPID         ids.ServerID
 		rateLimit          ratelimit.Policy
+		adminMCPID         ids.ServerID
 	}
 
 	oryParams struct {
@@ -80,6 +70,10 @@ type (
 	redisParams struct {
 		url *url.URL
 	}
+	chatParams struct {
+		softLimit uint
+		hardCap   uint
+	}
 )
 
 func (p *appParams) validate() error {
@@ -100,27 +94,27 @@ func (p *appParams) validate() error {
 func (p *appParams) validateOry() error {
 	var errs []error
 	if p.ory.adminKey == nil {
-		errs = append(errs, ErrOryAdminKey)
+		errs = append(errs, MissingParamError("oryAdminKey"))
 	}
 
 	if p.ory.endpoint == nil || p.ory.endpoint.Scheme == "" {
-		errs = append(errs, ErrOryEndpoint)
+		errs = append(errs, MissingParamError("oryEndpoint"))
 	}
 
 	if p.ory.clientID == "" {
-		errs = append(errs, ErrOryClientID)
+		errs = append(errs, MissingParamError("oryClientID"))
 	}
 
 	if p.ory.clientSecret == nil {
-		errs = append(errs, ErrOryClientSecret)
+		errs = append(errs, MissingParamError("oryClientSecret"))
 	}
 
 	if len(p.ory.scopes) == 0 {
-		errs = append(errs, ErrOryScopes)
+		errs = append(errs, MissingParamError("oryScopes"))
 	}
 
 	if p.ory.redirectURL == "" {
-		errs = append(errs, ErrOryRedirectURL)
+		errs = append(errs, MissingParamError("oryRedirectURL"))
 	}
 
 	return errors.Join(errs...)
@@ -129,11 +123,11 @@ func (p *appParams) validateOry() error {
 func (p *appParams) validateTelegram() error {
 	var errs []error
 	if p.telegram.key == nil {
-		errs = append(errs, ErrTelegramKey)
+		errs = append(errs, MissingParamError("telegramKey"))
 	}
 
 	if p.telegram.publicAddr == nil || p.telegram.publicAddr.Scheme == "" {
-		errs = append(errs, ErrTelegramPublic)
+		errs = append(errs, MissingParamError("telegramPublicAddr"))
 	}
 
 	return errors.Join(errs...)
@@ -141,7 +135,7 @@ func (p *appParams) validateTelegram() error {
 
 func (p *appParams) validateGemini() error {
 	if p.gemini.key == nil {
-		return ErrGeminiKey
+		return MissingParamError("geminiKey")
 	}
 
 	return nil
@@ -149,7 +143,7 @@ func (p *appParams) validateGemini() error {
 
 func (p *appParams) validateStorage() error {
 	if p.storage.databaseURL == nil || p.storage.databaseURL.Scheme == "" {
-		return ErrDatabaseURL
+		return MissingParamError("database URL")
 	}
 
 	return nil
@@ -157,7 +151,7 @@ func (p *appParams) validateStorage() error {
 
 func (p *appParams) validateInfra() error {
 	if !p.adminMCPID.Valid() {
-		return ErrAdminMCPID
+		return MissingParamError("adminMCPID")
 	}
 
 	return nil
@@ -165,7 +159,7 @@ func (p *appParams) validateInfra() error {
 
 func (p *appParams) validateRateLimit() error {
 	if p.rateLimit.Period() <= 0 || p.rateLimit.Burst() <= 0 {
-		return ErrRateLimit
+		return MissingParamError("rate limit")
 	}
 
 	return nil
@@ -215,6 +209,13 @@ func WithRedis(addr *url.URL) AppOpts {
 
 func WithRateLimit(limit ratelimit.Policy) AppOpts {
 	return func(p *appParams) { p.rateLimit = limit }
+}
+
+func WithChatLimits(softLimit, hardCap uint) AppOpts {
+	return func(p *appParams) {
+		p.chat.softLimit = softLimit
+		p.chat.hardCap = hardCap
+	}
 }
 
 func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
@@ -293,6 +294,10 @@ func defaultParams() appParams {
 		},
 		redis: redisParams{
 			url: nil,
+		},
+		chat: chatParams{
+			softLimit: DefaultSoftLimit,
+			hardCap:   DefaultHardCap,
 		},
 		observability:      core.NoopMetrics(),
 		grpcAddr:           nil,

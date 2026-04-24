@@ -3,6 +3,7 @@ package messages
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 	"maps"
 )
 
@@ -109,7 +110,7 @@ func handleNextMessage(
 		return next, false
 	}
 
-	merged, mergeErr := mergeMessages(current, next)
+	merged, mergeErr := MergeMessages(current, next)
 	if mergeErr != nil {
 		if !yield(nil, mergeErr) {
 			return nil, true
@@ -135,8 +136,10 @@ func handleIterError(
 	return nil, true
 }
 
+// MergeMessages combines two messages into one if they are compatible.
+//
 //nolint:ireturn // intentional interface return
-func mergeMessages(current, next Message) (Message, error) {
+func MergeMessages(current, next Message) (Message, error) {
 	switch next := next.(type) {
 	case MessageUser:
 		return mergeUserMessages(current, next)

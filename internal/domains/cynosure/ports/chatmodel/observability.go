@@ -5,7 +5,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -50,6 +50,27 @@ func (o *observable) stream(
 	input []messages.Message,
 	settings entities.AgentReadOnly,
 ) (context.Context, streamCallback) {
+	attrs := o.buildAttributes(settings, input)
+
+	//nolint:spancheck // safe to omit, since wrapper automatically closes span.
+	ctx, span := o.t.Start(ctx, "cynosure.ports.chatmodel.stream",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(attrs...),
+	)
+
+	//nolint:spancheck // see above
+	return ctx, &streamSpan{
+		spanCallback: spanCallback{span: span},
+		collected:    nil,
+		current:      nil,
+		reason:       "",
+	}
+}
+
+func (o *observable) buildAttributes(
+	settings entities.AgentReadOnly,
+	input []messages.Message,
+) []attribute.KeyValue {
 	attrs := []attribute.KeyValue{
 		semconv.GenAIOperationNameGenerateContent,
 		// TODO: here is the catch: i have no clue how to correctly set
@@ -68,19 +89,7 @@ func (o *observable) stream(
 		attrs = append(attrs, semconv.GenAIRequestTemperature(float64(v)))
 	}
 
-	//nolint:spancheck // safe to omit, since wrapper automatically closes span.
-	ctx, span := o.t.Start(ctx, "cynosure.ports.chatmodel.stream",
-		trace.WithSpanKind(trace.SpanKindInternal),
-		trace.WithAttributes(attrs...),
-	)
-
-	//nolint:spancheck // see above
-	return ctx, &streamSpan{
-		spanCallback: spanCallback{span: span},
-		collected:    nil,
-		current:      nil,
-		reason:       "",
-	}
+	return attrs
 }
 
 func (s *streamSpan) addOutputMessage(msg messages.Message) {
@@ -123,13 +132,13 @@ type spanCallback struct {
 }
 
 func (c *spanCallback) end() {
-	if c.span != nil {
+	if c != nil && c.span != nil {
 		c.span.End()
 	}
 }
 
 func (c *spanCallback) recordError(err error) {
-	if err != nil && c.span != nil {
+	if err != nil && c != nil && c.span != nil {
 		c.span.RecordError(err)
 	}
 }

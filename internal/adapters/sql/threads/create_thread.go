@@ -31,7 +31,7 @@ func (t *Threads) CreateThread(ctx context.Context, thread entities.ThreadReadOn
 		return fmt.Errorf("create thread: %w", err)
 	}
 
-	if err := t.insertMessages(ctx, qtx, id.String(), thread.Messages()); err != nil {
+	if err := t.insertMessages(ctx, qtx, id.String(), thread.Messages(0)); err != nil {
 		return err
 	}
 

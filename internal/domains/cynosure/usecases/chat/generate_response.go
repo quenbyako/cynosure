@@ -152,12 +152,16 @@ func (u *Usecase) loadOrCreateChat(
 	id ids.ThreadID,
 	msg messages.MessageUser,
 ) (*chat.Chat, error) {
-	agg, err := chat.New(ctx, u.storage, u.indexer, u.toolStorage, u.accounts, u.agents, id)
+	agg, err := chat.New(ctx,
+		u.storage, u.indexer, u.toolStorage, u.accounts,
+		id, u.defaultChatLimit,
+	)
 	switch {
 	case errors.Is(err, ports.ErrNotFound):
 		agg, err = chat.CreateChatAggregate(
 			ctx, u.storage, u.indexer, u.toolStorage, u.accounts,
-			u.agents, id, []messages.Message{msg},
+			id, []messages.Message{msg},
+			u.defaultChatLimit,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating chat: %w", err)
@@ -261,7 +265,12 @@ func (u *Usecase) callModel(
 		opts = append(opts, chatmodel.WithStreamToolbox(thread.RelevantTools()))
 	}
 
-	resp, err := u.model.Stream(ctx, thread.Messages(), config, opts...)
+	maxContext, ok := config.MaxContext()
+	if !ok {
+		maxContext = u.defaultChatLimit
+	}
+
+	resp, err := u.model.Stream(ctx, thread.Messages(maxContext), config, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("calling model stream: %w", err)
 	}

@@ -93,16 +93,20 @@ func (h *Handler) SendMessage(
 		return nil, err
 	}
 
-	content, err := h.srv.GenerateResponse(
+	response, err := h.srv.GenerateResponse(
 		ctx, threadID, msg, chat.WithToolChoice(tools.ToolChoiceForbidden),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("generating response: %w", err)
 	}
 
-	parts, err := h.collectResponseParts(content)
+	parts, err := h.collectResponseParts(response)
 	if err != nil {
 		return nil, err
+	}
+
+	if _, err := response.Close(); err != nil {
+		return nil, fmt.Errorf("generating response: %w", err)
 	}
 
 	respMsg := h.makeSendMessageResponse(parts)
@@ -136,20 +140,21 @@ func (h *Handler) SendStreamingMessage(
 		return err
 	}
 
-	content, err := h.srv.GenerateResponse(
+	response, err := h.srv.GenerateResponse(
 		srv.Context(), threadID, msg, chat.WithToolChoice(tools.ToolChoiceAllowed),
 	)
 	if err != nil {
 		return fmt.Errorf("generating response: %w", err)
 	}
 
-	for msg, contentErr := range content {
-		if err := h.sendStreamingPart(srv, msg, contentErr); err != nil {
+	for msg := range response.Chunks() {
+		if err := h.sendStreamingPart(srv, msg); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	_, err = response.Close()
+	return err
 }
 
 func (h *Handler) prepareMessageRequest(
@@ -198,12 +203,7 @@ func (h *Handler) collectResponseParts(
 func (h *Handler) sendStreamingPart(
 	srv grpc.ServerStreamingServer[a2a.StreamResponse],
 	msg messages.Message,
-	err error,
 ) error {
-	if err != nil {
-		return fmt.Errorf("generating response: %w", err)
-	}
-
 	msgOut, err := messagesTo(msg)
 	if err != nil {
 		return fmt.Errorf("converting message: %w", err)
