@@ -24,7 +24,7 @@ func (q *Queries) DeleteAgentSettings(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAgentSettings = `-- name: GetAgentSettings :one
-SELECT id, user_id, model, system_message, temperature, top_p, stop_words
+SELECT id, user_id, model, system_message, temperature, top_p, max_context_messages, stop_words
 FROM agents.agent_settings
 WHERE id = $1::UUID
 `
@@ -41,13 +41,14 @@ func (q *Queries) GetAgentSettings(ctx context.Context, id uuid.UUID) (AgentsAge
 		&i.SystemMessage,
 		&i.Temperature,
 		&i.TopP,
+		&i.MaxContextMessages,
 		&i.StopWords,
 	)
 	return i, err
 }
 
 const listAgentSettings = `-- name: ListAgentSettings :many
-SELECT id, user_id, model, system_message, temperature, top_p, stop_words
+SELECT id, user_id, model, system_message, temperature, top_p, max_context_messages, stop_words
 FROM agents.agent_settings
 WHERE user_id = $1::UUID
 ORDER BY model
@@ -73,6 +74,7 @@ func (q *Queries) ListAgentSettings(ctx context.Context, userID uuid.UUID) ([]Ag
 			&i.SystemMessage,
 			&i.Temperature,
 			&i.TopP,
+			&i.MaxContextMessages,
 			&i.StopWords,
 		); err != nil {
 			return nil, err
@@ -86,7 +88,7 @@ func (q *Queries) ListAgentSettings(ctx context.Context, userID uuid.UUID) ([]Ag
 }
 
 const upsertAgentSettings = `-- name: UpsertAgentSettings :exec
-INSERT INTO agents.agent_settings (id, user_id, model, system_message, temperature, top_p, stop_words)
+INSERT INTO agents.agent_settings (id, user_id, model, system_message, temperature, top_p, max_context_messages, stop_words)
 VALUES (
     $1::UUID,
     $2::UUID,
@@ -94,24 +96,27 @@ VALUES (
     $4,
     $5,
     $6,
-    $7
+    $7,
+    $8
 )
 ON CONFLICT (id) DO UPDATE SET
 	model = EXCLUDED.model,
 	system_message = EXCLUDED.system_message,
 	temperature = EXCLUDED.temperature,
 	top_p = EXCLUDED.top_p,
+	max_context_messages = EXCLUDED.max_context_messages,
 	stop_words = EXCLUDED.stop_words
 `
 
 type UpsertAgentSettingsParams struct {
-	ID            uuid.UUID
-	UserID        uuid.UUID
-	Model         string
-	SystemMessage string
-	Temperature   float32
-	TopP          float32
-	StopWords     []string
+	ID                 uuid.UUID
+	UserID             uuid.UUID
+	Model              string
+	SystemMessage      string
+	Temperature        float32
+	TopP               float32
+	MaxContextMessages int32
+	StopWords          []string
 }
 
 // UpsertAgentSettings creates or updates a configuration profile.
@@ -124,6 +129,7 @@ func (q *Queries) UpsertAgentSettings(ctx context.Context, arg UpsertAgentSettin
 		arg.SystemMessage,
 		arg.Temperature,
 		arg.TopP,
+		arg.MaxContextMessages,
 		arg.StopWords,
 	)
 	return err

@@ -59,6 +59,7 @@ CREATE TABLE agents.agent_settings (
 	system_message TEXT NOT NULL,
 	temperature    REAL NOT NULL CHECK (temperature >= 0), -- zero value counts as unset
 	top_p          REAL NOT NULL CHECK (top_p >= 0),       -- zero value counts as unset
+	max_context    INT  NOT NULL CHECK (max_context >= 0), -- zero value counts as unset
 	stop_words     TEXT[]
 );
 

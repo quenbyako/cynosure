@@ -11,13 +11,14 @@ import (
 )
 
 type AgentsAgentSetting struct {
-	ID            uuid.UUID
-	UserID        uuid.UUID
-	Model         string
-	SystemMessage string
-	Temperature   float32
-	TopP          float32
-	StopWords     []string
+	ID                 uuid.UUID
+	UserID             uuid.UUID
+	Model              string
+	SystemMessage      string
+	Temperature        float32
+	TopP               float32
+	MaxContextMessages int32
+	StopWords          []string
 }
 
 type AgentsMcpAccount struct {

@@ -247,7 +247,8 @@ linters:
       import-require-grouping: true
       var-require-grouping: false
       var-require-single-var: false
-    varnamelen: # TODO: Need to make an agreement of exceptions and variable length
+    varnamelen:
+      # TODO: Need to make an agreement of exceptions and variable length
       ignore-names:
         - ok
         - id
@@ -298,14 +299,17 @@ linters:
         # otel logs
         - "go.opentelemetry.io/otel/log.Logger"
         - "go.opentelemetry.io/otel/log.LoggerProvider"
+        # otel metrics
+        - "go.opentelemetry.io/otel/metric.Meter"
+        - "go.opentelemetry.io/otel/metric.MeterProvider"
         # read only interfaces
         - "ReadOnly$"
         # option pattern
         - "Option$"
         # internal domain ports
-        - "github.com/quenbyako/cynosure/internal/domains/cynosure/ports\\.ObserveStack"
-        - "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/.*\\.Port(Read|Write|Wrapped)?$"
-        - "github.com/quenbyako/cynosure/internal/domains/cynosure/ports\\..+$"
+        - ".+/internal/domains/cynosure/ports\\.ObserveStack$"
+        - ".+/internal/domains/cynosure/ports/.*\\.Port(Read|Write|Wrapped)?$"
+        - ".+/internal/domains/cynosure/ports\\..+$"
         - "golang\\.org/x/oauth2\\.TokenSource"
 
     nestif:
@@ -315,10 +319,10 @@ linters:
     govet:
       enable-all: true
     staticcheck:
-      checks: ["all"]
+      checks: [ "all" ]
     mnd:
       ignored-files:
-        - '.*_test\.go'
+        - ".*_test\\.go"
     gocognit:
       min-complexity: 10 # default is 30
     tagliatelle:
@@ -330,14 +334,17 @@ linters:
       forbid:
         - pattern: "^slog.Logger$"
           msg: >-
-            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
+            slog.Logger has bad interface, use slog.Handler directly with log
+            callbacks.
         - pattern: "^slog.New$"
           msg: >-
-            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
+            slog.Logger has bad interface, use slog.Handler directly with log
+            callbacks.
         - pattern: "^slog.Default$"
           msg: >-
-            slog.Logger has bad interface, use slog.Handler directly with log callbacks.
-        - pattern: '^reflect\.'
+            slog.Logger has bad interface, use slog.Handler directly with log
+            callbacks.
+        - pattern: "^reflect\\."
         - pattern: "^panic$" # don't panic in code
         - pattern: "^print$"
         - pattern: "fmt.Println"
@@ -345,13 +352,12 @@ linters:
         - pattern: "fmt.Fprintf"
         - pattern: "os.Exit"
           msg: >-
-            os.Exit exits the program, do not use it anywhere else except
-            main.go
+            os.Exit exits the program, do not use it anywhere else except main.go
         - pattern: "log.Fatal"
           msg: Fatal exits the program with a non-zero status code.
         - pattern: "log.Fatalf"
           msg: Fatalf exits the program with a non-zero status code.
-        - pattern: '^sort\.'
+        - pattern: "^sort\\."
           msg: sort package is deprecated, use slices package instead
         - pattern: "^ioutil.*"
           msg: ioutil package is deprecated, use os and io packages instead
@@ -663,12 +669,11 @@ linters:
           # Whether to skip (*x).method() calls where x is a pointer receiver.
           # Default: true
           skipRecvDeref: false
-    importas: {}
-      # TODO: agree on list of aliases
+    importas: {} # TODO: agree on list of aliases
   exclusions:
     warn-unused: true
     rules:
-      - path: '(.+)_test\.go'
+      - path: "(.+)_test\\.go"
         linters:
           - err113
           - exhaustruct

@@ -3,7 +3,7 @@
 --
 -- Returns: All settings ordered by model name.
 -- name: ListAgentSettings :many
-SELECT id, user_id, model, system_message, temperature, top_p, stop_words
+SELECT id, user_id, model, system_message, temperature, top_p, max_context_messages, stop_words
 FROM agents.agent_settings
 WHERE user_id = sqlc.arg('user_id')::UUID
 ORDER BY model;
@@ -12,7 +12,7 @@ ORDER BY model;
 -- Critical for the Agent Loop: loaded before processing messages to configure the LLM.
 --
 -- name: GetAgentSettings :one
-SELECT id, user_id, model, system_message, temperature, top_p, stop_words
+SELECT id, user_id, model, system_message, temperature, top_p, max_context_messages, stop_words
 FROM agents.agent_settings
 WHERE id = sqlc.arg('id')::UUID;
 
@@ -20,7 +20,7 @@ WHERE id = sqlc.arg('id')::UUID;
 -- Used when creating a new agent persona or tuning parameters.
 --
 -- name: UpsertAgentSettings :exec
-INSERT INTO agents.agent_settings (id, user_id, model, system_message, temperature, top_p, stop_words)
+INSERT INTO agents.agent_settings (id, user_id, model, system_message, temperature, top_p, max_context_messages, stop_words)
 VALUES (
     sqlc.arg('id')::UUID,
     sqlc.arg('user_id')::UUID,
@@ -28,6 +28,7 @@ VALUES (
     sqlc.arg('system_message'),
     sqlc.arg('temperature'),
     sqlc.arg('top_p'),
+    sqlc.arg('max_context_messages'),
     sqlc.narg('stop_words')
 )
 ON CONFLICT (id) DO UPDATE SET
@@ -35,6 +36,7 @@ ON CONFLICT (id) DO UPDATE SET
 	system_message = EXCLUDED.system_message,
 	temperature = EXCLUDED.temperature,
 	top_p = EXCLUDED.top_p,
+	max_context_messages = EXCLUDED.max_context_messages,
 	stop_words = EXCLUDED.stop_words;
 
 -- DeleteAgentSettings removes a configuration profile.

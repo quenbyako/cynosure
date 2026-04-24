@@ -208,7 +208,6 @@ type StrictWebhookInterface interface {
 	) (SendUpdateResponseObject, error)
 }
 
-//nolint:ireturn // hiding implementation
 func NewStrictWebhookHandler(
 	ssi StrictWebhookInterface, middlewares []StrictMiddlewareFunc,
 ) WebhookInterface {
@@ -224,7 +223,6 @@ func NewStrictWebhookHandler(
 	}
 }
 
-//nolint:ireturn // hiding implementation
 func NewStrictWebhookHandlerWithOptions(
 	ssi StrictWebhookInterface,
 	middlewares []StrictMiddlewareFunc,
