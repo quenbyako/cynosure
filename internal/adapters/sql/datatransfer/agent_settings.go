@@ -24,7 +24,7 @@ func ToDomainAgent(row db.AgentsAgentSetting) (*entities.Agent, error) {
 
 	// Unlike throwing error on int32 overflow, we just cap it, cause it's more
 	// likely to have negative values in database, rather than extremely large.
-	maxContext := uint(max(0, row.MaxContextMessages))
+	maxContext := uint(max(0, row.MaxContext))
 
 	agent, err := entities.NewModelSettings(
 		id,
@@ -58,13 +58,13 @@ func ToDBAgentParams(agent entities.AgentReadOnly) (db.UpsertAgentSettingsParams
 	}
 
 	return db.UpsertAgentSettingsParams{
-		ID:                 agent.ID().ID(),
-		UserID:             agent.ID().UserID().ID(),
-		Model:              agent.Model(),
-		SystemMessage:      agent.SystemMessage(),
-		Temperature:        max(0, temp),
-		TopP:               max(0, topP),
-		MaxContextMessages: int32(maxContext),
-		StopWords:          stopWords,
+		ID:            agent.ID().ID(),
+		UserID:        agent.ID().UserID().ID(),
+		Model:         agent.Model(),
+		SystemMessage: agent.SystemMessage(),
+		Temperature:   max(0, temp),
+		TopP:          max(0, topP),
+		MaxContext:    int32(maxContext),
+		StopWords:     stopWords,
 	}, nil
 }

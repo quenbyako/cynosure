@@ -37,7 +37,7 @@ type Agent struct {
 	// If topP is <= 0, then it's not set.
 	topP float32
 
-	// maxContenctMessages defines how many messages will be provided to agent
+	// maxContextMessages defines how many messages will be provided to agent
 	// in evaluation. If value is zero, it means, that agent doesn't have any
 	// limit and all messages in session will be provided.
 	//
