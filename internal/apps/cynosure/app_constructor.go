@@ -39,6 +39,7 @@ type (
 		chat               chatParams
 		rateLimit          ratelimit.Policy
 		adminMCPID         ids.ServerID
+		mcpClient          http.RoundTripper
 	}
 
 	oryParams struct {
@@ -50,6 +51,7 @@ type (
 		scopes       []string
 		callback     *url.URL
 		oauthScopes  []string
+		apiClient    http.RoundTripper
 	}
 
 	telegramParams struct {
@@ -249,8 +251,16 @@ func WithOAuthCallbackURL(u *url.URL) AppOpts {
 	return func(p *appParams) { p.ory.callback = u }
 }
 
+func WithOryClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.ory.apiClient = client }
+}
+
 func WithMCP(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.mcpAddr = registrar }
+}
+
+func WithMCPClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.mcpClient = client }
 }
 
 func WithAdminMCPID(id string) AppOpts {
@@ -279,6 +289,7 @@ func defaultOryParams() oryParams {
 		scopes:       []string{"mcp:read", "mcp:write", "offline_access"},
 		callback:     callbackURL,
 		oauthScopes:  []string{"mcp.read", "mcp.write"},
+		apiClient:    http.DefaultTransport,
 	}
 }
 
@@ -312,6 +323,7 @@ func defaultParams() appParams {
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
 		rateLimit:          ratelimit.Policy{},
+		mcpClient:          http.DefaultTransport,
 	}
 }
 

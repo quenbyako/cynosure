@@ -361,6 +361,14 @@ linters:
           msg: sort package is deprecated, use slices package instead
         - pattern: "^ioutil.*"
           msg: ioutil package is deprecated, use os and io packages instead
+        - pattern: "^net/http\\.DefaultClient$"
+          msg: >-
+            Default client is not safe, since any package may overwrite global
+            variables. Use only custom http.RoundTripper transport.
+        - pattern: "^net/http\\.DefaultTransport$"
+          msg: >-
+            Default transport is not safe, since any package may overwrite
+            global variables. Use only custom http.RoundTripper transport.
 
     gocritic:
       # Disable all checks.

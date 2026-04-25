@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -60,6 +61,7 @@ func (h *Handler) ToolClient() toolclient.PortWrapped {
 type handlerParams struct {
 	traceProvider core.Metrics
 	maxConnSize   uint
+	httpClient    http.RoundTripper
 }
 
 type HandlerOption func(*handlerParams)
@@ -70,6 +72,10 @@ func WithObservability(tp core.Metrics) HandlerOption {
 
 func WithMaxConnSize(size uint) HandlerOption {
 	return func(p *handlerParams) { p.maxConnSize = size }
+}
+
+func WithHTTPClient(client http.RoundTripper) HandlerOption {
+	return func(p *handlerParams) { p.httpClient = client }
 }
 
 //nolint:err113 // new may return unhandlable errors.
@@ -86,11 +92,10 @@ func New(
 		return nil, errors.New("accountToken is required")
 	}
 
-	params := getParams(opts...)
+	params := buildHandlerParams(opts...)
 
 	tracer := ports.StackFromCore(params.traceProvider, pkgName)
-
-	connFactory := NewConnectionFactory(storage, accountToken, tracer.Tracer())
+	connFactory := NewConnectionFactory(storage, accountToken, tracer.Tracer(), params.httpClient)
 
 	return &Handler{
 		clients: cache.New(
@@ -105,10 +110,11 @@ func New(
 	}, nil
 }
 
-func getParams(opts ...HandlerOption) handlerParams {
+func buildHandlerParams(opts ...HandlerOption) handlerParams {
 	params := handlerParams{
 		traceProvider: core.NoopMetrics(),
 		maxConnSize:   defaultMaxConnSize,
+		httpClient:    http.DefaultTransport,
 	}
 
 	for _, opt := range opts {

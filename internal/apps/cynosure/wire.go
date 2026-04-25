@@ -52,7 +52,7 @@ var (
 		wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)),
 	)
 	oryAdapter = wire.NewSet(newOryClient,
-		wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)),
+		wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)),
 	)
 	ratelimiterAdapter = wire.NewSet(newRateLimiter,
 		wire.Bind(new(ratelimiter.PortFactory), new(*inmemory.RateLimiter)),

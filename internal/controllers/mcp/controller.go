@@ -19,12 +19,14 @@ type Controller struct {
 type newParams struct {
 	logger         slog.Handler
 	allowedIssuers []string
+	transport      http.RoundTripper
 }
 
 func buildNewParams(opts ...NewOption) newParams {
 	params := newParams{
 		logger:         slog.DiscardHandler,
 		allowedIssuers: nil,
+		transport:      http.DefaultTransport,
 	}
 	for _, opt := range opts {
 		opt(&params)
@@ -65,6 +67,10 @@ func WithAllowedIssuers(issuers ...string) NewOption {
 	return func(p *newParams) { p.allowedIssuers = issuers }
 }
 
+func WithHTTPClient(client http.RoundTripper) NewOption {
+	return func(p *newParams) { p.transport = client }
+}
+
 func New(
 	accountsUsecase *accounts.Usecase,
 	impl mcp.Implementation,
@@ -88,8 +94,9 @@ func New(
 	route(srv, ctrl)
 
 	mux := buildMux(srv)
+	middleware := Middleware(params.allowedIssuers, params.logger, params.transport)
 
-	return Middleware(params.allowedIssuers, params.logger)(mux), nil
+	return middleware(mux), nil
 }
 
 func buildMux(srv *mcp.Server) *http.ServeMux {

@@ -80,6 +80,7 @@ func newMCPHandler(
 
 	handler, err := mcp.New(saveToken, tokenFuncFromAccountStorage(accounts, servers),
 		mcp.WithObservability(params.observability),
+		mcp.WithHTTPClient(params.mcpClient),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing mcp handler: %w", err)
@@ -93,8 +94,7 @@ func newGeminiModel(
 ) (
 	*gemini.GeminiModel, error,
 ) {
-	model, err := gemini.New(
-		ctx,
+	model, err := gemini.New(ctx,
 		newGeminiConfig(params.gemini.key, params.gemini.apiClient),
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
@@ -153,10 +153,11 @@ func newOAuthHandler(p *appParams) *oauth.Handler {
 	return oauth.New(
 		p.ory.oauthScopes,
 		oauth.WithObservability(p.observability),
+		oauth.WithHTTPClient(p.ory.apiClient),
 	)
 }
 
-func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
+func newOryClient(ctx context.Context, params *appParams) (*ory.Adapter, error) {
 	adminKey, err := params.ory.adminKey.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting ory admin key: %w", err)
@@ -167,12 +168,18 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
 		return nil, fmt.Errorf("getting ory client secret: %w", err)
 	}
 
-	return ory.New(params.ory.endpoint, string(adminKey),
+	client, err := ory.New(params.ory.endpoint, string(adminKey),
 		ory.WithObservability(params.observability),
 		ory.WithClientCredentials(params.ory.clientID, string(clientSecret)),
 		ory.WithScopes(params.ory.scopes...),
 		ory.WithRedirectURL(params.ory.redirectURL),
-	), nil
+		ory.WithHTTPClient(params.ory.apiClient),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("initializing ory client: %w", err)
+	}
+
+	return client, nil
 }
 
 const (

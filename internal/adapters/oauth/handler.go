@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/quenbyako/core"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -38,6 +39,10 @@ func WithObservability(m core.Metrics) NewOption {
 	return func(p *newParams) { p.metrics = m }
 }
 
+func WithHTTPClient(client http.RoundTripper) NewOption {
+	return func(p *newParams) { p.client = client }
+}
+
 func New(defaultScopes []string, opts ...NewOption) *Handler {
 	params := newParams{
 		client:  http.DefaultTransport,
@@ -57,7 +62,7 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 			),
 			CheckRedirect: nil,
 			Jar:           nil,
-			Timeout:       0,
+			Timeout:       time.Minute,
 		},
 		defaultScopes: defaultScopes,
 		tracer:        tracer,
@@ -68,7 +73,9 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 func (h *Handler) Exchange(
 	ctx context.Context, config *oauth2.Config, code string, verifier []byte,
 ) (*oauth2.Token, error) {
-	token, err := config.Exchange(ctx, code, oauth2.SetAuthURLParam(
+	cfg := injectTransport(h.client, config)
+
+	token, err := cfg.Exchange(ctx, code, oauth2.SetAuthURLParam(
 		"code_verifier", base64.RawURLEncoding.EncodeToString(verifier),
 	))
 	if err != nil {
@@ -90,7 +97,9 @@ func (h *Handler) RefreshToken(
 		return nil, errInternalValidation("no refresh token available")
 	}
 
-	newToken, err := config.TokenSource(ctx, token).Token()
+	cfg := injectTransport(h.client, config)
+
+	newToken, err := cfg.TokenSource(ctx, token).Token()
 	if err != nil {
 		return nil, fmt.Errorf("refreshing token: %w", err)
 	}

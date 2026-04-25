@@ -24,7 +24,7 @@ const (
 )
 
 // IssueToken issues a new OAuth2 token for the given user.
-func (a *Client) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
+func (a *Adapter) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
 	for i := range retryCount {
 		token, err := a.issueToken(ctx, id)
 		if err == nil {
@@ -45,7 +45,7 @@ func (a *Client) IssueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, 
 	return nil, identitymanager.ErrRateLimited
 }
 
-func (a *Client) issueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
+func (a *Adapter) issueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, error) {
 	exists, err := a.HasUser(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("checking user existence: %w", err)
@@ -78,7 +78,7 @@ func (a *Client) issueToken(ctx context.Context, id ids.UserID) (*oauth2.Token, 
 	return a.exchangeToken(ctx, code)
 }
 
-func (a *Client) newHTTPClient() (*http.Client, error) {
+func (a *Adapter) newHTTPClient() (*http.Client, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating cookie jar: %w", err)
@@ -89,12 +89,12 @@ func (a *Client) newHTTPClient() (*http.Client, error) {
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-		Transport: http.DefaultTransport,
-		Timeout:   0,
+		Transport: a.transport,
+		Timeout:   time.Minute,
 	}, nil
 }
 
-func (a *Client) exchangeToken(ctx context.Context, code string) (*oauth2.Token, error) {
+func (a *Adapter) exchangeToken(ctx context.Context, code string) (*oauth2.Token, error) {
 	token, err := a.config.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("exchanging code for token: %w", err)
@@ -103,7 +103,7 @@ func (a *Client) exchangeToken(ctx context.Context, code string) (*oauth2.Token,
 	return token, nil
 }
 
-func (a *Client) getConsentChallenge(
+func (a *Adapter) getConsentChallenge(
 	ctx context.Context,
 	httpClient *http.Client,
 	id ids.UserID,
@@ -127,7 +127,7 @@ func (a *Client) getConsentChallenge(
 	return a.followToConsent(ctx, httpClient, loginRedirectTo)
 }
 
-func (a *Client) doInitiateAuth(
+func (a *Adapter) doInitiateAuth(
 	ctx context.Context,
 	httpClient *http.Client,
 	authURL string,
@@ -158,7 +158,7 @@ type authStepRes struct {
 	location  string
 }
 
-func (a *Client) doAuthStep(
+func (a *Adapter) doAuthStep(
 	ctx context.Context,
 	ops span,
 	httpClient *http.Client,
@@ -187,7 +187,7 @@ func (a *Client) doAuthStep(
 	return res.challenge, res.location, nil
 }
 
-func (a *Client) parseAuthResponse(resp *http.Response) (*authStepRes, error) {
+func (a *Adapter) parseAuthResponse(resp *http.Response) (*authStepRes, error) {
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return nil, ErrRateLimited
 	}
@@ -212,7 +212,7 @@ func (a *Client) parseAuthResponse(resp *http.Response) (*authStepRes, error) {
 	return &authStepRes{challenge: "", location: loc.String()}, nil
 }
 
-func (a *Client) checkURLForChallenge(u *url.URL) (string, bool) {
+func (a *Adapter) checkURLForChallenge(u *url.URL) (string, bool) {
 	if challenge := u.Query().Get("login_challenge"); challenge != "" {
 		return challenge, true
 	}
@@ -224,7 +224,7 @@ func (a *Client) checkURLForChallenge(u *url.URL) (string, bool) {
 	return "", false
 }
 
-func (a *Client) acceptLogin(ctx context.Context, challenge, subject string) (string, error) {
+func (a *Adapter) acceptLogin(ctx context.Context, challenge, subject string) (string, error) {
 	_, ops := a.obs.step(ctx, "acceptLogin")
 	defer ops.End()
 
@@ -246,7 +246,7 @@ func (a *Client) acceptLogin(ctx context.Context, challenge, subject string) (st
 	return a.processAcceptRedirect(resp.StatusCode(), resp.Body, resp.JSON200)
 }
 
-func (a *Client) processAcceptRedirect(
+func (a *Adapter) processAcceptRedirect(
 	code int,
 	body []byte,
 	data *ory.OAuth2RedirectTo,
@@ -267,7 +267,7 @@ func (a *Client) processAcceptRedirect(
 	return *data.RedirectTo, nil
 }
 
-func (a *Client) followToConsent(
+func (a *Adapter) followToConsent(
 	ctx context.Context,
 	httpClient *http.Client,
 	redirectTo string,
@@ -296,7 +296,7 @@ func (a *Client) followToConsent(
 
 type redirectProc func(resp *http.Response) (challenge, location string, ok bool)
 
-func (a *Client) doRedirectStep(
+func (a *Adapter) doRedirectStep(
 	ctx context.Context,
 	ops span,
 	httpClient *http.Client,
@@ -329,7 +329,7 @@ func (a *Client) doRedirectStep(
 	return "", location, nil
 }
 
-func (a *Client) processConsentResponse(resp *http.Response) (challenge, location string, ok bool) {
+func (a *Adapter) processConsentResponse(resp *http.Response) (challenge, location string, ok bool) {
 	if chal, ok := a.extractConsentChallenge(resp); ok {
 		return chal, "", true
 	}
@@ -342,7 +342,7 @@ func (a *Client) processConsentResponse(resp *http.Response) (challenge, locatio
 	return "", loc.String(), false
 }
 
-func (a *Client) extractConsentChallenge(resp *http.Response) (string, bool) {
+func (a *Adapter) extractConsentChallenge(resp *http.Response) (string, bool) {
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return "", false
 	}
@@ -367,7 +367,7 @@ func (a *Client) extractConsentChallenge(resp *http.Response) (string, bool) {
 	return "", false
 }
 
-func (a *Client) acceptConsent(ctx context.Context, challenge string) (string, error) {
+func (a *Adapter) acceptConsent(ctx context.Context, challenge string) (string, error) {
 	_, ops := a.obs.step(ctx, "acceptConsent")
 	defer ops.End()
 
@@ -389,7 +389,7 @@ func (a *Client) acceptConsent(ctx context.Context, challenge string) (string, e
 	return a.processAcceptRedirect(resp.StatusCode(), resp.Body, resp.JSON200)
 }
 
-func (a *Client) exchangeCode(
+func (a *Adapter) exchangeCode(
 	ctx context.Context,
 	httpClient *http.Client,
 	redirectTo string,
@@ -416,7 +416,7 @@ func (a *Client) exchangeCode(
 	return "", ErrTooManyRedirects
 }
 
-func (a *Client) processExchangeResponse(resp *http.Response) (code, location string, ok bool) {
+func (a *Adapter) processExchangeResponse(resp *http.Response) (code, location string, ok bool) {
 	if c, ok := a.extractCode(resp); ok {
 		return c, "", true
 	}
@@ -426,7 +426,7 @@ func (a *Client) processExchangeResponse(resp *http.Response) (code, location st
 	return "", loc, false
 }
 
-func (a *Client) extractCode(resp *http.Response) (string, bool) {
+func (a *Adapter) extractCode(resp *http.Response) (string, bool) {
 	location := resp.Header.Get("Location")
 	if location != "" {
 		u, err := url.Parse(location)
