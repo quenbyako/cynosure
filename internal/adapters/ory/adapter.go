@@ -3,7 +3,6 @@ package ory
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -113,7 +112,7 @@ func New(endpoint *url.URL, adminKey string, opts ...NewOption) (*Adapter, error
 	}
 
 	if !client.Valid() {
-		return nil, errors.New("client created, but indicates as invalid")
+		return nil, fmt.Errorf("%w: invalid state", ErrInternal)
 	}
 
 	return client, nil

@@ -36,7 +36,6 @@ func TestGeminiWithRotatedKey(t *testing.T) {
 	// 1. Setup a transport that injects the real key
 	// 2. Setup a config with a dummy key and the custom transport
 	// 3. Create the model and run a simple test (Ping)
-
 	transport := &testRotatedKeyTransport{
 		base: http.DefaultTransport,
 		key:  []byte(strings.TrimSpace(apiKey)),
@@ -63,7 +62,9 @@ type testRotatedKeyTransport struct {
 }
 
 func (t *testRotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("x-goog-api-key", string(t.key))
+	req.Header.Set("X-Goog-Api-Key", string(t.key))
+
+	//nolint:wrapcheck // implementing RoundTripper for tests
 	return t.base.RoundTrip(req)
 }
 

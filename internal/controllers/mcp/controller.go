@@ -18,8 +18,8 @@ type Controller struct {
 
 type newParams struct {
 	logger         slog.Handler
-	allowedIssuers []string
 	transport      http.RoundTripper
+	allowedIssuers []string
 }
 
 func buildNewParams(opts ...NewOption) newParams {

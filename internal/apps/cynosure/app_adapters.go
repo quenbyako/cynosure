@@ -119,6 +119,9 @@ func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientCo
 				base:   client,
 				getter: key,
 			},
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       0,
 		},
 		HTTPOptions: genai.HTTPOptions{
 			BaseURL:               "",
@@ -143,7 +146,7 @@ func (t *rotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		return nil, fmt.Errorf("getting api key: %w", err)
 	}
 
-	req.Header.Set("x-goog-api-key", string(key))
+	req.Header.Set("X-Goog-Api-Key", string(key))
 
 	//nolint:wrapcheck // implementing RoundTripper
 	return t.base.RoundTrip(req)

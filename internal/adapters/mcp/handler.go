@@ -60,8 +60,8 @@ func (h *Handler) ToolClient() toolclient.PortWrapped {
 
 type handlerParams struct {
 	traceProvider core.Metrics
-	maxConnSize   uint
 	httpClient    http.RoundTripper
+	maxConnSize   uint
 }
 
 type HandlerOption func(*handlerParams)

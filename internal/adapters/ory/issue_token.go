@@ -329,7 +329,9 @@ func (a *Adapter) doRedirectStep(
 	return "", location, nil
 }
 
-func (a *Adapter) processConsentResponse(resp *http.Response) (challenge, location string, ok bool) {
+func (a *Adapter) processConsentResponse(
+	resp *http.Response,
+) (challenge, location string, ok bool) {
 	if chal, ok := a.extractConsentChallenge(resp); ok {
 		return chal, "", true
 	}

@@ -51,11 +51,11 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	toolclientPortWrapped := toolclient.New(mcpHandler)
-	client, err := newOryClient(ctx, config)
+	adapter2, err := newOryClient(ctx, config)
 	if err != nil {
 		return nil, err
 	}
-	identitymanagerPortWrapped := identitymanager.New(client)
+	identitymanagerPortWrapped := identitymanager.New(adapter2)
 	usecase, err := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
 	if err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ var (
 	geminiAdapter      = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
 	oauthAdapter       = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
 	mcpAdapter         = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
-	oryAdapter         = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Client)))
+	oryAdapter         = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)))
 	ratelimiterAdapter = wire.NewSet(newRateLimiter, wire.Bind(new(ratelimiter.PortFactory), new(*inmemory.RateLimiter)))
 )
 
