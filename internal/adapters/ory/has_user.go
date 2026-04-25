@@ -9,7 +9,7 @@ import (
 )
 
 // HasUser checks if identity exists in Ory.
-func (a *Client) HasUser(ctx context.Context, id ids.UserID) (bool, error) {
+func (a *Adapter) HasUser(ctx context.Context, id ids.UserID) (bool, error) {
 	resp, err := a.api.GetIdentityWithResponse(ctx, id.ID().String())
 	if err != nil {
 		return false, fmt.Errorf("request failed: %w", err)

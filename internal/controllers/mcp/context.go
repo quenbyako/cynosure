@@ -33,8 +33,12 @@ type UserIDProvider interface {
 
 // Middleware extracts the user ID from the Authorization: Bearer <token> header
 // and puts it into the context.
-func Middleware(issuers []string, logger slog.Handler) func(http.Handler) http.Handler {
-	auth := NewJWTAuthenticator(issuers, logger)
+func Middleware(
+	issuers []string,
+	logger slog.Handler,
+	transport http.RoundTripper,
+) func(http.Handler) http.Handler {
+	auth := NewJWTAuthenticator(issuers, logger, transport)
 
 	return func(next http.Handler) http.Handler {
 		return &authMiddleware{

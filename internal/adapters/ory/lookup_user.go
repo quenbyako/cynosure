@@ -12,7 +12,7 @@ import (
 )
 
 // LookupUser looks up a user in Ory Kratos by their external ID.
-func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
+func (a *Adapter) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
 	resp, err := a.listIdentitiesByIdentifier(ctx, externalID)
 	if err != nil {
 		return ids.UserID{}, err
@@ -21,7 +21,7 @@ func (a *Client) LookupUser(ctx context.Context, externalID string) (ids.UserID,
 	return a.processLookupResponse(resp)
 }
 
-func (a *Client) listIdentitiesByIdentifier(
+func (a *Adapter) listIdentitiesByIdentifier(
 	ctx context.Context,
 	externalID string,
 ) (*ory.ListIdentitiesResponse, error) {
@@ -40,7 +40,7 @@ func (a *Client) listIdentitiesByIdentifier(
 	return resp, nil
 }
 
-func (a *Client) processLookupResponse(
+func (a *Adapter) processLookupResponse(
 	resp *ory.ListIdentitiesResponse,
 ) (ids.UserID, error) {
 	if resp.StatusCode() == http.StatusTooManyRequests {

@@ -92,6 +92,7 @@ func bindMCPController(
 			otelslog.WithLoggerProvider(params.observability),
 		)),
 		mcp.WithAllowedIssuers(params.ory.endpoint.Host),
+		mcp.WithHTTPClient(params.ory.apiClient),
 	)
 	if err != nil {
 		return mcpControllerWireBind{}, fmt.Errorf("creating mcp controller: %w", err)

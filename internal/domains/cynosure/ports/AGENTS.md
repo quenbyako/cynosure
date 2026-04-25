@@ -79,4 +79,4 @@ type MessengerClientRead interface {
 ## Antipatterns
 
 - Implementation details **MUST NOT** be written in documentation. Even specific implementations **SHOULD NOT** be mentioned.
-
+- Port definition **MUST NOT** contain meta-methods, e.g. health check, ping, etc. These methods **MUST** be defined in constructor of adapter, and port definition DOES NOT responsible for health status of specific adapter implementation.

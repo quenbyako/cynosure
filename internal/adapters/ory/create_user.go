@@ -19,7 +19,7 @@ const (
 )
 
 // CreateUser creates a new user in Ory Kratos.
-func (a *Client) CreateUser(
+func (a *Adapter) CreateUser(
 	ctx context.Context,
 	externalID, username, firstName, lastName string,
 ) (ids.UserID, error) {
@@ -34,7 +34,7 @@ func (a *Client) CreateUser(
 	return a.createUser(ctx, telegramID, username, firstName, lastName)
 }
 
-func (a *Client) createUser(
+func (a *Adapter) createUser(
 	ctx context.Context,
 	telegramID int64, username, firstName, lastName string,
 ) (ids.UserID, error) {
@@ -57,7 +57,7 @@ func (a *Client) createUser(
 	return a.processCreateUserResponse(resp)
 }
 
-func (a *Client) processCreateUserResponse(
+func (a *Adapter) processCreateUserResponse(
 	resp *ory.CreateIdentityResponse,
 ) (ids.UserID, error) {
 	if resp.StatusCode() != http.StatusCreated {

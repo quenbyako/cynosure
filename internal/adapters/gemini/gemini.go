@@ -104,7 +104,21 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 		return nil, err
 	}
 
+	if err := model.ping(ctx); err != nil {
+		return nil, fmt.Errorf("can't connect to Google API: %w", err)
+	}
+
 	return &model, nil
+}
+
+// ping verifies connectivity and API key validity.
+func (g *GeminiModel) ping(ctx context.Context) error {
+	_, err := g.client.Models.List(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("gemini ping failed: %w", err)
+	}
+
+	return nil
 }
 
 func (g *GeminiModel) validate() error {

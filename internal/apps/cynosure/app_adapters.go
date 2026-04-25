@@ -3,6 +3,7 @@ package cynosure
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -79,6 +80,7 @@ func newMCPHandler(
 
 	handler, err := mcp.New(saveToken, tokenFuncFromAccountStorage(accounts, servers),
 		mcp.WithObservability(params.observability),
+		mcp.WithHTTPClient(params.mcpClient),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing mcp handler: %w", err)
@@ -92,14 +94,8 @@ func newGeminiModel(
 ) (
 	*gemini.GeminiModel, error,
 ) {
-	geminiKey, err := params.gemini.key.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting gemini key from secret getter: %w", err)
-	}
-
-	model, err := gemini.New(
-		ctx,
-		newGeminiConfig(geminiKey),
+	model, err := gemini.New(ctx,
+		newGeminiConfig(params.gemini.key, params.gemini.apiClient),
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
 		gemini.WithHardCap(params.chat.hardCap),
@@ -111,14 +107,22 @@ func newGeminiModel(
 	return model, nil
 }
 
-func newGeminiConfig(apiKey []byte) *genai.ClientConfig {
+func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientConfig {
 	return &genai.ClientConfig{
-		APIKey:      string(apiKey),
+		APIKey:      "ROTATED", // genai requires non-empty key, but we override it in transport
 		Backend:     0,
 		Project:     "",
 		Location:    "",
 		Credentials: nil,
-		HTTPClient:  nil,
+		HTTPClient: &http.Client{
+			Transport: &rotatedKeyTransport{
+				base:   client,
+				getter: key,
+			},
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       0,
+		},
 		HTTPOptions: genai.HTTPOptions{
 			BaseURL:               "",
 			BaseURLResourceScope:  "",
@@ -131,14 +135,32 @@ func newGeminiConfig(apiKey []byte) *genai.ClientConfig {
 	}
 }
 
+type rotatedKeyTransport struct {
+	base   http.RoundTripper
+	getter SecretGetter
+}
+
+func (t *rotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	key, err := t.getter.Get(req.Context())
+	if err != nil {
+		return nil, fmt.Errorf("getting api key: %w", err)
+	}
+
+	req.Header.Set("X-Goog-Api-Key", string(key))
+
+	//nolint:wrapcheck // implementing RoundTripper
+	return t.base.RoundTrip(req)
+}
+
 func newOAuthHandler(p *appParams) *oauth.Handler {
 	return oauth.New(
 		p.ory.oauthScopes,
 		oauth.WithObservability(p.observability),
+		oauth.WithHTTPClient(p.ory.apiClient),
 	)
 }
 
-func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
+func newOryClient(ctx context.Context, params *appParams) (*ory.Adapter, error) {
 	adminKey, err := params.ory.adminKey.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting ory admin key: %w", err)
@@ -149,12 +171,18 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Client, error) {
 		return nil, fmt.Errorf("getting ory client secret: %w", err)
 	}
 
-	return ory.New(params.ory.endpoint, string(adminKey),
+	client, err := ory.New(params.ory.endpoint, string(adminKey),
 		ory.WithObservability(params.observability),
 		ory.WithClientCredentials(params.ory.clientID, string(clientSecret)),
 		ory.WithScopes(params.ory.scopes...),
 		ory.WithRedirectURL(params.ory.redirectURL),
-	), nil
+		ory.WithHTTPClient(params.ory.apiClient),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("initializing ory client: %w", err)
+	}
+
+	return client, nil
 }
 
 const (

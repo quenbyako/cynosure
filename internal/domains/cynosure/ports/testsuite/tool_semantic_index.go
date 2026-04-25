@@ -308,7 +308,7 @@ func (s *ToolSemanticIndexTestSuite) buildToolEmptyDesc(t *testing.T) entities.T
 
 	responseSchema := json.RawMessage(`{"type": "object"}`)
 
-	return s.buildTool(t, "mystery_tool", "", schema, responseSchema)
+	return s.buildTool(t, "mystery_tool", "Mystery description", schema, responseSchema)
 }
 
 // buildMinimalTool creates a tool with minimal schema.

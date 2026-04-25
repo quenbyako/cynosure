@@ -3,10 +3,10 @@ package ory
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/ory-openapi/gen/go/ory"
@@ -20,46 +20,48 @@ const (
 	pkgName = "github.com/quenbyako/cynosure/internal/adapters/ory"
 )
 
-// Package-level error variables.
-var (
-	ErrBaseURLRequired     = errors.New("base url is required")
-	ErrAdminKeyRequired    = errors.New("admin key is required")
-	ErrClientIDRequired    = errors.New("client id is required")
-	ErrAuthURLRequired     = errors.New("auth url is required")
-	ErrTokenURLRequired    = errors.New("token url is required")
-	ErrRedirectURLRequired = errors.New("redirect url is required")
-	ErrScopesRequired      = errors.New("scopes are required")
-	ErrIdentityMissing     = errors.New("invalid response from ory: missing identity")
-	ErrRedirectMissing     = errors.New("invalid response from ory: missing redirect_to")
-	ErrTooManyRedirects    = errors.New("too many redirects")
-	ErrRateLimited         = identitymanager.ErrRateLimited
-	ErrInternal            = errors.New("internal ory adapter error")
-	ErrUnexpectedResponse  = errors.New("unexpected response from ory")
-)
-
-type Client struct {
+type Adapter struct {
 	// For IssueToken
-	config   oauth2.Config
-	trace    ports.ObserveStack
-	obs      *observable
-	api      *ory.ClientWithResponses
-	baseURL  string
-	adminKey string
+	config    *injectedConfig
+	transport http.RoundTripper
+	trace     ports.ObserveStack
+	obs       *observable
+	api       *ory.ClientWithResponses
+	baseURL   string
+	adminKey  string
 }
 
-var _ identitymanager.PortFactory = (*Client)(nil)
+var _ identitymanager.PortFactory = (*Adapter)(nil)
 
 // IdentityManager returns the identity manager port.
-func (a *Client) IdentityManager() identitymanager.PortWrapped {
+func (a *Adapter) IdentityManager() identitymanager.PortWrapped {
 	return identitymanager.Wrap(a, a.trace)
 }
 
 type newParams struct {
 	metrics      core.Metrics
+	transport    http.RoundTripper
 	clientID     string
 	clientSecret string
 	redirectURL  string
 	scopes       []string
+}
+
+func buildNewParams(opts ...NewOption) newParams {
+	params := newParams{
+		metrics:      core.NoopMetrics(),
+		clientID:     "",
+		clientSecret: "",
+		redirectURL:  "",
+		scopes:       nil,
+		transport:    http.DefaultTransport,
+	}
+
+	for _, opt := range opts {
+		opt(&params)
+	}
+
+	return params
 }
 
 type NewOption func(*newParams)
@@ -83,42 +85,48 @@ func WithRedirectURL(redirectURL string) NewOption {
 	return func(p *newParams) { p.redirectURL = redirectURL }
 }
 
-func New(endpoint *url.URL, adminKey string, opts ...NewOption) *Client {
-	params := newParams{
-		metrics:      core.NoopMetrics(),
-		clientID:     "",
-		clientSecret: "",
-		redirectURL:  "",
-		scopes:       nil,
+func WithHTTPClient(client http.RoundTripper) NewOption {
+	return func(p *newParams) { p.transport = client }
+}
+
+func New(endpoint *url.URL, adminKey string, opts ...NewOption) (*Adapter, error) {
+	params := buildNewParams(opts...)
+
+	config, err := newOauthConfig(endpoint.String(), params, params.transport)
+	if err != nil {
+		return nil, fmt.Errorf("new oauth config: %w", err)
 	}
 
-	for _, opt := range opts {
-		opt(&params)
-	}
-
-	client := &Client{
-		baseURL:  endpoint.String(),
-		adminKey: adminKey,
-		config:   newOauthConfig(endpoint.String(), params),
-		obs:      newObservable(ports.StackFromCore(params.metrics, pkgName)),
-		trace:    ports.StackFromCore(params.metrics, pkgName),
-		api:      nil,
+	client := &Adapter{
+		baseURL:   endpoint.String(),
+		adminKey:  adminKey,
+		config:    config,
+		transport: params.transport,
+		obs:       newObservable(ports.StackFromCore(params.metrics, pkgName)),
+		trace:     ports.StackFromCore(params.metrics, pkgName),
+		api:       nil,
 	}
 
 	if err := client.initAPI(); err != nil {
-		return nil
+		return nil, fmt.Errorf("init api: %w", err)
 	}
 
 	if !client.Valid() {
-		return nil
+		return nil, fmt.Errorf("%w: invalid state", ErrInternal)
 	}
 
-	return client
+	return client, nil
 }
 
-func (a *Client) initAPI() error {
+func (a *Adapter) initAPI() error {
 	apiClient, err := ory.NewClientWithResponses(
 		a.baseURL,
+		ory.WithHTTPClient(&http.Client{
+			Transport:     a.transport,
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       time.Minute, // TODO: configurable timeout for client?
+		}),
 		ory.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			req.Header.Set("Authorization", "Bearer "+a.adminKey)
 			return nil
@@ -133,8 +141,12 @@ func (a *Client) initAPI() error {
 	return nil
 }
 
-func newOauthConfig(baseURL string, params newParams) oauth2.Config {
-	return oauth2.Config{
+func newOauthConfig(
+	baseURL string,
+	params newParams,
+	transport http.RoundTripper,
+) (*injectedConfig, error) {
+	cfg := oauth2.Config{
 		ClientID:     params.clientID,
 		ClientSecret: params.clientSecret,
 		Endpoint: oauth2.Endpoint{
@@ -146,11 +158,22 @@ func newOauthConfig(baseURL string, params newParams) oauth2.Config {
 		RedirectURL: params.redirectURL,
 		Scopes:      params.scopes,
 	}
+
+	if err := validateOauthConfig(cfg); err != nil {
+		return nil, err
+	}
+
+	return injectTransport(&http.Client{
+		Transport:     transport,
+		CheckRedirect: nil,
+		Jar:           nil,
+		Timeout:       time.Minute,
+	}, &cfg), nil
 }
 
-func (a *Client) Valid() bool { return a != nil && a.validate() == nil }
+func (a *Adapter) Valid() bool { return a != nil && a.validate() == nil }
 
-func (a *Client) validate() error {
+func (a *Adapter) validate() error {
 	if a.baseURL == "" {
 		return ErrBaseURLRequired
 	}
@@ -159,15 +182,11 @@ func (a *Client) validate() error {
 		return ErrAdminKeyRequired
 	}
 
-	if err := validateOauthConfig(a.config); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 //nolint:ireturn
-func (a *Client) initiateAuth(ctx context.Context, name string) (context.Context, span) {
+func (a *Adapter) initiateAuth(ctx context.Context, name string) (context.Context, span) {
 	return a.obs.initiateAuth(ctx, name)
 }
 
