@@ -27,6 +27,11 @@ const (
 
 // telegram.LogCallbacks
 
+func (l *BaseLogger) TelegramPoolNotRunning(ctx context.Context) {
+	l.event(ctx, slog.LevelError, "controller.telegram.pool_not_running").
+		Msg("work pool not running")
+}
+
 func (l *BaseLogger) ProcessMessageIssue(ctx context.Context, channelID int, err error) {
 	l.event(ctx, slog.LevelError, "message.issue").
 		Context(

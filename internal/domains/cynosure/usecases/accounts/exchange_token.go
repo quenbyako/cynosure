@@ -71,24 +71,24 @@ func (s *Usecase) saveExchangedAccountAndQueueTools(
 		return fmt.Errorf("saving account: %w", err)
 	}
 
-	bgCtx := context.WithoutCancel(ctx)
-
-	// todo: replace to EDA.
-	go s.runSaveToolsBackground(bgCtx, server, account, token)
+	ok := s.pool.Submit(ctx, discoveryTask{
+		server:  server,
+		account: account,
+		token:   token,
+	})
+	if !ok {
+		// TODO: add metrics to detect, how many messages were dropped due to non running pool.
+		return ErrInternalValidation("failed to submit async request, pool is not working")
+	}
 
 	return nil
 }
 
-func (s *Usecase) runSaveToolsBackground(
-	ctx context.Context,
-	server entities.ServerConfigReadOnly,
-	account entities.AccountReadOnly,
-	token *oauth2.Token,
-) {
+func (s *Usecase) runDiscoveryTask(ctx context.Context, task discoveryTask) {
 	ctx, span := s.trace.Start(ctx, "Usecase.ExchangeToken.Discover")
 	defer span.End()
 
-	if err := s.saveAccountAndTools(ctx, server, account, token); err != nil {
+	if err := s.saveAccountAndTools(ctx, task.server, task.account, task.token); err != nil {
 		span.RecordError(err)
 	}
 }

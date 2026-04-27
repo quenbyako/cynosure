@@ -12,6 +12,12 @@ import (
 func (h *Handler) SendUpdate(
 	ctx context.Context, request botapi.SendUpdateRequestObject,
 ) (botapi.SendUpdateResponseObject, error) {
+	if !h.pool.Running() {
+		h.log.TelegramPoolNotRunning(ctx)
+
+		return nil, ErrInternalValidation("work pool not started")
+	}
+
 	ctx, span := h.tracer.Start(ctx, "SendUpdate")
 	defer span.End()
 

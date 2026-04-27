@@ -15,20 +15,20 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-func (h *Handler) processMessage(requestCtx context.Context, msg *botapi.Message) {
+func (h *Handler) processMessage(ctx context.Context, msg *botapi.Message) {
 	if msg.Chat.Type != "private" {
 		return
 	}
 
-	userID, err := h.identifyUser(requestCtx, msg)
+	userID, err := h.identifyUser(ctx, msg)
 	if err != nil {
-		h.handleUserIdentificationError(requestCtx, msg, err)
+		h.handleUserIdentificationError(ctx, msg, err)
 		return
 	}
 
 	threadID, err := ids.NewThreadID(userID, h.formatThread(msg))
 	if err != nil {
-		h.log.ProcessMessageIssue(requestCtx, msg.Chat.Id, fmt.Errorf("making thread id: %w", err))
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("making thread id: %w", err))
 		return
 	}
 
@@ -41,24 +41,22 @@ func (h *Handler) processMessage(requestCtx context.Context, msg *botapi.Message
 		return
 	}
 
-	h.dispatchProcessing(requestCtx, msg, threadID, text)
+	if err := h.dispatchProcessing(ctx, msg, threadID, text); err != nil {
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, err)
+	}
 }
 
 func (h *Handler) dispatchProcessing(
 	ctx context.Context, msg *botapi.Message,
 	threadID ids.ThreadID, text string,
-) {
+) error {
 	userMessage, err := messages.NewMessageUser(text)
 	if errors.Is(err, messages.ErrMessageTooLarge) {
 		h.sendTooLargeMessage(ctx, msg.Chat.Id, msg.MessageThreadId)
 
-		return
+		return nil
 	} else if err != nil {
-		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
-			fmt.Errorf("making user message: %w", err),
-		)
-
-		return
+		return fmt.Errorf("making user message: %w", err)
 	}
 
 	var msgThreadID int
@@ -74,8 +72,10 @@ func (h *Handler) dispatchProcessing(
 	})
 	if !ok {
 		// TODO: add metrics to detect, how many messages were dropped due to non running pool.
-		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("failed to submit async request, pool is not working"))
+		return ErrInternalValidation("failed to submit async request, pool is not working")
 	}
+
+	return nil
 }
 
 func (h *Handler) handleUserIdentificationError(

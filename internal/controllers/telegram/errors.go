@@ -7,6 +7,16 @@ import (
 	"github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 )
 
+type ArgumentError string
+
+func (e ArgumentError) Error() string {
+	return string(e)
+}
+
+const (
+	errAddressIsNil ArgumentError = "server public address is nil"
+)
+
 var ErrInvalidMessageID = errors.New("invalid message id")
 
 type APIError struct {

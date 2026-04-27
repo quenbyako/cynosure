@@ -65,6 +65,12 @@ func (s *Usecase) AddAccountByID(
 	ctx, span := s.trace.Start(ctx, "AddAccountByID")
 	defer span.End()
 
+	if !s.pool.Running() {
+		s.log.AccountUsecasePoolNotRunning(ctx)
+
+		return nil, ErrInternalValidation("work pool not started")
+	}
+
 	server, err := s.servers.GetServerInfo(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("getting server info: %w", err)

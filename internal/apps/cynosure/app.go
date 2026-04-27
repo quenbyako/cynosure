@@ -9,6 +9,7 @@ import (
 
 type App struct {
 	telegramTaskRunner func(context.Context) error
+	accountsTaskRunner func(context.Context) error
 	ratelimiterCleanup func(context.Context) error
 }
 
@@ -18,6 +19,7 @@ func (a *App) Run(ctx context.Context) error {
 	//nolint:wrapcheck // propagating job runner error natively
 	return core.RunJobs(ctx,
 		a.telegramTaskRunner,
+		a.accountsTaskRunner,
 		a.ratelimiterCleanup,
 	)
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/quenbyako/cynosure/contrib/taskpool"
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"go.opentelemetry.io/otel/trace"
 	noopTrace "go.opentelemetry.io/otel/trace/noop"
@@ -29,7 +30,7 @@ type Handler struct {
 	srv            *chat.Usecase
 	users          *users.Usecase
 	client         *botapi.ClientWithResponses
-	pool           *requestPool[asyncProcessRequest]
+	pool           *taskpool.TaskPool[asyncProcessRequest]
 	updateInterval time.Duration
 }
 
@@ -117,14 +118,20 @@ func newHandler(
 		pool:           nil,
 	}
 
-	handler.pool = newRequestPool(params.maxWorkers, handler.asyncProcess)
+	handler.pool = taskpool.New(params.maxWorkers, handler.asyncProcess)
 
 	return &handler
 }
 
 // Run starts the handler and blocks until the context is canceled or the
 // handler fails.
-func (h *Handler) Run(ctx context.Context) error { return h.pool.run(ctx) }
+func (h *Handler) Run(ctx context.Context) error {
+	if err := h.pool.Run(ctx); err != nil {
+		return fmt.Errorf("running telegram controller task pool: %w", err)
+	}
+
+	return nil
+}
 
 func wrapWebhookHandler(inner botapi.WebhookInterface, secret string) http.Handler {
 	return botapi.WebhookHandlerWithOptions(inner, botapi.WebhookServerOptions{
@@ -152,16 +159,6 @@ func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, er
 
 	return client, nil
 }
-
-type ArgumentError string
-
-func (e ArgumentError) Error() string {
-	return string(e)
-}
-
-const (
-	errAddressIsNil ArgumentError = "server public address is nil"
-)
 
 func setWebhook(
 	ctx context.Context, client *botapi.ClientWithResponses, addr *url.URL,

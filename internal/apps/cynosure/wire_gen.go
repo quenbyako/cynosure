@@ -82,7 +82,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app, err := connectDependencies(config, rateLimiter, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind)
+	app, err := connectDependencies(config, rateLimiter, usecase, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind)
 	if err != nil {
 		return nil, err
 	}

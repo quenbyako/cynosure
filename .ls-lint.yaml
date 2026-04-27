@@ -1,0 +1,8 @@
+ls:
+  # all applications binaries
+  "cmd/*":
+    .go: snake_case
+
+ignore:
+  - .git
+  - vendor

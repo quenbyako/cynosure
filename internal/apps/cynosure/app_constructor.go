@@ -13,6 +13,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
 
 const (
@@ -327,6 +328,7 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 func connectDependencies(
 	params *appParams,
 	ratelimiter *inmemory.RateLimiter,
+	accountsUsecase *accounts.Usecase,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
 	telegramController telegramControllerWireBind,
@@ -334,6 +336,7 @@ func connectDependencies(
 ) (*App, error) {
 	return &App{
 		telegramTaskRunner: telegramController.runFunc,
+		accountsTaskRunner: accountsUsecase.Run,
 		ratelimiterCleanup: ratelimiter.Cleanup,
 	}, nil
 }
