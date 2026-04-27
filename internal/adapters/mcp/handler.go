@@ -105,6 +105,15 @@ func New(
 	}, nil
 }
 
+// Close closes the handler and all active MCP sessions.
+func (h *Handler) Close() error {
+	if err := h.clients.Close(); err != nil {
+		return fmt.Errorf("close clients: %w", err)
+	}
+
+	return nil
+}
+
 func getParams(opts ...HandlerOption) handlerParams {
 	params := handlerParams{
 		traceProvider: core.NoopMetrics(),

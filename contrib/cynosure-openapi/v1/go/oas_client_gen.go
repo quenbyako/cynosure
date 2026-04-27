@@ -120,7 +120,8 @@ func (c *Client) sendGetAgentCard(ctx context.Context, params GetAgentCardParams
 	if err != nil {
 		return res, errors.Wrap(err, "do request")
 	}
-	defer resp.Body.Close()
+	body := resp.Body
+	defer body.Close()
 
 	result, err := decodeGetAgentCardResponse(resp)
 	if err != nil {
@@ -193,7 +194,8 @@ func (c *Client) sendOAuthCallbackGet(ctx context.Context, params OAuthCallbackG
 	if err != nil {
 		return res, errors.Wrap(err, "do request")
 	}
-	defer resp.Body.Close()
+	body := resp.Body
+	defer body.Close()
 
 	result, err := decodeOAuthCallbackGetResponse(resp)
 	if err != nil {

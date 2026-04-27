@@ -61,14 +61,12 @@ func (p *TaskPool[T]) Submit(ctx ContextValues, task T) bool {
 		return false
 	}
 
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
 	// Merge context values from the caller with the pool's lifecycle context
 	mergedCtx := &mergedContext{
 		Context: p.pool.Context(),
-		values:  ctx,
+
+		// see [mergedContext] for explanation of nil safety
+		values: ctx,
 	}
 
 	p.pool.Submit(func() {
@@ -88,6 +86,10 @@ type ContextValues interface {
 type mergedContext struct {
 	//nolint:containedctx // false positive
 	context.Context
+
+	// Important: values MAY be nil, and this is completely safe for execution
+	// context: [mergedContext.Context] is responsible for execution lifecycle,
+	// while values is related only to values propagation and nothing more.
 	values ContextValues
 }
 
@@ -99,8 +101,10 @@ var _ context.Context = (*mergedContext)(nil)
 //
 //nolint:ireturn // [context.Context] implementation
 func (m *mergedContext) Value(key any) any {
-	if value := m.values.Value(key); value != nil {
-		return value
+	if m.values != nil {
+		if value := m.values.Value(key); value != nil {
+			return value
+		}
 	}
 
 	return m.Context.Value(key)

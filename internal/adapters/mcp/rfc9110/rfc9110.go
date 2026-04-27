@@ -3,6 +3,7 @@
 package rfc9110
 
 import (
+	"context"
 	"strings"
 )
 
@@ -14,13 +15,13 @@ type AuthChallenge struct {
 }
 
 // ParseWWWAuthenticate parses WWW-Authenticate header according to RFC 9110.
-func ParseWWWAuthenticate(header string) ([]AuthChallenge, bool) {
+func ParseWWWAuthenticate(ctx context.Context, header string) ([]AuthChallenge, bool) {
 	header = strings.TrimSpace(header)
 	if header == "" {
 		return nil, false
 	}
 
-	items := lex(header, lexChallenge)
+	items := lex(ctx, header, lexChallenge)
 
 	return collectChallenges(items)
 }

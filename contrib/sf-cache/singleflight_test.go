@@ -50,7 +50,7 @@ func TestSingleflight_PanicErrorUnwrap(t *testing.T) {
 			func() {
 				defer func() {
 					recoveredValue = recover()
-					t.Logf("after panic(%#v) in group.Do, recoveredValue %#v",
+					t.Logf("after panic(%#v) in group.Do, recoveredValue %T",
 						tc.panicValue, recoveredValue)
 				}()
 

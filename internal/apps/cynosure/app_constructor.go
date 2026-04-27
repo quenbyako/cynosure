@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
+	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
@@ -333,10 +334,12 @@ func connectDependencies(
 	_ oauthControllerWireBind,
 	telegramController telegramControllerWireBind,
 	_ mcpControllerWireBind,
+	mcpHandler *mcp.Handler,
 ) (*App, error) {
 	return &App{
 		telegramTaskRunner: telegramController.runFunc,
 		accountsTaskRunner: accountsUsecase.Run,
 		ratelimiterCleanup: ratelimiter.Cleanup,
+		mcpAdapterClose:    mcpHandler.Close,
 	}, nil
 }

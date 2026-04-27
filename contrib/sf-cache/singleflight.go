@@ -99,17 +99,18 @@ func (g *group[T]) Do(
 }
 
 // Get returns the current result if any.
-func (g *group[T]) Get() (v T, err error, duplicate bool) {
+func (g *group[T]) Get() (v T, err error, ok bool) {
 	g.mu.Lock()
-	defer g.mu.Unlock()
+	current := g.current
+	g.mu.Unlock()
 
-	if g.current != nil {
-		return g.current.val, g.current.err, true
+	if current == nil {
+		return *new(T), nil, false
 	}
 
-	var zero T
+	current.wg.Wait()
 
-	return zero, nil, false
+	return current.val, current.err, true
 }
 
 // Forget tells the singleflight to forget about a key.

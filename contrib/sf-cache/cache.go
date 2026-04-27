@@ -28,6 +28,7 @@ type DestructorFunc[K comparable, V any] func(K, V)
 type Cache[K comparable, V any] struct {
 	lru         *expirable.LRU[K, *cacheEntry[K, V]]
 	constructor ConstructorFunc[K, V]
+	destructor  DestructorFunc[K, V]
 	mu          sync.Mutex // Protects LRU access
 	closed      atomic.Bool
 	maxAttempts int
@@ -56,6 +57,7 @@ func New[K comparable, V any](
 			entry.destruct(destructor)
 		}, ttl),
 		constructor: constructor,
+		destructor:  destructor,
 		mu:          sync.Mutex{},
 		closed:      atomic.Bool{},
 		maxAttempts: defaultMaxAttempts,
@@ -69,7 +71,13 @@ func (c *Cache[K, V]) Close() error {
 	}
 
 	c.mu.Lock()
-	c.lru.Resize(0)
+	// Manually destruct all remaining items because Resize/Purge might not
+	// trigger callbacks synchronously or at all for some items.
+	for _, entry := range c.lru.Values() {
+		entry.destruct(c.destructor)
+	}
+
+	c.lru.Purge()
 	c.mu.Unlock()
 
 	return nil
@@ -137,8 +145,6 @@ func (e *cacheEntry[K, V]) destruct(destructFunc DestructorFunc[K, V]) {
 		// Prevent double-destruction.
 		return
 	}
-
-	e.group.Forget()
 
 	val, err, ok := e.group.Get()
 	if ok && err == nil {
