@@ -142,22 +142,3 @@ func (noContentResponse) VisitSendUpdateResponse(w http.ResponseWriter) error {
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
-
-//nolint:containedctx // that's extension for context mechanism.
-type merged struct {
-	context.Context
-	valuesOnly context.Context
-}
-
-func ctxMergeValuesOnly(ctx, values context.Context) context.Context {
-	return &merged{Context: ctx, valuesOnly: context.WithoutCancel(values)}
-}
-
-//nolint:ireturn // context.Value returns any
-func (d *merged) Value(k any) any {
-	if val := d.valuesOnly.Value(k); val != nil {
-		return val
-	}
-
-	return d.Context.Value(k)
-}

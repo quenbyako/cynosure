@@ -30,9 +30,9 @@ type (
 		observability      core.Metrics
 		gemini             geminiParams
 		grpcAddr           grpc.ServiceRegistrar
-		redis              redisParams
-		storage            storageParams
 		httpAddr           func(http.Handler)
+		storage            storageParams
+		redis              redisParams
 		mcpAddr            func(http.Handler)
 		ory                oryParams
 		constructionErrors []error
@@ -329,12 +329,11 @@ func connectDependencies(
 	ratelimiter *inmemory.RateLimiter,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
-	_ telegramControllerWireBind,
+	telegramController telegramControllerWireBind,
 	_ mcpControllerWireBind,
 ) (*App, error) {
 	return &App{
-		jobs: []func(context.Context) error{
-			ratelimiter.Cleanup,
-		},
+		telegramTaskRunner: telegramController.runFunc,
+		ratelimiterCleanup: ratelimiter.Cleanup,
 	}, nil
 }

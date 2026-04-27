@@ -28,8 +28,10 @@ var mcpImpl = mcpraw.Implementation{
 type (
 	adminControllerWireBind    struct{}
 	oauthControllerWireBind    struct{}
-	telegramControllerWireBind struct{}
-	mcpControllerWireBind      struct{}
+	telegramControllerWireBind struct {
+		runFunc func(context.Context) error
+	}
+	mcpControllerWireBind struct{}
 )
 
 func bindAdminController(
@@ -62,7 +64,7 @@ func bindTelegramController(
 		return telegramControllerWireBind{}, fmt.Errorf("getting telegram key: %w", err)
 	}
 
-	handler, err := telegram.New(
+	handler, job, err := telegram.New(
 		ctx,
 		chatUsecase,
 		usersUsecase,
@@ -78,7 +80,9 @@ func bindTelegramController(
 
 	params.telegram.register(handler)
 
-	return telegramControllerWireBind{}, nil
+	return telegramControllerWireBind{
+		runFunc: job,
+	}, nil
 }
 
 func bindMCPController(

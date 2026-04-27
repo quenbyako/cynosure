@@ -66,10 +66,16 @@ func (h *Handler) dispatchProcessing(
 		msgThreadID = *msg.MessageThreadId
 	}
 
-	go h.asyncProcess(
-		ctxMergeValuesOnly(h.lifecycleCtx, ctx),
-		msg.Chat.Id, msgThreadID, threadID, userMessage,
-	)
+	ok := h.pool.Submit(ctx, asyncProcessRequest{
+		userMessage: userMessage,
+		threadID:    threadID,
+		chatID:      msg.Chat.Id,
+		tgThreadID:  msgThreadID,
+	})
+	if !ok {
+		// TODO: add metrics to detect, how many messages were dropped due to non running pool.
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("failed to submit async request, pool is not working"))
+	}
 }
 
 func (h *Handler) handleUserIdentificationError(
@@ -83,25 +89,29 @@ func (h *Handler) handleUserIdentificationError(
 	h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("making user id: %w", err))
 }
 
-func (h *Handler) asyncProcess(
-	ctx context.Context, chatID, tgThreadID int,
-	threadID ids.ThreadID, userMessage messages.MessageUser,
-) {
-	h.log.ProcessMessageStart(ctx, chatID, userMessage.Content())
+type asyncProcessRequest struct {
+	userMessage messages.MessageUser
+	threadID    ids.ThreadID
+	chatID      int
+	tgThreadID  int
+}
+
+func (h *Handler) asyncProcess(ctx context.Context, req asyncProcessRequest) {
+	h.log.ProcessMessageStart(ctx, req.chatID, req.userMessage.Content())
 
 	startTime := time.Now()
 
-	response, err := h.srv.GenerateResponse(ctx, threadID, userMessage)
+	response, err := h.srv.GenerateResponse(ctx, req.threadID, req.userMessage)
 	if err != nil {
-		h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("processing new message: %w", err))
+		h.log.ProcessMessageIssue(ctx, req.chatID, fmt.Errorf("processing new message: %w", err))
 
 		return
 	}
 
-	h.streamToTelegram(ctx, chatID, tgThreadID, response)
+	h.streamToTelegram(ctx, req.chatID, req.tgThreadID, response)
 
 	duration := time.Since(startTime)
-	h.log.ProcessMessageSuccess(ctx, chatID, duration.String())
+	h.log.ProcessMessageSuccess(ctx, req.chatID, duration.String())
 }
 
 func (h *Handler) streamToTelegram(
