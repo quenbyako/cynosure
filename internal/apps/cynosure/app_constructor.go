@@ -12,7 +12,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
+	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
 
 const (
@@ -33,8 +35,8 @@ type (
 		grpcAddr           grpc.ServiceRegistrar
 		storage            storageParams
 		httpAddr           func(http.Handler)
-		mcpAddr            func(http.Handler)
 		redis              redisParams
+		mcpAddr            func(http.Handler)
 		ory                oryParams
 		constructionErrors []error
 		chat               chatParams
@@ -365,14 +367,17 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 func connectDependencies(
 	params *appParams,
 	ratelimiter *inmemory.RateLimiter,
+	accountsUsecase *accounts.Usecase,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
-	_ telegramControllerWireBind,
+	telegramController telegramControllerWireBind,
 	_ mcpControllerWireBind,
+	mcpHandler *mcp.Handler,
 ) (*App, error) {
 	return &App{
-		jobs: []func(context.Context) error{
-			ratelimiter.Cleanup,
-		},
+		telegramTaskRunner: telegramController.runFunc,
+		accountsTaskRunner: accountsUsecase.Run,
+		ratelimiterCleanup: ratelimiter.Cleanup,
+		mcpAdapterClose:    mcpHandler.Close,
 	}, nil
 }

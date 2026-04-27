@@ -1,6 +1,7 @@
 package rfc9110
 
 import (
+	"context"
 	"fmt"
 	"unicode"
 )
@@ -12,26 +13,31 @@ type lexer struct {
 	pos   int        // current position in the input.
 }
 
-type stateFn func(*lexer) stateFn
+type stateFn func(context.Context, *lexer) stateFn
 
-func lex(input string, start stateFn) chan token {
+func lex(ctx context.Context, input string, start stateFn) chan token {
 	lex := &lexer{
 		input: []rune(input),
 		items: make(chan token),
 		start: 0,
 		pos:   0,
 	}
-	go lex.run(start) // Concurrently run state machine.
+	go lex.run(ctx, start) // Concurrently run state machine.
 
 	return lex.items
 }
 
-func (l *lexer) run(start stateFn) {
-	for state := start; state != nil; {
-		state = state(l)
-	}
+func (l *lexer) run(ctx context.Context, start stateFn) {
+	defer close(l.items)
 
-	close(l.items) // No more tokens will be delivered.
+	for state := start; state != nil; {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			state = state(ctx, l)
+		}
+	}
 }
 
 func (l *lexer) next() rune {
@@ -78,22 +84,31 @@ func (l *lexer) acceptRun(valid *unicode.RangeTable) (matched bool) {
 	return matched
 }
 
-func (l *lexer) emit(typ string) {
-	l.items <- token{typ, string(l.input[l.start:l.pos])}
-
-	l.start = l.pos
+func (l *lexer) emit(ctx context.Context, typ string) {
+	select {
+	case <-ctx.Done():
+		return
+	case l.items <- token{typ, string(l.input[l.start:l.pos])}:
+		l.start = l.pos
+	}
 }
 
-func (l *lexer) emitValue(typ, val string) {
-	l.items <- token{typ, val}
-
-	l.start = l.pos
+func (l *lexer) emitValue(ctx context.Context, typ, val string) {
+	select {
+	case <-ctx.Done():
+		return
+	case l.items <- token{typ, val}:
+		l.start = l.pos
+	}
 }
 
-func (l *lexer) errorf(format string, args ...interface{}) stateFn {
-	l.items <- token{"error", fmt.Sprintf(format, args...)}
-
-	return nil
+func (l *lexer) errorf(ctx context.Context, format string, args ...interface{}) stateFn {
+	select {
+	case <-ctx.Done():
+		return nil
+	case l.items <- token{"error", fmt.Sprintf(format, args...)}:
+		return nil
+	}
 }
 
 type token struct{ typ, value string }

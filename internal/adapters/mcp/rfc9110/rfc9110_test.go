@@ -153,7 +153,7 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, ok := rfc9110.ParseWWWAuthenticate(tt.header)
+			got, ok := rfc9110.ParseWWWAuthenticate(t.Context(), tt.header)
 			require.Equal(t, tt.valid, ok)
 			require.Equal(t, tt.want, got)
 		})

@@ -10,8 +10,10 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/quenbyako/cynosure/contrib/taskpool"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
+	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -28,19 +30,27 @@ var (
 )
 
 type Usecase struct {
-	users            identitymanager.Port
-	servers          ports.ServerStorage
+	oauth            oauthhandler.Port
+	trace            trace.Tracer
 	accounts         ports.AccountStorage
 	tools            ports.ToolStorage
 	index            ports.ToolSemanticIndex
 	toolClient       toolclient.Port
-	oauth            oauthhandler.Port
-	trace            trace.Tracer
+	servers          ports.ServerStorage
+	users            identitymanager.Port
 	clock            func() time.Time
+	pool             *taskpool.TaskPool[discoveryTask]
+	log              LogCallbacks
 	oauthRedirectURL *url.URL
 	oauthClientName  string
 	stateExpiration  time.Duration
 	key              [16]byte
+}
+
+type discoveryTask struct {
+	server  entities.ServerConfigReadOnly
+	account entities.AccountReadOnly
+	token   *oauth2.Token
 }
 
 type newParams struct {
@@ -74,7 +84,8 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 }
 
 const (
-	stateExpiration = 5 * time.Minute
+	stateExpiration      = 5 * time.Minute
+	discoveryPoolWorkers = 10
 )
 
 func New(
@@ -117,8 +128,9 @@ func newUsecase(
 	users identitymanager.Port,
 	params *newParams,
 ) *Usecase {
-	return &Usecase{
+	usecase := &Usecase{
 		toolClient: toolClient,
+		pool:       nil, // initialized below
 		oauth:      authHandler,
 		servers:    servers,
 		accounts:   accounts,
@@ -126,6 +138,7 @@ func newUsecase(
 		index:      index,
 		users:      users,
 		clock:      time.Now,
+		log:        NoOpLogCallbacks{},
 
 		oauthRedirectURL: params.oauthRedirectURL,
 		oauthClientName:  params.clientName,
@@ -134,6 +147,17 @@ func newUsecase(
 
 		trace: params.tracer.Tracer(pkgName),
 	}
+	usecase.pool = taskpool.New(discoveryPoolWorkers, usecase.runDiscoveryTask)
+
+	return usecase
+}
+
+func (s *Usecase) Run(ctx context.Context) error {
+	if err := s.pool.Run(ctx); err != nil {
+		return fmt.Errorf("running usecase task pool: %w", err)
+	}
+
+	return nil
 }
 
 func buildNewParams(opts ...NewOption) newParams {

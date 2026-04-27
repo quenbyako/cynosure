@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/quenbyako/cynosure/contrib/taskpool"
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"go.opentelemetry.io/otel/trace"
 	noopTrace "go.opentelemetry.io/otel/trace/noop"
@@ -18,17 +19,18 @@ import (
 
 const (
 	pkgName = "github.com/quenbyako/cynosure/internal/controllers/telegram"
+
+	defaultUpdateInterval = 2 * time.Second
+	defaultMaxWorkers     = 10
 )
 
 type Handler struct {
-	// TODO: maybe it's not the best pattern? Maybe channels or mutexes are better? idk
-	//nolint:containedctx // lifecycleCtx provides context for handler worker.
-	lifecycleCtx   context.Context
 	log            LogCallbacks
 	tracer         trace.Tracer
 	srv            *chat.Usecase
 	users          *users.Usecase
 	client         *botapi.ClientWithResponses
+	pool           *taskpool.TaskPool[asyncProcessRequest]
 	updateInterval time.Duration
 }
 
@@ -39,6 +41,7 @@ type newParams struct {
 	tracer         trace.TracerProvider
 	client         http.RoundTripper
 	updateInterval time.Duration
+	maxWorkers     int
 }
 
 func buildNewParams(opts ...NewOption) newParams {
@@ -47,6 +50,7 @@ func buildNewParams(opts ...NewOption) newParams {
 		log:            NoOpLogCallbacks{},
 		tracer:         noopTrace.NewTracerProvider(),
 		client:         http.DefaultTransport,
+		maxWorkers:     defaultMaxWorkers,
 	}
 
 	for _, opt := range opts {
@@ -74,45 +78,59 @@ func WithTracer(tracer trace.TracerProvider) NewOption {
 	return func(h *newParams) { h.tracer = tracer }
 }
 
-const (
-	defaultUpdateInterval = 2 * time.Second
-)
+func WithMaxWorkers(maxWorkers int) NewOption {
+	return func(h *newParams) { h.maxWorkers = maxWorkers }
+}
 
 func New(
 	ctx context.Context, srv *chat.Usecase, usecase *users.Usecase,
 	serverPublicAddress *url.URL, token []byte, opts ...NewOption,
-) (http.Handler, error) {
+) (http.Handler, func(context.Context) error, error) {
 	params := buildNewParams(opts...)
 
 	client, err := newClient(token, &params)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	hookSecret, err := setWebhook(ctx, client, serverPublicAddress)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	handler := newHandler(ctx, srv, usecase, client, &params)
-	inner := botapi.NewStrictWebhookHandler(handler, []botapi.StrictMiddlewareFunc{})
+	handler := newHandler(srv, usecase, client, &params)
+	inner := botapi.NewStrictWebhookHandler(handler, nil)
 
-	return wrapWebhookHandler(inner, hookSecret), nil
+	return wrapWebhookHandler(inner, hookSecret), handler.Run, nil
 }
 
 func newHandler(
-	ctx context.Context, chatUsecase *chat.Usecase, usersUsecase *users.Usecase,
+	chatUsecase *chat.Usecase, usersUsecase *users.Usecase,
 	client *botapi.ClientWithResponses, params *newParams,
 ) *Handler {
-	return &Handler{
+	handler := Handler{
 		log:            params.log,
 		tracer:         params.tracer.Tracer(pkgName),
 		srv:            chatUsecase,
 		users:          usersUsecase,
 		client:         client,
 		updateInterval: params.updateInterval,
-		lifecycleCtx:   ctx,
+		pool:           nil,
 	}
+
+	handler.pool = taskpool.New(params.maxWorkers, handler.asyncProcess)
+
+	return &handler
+}
+
+// Run starts the handler and blocks until the context is canceled or the
+// handler fails.
+func (h *Handler) Run(ctx context.Context) error {
+	if err := h.pool.Run(ctx); err != nil {
+		return fmt.Errorf("running telegram controller task pool: %w", err)
+	}
+
+	return nil
 }
 
 func wrapWebhookHandler(inner botapi.WebhookInterface, secret string) http.Handler {
@@ -141,16 +159,6 @@ func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, er
 
 	return client, nil
 }
-
-type ArgumentError string
-
-func (e ArgumentError) Error() string {
-	return string(e)
-}
-
-const (
-	errAddressIsNil ArgumentError = "server public address is nil"
-)
 
 func setWebhook(
 	ctx context.Context, client *botapi.ClientWithResponses, addr *url.URL,

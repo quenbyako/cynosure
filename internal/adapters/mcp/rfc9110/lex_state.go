@@ -1,6 +1,7 @@
 package rfc9110
 
 import (
+	"context"
 	"strings"
 	"unicode"
 
@@ -21,7 +22,7 @@ var (
 	equal = rangetable.New('=')
 )
 
-func lexChallenge(lex *lexer) stateFn {
+func lexChallenge(ctx context.Context, lex *lexer) stateFn {
 	lex.acceptRun(unicode.Space)
 	lex.ignore()
 
@@ -38,15 +39,15 @@ func lexChallenge(lex *lexer) stateFn {
 	}
 
 	if !lex.acceptRun(rfc7230TChar) {
-		return lex.errorf("invalid format, challenge must start with token")
+		return lex.errorf(ctx, "invalid format, challenge must start with token")
 	}
 
-	lex.emit("auth-scheme")
+	lex.emit(ctx, "auth-scheme")
 
 	return lexAfterScheme
 }
 
-func lexAfterScheme(lex *lexer) stateFn {
+func lexAfterScheme(ctx context.Context, lex *lexer) stateFn {
 	hasSpace := lex.acceptRun(unicode.Space)
 	lex.ignore()
 
@@ -62,13 +63,13 @@ func lexAfterScheme(lex *lexer) stateFn {
 	}
 
 	if !hasSpace {
-		return lex.errorf("expected space after auth-scheme")
+		return lex.errorf(ctx, "expected space after auth-scheme")
 	}
 
-	return handleChallengeBody(lex)
+	return handleChallengeBody(ctx, lex)
 }
 
-func handleChallengeBody(lex *lexer) stateFn {
+func handleChallengeBody(ctx context.Context, lex *lexer) stateFn {
 	// It's either a token68 or the start of auth-params
 	lex.acceptRun(tokensBoth)
 
@@ -77,23 +78,23 @@ func handleChallengeBody(lex *lexer) stateFn {
 	lex.acceptRun(unicode.Space)
 
 	if lex.peek() == '=' {
-		return handleEqualAfterScheme(lex, tokPos)
+		return handleEqualAfterScheme(ctx, lex, tokPos)
 	}
 
 	lex.pos = tokPos
 
-	lex.emit("token68")
+	lex.emit(ctx, "token68")
 
 	return lexAfterChallengeBody
 }
 
-func handleEqualAfterScheme(lex *lexer, tokPos int) stateFn {
+func handleEqualAfterScheme(ctx context.Context, lex *lexer, tokPos int) stateFn {
 	lex.next()
 
 	if lex.peek() == '=' {
 		lex.next()
 		lex.acceptRun(equal)
-		lex.emit("token68")
+		lex.emit(ctx, "token68")
 
 		return lexAfterChallengeBody
 	}
@@ -102,20 +103,20 @@ func handleEqualAfterScheme(lex *lexer, tokPos int) stateFn {
 
 	peeked := lex.peek()
 	if peeked == ',' || peeked == -1 {
-		lex.emit("token68")
+		lex.emit(ctx, "token68")
 
 		return lexAfterChallengeBody
 	}
 
-	return lexKeyAfterScheme(lex, tokPos, peeked)
+	return lexKeyAfterScheme(ctx, lex, tokPos, peeked)
 }
 
-func lexKeyAfterScheme(lex *lexer, tokPos int, peeked rune) stateFn {
+func lexKeyAfterScheme(ctx context.Context, lex *lexer, tokPos int, peeked rune) stateFn {
 	tokenVal := string(lex.input[lex.start:tokPos])
 
 	if !strings.Contains(tokenVal, "/") && (unicode.Is(rfc7230TChar, peeked) || peeked == '"') {
 		lex.pos = tokPos
-		lex.emit("key")
+		lex.emit(ctx, "key")
 		lex.acceptRun(unicode.Space)
 		lex.next() // consume the '='
 		lex.ignore()
@@ -123,41 +124,41 @@ func lexKeyAfterScheme(lex *lexer, tokPos int, peeked rune) stateFn {
 		return lexValue
 	}
 
-	lex.emit("token68")
+	lex.emit(ctx, "token68")
 
 	return lexAfterChallengeBody
 }
 
-func lexValue(lex *lexer) stateFn {
+func lexValue(ctx context.Context, lex *lexer) stateFn {
 	lex.acceptRun(unicode.Space)
 	lex.ignore()
 
 	if lex.peek() == '"' {
-		return lexQuotedValue(lex)
+		return lexQuotedValue(ctx, lex)
 	}
 
-	return lexTokenValue(lex)
+	return lexTokenValue(ctx, lex)
 }
 
-func lexQuotedValue(lex *lexer) stateFn {
-	if err := emitQuotedString(lex, "value"); err != nil {
-		return lex.errorf("%v", err)
+func lexQuotedValue(ctx context.Context, lex *lexer) stateFn {
+	if err := emitQuotedString(ctx, lex, "value"); err != nil {
+		return lex.errorf(ctx, "%v", err)
 	}
 
 	return lexAfterChallengeBody
 }
 
-func lexTokenValue(lex *lexer) stateFn {
+func lexTokenValue(ctx context.Context, lex *lexer) stateFn {
 	if !lex.acceptRun(rfc7230TChar) {
-		return lex.errorf("expected value")
+		return lex.errorf(ctx, "expected value")
 	}
 
-	lex.emit("value")
+	lex.emit(ctx, "value")
 
 	return lexAfterChallengeBody
 }
 
-func lexAfterChallengeBody(lex *lexer) stateFn {
+func lexAfterChallengeBody(ctx context.Context, lex *lexer) stateFn {
 	lex.acceptRun(unicode.Space)
 	lex.ignore()
 
@@ -169,7 +170,7 @@ func lexAfterChallengeBody(lex *lexer) stateFn {
 		return handleCommaAfterChallengeBody(lex)
 	}
 
-	return lex.errorf("unexpected character %q", lex.peek())
+	return lex.errorf(ctx, "unexpected character %q", lex.peek())
 }
 
 func handleCommaAfterChallengeBody(lex *lexer) stateFn {
@@ -201,16 +202,16 @@ func handleCommaAfterChallengeBody(lex *lexer) stateFn {
 	return lexChallenge
 }
 
-func lexParam(lex *lexer) stateFn {
+func lexParam(ctx context.Context, lex *lexer) stateFn {
 	if !lex.acceptRun(rfc7230TChar) {
-		return lex.errorf("expected param key")
+		return lex.errorf(ctx, "expected param key")
 	}
 
-	lex.emit("key")
+	lex.emit(ctx, "key")
 	lex.acceptRun(unicode.Space)
 
 	if lex.peek() != '=' {
-		return lex.errorf("expected = after key")
+		return lex.errorf(ctx, "expected = after key")
 	}
 
 	lex.next()
@@ -219,7 +220,7 @@ func lexParam(lex *lexer) stateFn {
 	return lexValue
 }
 
-func emitQuotedString(lex *lexer, typ string) error {
+func emitQuotedString(ctx context.Context, lex *lexer, typ string) error {
 	if lex.next() != '"' {
 		return ErrMissedOpeningQuote
 	}
@@ -228,10 +229,10 @@ func emitQuotedString(lex *lexer, typ string) error {
 
 	var builder strings.Builder
 
-	return lexQuotedLoop(lex, &builder, typ)
+	return lexQuotedLoop(ctx, lex, &builder, typ)
 }
 
-func lexQuotedLoop(lex *lexer, builder *strings.Builder, typ string) error {
+func lexQuotedLoop(ctx context.Context, lex *lexer, builder *strings.Builder, typ string) error {
 	for {
 		runeVal := lex.next()
 		if runeVal == -1 {
@@ -250,7 +251,7 @@ func lexQuotedLoop(lex *lexer, builder *strings.Builder, typ string) error {
 		}
 
 		if runeVal == '"' {
-			lex.emitValue(typ, builder.String())
+			lex.emitValue(ctx, typ, builder.String())
 			lex.ignore()
 
 			return nil

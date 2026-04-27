@@ -72,7 +72,7 @@ func (f *connFactory) buildAuthorizedTransport(
 		// TODO: проработать момент, как втянуть сюда контекст от
 		// адаптера, котрый всё закрывает, чтобы не было ситуации,
 		// когда токен обновляется, но адаптер уже закрылся. это
-		// конкечно решает вопрос с таймаутом, но все равно это
+		// конечно решает вопрос с таймаутом, но все равно это
 		// неправилыно абсолютно.
 		context.WithoutCancel(ctx),
 		token,
@@ -274,7 +274,7 @@ func authorizeHeaderCollector(next http.RoundTripper) http.RoundTripper {
 		defer resp.Body.Close()
 
 		if code == http.StatusUnauthorized || code == http.StatusForbidden {
-			return nil, extractAuthError(resp)
+			return nil, extractAuthError(req.Context(), resp)
 		}
 
 		return nil, &HTTPStatusError{

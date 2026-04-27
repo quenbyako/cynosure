@@ -15,20 +15,20 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-func (h *Handler) processMessage(requestCtx context.Context, msg *botapi.Message) {
+func (h *Handler) processMessage(ctx context.Context, msg *botapi.Message) {
 	if msg.Chat.Type != "private" {
 		return
 	}
 
-	userID, err := h.identifyUser(requestCtx, msg)
+	userID, err := h.identifyUser(ctx, msg)
 	if err != nil {
-		h.handleUserIdentificationError(requestCtx, msg, err)
+		h.handleUserIdentificationError(ctx, msg, err)
 		return
 	}
 
 	threadID, err := ids.NewThreadID(userID, h.formatThread(msg))
 	if err != nil {
-		h.log.ProcessMessageIssue(requestCtx, msg.Chat.Id, fmt.Errorf("making thread id: %w", err))
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("making thread id: %w", err))
 		return
 	}
 
@@ -41,24 +41,22 @@ func (h *Handler) processMessage(requestCtx context.Context, msg *botapi.Message
 		return
 	}
 
-	h.dispatchProcessing(requestCtx, msg, threadID, text)
+	if err := h.dispatchProcessing(ctx, msg, threadID, text); err != nil {
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, err)
+	}
 }
 
 func (h *Handler) dispatchProcessing(
 	ctx context.Context, msg *botapi.Message,
 	threadID ids.ThreadID, text string,
-) {
+) error {
 	userMessage, err := messages.NewMessageUser(text)
 	if errors.Is(err, messages.ErrMessageTooLarge) {
 		h.sendTooLargeMessage(ctx, msg.Chat.Id, msg.MessageThreadId)
 
-		return
+		return nil
 	} else if err != nil {
-		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
-			fmt.Errorf("making user message: %w", err),
-		)
-
-		return
+		return fmt.Errorf("making user message: %w", err)
 	}
 
 	var msgThreadID int
@@ -66,10 +64,18 @@ func (h *Handler) dispatchProcessing(
 		msgThreadID = *msg.MessageThreadId
 	}
 
-	go h.asyncProcess(
-		ctxMergeValuesOnly(h.lifecycleCtx, ctx),
-		msg.Chat.Id, msgThreadID, threadID, userMessage,
-	)
+	ok := h.pool.Submit(ctx, asyncProcessRequest{
+		userMessage: userMessage,
+		threadID:    threadID,
+		chatID:      msg.Chat.Id,
+		tgThreadID:  msgThreadID,
+	})
+	if !ok {
+		// TODO: add metrics to detect, how many messages were dropped due to non running pool.
+		return ErrInternalValidation("failed to submit async request, pool is not working")
+	}
+
+	return nil
 }
 
 func (h *Handler) handleUserIdentificationError(
@@ -83,25 +89,29 @@ func (h *Handler) handleUserIdentificationError(
 	h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("making user id: %w", err))
 }
 
-func (h *Handler) asyncProcess(
-	ctx context.Context, chatID, tgThreadID int,
-	threadID ids.ThreadID, userMessage messages.MessageUser,
-) {
-	h.log.ProcessMessageStart(ctx, chatID, userMessage.Content())
+type asyncProcessRequest struct {
+	userMessage messages.MessageUser
+	threadID    ids.ThreadID
+	chatID      int
+	tgThreadID  int
+}
+
+func (h *Handler) asyncProcess(ctx context.Context, req asyncProcessRequest) {
+	h.log.ProcessMessageStart(ctx, req.chatID, req.userMessage.Content())
 
 	startTime := time.Now()
 
-	response, err := h.srv.GenerateResponse(ctx, threadID, userMessage)
+	response, err := h.srv.GenerateResponse(ctx, req.threadID, req.userMessage)
 	if err != nil {
-		h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("processing new message: %w", err))
+		h.log.ProcessMessageIssue(ctx, req.chatID, fmt.Errorf("processing new message: %w", err))
 
 		return
 	}
 
-	h.streamToTelegram(ctx, chatID, tgThreadID, response)
+	h.streamToTelegram(ctx, req.chatID, req.tgThreadID, response)
 
 	duration := time.Since(startTime)
-	h.log.ProcessMessageSuccess(ctx, chatID, duration.String())
+	h.log.ProcessMessageSuccess(ctx, req.chatID, duration.String())
 }
 
 func (h *Handler) streamToTelegram(

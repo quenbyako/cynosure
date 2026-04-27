@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -82,7 +83,7 @@ func (e *HTTPStatusError) Error() string {
 // metadata keys in WWW-Authenticate header. However, there is no standard for
 // those keys. Since both of them look very optional — we just ignoring them for
 // now.
-func extractAuthError(resp *http.Response) *ports.RequiresAuthError {
+func extractAuthError(ctx context.Context, resp *http.Response) *ports.RequiresAuthError {
 	if resp.Header == nil {
 		return ports.ErrRequiresAuth(nil)
 	}
@@ -92,7 +93,7 @@ func extractAuthError(resp *http.Response) *ports.RequiresAuthError {
 		return ports.ErrRequiresAuth(nil) // No metadata suggested
 	}
 
-	challenges, ok := rfc9110.ParseWWWAuthenticate(wwwAuth)
+	challenges, ok := rfc9110.ParseWWWAuthenticate(ctx, wwwAuth)
 	if !ok {
 		return ports.ErrRequiresAuth(tryParseMetadataURL(wwwAuth))
 	}
