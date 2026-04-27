@@ -31,6 +31,7 @@ type issuerCache struct {
 
 type JWTAuthenticator struct {
 	logger slog.Handler
+	client *http.Client
 
 	// list of keys is always static, so it's safe to use _, ok := a.allowedIssuers[iss].
 	// Key is host, nothing more. URL must be built from issuer domain
@@ -38,7 +39,15 @@ type JWTAuthenticator struct {
 	mu             sync.RWMutex
 }
 
-func NewJWTAuthenticator(issuers []string, logger slog.Handler) *JWTAuthenticator {
+func NewJWTAuthenticator(
+	issuers []string,
+	logger slog.Handler,
+	transport http.RoundTripper,
+) *JWTAuthenticator {
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+
 	allowed := make(map[string]issuerCache)
 
 	for _, iss := range issuers {
@@ -52,6 +61,12 @@ func NewJWTAuthenticator(issuers []string, logger slog.Handler) *JWTAuthenticato
 		logger:         logger,
 		allowedIssuers: allowed,
 		mu:             sync.RWMutex{},
+		client: &http.Client{
+			Transport:     transport,
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       time.Minute,
+		},
 	}
 }
 
@@ -253,7 +268,7 @@ func (a *JWTAuthenticator) fetchKeySet(
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching jwks: %w", err)
 	}

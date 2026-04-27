@@ -35,9 +35,14 @@ func NewConnectionFactory(
 	storage SaveTokenFunc,
 	accountToken AccountTokenFunc,
 	tracer trace.Tracer,
+	transport http.RoundTripper,
 ) *connFactory {
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+
 	return &connFactory{
-		transport:      http.DefaultTransport,
+		transport:      transport,
 		storage:        storage,
 		refreshTimeout: refreshTimeoutDefault,
 		tracer:         tracer,
@@ -373,6 +378,6 @@ func newHTTPClient(transport http.RoundTripper) *http.Client {
 		Transport:     transport,
 		CheckRedirect: nil,
 		Jar:           nil,
-		Timeout:       0,
+		Timeout:       time.Minute,
 	}
 }

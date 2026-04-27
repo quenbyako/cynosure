@@ -30,14 +30,20 @@ func TestOryIdentityManager(t *testing.T) {
 	err := yaml.Unmarshal(secretsRaw, &sec)
 	require.NoErrorf(t, err, "unmarshaling secrets")
 
+	require.NotEmpty(t, sec.Endpoint, "endpoint is empty")
+	require.NotEmpty(t, sec.AdminKey, "admin key is empty")
+	require.NotEmpty(t, sec.ClientID, "client id is empty")
+	require.NotEmpty(t, sec.ClientSecret, "client secret is empty")
+
 	endpoint, err := url.Parse(sec.Endpoint)
 	require.NoErrorf(t, err, "parsing endpoint")
 
-	adapter := ory.New(endpoint, sec.AdminKey,
+	adapter, err := ory.New(endpoint, sec.AdminKey,
 		ory.WithClientCredentials(sec.ClientID, sec.ClientSecret),
 		ory.WithScopes("mcp:read", "mcp:write", "offline_access"),
 		ory.WithRedirectURL("http://localhost:5001"),
 	)
+	require.NoError(t, err, "creating ory client")
 
 	testsuite.RunIdentityManagerTests(adapter.IdentityManager())(t)
 }

@@ -1,6 +1,8 @@
 package gemini_test
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,12 +24,48 @@ var apiKey string
 
 func TestGeminiChatModel(t *testing.T) {
 	gem, err := New(t.Context(), &genai.ClientConfig{
-		APIKey: apiKey,
+		APIKey: strings.TrimSpace(apiKey),
 	})
 	require.NoError(t, err, "Failed to create GenAI client")
 
 	chatmodel.RunChatModelTests(gem)(t)
 	testsuite.RunToolSemanticIndexTests(gem)(t)
+}
+
+func TestGeminiWithRotatedKey(t *testing.T) {
+	// 1. Setup a transport that injects the real key
+	// 2. Setup a config with a dummy key and the custom transport
+	// 3. Create the model and run a simple test (Ping)
+	transport := &testRotatedKeyTransport{
+		base: http.DefaultTransport,
+		key:  []byte(strings.TrimSpace(apiKey)),
+	}
+
+	cfg := &genai.ClientConfig{
+		APIKey: "ROTATED", // GenAI requires non-empty key
+		HTTPClient: &http.Client{
+			Transport: transport,
+		},
+	}
+
+	gem, err := New(t.Context(), cfg)
+	require.NoError(t, err, "Failed to create GenAI client with rotated key")
+
+	// If Ping passes, it means the transport successfully injected the real key
+	// and replaced "ROTATED".
+	chatmodel.RunChatModelTests(gem)(t)
+}
+
+type testRotatedKeyTransport struct {
+	base http.RoundTripper
+	key  []byte
+}
+
+func (t *testRotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("X-Goog-Api-Key", string(t.key))
+
+	//nolint:wrapcheck // implementing RoundTripper for tests
+	return t.base.RoundTrip(req)
 }
 
 func TestMessageFromGenAIContent(t *testing.T) {

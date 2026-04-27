@@ -150,7 +150,7 @@ func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, er
 			Transport:     params.client,
 			CheckRedirect: nil,
 			Jar:           nil,
-			Timeout:       0,
+			Timeout:       time.Minute,
 		}),
 	)
 	if err != nil {

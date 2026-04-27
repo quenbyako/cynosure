@@ -29,11 +29,12 @@ type SecretGetter interface {
 type (
 	appParams struct {
 		telegram           telegramParams
-		observability      core.Metrics
 		gemini             geminiParams
+		mcpClient          http.RoundTripper
+		observability      core.Metrics
 		grpcAddr           grpc.ServiceRegistrar
-		httpAddr           func(http.Handler)
 		storage            storageParams
+		httpAddr           func(http.Handler)
 		redis              redisParams
 		mcpAddr            func(http.Handler)
 		ory                oryParams
@@ -44,13 +45,14 @@ type (
 	}
 
 	oryParams struct {
-		endpoint     *url.URL
 		adminKey     SecretGetter
-		clientID     string
 		clientSecret SecretGetter
+		apiClient    http.RoundTripper
+		endpoint     *url.URL
+		callback     *url.URL
+		clientID     string
 		redirectURL  string
 		scopes       []string
-		callback     *url.URL
 		oauthScopes  []string
 	}
 
@@ -62,7 +64,8 @@ type (
 	}
 
 	geminiParams struct {
-		key SecretGetter
+		key       SecretGetter
+		apiClient http.RoundTripper
 	}
 
 	storageParams struct {
@@ -197,6 +200,10 @@ func WithGeminiKey(key SecretGetter) AppOpts {
 	return func(p *appParams) { p.gemini.key = key }
 }
 
+func WithGeminiClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.gemini.apiClient = client }
+}
+
 func WithObservability(metrics core.Metrics) AppOpts {
 	return func(p *appParams) { p.observability = metrics }
 }
@@ -246,8 +253,16 @@ func WithOAuthCallbackURL(u *url.URL) AppOpts {
 	return func(p *appParams) { p.ory.callback = u }
 }
 
+func WithOryClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.ory.apiClient = client }
+}
+
 func WithMCP(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.mcpAddr = registrar }
+}
+
+func WithMCPClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.mcpClient = client }
 }
 
 func WithAdminMCPID(id string) AppOpts {
@@ -276,31 +291,18 @@ func defaultOryParams() oryParams {
 		scopes:       []string{"mcp:read", "mcp:write", "offline_access"},
 		callback:     callbackURL,
 		oauthScopes:  []string{"mcp.read", "mcp.write"},
+		apiClient:    http.DefaultTransport,
 	}
 }
 
 func defaultParams() appParams {
 	return appParams{
-		ory: defaultOryParams(),
-		telegram: telegramParams{
-			key:        nil,
-			publicAddr: nil,
-			register:   func(h http.Handler) {},
-			apiClient:  http.DefaultTransport,
-		},
-		gemini: geminiParams{
-			key: nil,
-		},
-		storage: storageParams{
-			databaseURL: nil,
-		},
-		redis: redisParams{
-			url: nil,
-		},
-		chat: chatParams{
-			softLimit: DefaultSoftLimit,
-			hardCap:   DefaultHardCap,
-		},
+		ory:                defaultOryParams(),
+		telegram:           defaultTelegramParams(),
+		gemini:             defaultGeminiParams(),
+		storage:            defaultStorageParams(),
+		redis:              defaultRedisParams(),
+		chat:               defaultChatParams(),
 		observability:      core.NoopMetrics(),
 		grpcAddr:           nil,
 		httpAddr:           nil,
@@ -308,6 +310,42 @@ func defaultParams() appParams {
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
 		rateLimit:          ratelimit.Policy{},
+		mcpClient:          http.DefaultTransport,
+	}
+}
+
+func defaultTelegramParams() telegramParams {
+	return telegramParams{
+		key:        nil,
+		publicAddr: nil,
+		register:   func(h http.Handler) {},
+		apiClient:  http.DefaultTransport,
+	}
+}
+
+func defaultGeminiParams() geminiParams {
+	return geminiParams{
+		key:       nil,
+		apiClient: http.DefaultTransport,
+	}
+}
+
+func defaultStorageParams() storageParams {
+	return storageParams{
+		databaseURL: nil,
+	}
+}
+
+func defaultRedisParams() redisParams {
+	return redisParams{
+		url: nil,
+	}
+}
+
+func defaultChatParams() chatParams {
+	return chatParams{
+		softLimit: DefaultSoftLimit,
+		hardCap:   DefaultHardCap,
 	}
 }
 

@@ -31,6 +31,7 @@ type Config struct {
 	MCPPort            http.Server       `env:"CYNOSURE_MCP_ADDR"      default:"http://0.0.0.0:5004"`
 	DatabaseURL        *url.URL          `env:"CYNOSURE_DATABASE_URL"`
 	GeminiKey          secrets.Secret    `env:"CYNOSURE_GEMINI_KEY"`
+	GeminiClient       httpclient.Client `env:"CYNOSURE_GEMINI_API"     default:"https://generativelanguage.googleapis.com#timeout=30s"`
 	TelegramKey        secrets.Secret    `env:"CYNOSURE_TELEGRAM_KEY"`
 	TelegramPublicAddr *url.URL          `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
 	TelegramClient     httpclient.Client `env:"CYNOSURE_TELEGRAM_API"  default:"https://api.telegram.org#rate=30/1s"`
@@ -39,6 +40,8 @@ type Config struct {
 	OryEndpoint        *url.URL          `env:"CYNOSURE_ORY_ISSUER_URL"`
 	OryClientID        string            `env:"CYNOSURE_ORY_CLIENT_ID"`
 	OryClientSecret    secrets.Secret    `env:"CYNOSURE_ORY_CLIENT_SECRET"`
+	OryClient          httpclient.Client `env:"CYNOSURE_ORY_API"           default:"#timeout=30s"`
+	MCPClient          httpclient.Client `env:"CYNOSURE_MCP_API"           default:"#timeout=30s"`
 	AdminMCPServerID   string            `env:"CYNOSURE_ADMIN_MCP_SERVER_ID"`
 	OAuthRedirectURL   *url.URL          `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
 	RateLimit          ratelimit.Policy  `env:"CYNOSURE_RATELIMIT"          default:"20/1h"`
