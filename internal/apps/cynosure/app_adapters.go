@@ -157,7 +157,9 @@ func newOAuthHandler(p *appParams) *oauth.Handler {
 	return oauth.New(
 		p.ory.oauthScopes,
 		oauth.WithObservability(p.observability),
-		oauth.WithHTTPClient(p.ory.apiClient),
+		// Note: using mcp clients, as it's using only for mcp clients.
+		// Authorization is related only to MCP and nothing more.
+		oauth.WithTransports(p.internalMcpClient, p.externalMcpClient),
 	)
 }
 
