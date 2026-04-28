@@ -14,16 +14,16 @@ import (
 var (
 	// ErrNotMCPServer is returned when both Streamable and SSE protocols fail,
 	// indicating the address is not an MCP server.
-	ErrNotMCPServer = errors.New("address is not an MCP server")
-
-	ErrURLIsNil           = errors.New("url is nil")
-	ErrTokenIsNil         = errors.New("token is nil")
-	ErrProtocolIsInvalid  = errors.New("protocol is invalid")
-	ErrAccountIDIsInvalid = errors.New("account id is invalid")
-	ErrServerIsNil        = errors.New("server is nil")
-	ErrAuthRequired       = errors.New("server requires auth, however, it's not provided")
-	ErrRefreshTokenNotSet = errors.New("token expired and refresh token is not set")
-	ErrUnknownProtocol    = errors.New("unknown protocol")
+	ErrNotMCPServer           = errors.New("address is not an MCP server")
+	ErrURLIsNil               = errors.New("url is nil")
+	ErrTokenIsNil             = errors.New("token is nil")
+	ErrProtocolIsInvalid      = errors.New("protocol is invalid")
+	ErrAccountIDIsInvalid     = errors.New("account id is invalid")
+	ErrServerIsNil            = errors.New("server is nil")
+	ErrAuthRequired           = errors.New("server requires auth, however, it's not provided")
+	ErrRefreshTokenNotSet     = errors.New("token expired and refresh token is not set")
+	ErrUnknownProtocol        = errors.New("unknown protocol")
+	ErrSSRFVerificationFailed = errors.New("SSRF verification failed")
 )
 
 // TransportError categorizes errors from MCP transport attempts.

@@ -56,11 +56,11 @@ func tokenFuncFromAccountStorage(
 }
 
 func newMCPHandler(
+	ctx context.Context,
 	params *appParams,
 	servers ports.ServerStorage,
 	accounts ports.AccountStorage,
 ) (*mcp.Handler, error) {
-	// Create save token callback
 	saveToken := func(ctx context.Context, accountID ids.AccountID, token *oauth2.Token) error {
 		account, err := accounts.GetAccount(ctx, accountID)
 		if err != nil {
@@ -78,9 +78,10 @@ func newMCPHandler(
 		return nil
 	}
 
-	handler, err := mcp.New(saveToken, tokenFuncFromAccountStorage(accounts, servers),
+	handler, err := mcp.New(ctx, saveToken, tokenFuncFromAccountStorage(accounts, servers),
 		mcp.WithObservability(params.observability),
-		mcp.WithHTTPClient(params.mcpClient),
+		mcp.WithInternalHTTPClient(params.internalMcpCLient),
+		mcp.WithExternalHTTPClient(params.externalMcpClient),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing mcp handler: %w", err)

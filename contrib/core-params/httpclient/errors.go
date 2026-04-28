@@ -5,7 +5,9 @@ import (
 	"fmt"
 )
 
-var errUnconfigured = errors.New("http client not configured")
+var (
+	errUnconfigured = errors.New("http client not configured")
+)
 
 type UnsupportedSchemeError struct {
 	Scheme string

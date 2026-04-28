@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -25,32 +26,51 @@ const (
 )
 
 type connFactory struct {
-	transport      http.RoundTripper
-	tracer         trace.Tracer
-	storage        SaveTokenFunc
-	refreshTimeout time.Duration
+	internalTransport http.RoundTripper
+	externalTransport http.RoundTripper
+	tracer            trace.Tracer
+	storage           SaveTokenFunc
+	refreshTimeout    time.Duration
 }
 
 func NewConnectionFactory(
+	ctx context.Context,
 	storage SaveTokenFunc,
 	accountToken AccountTokenFunc,
 	tracer trace.Tracer,
-	transport http.RoundTripper,
-) *connFactory {
-	if transport == nil {
-		transport = http.DefaultTransport
+	externalTransport http.RoundTripper,
+	internalTransport http.RoundTripper,
+	unsafeExternalTransport bool,
+) (*connFactory, error) {
+	factory := &connFactory{
+		internalTransport: internalTransport,
+		externalTransport: externalTransport,
+		storage:           storage,
+		refreshTimeout:    refreshTimeoutDefault,
+		tracer:            tracer,
 	}
 
-	return &connFactory{
-		transport:      transport,
-		storage:        storage,
-		refreshTimeout: refreshTimeoutDefault,
-		tracer:         tracer,
+	if err := factory.validate(ctx, unsafeExternalTransport); err != nil {
+		return nil, err
 	}
+
+	return factory, nil
+}
+
+func (f *connFactory) validate(ctx context.Context, unsafeExternalTransport bool) error {
+	if f.internalTransport == nil || f.externalTransport == nil {
+		return errors.New("both internal and external transports are required")
+	}
+
+	if err := verifySSRF(ctx, f.externalTransport); err != nil && !unsafeExternalTransport {
+		return fmt.Errorf("SSRF protection: %w", err)
+	}
+
+	return nil
 }
 
 func (f *connFactory) buildAnonymousTransport() http.RoundTripper {
-	return authorizeHeaderCollector(f.transport)
+	return authorizeHeaderCollector(f.externalTransport)
 }
 
 func (f *connFactory) buildTemporaryAuthorizedTransport(token *oauth2.Token) http.RoundTripper {
@@ -58,7 +78,7 @@ func (f *connFactory) buildTemporaryAuthorizedTransport(token *oauth2.Token) htt
 	// impossible to automatically update token, we must throw it as an error.
 	return forbiddenChecker(&oauth2.Transport{
 		Source: oauth2.StaticTokenSource(token),
-		Base:   f.transport,
+		Base:   f.externalTransport,
 	})
 }
 
@@ -89,7 +109,7 @@ func (f *connFactory) buildAuthorizedTransport(
 
 	return &oauth2.Transport{
 		Source: source,
-		Base:   f.transport,
+		Base:   f.externalTransport,
 	}
 }
 

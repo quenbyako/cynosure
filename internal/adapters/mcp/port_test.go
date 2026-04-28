@@ -2,6 +2,7 @@ package mcp_test
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"testing"
 
@@ -34,7 +35,11 @@ func TestToolClientSuite(t *testing.T) {
 		return serverConfig, accountTokens[account], nil
 	}
 
-	handler, err := New(storage, accountToken, WithMaxConnSize(5000))
+	handler, err := New(t.Context(), storage, accountToken,
+		WithMaxConnSize(5000),
+		WithExternalHTTPClient(http.DefaultTransport),
+		WithInternalHTTPClient(http.DefaultTransport),
+	)
 	if err != nil {
 		t.Fatalf("failed to create handler: %v", err)
 	}

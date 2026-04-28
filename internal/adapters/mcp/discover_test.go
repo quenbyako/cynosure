@@ -32,7 +32,10 @@ func noopSaveToken(ctx context.Context, id ids.AccountID, t *oauth2.Token) error
 func TestDiscoverTools(t *testing.T) {
 	mcpURL := setupMTLSTestServer(t)
 
-	handler, err := mcp.New(noopSaveToken, noopAccountToken)
+	handler, err := mcp.New(t.Context(), noopSaveToken, noopAccountToken,
+		mcp.WithUnsafeExternalHTTPClient(http.DefaultTransport),
+		mcp.WithInternalHTTPClient(http.DefaultTransport),
+	)
 	require.NoError(t, err)
 
 	t.Run("Valid Account Slug", func(t *testing.T) {

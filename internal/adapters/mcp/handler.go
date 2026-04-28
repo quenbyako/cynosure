@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/quenbyako/core"
 	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
 	"golang.org/x/oauth2"
 
@@ -16,10 +14,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-)
-
-const (
-	pkgName = "github.com/quenbyako/cynosure/internal/adapters/mcp"
 )
 
 type (
@@ -58,28 +52,9 @@ func (h *Handler) ToolClient() toolclient.PortWrapped {
 	return toolclient.Wrap(h, h.tracer)
 }
 
-type handlerParams struct {
-	traceProvider core.Metrics
-	httpClient    http.RoundTripper
-	maxConnSize   uint
-}
-
-type HandlerOption func(*handlerParams)
-
-func WithObservability(tp core.Metrics) HandlerOption {
-	return func(p *handlerParams) { p.traceProvider = tp }
-}
-
-func WithMaxConnSize(size uint) HandlerOption {
-	return func(p *handlerParams) { p.maxConnSize = size }
-}
-
-func WithHTTPClient(client http.RoundTripper) HandlerOption {
-	return func(p *handlerParams) { p.httpClient = client }
-}
-
 //nolint:err113 // new may return unhandlable errors.
 func New(
+	ctx context.Context,
 	storage SaveTokenFunc,
 	accountToken AccountTokenFunc,
 	opts ...HandlerOption,
@@ -95,7 +70,19 @@ func New(
 	params := buildHandlerParams(opts...)
 
 	tracer := ports.StackFromCore(params.traceProvider, pkgName)
-	connFactory := NewConnectionFactory(storage, accountToken, tracer.Tracer(), params.httpClient)
+
+	connFactory, err := NewConnectionFactory(
+		ctx,
+		storage,
+		accountToken,
+		tracer.Tracer(),
+		params.externalTransport,
+		params.internalTransport,
+		params.unsafeExternalClient,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create connection factory: %w", err)
+	}
 
 	return &Handler{
 		clients: cache.New(
@@ -117,20 +104,6 @@ func (h *Handler) Close() error {
 	}
 
 	return nil
-}
-
-func buildHandlerParams(opts ...HandlerOption) handlerParams {
-	params := handlerParams{
-		traceProvider: core.NoopMetrics(),
-		maxConnSize:   defaultMaxConnSize,
-		httpClient:    http.DefaultTransport,
-	}
-
-	for _, opt := range opts {
-		opt(&params)
-	}
-
-	return params
 }
 
 func cacheConstructor(

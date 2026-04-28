@@ -33,7 +33,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithOryClient(cfg.OryClient),
 		cynosure.WithOAuthCallbackURL(cfg.OAuthRedirectURL),
 		cynosure.WithMCP(cfg.MCPPort.Register),
-		cynosure.WithMCPClient(cfg.MCPClient),
+		cynosure.WithMCPTransports(cfg.InternalMCPClient, cfg.ExternalMCPClient),
 		cynosure.WithAdminMCPID(cfg.AdminMCPServerID),
 		cynosure.WithRateLimit(cfg.RateLimit),
 		cynosure.WithChatLimits(cfg.ChatSoftLimit, cfg.ChatHardCap),

@@ -46,7 +46,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
-	mcpHandler, err := newMCPHandler(config, serverStorage, accountStorage)
+	mcpHandler, err := newMCPHandler(ctx, config, serverStorage, accountStorage)
 	if err != nil {
 		return nil, err
 	}

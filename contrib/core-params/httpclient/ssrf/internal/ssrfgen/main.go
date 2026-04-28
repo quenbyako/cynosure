@@ -47,6 +47,7 @@ func main() {
 		errExit(err, 1)
 	}
 
+	//nolint:gosec // false positive: file is codegen with default permissions
 	f, err := os.OpenFile(*output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		errExit(err, 1, f)
@@ -67,7 +68,8 @@ func main() {
 			errExit(err, 1, f)
 		}
 
-		if res, err := exec.Command("go", "fmt", *output).CombinedOutput(); err != nil {
+		//nolint:gosec // false positive: codegen must be formatted.
+		if res, err := exec.CommandContext(ctx, "go", "fmt", *output).CombinedOutput(); err != nil {
 			fmt.Println(string(res))
 		}
 	}
@@ -163,10 +165,8 @@ func fetch(ctx context.Context, url string) ([]entry, error) {
 	entries := []entry{}
 
 	for _, rec := range records[1:] {
-
 		prefixes := rec[0]
 		for _, p := range handleNetwork(prefixes) {
-
 			pr := netip.MustParsePrefix(p)
 			if pr.Addr().Is4() {
 				if !containsPrefix(entries, p) {
@@ -212,7 +212,6 @@ func containsPrefix(entries []entry, prefix string) bool {
 	found := false
 
 	for _, e := range entries {
-
 		p1 := netip.MustParsePrefix(e.Prefix)
 		if p2.Bits() >= p1.Bits() {
 			pp, err := p2.Addr().Prefix(p1.Bits())
