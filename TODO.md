@@ -6,6 +6,8 @@ This file tracks the project's roadmap and backlog using the [TODO.md standard](
 - [ ] **Grafana Stack Completion** #observability @dev
   - [ ] **Tempo:** Link `TraceID` across Telegram gateway, Gemini adapter, and MCP client for end-to-end visibility.
   - [ ] **Loki:** Implement Trace-Log Correlation using labels for seamless jump from trace to logs.
+- [ ] Completely rewrite tests for chatmodel port, based on Gherkin
+- [ ] CORS defense in oauth and mcp handlers (is it even exists? Verify it)
 
 ## 🟡 Medium Priority
 - [ ] **Separate Ephemeral Protocol State** #architecture @dev

@@ -55,11 +55,12 @@ func (t *portWrapped) RegisterClient(
 
 func (t *portWrapped) RefreshToken(
 	ctx context.Context, config *oauth2.Config, token *oauth2.Token,
+	opts ...RefreshTokenOption,
 ) (res *oauth2.Token, err error) {
 	ctx, span := t.t.refreshToken(ctx, config.ClientID, config.Endpoint.AuthURL)
 	defer span.end()
 
-	res, err = t.w.RefreshToken(ctx, config, token)
+	res, err = t.w.RefreshToken(ctx, config, token, opts...)
 	span.recordError(err)
 
 	//nolint:wrapcheck // should not wrap adapter errors
