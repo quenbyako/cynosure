@@ -80,7 +80,7 @@ func newMCPHandler(
 
 	handler, err := mcp.New(ctx, saveToken, tokenFuncFromAccountStorage(accounts, servers),
 		mcp.WithObservability(params.observability),
-		mcp.WithInternalHTTPClient(params.internalMcpCLient),
+		mcp.WithInternalHTTPClient(params.internalMcpClient),
 		mcp.WithExternalHTTPClient(params.externalMcpClient),
 	)
 	if err != nil {

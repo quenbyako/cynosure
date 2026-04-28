@@ -64,7 +64,6 @@ func (m MessageUser) MergeTag() uint64                  { return m.mergeTag }
 func (m MessageUser) Content() string                   { return m.content }
 func (m MessageUser) Extra() map[string]json.RawMessage { return m.extra }
 
-//nolint:ireturn // user message format
 func (m MessageUser) Format(
 	_ context.Context,
 	properties map[string]any,

@@ -99,7 +99,7 @@ var _ context.Context = (*mergedContext)(nil)
 // value is associated with key. It first checks the values provider, then falls
 // back to the parent context.
 //
-//nolint:ireturn // [context.Context] implementation
+//nolint:ireturn // implementation of [context.Context]
 func (m *mergedContext) Value(key any) any {
 	if m.values != nil {
 		if value := m.values.Value(key); value != nil {

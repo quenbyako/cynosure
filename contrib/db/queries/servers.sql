@@ -40,7 +40,7 @@ ON CONFLICT (server_id) DO UPDATE SET
 -- Returns: Flattened list of servers + oauth details.
 -- name: ListServers :many
 SELECT
-	s.id, s.url, s.deleted_at, s.embedding,
+	s.id, s.url, s.deleted_at, s.embedding, s.internal,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -49,7 +49,7 @@ ORDER BY s.id;
 
 -- name: GetServerInfo :one
 SELECT
-	s.id, s.url, s.deleted_at, s.embedding,
+	s.id, s.url, s.deleted_at, s.embedding, s.internal,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -59,10 +59,11 @@ WHERE s.id = sqlc.arg('id')::UUID AND s.deleted_at IS NULL;
 -- Key Use Case: Preventing duplicate server entries when user pastes a URL.
 --
 -- Parameters:
---   url: url (exact match)
+--  url: url (exact match)
+--
 -- name: LookupByURL :one
 SELECT
-	s.id, s.url, s.deleted_at, s.embedding,
+	s.id, s.url, s.deleted_at, s.embedding, s.internal,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id

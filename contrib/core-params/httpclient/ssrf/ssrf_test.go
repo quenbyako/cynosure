@@ -391,5 +391,3 @@ func TestIPv6FastPath(t *testing.T) {
 		})
 	}
 }
-
-func prefix(s string) netip.Prefix { return netip.MustParsePrefix(s) }

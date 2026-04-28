@@ -48,7 +48,6 @@ func NewRefresher(
 }
 
 func (t *tokenRefresher) Token() (*oauth2.Token, error) {
-	// If original token doesn't have a refresh token, we can't refresh.
 	if t.originalToken.RefreshToken == "" {
 		return nil, ErrRefreshTokenNotSet
 	}

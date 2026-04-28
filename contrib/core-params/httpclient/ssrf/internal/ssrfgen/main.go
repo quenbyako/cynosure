@@ -34,23 +34,23 @@ func main() {
 	defer stop()
 
 	if err := loadTemplates(); err != nil {
-		errExit(err, 1)
+		errExit(err)
 	}
 
-	v4, err := fetch(ctx, ipv4SpecialPurposeRegistry)
+	ipv4, err := fetch(ctx, ipv4SpecialPurposeRegistry)
 	if err != nil {
-		errExit(err, 1)
+		errExit(err)
 	}
 
-	v6, err := fetch(ctx, ipv6SpecialPurposeRegistry)
+	ipv6, err := fetch(ctx, ipv6SpecialPurposeRegistry)
 	if err != nil {
-		errExit(err, 1)
+		errExit(err)
 	}
 
 	//nolint:gosec // false positive: file is codegen with default permissions
 	f, err := os.OpenFile(*output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
-		errExit(err, 1, f)
+		errExit(err, f)
 	}
 	defer f.Close()
 
@@ -60,12 +60,12 @@ func main() {
 			V4              []entry
 			V6              []entry
 		}{
-			V4:              append(v4, additionalV4Entries...),
-			V6:              v6,
+			V4:              append(ipv4, additionalV4Entries...),
+			V6:              ipv6,
 			V6GlobalUnicast: ipv6GlobalUnicast,
 		}
 		if err := t.Execute(f, data); err != nil {
-			errExit(err, 1, f)
+			errExit(err, f)
 		}
 
 		//nolint:gosec // false positive: codegen must be formatted.
@@ -77,15 +77,15 @@ func main() {
 
 // cleanRFC tries to clean up the RFC field from the IANA Special Purpose
 // registry CSV and turn it into something consistent
-func cleanRFC(s string) string {
-	s = strings.ReplaceAll(s, "\n", ",")
-	s = strings.ReplaceAll(s, "][", ", ")
-	s = strings.ReplaceAll(s, "[", "")
-	s = strings.ReplaceAll(s, "]", "")
-	s = strings.ReplaceAll(s, "RFC", "RFC ")
-	s = strings.Join(strings.Fields(s), " ")
+func cleanRFC(str string) string {
+	str = strings.ReplaceAll(str, "\n", ",")
+	str = strings.ReplaceAll(str, "][", ", ")
+	str = strings.ReplaceAll(str, "[", "")
+	str = strings.ReplaceAll(str, "]", "")
+	str = strings.ReplaceAll(str, "RFC", "RFC ")
+	str = strings.Join(strings.Fields(str), " ")
 
-	return s
+	return str
 }
 
 // cleanName does some small transformations on the Name of a prefix
@@ -95,14 +95,17 @@ func cleanName(s string) string {
 
 // errExit prints the error, attempts to close any passed in files and then
 // exits with the provided code
-func errExit(err error, code int, files ...*os.File) {
-	fmt.Println(err)
+func errExit(err error, files ...*os.File) {
+	//nolint:forbidigo // exits the program with an error code.
+	fmt.Fprintln(os.Stderr, err)
 
 	for _, f := range files {
-		_ = f.Close()
+		//nolint:errcheck,gosec // we don't care about the error here.
+		f.Close()
 	}
 
-	os.Exit(code)
+	//nolint:forbidigo // exits the program with an error code.
+	os.Exit(1)
 }
 
 // handleNetwork is used to deal with the fact that a Prefix from the IANA
@@ -111,14 +114,14 @@ func handleNetwork(s string) []string {
 	list := strings.Split(s, ",")
 	res := []string{}
 
-	for _, l := range list {
-		l := strings.TrimSpace(l)
+	for _, item := range list {
+		item = strings.TrimSpace(item)
 
-		i := strings.Index(l, " ")
+		i := strings.Index(item, " ")
 		if i == -1 {
-			res = append(res, l)
+			res = append(res, item)
 		} else {
-			res = append(res, l[:i])
+			res = append(res, item[:i])
 		}
 	}
 
@@ -150,6 +153,7 @@ func fetch(ctx context.Context, url string) ([]entry, error) {
 		return nil, fmt.Errorf("failed to perform request for %s: %w", url, err)
 	}
 
+	//nolint:errcheck,gosec // we don't care about the error here.
 	defer func() {
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
@@ -166,33 +170,44 @@ func fetch(ctx context.Context, url string) ([]entry, error) {
 
 	for _, rec := range records[1:] {
 		prefixes := rec[0]
-		for _, p := range handleNetwork(prefixes) {
-			pr := netip.MustParsePrefix(p)
-			if pr.Addr().Is4() {
-				if !containsPrefix(entries, p) {
+		for _, prefixRaw := range handleNetwork(prefixes) {
+			prefix := netip.MustParsePrefix(prefixRaw)
+			if prefix.Addr().Is4() {
+				if !containsPrefix(entries, prefixRaw) {
 					entries = append(entries, entry{
-						Prefix: p,
+						Prefix: prefixRaw,
 						Name:   cleanName(rec[1]),
 						RFC:    cleanRFC(rec[2]),
 					})
 				} else {
-					fmt.Printf("Skipping prefix: %s as it's already matched by another prefix\n", p)
+					fmt.Printf(
+						"Skipping prefix: %s as it's already matched by another prefix\n",
+						prefixRaw,
+					)
 				}
 			}
 
-			if pr.Addr().Is6() {
-				if containsPrefix([]entry{{Prefix: ipv6GlobalUnicast, Name: "IPv6 Global Unicast"}}, p) {
-					if !containsPrefix(entries, p) {
+			if prefix.Addr().Is6() {
+				if containsPrefix([]entry{
+					{Prefix: ipv6GlobalUnicast, Name: "IPv6 Global Unicast", RFC: ""},
+				}, prefixRaw) {
+					if !containsPrefix(entries, prefixRaw) {
 						entries = append(entries, entry{
-							Prefix: p,
+							Prefix: prefixRaw,
 							Name:   cleanName(rec[1]),
 							RFC:    cleanRFC(rec[2]),
 						})
 					} else {
-						fmt.Printf("Skipping prefix: %s as it's already matched by another prefix\n", p)
+						fmt.Printf(
+							"Skipping prefix: %s as it's already matched by another prefix\n",
+							prefixRaw,
+						)
 					}
 				} else {
-					fmt.Printf("Skipping prefix: %s as it's not within the IPv6 Global Unicast range\n", p)
+					fmt.Printf(
+						"Skipping prefix: %s as it's not within the IPv6 Global Unicast range\n",
+						prefixRaw,
+					)
 				}
 			}
 		}
@@ -207,22 +222,24 @@ func fetch(ctx context.Context, url string) ([]entry, error) {
 // The IANA registries are sorted by prefix, so a larger prefix will show up
 // before a smaller one. This means we can simply iterate over the list.
 func containsPrefix(entries []entry, prefix string) bool {
-	p2 := netip.MustParsePrefix(prefix)
+	prefix2 := netip.MustParsePrefix(prefix)
 
 	found := false
 
 	for _, e := range entries {
-		p1 := netip.MustParsePrefix(e.Prefix)
-		if p2.Bits() >= p1.Bits() {
-			pp, err := p2.Addr().Prefix(p1.Bits())
-			if err != nil {
-				return false // This should never happen unless we're mix-matching v4 and v6
-			}
+		prefix1 := netip.MustParsePrefix(e.Prefix)
+		if prefix2.Bits() < prefix1.Bits() {
+			continue
+		}
 
-			found = pp.Addr() == p1.Addr()
-			if found {
-				break
-			}
+		pp, err := prefix2.Addr().Prefix(prefix1.Bits())
+		if err != nil {
+			return false // This should never happen unless we're mix-matching v4 and v6
+		}
+
+		found = pp.Addr() == prefix1.Addr()
+		if found {
+			break
 		}
 	}
 

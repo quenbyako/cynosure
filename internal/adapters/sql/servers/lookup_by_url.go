@@ -51,5 +51,6 @@ func mapServerInfoRow(row *db.LookupByURLRow) *db.GetServerInfoRow {
 			InfinityModifier: pgtype.Finite,
 		},
 		Embedding: nil,
+		Internal:  false,
 	}
 }

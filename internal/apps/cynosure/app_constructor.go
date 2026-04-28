@@ -30,7 +30,7 @@ type (
 	appParams struct {
 		telegram           telegramParams
 		gemini             geminiParams
-		internalMcpCLient  http.RoundTripper
+		internalMcpClient  http.RoundTripper
 		externalMcpClient  http.RoundTripper
 		observability      core.Metrics
 		grpcAddr           grpc.ServiceRegistrar
@@ -177,8 +177,8 @@ func (p *appParams) validateMCPClient(_ context.Context) error {
 		return MissingParamError("externalMcpClient")
 	}
 
-	if p.internalMcpCLient == nil {
-		return MissingParamError("internalMcpCLient")
+	if p.internalMcpClient == nil {
+		return MissingParamError("internalMcpClient")
 	}
 
 	return nil
@@ -277,7 +277,7 @@ func WithMCP(registrar func(http.Handler)) AppOpts {
 
 func WithMCPTransports(internal, external http.RoundTripper) AppOpts {
 	return func(p *appParams) {
-		p.internalMcpCLient, p.externalMcpClient = internal, external
+		p.internalMcpClient, p.externalMcpClient = internal, external
 	}
 }
 
@@ -326,7 +326,7 @@ func defaultParams() appParams {
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
 		rateLimit:          ratelimit.Policy{},
-		internalMcpCLient:  nil,
+		internalMcpClient:  nil,
 		externalMcpClient:  nil,
 	}
 }

@@ -31,7 +31,11 @@ CREATE TABLE agents.mcp_servers (
 	url        TEXT NOT NULL UNIQUE,
 	-- using pgvector, it's allowed to have empty embeddings since flow of
 	-- adding embeddings is optional.
-	embedding VECTOR(1536)
+	embedding  VECTOR(1536),
+	-- this flag allows to bypass internal servers resriction (SSRF attacks).
+	-- For Cynosure, this field is explicitly read-only and MUST NOT be changed
+	-- by any application.
+	internal   BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE agents.mcp_tools (

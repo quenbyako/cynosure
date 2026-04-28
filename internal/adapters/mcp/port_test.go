@@ -37,7 +37,7 @@ func TestToolClientSuite(t *testing.T) {
 
 	handler, err := New(t.Context(), storage, accountToken,
 		WithMaxConnSize(5000),
-		WithExternalHTTPClient(http.DefaultTransport),
+		WithUnsafeExternalHTTPClient(http.DefaultTransport),
 		WithInternalHTTPClient(http.DefaultTransport),
 	)
 	if err != nil {

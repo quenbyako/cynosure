@@ -69,22 +69,38 @@ func (f *connFactory) validate(ctx context.Context, unsafeExternalTransport bool
 	return nil
 }
 
-func (f *connFactory) buildAnonymousTransport() http.RoundTripper {
-	return authorizeHeaderCollector(f.externalTransport)
+func (f *connFactory) buildAnonymousTransport(isInternal bool) http.RoundTripper {
+	base := f.externalTransport
+	if isInternal {
+		base = f.internalTransport
+	}
+
+	return authorizeHeaderCollector(base)
 }
 
-func (f *connFactory) buildTemporaryAuthorizedTransport(token *oauth2.Token) http.RoundTripper {
+func (f *connFactory) buildTempAuthTransport(token *oauth2.Token, internal bool) http.RoundTripper {
+	base := f.externalTransport
+	if internal {
+		base = f.internalTransport
+	}
+
 	// adding forbidden checker to handle invalid credentials. Since it's
 	// impossible to automatically update token, we must throw it as an error.
 	return forbiddenChecker(&oauth2.Transport{
 		Source: oauth2.StaticTokenSource(token),
-		Base:   f.externalTransport,
+		Base:   base,
 	})
 }
 
 func (f *connFactory) buildAuthorizedTransport(
 	ctx context.Context, account ids.AccountID, token *oauth2.Token, config *oauth2.Config,
+	isInternal bool,
 ) http.RoundTripper {
+	base := f.externalTransport
+	if isInternal {
+		base = f.internalTransport
+	}
+
 	// WithoutCancel preserves deadline but detaches from request cancellation.
 	// This ensures token refresh completes even if the user cancels the request,
 	// but still respects timeout constraints.
@@ -109,7 +125,7 @@ func (f *connFactory) buildAuthorizedTransport(
 
 	return &oauth2.Transport{
 		Source: source,
-		Base:   f.externalTransport,
+		Base:   base,
 	}
 }
 
@@ -120,7 +136,7 @@ type asyncClient struct {
 }
 
 func (f *connFactory) GetAnonymous(
-	ctx context.Context, targetURL *url.URL, protocol tools.Protocol,
+	ctx context.Context, targetURL *url.URL, protocol tools.Protocol, isInternal bool,
 ) (*asyncClient, error) {
 	ctx, span := f.tracer.Start(ctx, "GetAnonymous", trace.WithAttributes(
 		attribute.String("mcp.url", targetURL.String()),
@@ -128,7 +144,7 @@ func (f *connFactory) GetAnonymous(
 	defer span.End()
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(f.buildAnonymousTransport())
+	client := newHTTPClient(f.buildAnonymousTransport(isInternal))
 
 	session, discovered, err := autoConnectProtocol(
 		clientCtx, targetURL.String(), client, protocol,
@@ -139,6 +155,7 @@ func (f *connFactory) GetAnonymous(
 
 func (f *connFactory) GetPartiallyAuthorized(
 	ctx context.Context, targetURL *url.URL, token *oauth2.Token, protocol tools.Protocol,
+	isInternal bool,
 ) (*asyncClient, error) {
 	ctx, span := f.tracer.Start(ctx, "GetPartiallyAuthorized", trace.WithAttributes(
 		attribute.String("mcp.url", targetURL.String()),
@@ -152,7 +169,7 @@ func (f *connFactory) GetPartiallyAuthorized(
 	}
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(f.buildTemporaryAuthorizedTransport(token))
+	client := newHTTPClient(f.buildTempAuthTransport(token, isInternal))
 
 	session, discovered, err := autoConnectProtocol(
 		clientCtx, targetURL.String(), client, protocol,
@@ -199,7 +216,9 @@ func (f *connFactory) GetAuthorized(
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
 	client := newHTTPClient(
-		f.buildAuthorizedTransport(clientCtx, accountID, token, server.AuthConfig()),
+		f.buildAuthorizedTransport(
+			clientCtx, accountID, token, server.AuthConfig(), server.Internal(),
+		),
 	)
 
 	session, discovered, err := autoConnectProtocol(

@@ -312,7 +312,14 @@ linters:
         - ".+/internal/domains/cynosure/ports\\.ObserveStack$"
         - ".+/internal/domains/cynosure/ports/.*\\.Port(Read|Write|Wrapped)?$"
         - ".+/internal/domains/cynosure/ports\\..+$"
+        - ".+/internal/domains/cynosure/primitives/messages\\.Message$"
         - "golang\\.org/x/oauth2\\.TokenSource"
+
+        # bug in linter: for some reason it always report that any function
+        # returning it, even with nolint directive. Ignoring it as not extremely
+        # important (yet annoying).
+        - "^github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi\\.We\
+          bhookInterface$"
 
     nestif:
       min-complexity: 2

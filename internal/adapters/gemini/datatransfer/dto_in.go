@@ -161,7 +161,6 @@ func processTextPart(
 	return []messages.Message{msg}, "", nil
 }
 
-//nolint:ireturn // conversion to domain object
 func processFuncCall(
 	call *genai.FunctionCall,
 	thought string,
@@ -209,7 +208,6 @@ func marshalArgs(rawArgs map[string]any) (map[string]json.RawMessage, error) {
 	return args, nil
 }
 
-//nolint:ireturn // conversion to domain object
 func processFuncResp(resp *genai.FunctionResponse) (messages.Message, error) {
 	var output any = resp.Response
 	if out, ok := resp.Response["output"]; ok {

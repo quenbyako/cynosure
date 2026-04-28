@@ -24,6 +24,7 @@ type ServerConfig struct {
 	// default protocol is a type of protocol that vas detected on server.
 	// Value MAY be empty (invalid)
 	protocol tools.Protocol
+	internal bool
 	_valid   bool
 }
 
@@ -47,6 +48,10 @@ func WithProtocol(protocol tools.Protocol) ServerConfigOption {
 	return func(c *ServerConfig) { c.protocol = protocol }
 }
 
+func WithInternal(internal bool) ServerConfigOption {
+	return func(c *ServerConfig) { c.internal = internal }
+}
+
 func NewServerConfig(
 	id ids.ServerID,
 	link *url.URL,
@@ -59,6 +64,7 @@ func NewServerConfig(
 		configExpiration: time.Time{},
 		pendingEvents:    nil,
 		protocol:         0,
+		internal:         false,
 		_valid:           false,
 	}
 	for _, opt := range opts {
@@ -123,6 +129,7 @@ type ServerConfigReadOnly interface {
 	ConfigExpiration() time.Time
 	Protocol() (tools.Protocol, bool)
 	PreferredProtocol() tools.Protocol
+	Internal() bool
 }
 
 func (c *ServerConfig) ID() ids.ServerID { return c.id }
@@ -145,9 +152,9 @@ func (c *ServerConfig) Protocol() (tools.Protocol, bool) {
 	return c.protocol, c.protocol.Valid()
 }
 
-func (c *ServerConfig) PreferredProtocol() tools.Protocol {
-	return c.protocol
-}
+func (c *ServerConfig) PreferredProtocol() tools.Protocol { return c.protocol }
+
+func (c *ServerConfig) Internal() bool { return c.internal }
 
 // WRITE
 

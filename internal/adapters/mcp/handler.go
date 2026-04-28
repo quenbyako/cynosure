@@ -143,7 +143,9 @@ func getAuthorized(
 func getAnonymous(
 	ctx context.Context, factory *connFactory, server entities.ServerConfigReadOnly,
 ) (*asyncClient, error) {
-	client, err := factory.GetAnonymous(ctx, server.SSELink(), server.PreferredProtocol())
+	client, err := factory.GetAnonymous(
+		ctx, server.SSELink(), server.PreferredProtocol(), server.Internal(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get anonymous: %w", err)
 	}

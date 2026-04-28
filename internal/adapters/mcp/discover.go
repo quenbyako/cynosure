@@ -26,7 +26,7 @@ func (h *Handler) DiscoverTools(
 ) ([]tools.RawTool, error) {
 	params := toolclient.DiscoverToolsParams(opts...)
 
-	client, err := h.getDiscoveryClient(ctx, mcpURL, params.Token())
+	client, err := h.getDiscoveryClient(ctx, mcpURL, params.Token(), params.Internal())
 	if err != nil {
 		return nil, MapError(err)
 	}
@@ -65,13 +65,13 @@ func (h *Handler) convertMCPTools(
 }
 
 func (h *Handler) getDiscoveryClient(
-	ctx context.Context, targetURL *url.URL, token *oauth2.Token,
+	ctx context.Context, targetURL *url.URL, token *oauth2.Token, internal bool,
 ) (*asyncClient, error) {
 	if token == nil {
-		return h.factory.GetAnonymous(ctx, targetURL, tools.ProtocolUnknown)
+		return h.factory.GetAnonymous(ctx, targetURL, tools.ProtocolUnknown, internal)
 	}
 
-	return h.factory.GetPartiallyAuthorized(ctx, targetURL, token, tools.ProtocolUnknown)
+	return h.factory.GetPartiallyAuthorized(ctx, targetURL, token, tools.ProtocolUnknown, internal)
 }
 
 func convertMCPTool(

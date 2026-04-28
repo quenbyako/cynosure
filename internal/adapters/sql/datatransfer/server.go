@@ -33,6 +33,7 @@ func ServerInfoFromDB(row *db.GetServerInfoRow) (*entities.ServerConfig, error) 
 		row.TokenUrl,
 		row.Scopes,
 		timeFromPgTypestamp(row.Expiration),
+		row.Internal,
 	)
 }
 
@@ -54,6 +55,7 @@ func ServerInfoListFromDB(row *db.ListServersRow) (*entities.ServerConfig, error
 		row.TokenUrl,
 		row.Scopes,
 		timeFromPgTypestamp(row.Expiration),
+		row.Internal,
 	)
 }
 
@@ -61,6 +63,7 @@ func mapServerConfig(
 	id ids.ServerID, urlStr string,
 	clientID, clientSecret, redirectURL, authURL, tokenURL *string,
 	scopes []string, expiration *time.Time,
+	internal bool,
 ) (*entities.ServerConfig, error) {
 	sse, err := url.Parse(urlStr)
 	if err != nil {
@@ -75,6 +78,7 @@ func mapServerConfig(
 	opts := []entities.ServerConfigOption{
 		entities.WithAuthConfig(auth),
 		entities.WithProtocol(tools.ProtocolUnknown),
+		entities.WithInternal(internal),
 	}
 
 	if expiration != nil {
