@@ -247,3 +247,43 @@ func TestShutdown(t *testing.T) {
 	err = envParam.Shutdown(context.Background(), &core.ShutdownData{})
 	assert.NoError(t, err)
 }
+
+func TestRoundTrip_SSRF(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := parseEnv[httpclient.Client](t.Context(), server.URL+"#ssrf=true")
+	require.NoError(t, err)
+
+	envParam, ok := client.(core.EnvParam)
+	require.True(t, ok)
+
+	err = envParam.Configure(t.Context(), &core.ConfigureData{
+		AppCert: tls.Certificate{},
+		Secrets: nil,
+		Metric:  core.NoopMetrics(),
+		Trace:   core.NoopMetrics(),
+		Logger:  core.NoopMetrics(),
+		Pool:    nil,
+		Version: core.AppVersion{},
+	})
+	require.NoError(t, err)
+
+	req, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		server.URL,
+		http.NoBody,
+	)
+	require.NoError(t, err)
+
+	resp, err := client.RoundTrip(req)
+	if err == nil {
+		_ = resp.Body.Close() //nolint:errcheck // tested
+	}
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "prohibited IP address")
+}

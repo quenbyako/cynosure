@@ -269,6 +269,8 @@ linters:
         - w http.ResponseWriter
         - wg *sync.WaitGroup
         - wg sync.WaitGroup
+        - ip netip.Addr
+        - ip net.IP
     funlen:
       ignore-comments: true
       # default 60
