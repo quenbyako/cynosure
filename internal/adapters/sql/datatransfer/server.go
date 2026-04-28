@@ -33,6 +33,7 @@ func ServerInfoFromDB(row *db.GetServerInfoRow) (*entities.ServerConfig, error) 
 		row.TokenUrl,
 		row.Scopes,
 		timeFromPgTypestamp(row.Expiration),
+		row.Internal,
 	)
 }
 
@@ -54,6 +55,7 @@ func ServerInfoListFromDB(row *db.ListServersRow) (*entities.ServerConfig, error
 		row.TokenUrl,
 		row.Scopes,
 		timeFromPgTypestamp(row.Expiration),
+		row.Internal,
 	)
 }
 
@@ -61,6 +63,7 @@ func mapServerConfig(
 	id ids.ServerID, urlStr string,
 	clientID, clientSecret, redirectURL, authURL, tokenURL *string,
 	scopes []string, expiration *time.Time,
+	internal bool,
 ) (*entities.ServerConfig, error) {
 	sse, err := url.Parse(urlStr)
 	if err != nil {
@@ -72,21 +75,31 @@ func mapServerConfig(
 		return nil, err
 	}
 
+	cfg, err := entities.NewServerConfig(
+		id, sse,
+		buildServerOpts(auth, expiration, internal)...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("new server config: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func buildServerOpts(
+	auth *oauth2.Config, expiration *time.Time, internal bool,
+) []entities.ServerConfigOption {
 	opts := []entities.ServerConfigOption{
 		entities.WithAuthConfig(auth),
 		entities.WithProtocol(tools.ProtocolUnknown),
+		entities.WithInternal(internal),
 	}
 
 	if expiration != nil {
 		opts = append(opts, entities.WithExpiration(*expiration))
 	}
 
-	cfg, err := entities.NewServerConfig(id, sse, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("new server config: %w", err)
-	}
-
-	return cfg, nil
+	return opts
 }
 
 // buildOAuthConfig builds OAuth2 config from database row fields.

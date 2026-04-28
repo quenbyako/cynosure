@@ -19,78 +19,93 @@ import (
 )
 
 const (
-	refreshTimeoutDefault = 10 * time.Second
-	noRetries             = -1
-	keepAliveInterval     = 1 * time.Second
+	noRetries         = -1
+	keepAliveInterval = 1 * time.Second
 )
 
 type connFactory struct {
-	transport      http.RoundTripper
-	tracer         trace.Tracer
-	storage        SaveTokenFunc
-	refreshTimeout time.Duration
+	internalTransport      http.RoundTripper
+	externalTransport      http.RoundTripper
+	tracer                 trace.Tracer
+	tokenSourceConstructor TokenSourceConstructor
 }
 
 func NewConnectionFactory(
-	storage SaveTokenFunc,
-	accountToken AccountTokenFunc,
+	ctx context.Context,
 	tracer trace.Tracer,
-	transport http.RoundTripper,
-) *connFactory {
-	if transport == nil {
-		transport = http.DefaultTransport
+	tokenSourcer TokenSourceConstructor,
+	externalTransport http.RoundTripper,
+	internalTransport http.RoundTripper,
+	unsafeExternalTransport bool,
+) (*connFactory, error) {
+	factory := &connFactory{
+		internalTransport:      internalTransport,
+		externalTransport:      externalTransport,
+		tracer:                 tracer,
+		tokenSourceConstructor: tokenSourcer,
 	}
 
-	return &connFactory{
-		transport:      transport,
-		storage:        storage,
-		refreshTimeout: refreshTimeoutDefault,
-		tracer:         tracer,
+	if err := factory.validate(ctx, unsafeExternalTransport); err != nil {
+		return nil, err
 	}
+
+	return factory, nil
 }
 
-func (f *connFactory) buildAnonymousTransport() http.RoundTripper {
-	return authorizeHeaderCollector(f.transport)
+func (f *connFactory) validate(ctx context.Context, unsafeExternalTransport bool) error {
+	if f.internalTransport == nil || f.externalTransport == nil {
+		return fmt.Errorf("factory initialization: %w", ErrTransportsRequired)
+	}
+
+	if err := verifySSRF(ctx, f.externalTransport); err != nil && !unsafeExternalTransport {
+		return fmt.Errorf("SSRF protection: %w", err)
+	}
+
+	return nil
 }
 
-func (f *connFactory) buildTemporaryAuthorizedTransport(token *oauth2.Token) http.RoundTripper {
+func (f *connFactory) buildAnonymousTransport(isInternal bool) http.RoundTripper {
+	base := f.externalTransport
+	if isInternal {
+		base = f.internalTransport
+	}
+
+	return authorizeHeaderCollector(base)
+}
+
+func (f *connFactory) buildTempAuthTransport(token *oauth2.Token, internal bool) http.RoundTripper {
+	base := f.externalTransport
+	if internal {
+		base = f.internalTransport
+	}
+
 	// adding forbidden checker to handle invalid credentials. Since it's
 	// impossible to automatically update token, we must throw it as an error.
 	return forbiddenChecker(&oauth2.Transport{
 		Source: oauth2.StaticTokenSource(token),
-		Base:   f.transport,
+		Base:   base,
 	})
 }
 
 func (f *connFactory) buildAuthorizedTransport(
-	ctx context.Context, account ids.AccountID, token *oauth2.Token, config *oauth2.Config,
-) http.RoundTripper {
-	// WithoutCancel preserves deadline but detaches from request cancellation.
-	// This ensures token refresh completes even if the user cancels the request,
-	// but still respects timeout constraints.
-	source := oauth2.ReuseTokenSource(token, NewRefresher(
-		// TODO: проработать момент, как втянуть сюда контекст от
-		// адаптера, котрый всё закрывает, чтобы не было ситуации,
-		// когда токен обновляется, но адаптер уже закрылся. это
-		// конечно решает вопрос с таймаутом, но все равно это
-		// неправилыно абсолютно.
-		context.WithoutCancel(ctx),
-		token,
-		f.storage,
-		account,
-		config,
-		f.refreshTimeout,
-		func(
-			ctx context.Context, config *oauth2.Config, token *oauth2.Token,
-		) (*oauth2.Token, error) {
-			return config.TokenSource(ctx, token).Token()
-		},
-	))
+	id ids.AccountID, config *oauth2.Config, token *oauth2.Token, isInternal bool,
+) (http.RoundTripper, error) {
+	base := f.externalTransport
+	if isInternal {
+		base = f.internalTransport
+	}
+
+	tokenSource, err := f.tokenSourceConstructor(id, config, token, isInternal)
+	if err != nil {
+		return nil, fmt.Errorf("building token source: %w", err)
+	}
+
+	source := oauth2.ReuseTokenSource(token, tokenSource)
 
 	return &oauth2.Transport{
 		Source: source,
-		Base:   f.transport,
-	}
+		Base:   base,
+	}, nil
 }
 
 type asyncClient struct {
@@ -100,7 +115,7 @@ type asyncClient struct {
 }
 
 func (f *connFactory) GetAnonymous(
-	ctx context.Context, targetURL *url.URL, protocol tools.Protocol,
+	ctx context.Context, targetURL *url.URL, protocol tools.Protocol, isInternal bool,
 ) (*asyncClient, error) {
 	ctx, span := f.tracer.Start(ctx, "GetAnonymous", trace.WithAttributes(
 		attribute.String("mcp.url", targetURL.String()),
@@ -108,7 +123,7 @@ func (f *connFactory) GetAnonymous(
 	defer span.End()
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(f.buildAnonymousTransport())
+	client := newHTTPClient(f.buildAnonymousTransport(isInternal))
 
 	session, discovered, err := autoConnectProtocol(
 		clientCtx, targetURL.String(), client, protocol,
@@ -119,6 +134,7 @@ func (f *connFactory) GetAnonymous(
 
 func (f *connFactory) GetPartiallyAuthorized(
 	ctx context.Context, targetURL *url.URL, token *oauth2.Token, protocol tools.Protocol,
+	isInternal bool,
 ) (*asyncClient, error) {
 	ctx, span := f.tracer.Start(ctx, "GetPartiallyAuthorized", trace.WithAttributes(
 		attribute.String("mcp.url", targetURL.String()),
@@ -132,7 +148,7 @@ func (f *connFactory) GetPartiallyAuthorized(
 	}
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(f.buildTemporaryAuthorizedTransport(token))
+	client := newHTTPClient(f.buildTempAuthTransport(token, isInternal))
 
 	session, discovered, err := autoConnectProtocol(
 		clientCtx, targetURL.String(), client, protocol,
@@ -158,32 +174,28 @@ func validatePartiallyParams(u *url.URL, token *oauth2.Token, proto tools.Protoc
 }
 
 func (f *connFactory) GetAuthorized(
-	ctx context.Context,
-	accountID ids.AccountID,
-	server entities.ServerConfigReadOnly,
-	token *oauth2.Token,
-) (
-	*asyncClient,
-	error,
-) {
+	ctx context.Context, id ids.AccountID,
+	server entities.ServerConfigReadOnly, token *oauth2.Token,
+) (*asyncClient, error) {
 	ctx, span := f.tracer.Start(ctx, "GetAuthorized", trace.WithAttributes(
-		attribute.String("mcp.account_id", accountID.ID().String()),
+		attribute.String("mcp.account_id", id.ID().String()),
 		attribute.Bool("mcp.token_is_nil", token == nil),
 	))
 	defer span.End()
 
-	if err := validateAuthorizedParams(accountID, server, token); err != nil {
+	if err := validateAuthorizedParams(id, server, token); err != nil {
 		span.RecordError(err)
 		return nil, err
 	}
 
-	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(
-		f.buildAuthorizedTransport(clientCtx, accountID, token, server.AuthConfig()),
-	)
+	transport, err := f.buildAuthorizedTransport(id, server.AuthConfig(), token, server.Internal())
+	if err != nil {
+		return nil, err
+	}
 
+	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
 	session, discovered, err := autoConnectProtocol(
-		clientCtx, server.SSELink().String(), client, server.PreferredProtocol(),
+		clientCtx, server.SSELink().String(), newHTTPClient(transport), server.PreferredProtocol(),
 	)
 
 	return f.finalizeConnect(clientCancel, session, discovered, err)

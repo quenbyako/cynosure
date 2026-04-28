@@ -246,7 +246,6 @@ type ThreadEventMessageAdded struct {
 	message messages.Message
 }
 
-//nolint:ireturn // returns polymorphic message type
 func (e ThreadEventMessageAdded) Message() messages.Message { return e.message }
 
 func (e ThreadEventMessageAdded) undo(c *Thread) {

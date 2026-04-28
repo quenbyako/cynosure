@@ -75,6 +75,7 @@ func defaultDiscoverToolsParams() discoverToolsParams {
 		toolIDBuilder: func(account ids.AccountID, name string) (ids.ToolID, error) {
 			return ids.RandomToolID(account)
 		},
-		token: nil,
+		token:          nil,
+		serverInternal: false,
 	}
 }

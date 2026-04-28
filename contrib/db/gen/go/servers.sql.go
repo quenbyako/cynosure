@@ -101,7 +101,7 @@ func (q *Queries) DeleteServer(ctx context.Context, id uuid.UUID) error {
 
 const getServerInfo = `-- name: GetServerInfo :one
 SELECT
-	s.id, s.url, s.deleted_at, s.embedding,
+	s.id, s.url, s.deleted_at, s.embedding, s.internal,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -113,6 +113,7 @@ type GetServerInfoRow struct {
 	Url          string
 	DeletedAt    pgtype.Timestamptz
 	Embedding    *pgvector.Vector
+	Internal     bool
 	ClientID     *string
 	ClientSecret *string
 	RedirectUrl  *string
@@ -130,6 +131,7 @@ func (q *Queries) GetServerInfo(ctx context.Context, id uuid.UUID) (GetServerInf
 		&i.Url,
 		&i.DeletedAt,
 		&i.Embedding,
+		&i.Internal,
 		&i.ClientID,
 		&i.ClientSecret,
 		&i.RedirectUrl,
@@ -143,7 +145,7 @@ func (q *Queries) GetServerInfo(ctx context.Context, id uuid.UUID) (GetServerInf
 
 const listServers = `-- name: ListServers :many
 SELECT
-	s.id, s.url, s.deleted_at, s.embedding,
+	s.id, s.url, s.deleted_at, s.embedding, s.internal,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -156,6 +158,7 @@ type ListServersRow struct {
 	Url          string
 	DeletedAt    pgtype.Timestamptz
 	Embedding    *pgvector.Vector
+	Internal     bool
 	ClientID     *string
 	ClientSecret *string
 	RedirectUrl  *string
@@ -183,6 +186,7 @@ func (q *Queries) ListServers(ctx context.Context) ([]ListServersRow, error) {
 			&i.Url,
 			&i.DeletedAt,
 			&i.Embedding,
+			&i.Internal,
 			&i.ClientID,
 			&i.ClientSecret,
 			&i.RedirectUrl,
@@ -203,7 +207,7 @@ func (q *Queries) ListServers(ctx context.Context) ([]ListServersRow, error) {
 
 const lookupByURL = `-- name: LookupByURL :one
 SELECT
-	s.id, s.url, s.deleted_at, s.embedding,
+	s.id, s.url, s.deleted_at, s.embedding, s.internal,
 	oc.client_id, oc.client_secret, oc.redirect_url, oc.auth_url, oc.token_url, oc.expiration, oc.scopes
 FROM agents.mcp_servers s
 LEFT JOIN agents.oauth_configs oc ON s.id = oc.server_id
@@ -215,6 +219,7 @@ type LookupByURLRow struct {
 	Url          string
 	DeletedAt    pgtype.Timestamptz
 	Embedding    *pgvector.Vector
+	Internal     bool
 	ClientID     *string
 	ClientSecret *string
 	RedirectUrl  *string
@@ -238,6 +243,7 @@ func (q *Queries) LookupByURL(ctx context.Context, url string) (LookupByURLRow, 
 		&i.Url,
 		&i.DeletedAt,
 		&i.Embedding,
+		&i.Internal,
 		&i.ClientID,
 		&i.ClientSecret,
 		&i.RedirectUrl,

@@ -123,6 +123,10 @@ func newHandler(
 	return &handler
 }
 
+func (h *Handler) Running() bool {
+	return h.pool != nil && h.pool.Running()
+}
+
 // Run starts the handler and blocks until the context is canceled or the
 // handler fails.
 func (h *Handler) Run(ctx context.Context) error {

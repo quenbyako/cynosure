@@ -2,6 +2,7 @@ package mcp_test
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"testing"
 
@@ -20,12 +21,6 @@ func TestToolClientSuite(t *testing.T) {
 		accountTokens map[ids.AccountID]*oauth2.Token
 	)
 
-	// SaveTokenFunc mock
-	storage := func(ctx context.Context, account ids.AccountID, token *oauth2.Token) error {
-		accountTokens[account] = token
-		return nil
-	}
-
 	// AccountTokenFunc mock
 	accountToken := func(
 		ctx context.Context,
@@ -34,7 +29,11 @@ func TestToolClientSuite(t *testing.T) {
 		return serverConfig, accountTokens[account], nil
 	}
 
-	handler, err := New(storage, accountToken, WithMaxConnSize(5000))
+	handler, err := New(t.Context(), accountToken, noopRefreshToken,
+		WithMaxConnSize(5000),
+		WithUnsafeExternalHTTPClient(http.DefaultTransport),
+		WithInternalHTTPClient(http.DefaultTransport),
+	)
 	if err != nil {
 		t.Fatalf("failed to create handler: %v", err)
 	}

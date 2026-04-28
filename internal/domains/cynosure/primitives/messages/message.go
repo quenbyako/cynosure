@@ -87,7 +87,6 @@ func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Messag
 	}
 }
 
-//nolint:ireturn // intentional interface return
 func handleNextMessage(
 	current Message,
 	next Message,
@@ -120,7 +119,6 @@ func handleNextMessage(
 	return merged, false
 }
 
-//nolint:ireturn // intentional interface return
 func handleIterError(
 	current Message,
 	next Message,
@@ -137,8 +135,6 @@ func handleIterError(
 }
 
 // MergeMessages combines two messages into one if they are compatible.
-//
-//nolint:ireturn // intentional interface return
 func MergeMessages(current, next Message) (Message, error) {
 	switch next := next.(type) {
 	case MessageUser:
@@ -150,7 +146,6 @@ func MergeMessages(current, next Message) (Message, error) {
 	}
 }
 
-//nolint:ireturn // intentional interface return
 func mergeUserMessages(current Message, next MessageUser) (Message, error) {
 	currentMsg, ok := current.(MessageUser)
 	if !ok {
@@ -172,7 +167,6 @@ func mergeUserMessages(current Message, next MessageUser) (Message, error) {
 	return res, nil
 }
 
-//nolint:ireturn // intentional interface return
 func mergeAssistantMessages(current Message, next MessageAssistant) (Message, error) {
 	currentMsg, ok := current.(MessageAssistant)
 	if !ok {

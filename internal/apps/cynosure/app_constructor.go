@@ -13,6 +13,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
+	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
@@ -30,7 +31,8 @@ type (
 	appParams struct {
 		telegram           telegramParams
 		gemini             geminiParams
-		mcpClient          http.RoundTripper
+		internalMcpClient  http.RoundTripper
+		externalMcpClient  http.RoundTripper
 		observability      core.Metrics
 		grpcAddr           grpc.ServiceRegistrar
 		storage            storageParams
@@ -81,7 +83,7 @@ type (
 	}
 )
 
-func (p *appParams) validate() error {
+func (p *appParams) validate(ctx context.Context) error {
 	if len(p.constructionErrors) > 0 {
 		return errors.Join(p.constructionErrors...)
 	}
@@ -93,6 +95,7 @@ func (p *appParams) validate() error {
 		p.validateStorage(),
 		p.validateInfra(),
 		p.validateRateLimit(),
+		p.validateMCPClient(ctx),
 	)
 }
 
@@ -165,6 +168,18 @@ func (p *appParams) validateInfra() error {
 func (p *appParams) validateRateLimit() error {
 	if p.rateLimit.Period() <= 0 || p.rateLimit.Burst() <= 0 {
 		return MissingParamError("rate limit")
+	}
+
+	return nil
+}
+
+func (p *appParams) validateMCPClient(_ context.Context) error {
+	if p.externalMcpClient == nil {
+		return MissingParamError("externalMcpClient")
+	}
+
+	if p.internalMcpClient == nil {
+		return MissingParamError("internalMcpClient")
 	}
 
 	return nil
@@ -261,8 +276,10 @@ func WithMCP(registrar func(http.Handler)) AppOpts {
 	return func(p *appParams) { p.mcpAddr = registrar }
 }
 
-func WithMCPClient(client http.RoundTripper) AppOpts {
-	return func(p *appParams) { p.mcpClient = client }
+func WithMCPTransports(internal, external http.RoundTripper) AppOpts {
+	return func(p *appParams) {
+		p.internalMcpClient, p.externalMcpClient = internal, external
+	}
 }
 
 func WithAdminMCPID(id string) AppOpts {
@@ -310,7 +327,8 @@ func defaultParams() appParams {
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
 		rateLimit:          ratelimit.Policy{},
-		mcpClient:          http.DefaultTransport,
+		internalMcpClient:  nil,
+		externalMcpClient:  nil,
 	}
 }
 
@@ -356,7 +374,7 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 		opt(&params)
 	}
 
-	if err := params.validate(); err != nil {
+	if err := params.validate(ctx); err != nil {
 		return nil, fmt.Errorf("validating params: %w", err)
 	}
 
@@ -367,6 +385,7 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 func connectDependencies(
 	params *appParams,
 	ratelimiter *inmemory.RateLimiter,
+	refreshConstructor *refreshtoken.RefreshConstructor,
 	accountsUsecase *accounts.Usecase,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
@@ -377,6 +396,7 @@ func connectDependencies(
 	return &App{
 		telegramTaskRunner: telegramController.runFunc,
 		accountsTaskRunner: accountsUsecase.Run,
+		tokenRefresherRun:  refreshConstructor.Run,
 		ratelimiterCleanup: ratelimiter.Cleanup,
 		mcpAdapterClose:    mcpHandler.Close,
 	}, nil

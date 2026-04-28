@@ -2,14 +2,12 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/quenbyako/core"
 	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -18,16 +16,17 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-const (
-	pkgName = "github.com/quenbyako/cynosure/internal/adapters/mcp"
-)
-
 type (
 	AccountTokenFunc func(context.Context, ids.AccountID) (
 		entities.ServerConfigReadOnly, *oauth2.Token, error,
 	)
 	ServerInfoFunc func(context.Context, ids.ServerID) (entities.ServerConfigReadOnly, error)
 	SaveTokenFunc  func(context.Context, ids.AccountID, *oauth2.Token) error
+
+	// TokenSourceConstructor is a function that constructs an OAuth 2.0 source.
+	TokenSourceConstructor func(
+		ids.AccountID, *oauth2.Config, *oauth2.Token, bool,
+	) (oauth2.TokenSource, error)
 )
 
 const (
@@ -58,44 +57,23 @@ func (h *Handler) ToolClient() toolclient.PortWrapped {
 	return toolclient.Wrap(h, h.tracer)
 }
 
-type handlerParams struct {
-	traceProvider core.Metrics
-	httpClient    http.RoundTripper
-	maxConnSize   uint
-}
-
-type HandlerOption func(*handlerParams)
-
-func WithObservability(tp core.Metrics) HandlerOption {
-	return func(p *handlerParams) { p.traceProvider = tp }
-}
-
-func WithMaxConnSize(size uint) HandlerOption {
-	return func(p *handlerParams) { p.maxConnSize = size }
-}
-
-func WithHTTPClient(client http.RoundTripper) HandlerOption {
-	return func(p *handlerParams) { p.httpClient = client }
-}
-
-//nolint:err113 // new may return unhandlable errors.
 func New(
-	storage SaveTokenFunc,
+	ctx context.Context,
 	accountToken AccountTokenFunc,
+	refreshToken TokenSourceConstructor,
 	opts ...HandlerOption,
 ) (*Handler, error) {
-	if storage == nil {
-		return nil, errors.New("storage is required")
-	}
-
-	if accountToken == nil {
-		return nil, errors.New("accountToken is required")
+	if err := validateNewParams(accountToken, refreshToken); err != nil {
+		return nil, err
 	}
 
 	params := buildHandlerParams(opts...)
-
 	tracer := ports.StackFromCore(params.traceProvider, pkgName)
-	connFactory := NewConnectionFactory(storage, accountToken, tracer.Tracer(), params.httpClient)
+
+	connFactory, err := newHandlerFactory(ctx, tracer.Tracer(), refreshToken, &params)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Handler{
 		clients: cache.New(
@@ -110,6 +88,39 @@ func New(
 	}, nil
 }
 
+func newHandlerFactory(
+	ctx context.Context,
+	tracer trace.Tracer,
+	refreshToken TokenSourceConstructor,
+	params *handlerParams,
+) (*connFactory, error) {
+	connFactory, err := NewConnectionFactory(
+		ctx,
+		tracer,
+		refreshToken,
+		params.externalTransport,
+		params.internalTransport,
+		params.unsafeExternalClient,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create connection factory: %w", err)
+	}
+
+	return connFactory, nil
+}
+
+func validateNewParams(accountToken AccountTokenFunc, refreshToken TokenSourceConstructor) error {
+	if accountToken == nil {
+		return fmt.Errorf("validation: %w", ports.ErrInternal("accountToken is required"))
+	}
+
+	if refreshToken == nil {
+		return fmt.Errorf("validation: %w", ports.ErrInternal("refreshToken is required"))
+	}
+
+	return nil
+}
+
 // Close closes the handler and all active MCP sessions.
 func (h *Handler) Close() error {
 	if err := h.clients.Close(); err != nil {
@@ -117,20 +128,6 @@ func (h *Handler) Close() error {
 	}
 
 	return nil
-}
-
-func buildHandlerParams(opts ...HandlerOption) handlerParams {
-	params := handlerParams{
-		traceProvider: core.NoopMetrics(),
-		maxConnSize:   defaultMaxConnSize,
-		httpClient:    http.DefaultTransport,
-	}
-
-	for _, opt := range opts {
-		opt(&params)
-	}
-
-	return params
 }
 
 func cacheConstructor(
@@ -170,7 +167,9 @@ func getAuthorized(
 func getAnonymous(
 	ctx context.Context, factory *connFactory, server entities.ServerConfigReadOnly,
 ) (*asyncClient, error) {
-	client, err := factory.GetAnonymous(ctx, server.SSELink(), server.PreferredProtocol())
+	client, err := factory.GetAnonymous(
+		ctx, server.SSELink(), server.PreferredProtocol(), server.Internal(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get anonymous: %w", err)
 	}

@@ -36,6 +36,7 @@ type AgentsMcpServer struct {
 	DeletedAt pgtype.Timestamptz
 	Url       string
 	Embedding *pgvector.Vector
+	Internal  bool
 }
 
 type AgentsMcpTool struct {

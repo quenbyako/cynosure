@@ -41,14 +41,21 @@ func (h *Handler) RegisterClient(
 		return nil, time.Time{}, errInternalValidation("redirect url is nil")
 	}
 
-	suggestedURL := oauthhandler.RegisterClientParams(opts...).SuggestedProtectedResource()
+	params := oauthhandler.RegisterClientParams(opts...)
 
-	client, err := oauth.NewClientWithResponses("", oauth.WithHTTPClient(h.client))
+	client := h.externalClient
+	if params.Internal() {
+		client = h.internalClient
+	}
+
+	oauthClient, err := oauth.NewClientWithResponses("", oauth.WithHTTPClient(client))
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("failed to create oauth client: %w", err)
 	}
 
-	return h.runRegistration(ctx, client, originURL, clientName, redirect, suggestedURL)
+	return h.runRegistration(
+		ctx, oauthClient, originURL, clientName, redirect, params.SuggestedProtectedResource(),
+	)
 }
 
 // runRegistration sequences the three registration steps and wires their

@@ -88,7 +88,6 @@ func (am MessageAssistant) Content() string          { return am.content }
 func (am MessageAssistant) AgentID() ids.AgentID     { return am.agentID }
 func (am MessageAssistant) ProtocolMetadata() []byte { return bytes.Clone(am.protocolMetadata) }
 
-//nolint:ireturn // assistant message format
 func (am MessageAssistant) Format(
 	ctx context.Context,
 	vs map[string]any,

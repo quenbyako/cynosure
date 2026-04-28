@@ -41,7 +41,8 @@ type Config struct {
 	OryClientID        string            `env:"CYNOSURE_ORY_CLIENT_ID"`
 	OryClientSecret    secrets.Secret    `env:"CYNOSURE_ORY_CLIENT_SECRET"`
 	OryClient          httpclient.Client `env:"CYNOSURE_ORY_API"           default:"#timeout=30s"`
-	MCPClient          httpclient.Client `env:"CYNOSURE_MCP_API"           default:"#timeout=30s"`
+	InternalMCPClient  httpclient.Client `env:"CYNOSURE_MCP_API_INTERNAL"  default:"#timeout=30s"`
+	ExternalMCPClient  httpclient.Client `env:"CYNOSURE_MCP_API_EXTERNAL"  default:"#timeout=30s&ssrf=true"`
 	AdminMCPServerID   string            `env:"CYNOSURE_ADMIN_MCP_SERVER_ID"`
 	OAuthRedirectURL   *url.URL          `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
 	RateLimit          ratelimit.Policy  `env:"CYNOSURE_RATELIMIT"          default:"20/1h"`

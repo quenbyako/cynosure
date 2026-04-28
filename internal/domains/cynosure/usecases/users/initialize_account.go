@@ -176,9 +176,15 @@ func (u *Usecase) discoverTools(ctx context.Context, account entities.AccountRea
 		return fmt.Errorf("getting server info: %w", err)
 	}
 
-	rawTools, err := u.toolClient.DiscoverTools(
-		ctx, server.SSELink(), account.ID(), account.Name(), account.Description(),
+	opts := []toolclient.DiscoverToolsOption{
 		toolclient.WithAuthToken(account.Token()),
+	}
+	if server.Internal() {
+		opts = append(opts, toolclient.WithInternalTransport())
+	}
+
+	rawTools, err := u.toolClient.DiscoverTools(
+		ctx, server.SSELink(), account.ID(), account.Name(), account.Description(), opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("mcp discovery: %w", err)

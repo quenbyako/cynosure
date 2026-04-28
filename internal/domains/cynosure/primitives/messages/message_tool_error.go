@@ -76,7 +76,6 @@ func (tm MessageToolError) ToolName() string         { return tm.toolName }
 func (tm MessageToolError) ToolCallID() string       { return tm.toolCallID }
 func (tm MessageToolError) Content() json.RawMessage { return tm.content }
 
-//nolint:ireturn // tool error format
 func (tm MessageToolError) Format(context.Context, map[string]any, FormatType) (Message, error) {
 	return nil, ErrToolMessageNoFormat
 }

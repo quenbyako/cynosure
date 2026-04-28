@@ -60,7 +60,6 @@ func mapThreadMessages(rows []db.GetThreadWithMessagesRow) ([]messages.Message, 
 	return msgs, nil
 }
 
-//nolint:ireturn // returning interface is intended for polymorphic messages
 func messageFromRow(row *db.GetThreadWithMessagesRow) (messages.Message, error) {
 	if row.MsgType == nil {
 		return nil, errors.ErrMessageTypeNil
@@ -86,7 +85,6 @@ func messageFromRow(row *db.GetThreadWithMessagesRow) (messages.Message, error) 
 	}
 }
 
-//nolint:ireturn // returning interface is intended for polymorphic messages
 func mapUserMessage(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages.Message, error) {
 	if row.UserContent == nil {
 		return nil, errors.ErrUserContentNil
@@ -101,7 +99,6 @@ func mapUserMessage(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages
 	return msg, nil
 }
 
-//nolint:ireturn // polymorphic messages
 func mapAssistantMessage(
 	row *db.GetThreadWithMessagesRow,
 	mergeTag uint64,
@@ -130,7 +127,6 @@ func mapAssistantMessage(
 	return msg, nil
 }
 
-//nolint:ireturn // returning interface is intended for polymorphic messages
 func mapToolRequest(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages.Message, error) {
 	if row.ReqToolName == nil || row.ReqToolCallID == nil || row.ReqArguments == nil {
 		return nil, errors.ErrToolRequestFieldsMissing
@@ -156,7 +152,6 @@ func mapToolRequest(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages
 	return msg, nil
 }
 
-//nolint:ireturn // returning interface is intended for polymorphic messages
 func mapToolResult(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages.Message, error) {
 	if row.ResultContent == nil || row.ResultToolCallID == nil || row.ResultToolName == nil {
 		return nil, errors.ErrToolResultContentMissing // combine checks to shorten

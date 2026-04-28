@@ -49,6 +49,7 @@ type Port interface {
 	//  - [ErrInvalidCredentials] if refresh token is invalid or expired.
 	RefreshToken(
 		ctx context.Context, config *oauth2.Config, token *oauth2.Token,
+		opts ...RefreshTokenOption,
 	) (*oauth2.Token, error)
 
 	// Exchange exchanges authorization code for access token. Supports PKCE
@@ -69,5 +70,12 @@ type Port interface {
 func defaultRegisterClientParams() *registerClientParams {
 	return &registerClientParams{
 		suggestedProtectedResource: nil,
+		internal:                   false,
+	}
+}
+
+func defaultRefreshTokenParams() *refreshTokenParams {
+	return &refreshTokenParams{
+		internal: false,
 	}
 }

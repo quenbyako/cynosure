@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/quenbyako/core"
+	"github.com/quenbyako/cynosure/contrib/core-params/httpclient/ssrf"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
@@ -42,6 +44,7 @@ type httpClientWrapper struct {
 	closeConnections func()
 	timeout          time.Duration
 	rateLimit        ratelimit.Policy
+	ssrf             bool
 }
 
 var (
@@ -57,23 +60,10 @@ func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		msg := "unsupported http client scheme %q"
-
-		return nil, fmt.Errorf(msg, parsedURL.Scheme) //nolint:err113 // industrial param
+		return nil, ErrUnsupportedScheme(parsedURL.Scheme)
 	}
 
-	var defaultBase *http.Transport
-	if t, ok := http.DefaultTransport.(*http.Transport); ok {
-		defaultBase = t.Clone()
-	}
-
-	wrapper := &httpClientWrapper{
-		addr:             parsedURL,
-		timeout:          0,
-		rateLimit:        ratelimit.Policy{},
-		chain:            defaultBase,
-		closeConnections: func() {},
-	}
+	wrapper := newDefaultWrapper(parsedURL)
 
 	if parsedURL.Fragment != "" {
 		if err := parseFragment(wrapper, parsedURL.Fragment); err != nil {
@@ -82,6 +72,34 @@ func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 	}
 
 	return wrapper, nil
+}
+
+func newDefaultWrapper(addr *url.URL) *httpClientWrapper {
+	//nolint:exhaustruct // default dialer
+	defaultDialer := &net.Dialer{
+		Timeout:   defaultDialTimeout,
+		KeepAlive: defaultKeepAlive,
+	}
+
+	//nolint:exhaustruct // too many optional parameters
+	defaultTransport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           defaultDialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          defaultMaxIdleConns,
+		IdleConnTimeout:       defaultIdleConnTimeout,
+		TLSHandshakeTimeout:   defaultTLSHandshakeTimeout,
+		ExpectContinueTimeout: defaultExpectContinueTimeout,
+	}
+
+	return &httpClientWrapper{
+		addr:             addr,
+		timeout:          0,
+		rateLimit:        ratelimit.Policy{},
+		chain:            defaultTransport,
+		closeConnections: func() {},
+		ssrf:             false,
+	}
 }
 
 func parseFragment(wrapper *httpClientWrapper, fragment string) error {
@@ -105,18 +123,32 @@ func parseFragment(wrapper *httpClientWrapper, fragment string) error {
 		}
 	}
 
+	if s := params.Get("ssrf"); s == "true" {
+		wrapper.ssrf = true
+	}
+
 	return nil
 }
 
 func (h *httpClientWrapper) Configure(_ context.Context, data *core.ConfigureData) error {
+	var control func(network, address string, c syscall.RawConn) error
+
+	if h.ssrf {
+		control = ssrf.New(ssrf.WithAnyPort()).Safe
+	}
+
+	//nolint:exhaustruct // standard dialer
+	dialer := &net.Dialer{
+		Timeout:   defaultDialTimeout,
+		KeepAlive: defaultKeepAlive,
+		Control:   control,
+	}
+
 	//nolint:exhaustruct // too many optional parameters
 	base := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		//nolint:exhaustruct // standard dialer
-		DialContext: (&net.Dialer{
-			Timeout:   defaultDialTimeout,
-			KeepAlive: defaultKeepAlive,
-		}).DialContext,
+		DialContext:           dialer.DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          defaultMaxIdleConns,
 		IdleConnTimeout:       defaultIdleConnTimeout,
@@ -167,7 +199,7 @@ func (h *httpClientWrapper) Shutdown(_ context.Context, _ *core.ShutdownData) er
 
 func (h *httpClientWrapper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if h.chain == nil {
-		return nil, errUnonfigured
+		return nil, errUnconfigured
 	}
 
 	ctx, cancel := h.prepareContext(req.Context())

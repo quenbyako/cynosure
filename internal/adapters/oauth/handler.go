@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/quenbyako/core"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -17,8 +16,9 @@ import (
 )
 
 type Handler struct {
-	tracer ports.ObserveStack
-	client *http.Client
+	tracer         ports.ObserveStack
+	internalClient *http.Client
+	externalClient *http.Client
 	// default scopes are using when there is no information about required
 	// scopes for getting data from specificed endpoint.
 	defaultScopes []string
@@ -29,8 +29,9 @@ var _ oauthhandler.Factory = (*Handler)(nil)
 func (h *Handler) OAuthHandler() oauthhandler.PortWrapped { return oauthhandler.Wrap(h, h.tracer) }
 
 type newParams struct {
-	client  http.RoundTripper
-	metrics core.Metrics
+	internalTransport http.RoundTripper
+	externalTransport http.RoundTripper
+	metrics           core.Metrics
 }
 
 type NewOption func(*newParams)
@@ -39,14 +40,18 @@ func WithObservability(m core.Metrics) NewOption {
 	return func(p *newParams) { p.metrics = m }
 }
 
-func WithHTTPClient(client http.RoundTripper) NewOption {
-	return func(p *newParams) { p.client = client }
+func WithTransports(internal, external http.RoundTripper) NewOption {
+	return func(p *newParams) {
+		p.internalTransport = internal
+		p.externalTransport = external
+	}
 }
 
 func New(defaultScopes []string, opts ...NewOption) *Handler {
 	params := newParams{
-		client:  http.DefaultTransport,
-		metrics: core.NoopMetrics(),
+		internalTransport: http.DefaultTransport,
+		externalTransport: http.DefaultTransport,
+		metrics:           core.NoopMetrics(),
 	}
 	for _, opt := range opts {
 		opt(&params)
@@ -55,11 +60,14 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 	tracer := ports.StackFromCore(params.metrics, pkgName)
 
 	return &Handler{
-		client: &http.Client{
-			Transport: otelhttp.NewTransport(
-				params.client,
-				otelhttp.WithTracerProvider(params.metrics),
-			),
+		internalClient: &http.Client{
+			Transport:     params.internalTransport,
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       time.Minute,
+		},
+		externalClient: &http.Client{
+			Transport:     params.externalTransport,
 			CheckRedirect: nil,
 			Jar:           nil,
 			Timeout:       time.Minute,
@@ -73,7 +81,7 @@ func New(defaultScopes []string, opts ...NewOption) *Handler {
 func (h *Handler) Exchange(
 	ctx context.Context, config *oauth2.Config, code string, verifier []byte,
 ) (*oauth2.Token, error) {
-	cfg := injectTransport(h.client, config)
+	cfg := injectTransport(h.externalClient, config)
 
 	token, err := cfg.Exchange(ctx, code, oauth2.SetAuthURLParam(
 		"code_verifier", base64.RawURLEncoding.EncodeToString(verifier),
@@ -85,9 +93,10 @@ func (h *Handler) Exchange(
 	return token, nil
 }
 
-// RefreshToken implements ports.OAuthHandler.
+// RefreshToken implements [oauthhandler.Port].
 func (h *Handler) RefreshToken(
 	ctx context.Context, config *oauth2.Config, token *oauth2.Token,
+	opts ...oauthhandler.RefreshTokenOption,
 ) (*oauth2.Token, error) {
 	if token == nil {
 		return nil, errInternalValidation("invalid token")
@@ -97,7 +106,14 @@ func (h *Handler) RefreshToken(
 		return nil, errInternalValidation("no refresh token available")
 	}
 
-	cfg := injectTransport(h.client, config)
+	params := oauthhandler.RefreshTokenParams(opts...)
+
+	client := h.externalClient
+	if params.Internal() {
+		client = h.internalClient
+	}
+
+	cfg := injectTransport(client, config)
 
 	newToken, err := cfg.TokenSource(ctx, token).Token()
 	if err != nil {

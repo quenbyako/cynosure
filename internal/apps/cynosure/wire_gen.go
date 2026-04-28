@@ -35,10 +35,11 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	accountStorage := ports.NewAccountStorage(adapter)
 	serverStorage := ports.NewServerStorage(adapter)
 	handler := newOAuthHandler(config)
 	portWrapped := oauthhandler.New(handler)
-	accountStorage := ports.NewAccountStorage(adapter)
+	refreshConstructor := newOauthRefresher(accountStorage, serverStorage, portWrapped)
 	toolStorage := ports.NewToolStorage(adapter)
 	baseLogger := newLogger(config)
 	geminiModel, err := newGeminiModel(ctx, config, baseLogger)
@@ -46,7 +47,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
-	mcpHandler, err := newMCPHandler(config, serverStorage, accountStorage)
+	mcpHandler, err := newMCPHandler(ctx, config, refreshConstructor)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app, err := connectDependencies(config, rateLimiter, usecase, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind, mcpHandler)
+	app, err := connectDependencies(config, rateLimiter, refreshConstructor, usecase, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind, mcpHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +101,7 @@ var (
 	geminiAdapter      = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
 	oauthAdapter       = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
 	mcpAdapter         = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
+	oauthRefresher     = wire.NewSet(newOauthRefresher)
 	oryAdapter         = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)))
 	ratelimiterAdapter = wire.NewSet(newRateLimiter, wire.Bind(new(ratelimiter.PortFactory), new(*inmemory.RateLimiter)))
 )
