@@ -51,7 +51,8 @@ var (
 	mcpAdapter = wire.NewSet(newMCPHandler,
 		wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)),
 	)
-	oryAdapter = wire.NewSet(newOryClient,
+	oauthRefresher = wire.NewSet(newOauthRefresher)
+	oryAdapter     = wire.NewSet(newOryClient,
 		wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)),
 	)
 	ratelimiterAdapter = wire.NewSet(newRateLimiter,
@@ -86,6 +87,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		sqlAdapter,
 		geminiAdapter,
 		mcpAdapter,
+		oauthRefresher,
 		oauthAdapter,
 		oryAdapter,
 		ratelimiterAdapter,

@@ -21,7 +21,6 @@ var (
 	ErrAccountIDIsInvalid     = errors.New("account id is invalid")
 	ErrServerIsNil            = errors.New("server is nil")
 	ErrAuthRequired           = errors.New("server requires auth, however, it's not provided")
-	ErrRefreshTokenNotSet     = errors.New("token expired and refresh token is not set")
 	ErrUnknownProtocol        = errors.New("unknown protocol")
 	ErrSSRFVerificationFailed = errors.New("SSRF verification failed")
 )

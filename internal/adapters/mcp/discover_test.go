@@ -25,14 +25,14 @@ func noopAccountToken(
 	return nil, nil, nil
 }
 
-func noopSaveToken(ctx context.Context, id ids.AccountID, t *oauth2.Token) error {
-	return nil
+func noopRefreshToken(_ ids.AccountID, _ *oauth2.Config, token *oauth2.Token, _ bool) (oauth2.TokenSource, error) {
+	return oauth2.StaticTokenSource(token), nil
 }
 
 func TestDiscoverTools(t *testing.T) {
 	mcpURL := setupMTLSTestServer(t)
 
-	handler, err := mcp.New(t.Context(), noopSaveToken, noopAccountToken,
+	handler, err := mcp.New(t.Context(), noopAccountToken, noopRefreshToken,
 		mcp.WithUnsafeExternalHTTPClient(http.DefaultTransport),
 		mcp.WithInternalHTTPClient(http.DefaultTransport),
 	)

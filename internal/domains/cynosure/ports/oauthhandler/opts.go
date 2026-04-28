@@ -22,14 +22,14 @@ func WithSuggestedProtectedResource(link *url.URL) RegisterClientOption {
 //
 //   - [Port.RefreshToken]
 //   - [Port.Exchange]
-func WithInternalConnection() InternalConnectionOption {
-	return InternalConnectionOption{}
+func WithInternalConnection() internalConnectionOption {
+	return internalConnectionOption{}
 }
 
-type InternalConnectionOption struct{}
+type internalConnectionOption struct{}
 
-func (i InternalConnectionOption) applyRegisterClient(p *registerClientParams) { p.internal = true }
-func (i InternalConnectionOption) applyRefreshToken(p *refreshTokenParams)     { p.internal = true }
+func (i internalConnectionOption) applyRegisterClient(p *registerClientParams) { p.internal = true }
+func (i internalConnectionOption) applyRefreshToken(p *refreshTokenParams)     { p.internal = true }
 
 type (
 	RegisterClientOption interface{ applyRegisterClient(p *registerClientParams) }

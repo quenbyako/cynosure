@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -15,9 +14,9 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
 func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
@@ -29,56 +28,25 @@ func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
 	return adapter, nil
 }
 
-func tokenFuncFromAccountStorage(
+func newOauthRefresher(
 	accounts ports.AccountStorage,
 	servers ports.ServerStorage,
-) mcp.AccountTokenFunc {
-	return func(
-		ctx context.Context,
-		accountID ids.AccountID,
-	) (
-		entities.ServerConfigReadOnly,
-		*oauth2.Token,
-		error,
-	) {
-		account, err := accounts.GetAccount(ctx, accountID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting account: %w", err)
-		}
-
-		server, err := servers.GetServerInfo(ctx, accountID.Server())
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting server info: %w", err)
-		}
-
-		return server, account.Token(), nil
-	}
+	oauth oauthhandler.PortWrapped,
+) *refreshtoken.RefreshConstructor {
+	return refreshtoken.NewConstructor(
+		oauth,
+		accounts,
+		servers,
+		4, // todo: make it dynamic?
+	)
 }
 
 func newMCPHandler(
 	ctx context.Context,
 	params *appParams,
-	servers ports.ServerStorage,
-	accounts ports.AccountStorage,
+	refresher *refreshtoken.RefreshConstructor,
 ) (*mcp.Handler, error) {
-	saveToken := func(ctx context.Context, accountID ids.AccountID, token *oauth2.Token) error {
-		account, err := accounts.GetAccount(ctx, accountID)
-		if err != nil {
-			return fmt.Errorf("getting account: %w", err)
-		}
-
-		if err := account.UpdateToken(token); err != nil {
-			return fmt.Errorf("updating token: %w", err)
-		}
-
-		if err := accounts.SaveAccount(ctx, account); err != nil {
-			return fmt.Errorf("saving account: %w", err)
-		}
-
-		return nil
-	}
-
-	handler, err := mcp.New(ctx, saveToken, tokenFuncFromAccountStorage(accounts, servers),
+	handler, err := mcp.New(ctx, refresher.Token, refresher.Build,
 		mcp.WithObservability(params.observability),
 		mcp.WithInternalHTTPClient(params.internalMcpClient),
 		mcp.WithExternalHTTPClient(params.externalMcpClient),

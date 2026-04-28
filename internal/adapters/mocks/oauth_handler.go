@@ -122,8 +122,14 @@ func (_c *OAuthHandler_Exchange_Call) RunAndReturn(run func(ctx context.Context,
 }
 
 // RefreshToken provides a mock function for the type OAuthHandler
-func (_mock *OAuthHandler) RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error) {
-	ret := _mock.Called(ctx, config, token)
+func (_mock *OAuthHandler) RefreshToken(ctx context.Context, config *oauth2.Config, token *oauth2.Token, opts ...oauthhandler.RefreshTokenOption) (*oauth2.Token, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, config, token, opts)
+	} else {
+		tmpRet = _mock.Called(ctx, config, token)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for RefreshToken")
@@ -131,18 +137,18 @@ func (_mock *OAuthHandler) RefreshToken(ctx context.Context, config *oauth2.Conf
 
 	var r0 *oauth2.Token
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *oauth2.Config, *oauth2.Token) (*oauth2.Token, error)); ok {
-		return returnFunc(ctx, config, token)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *oauth2.Config, *oauth2.Token, ...oauthhandler.RefreshTokenOption) (*oauth2.Token, error)); ok {
+		return returnFunc(ctx, config, token, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *oauth2.Config, *oauth2.Token) *oauth2.Token); ok {
-		r0 = returnFunc(ctx, config, token)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *oauth2.Config, *oauth2.Token, ...oauthhandler.RefreshTokenOption) *oauth2.Token); ok {
+		r0 = returnFunc(ctx, config, token, opts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*oauth2.Token)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *oauth2.Config, *oauth2.Token) error); ok {
-		r1 = returnFunc(ctx, config, token)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *oauth2.Config, *oauth2.Token, ...oauthhandler.RefreshTokenOption) error); ok {
+		r1 = returnFunc(ctx, config, token, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -158,11 +164,13 @@ type OAuthHandler_RefreshToken_Call struct {
 //   - ctx context.Context
 //   - config *oauth2.Config
 //   - token *oauth2.Token
-func (_e *OAuthHandler_Expecter) RefreshToken(ctx interface{}, config interface{}, token interface{}) *OAuthHandler_RefreshToken_Call {
-	return &OAuthHandler_RefreshToken_Call{Call: _e.mock.On("RefreshToken", ctx, config, token)}
+//   - opts ...oauthhandler.RefreshTokenOption
+func (_e *OAuthHandler_Expecter) RefreshToken(ctx interface{}, config interface{}, token interface{}, opts ...interface{}) *OAuthHandler_RefreshToken_Call {
+	return &OAuthHandler_RefreshToken_Call{Call: _e.mock.On("RefreshToken",
+		append([]interface{}{ctx, config, token}, opts...)...)}
 }
 
-func (_c *OAuthHandler_RefreshToken_Call) Run(run func(ctx context.Context, config *oauth2.Config, token *oauth2.Token)) *OAuthHandler_RefreshToken_Call {
+func (_c *OAuthHandler_RefreshToken_Call) Run(run func(ctx context.Context, config *oauth2.Config, token *oauth2.Token, opts ...oauthhandler.RefreshTokenOption)) *OAuthHandler_RefreshToken_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -176,10 +184,17 @@ func (_c *OAuthHandler_RefreshToken_Call) Run(run func(ctx context.Context, conf
 		if args[2] != nil {
 			arg2 = args[2].(*oauth2.Token)
 		}
+		var arg3 []oauthhandler.RefreshTokenOption
+		var variadicArgs []oauthhandler.RefreshTokenOption
+		if len(args) > 3 {
+			variadicArgs = args[3].([]oauthhandler.RefreshTokenOption)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3...,
 		)
 	})
 	return _c
@@ -190,7 +205,7 @@ func (_c *OAuthHandler_RefreshToken_Call) Return(token1 *oauth2.Token, err error
 	return _c
 }
 
-func (_c *OAuthHandler_RefreshToken_Call) RunAndReturn(run func(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error)) *OAuthHandler_RefreshToken_Call {
+func (_c *OAuthHandler_RefreshToken_Call) RunAndReturn(run func(ctx context.Context, config *oauth2.Config, token *oauth2.Token, opts ...oauthhandler.RefreshTokenOption) (*oauth2.Token, error)) *OAuthHandler_RefreshToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

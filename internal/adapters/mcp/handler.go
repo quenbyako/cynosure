@@ -22,6 +22,9 @@ type (
 	)
 	ServerInfoFunc func(context.Context, ids.ServerID) (entities.ServerConfigReadOnly, error)
 	SaveTokenFunc  func(context.Context, ids.AccountID, *oauth2.Token) error
+
+	// TokenSourceConstructor is a function that constructs an OAuth 2.0 source.
+	TokenSourceConstructor func(ids.AccountID, *oauth2.Config, *oauth2.Token, bool) (oauth2.TokenSource, error)
 )
 
 const (
@@ -55,16 +58,16 @@ func (h *Handler) ToolClient() toolclient.PortWrapped {
 //nolint:err113 // new may return unhandlable errors.
 func New(
 	ctx context.Context,
-	storage SaveTokenFunc,
 	accountToken AccountTokenFunc,
+	refreshToken TokenSourceConstructor,
 	opts ...HandlerOption,
 ) (*Handler, error) {
-	if storage == nil {
-		return nil, errors.New("storage is required")
-	}
-
 	if accountToken == nil {
 		return nil, errors.New("accountToken is required")
+	}
+
+	if refreshToken == nil {
+		return nil, errors.New("refreshToken is required")
 	}
 
 	params := buildHandlerParams(opts...)
@@ -73,9 +76,8 @@ func New(
 
 	connFactory, err := NewConnectionFactory(
 		ctx,
-		storage,
-		accountToken,
 		tracer.Tracer(),
+		refreshToken,
 		params.externalTransport,
 		params.internalTransport,
 		params.unsafeExternalClient,

@@ -5,7 +5,7 @@ package taskpool
 
 import (
 	"context"
-	"sync/atomic"
+	"sync"
 
 	"github.com/alitto/pond/v2"
 )
@@ -13,41 +13,51 @@ import (
 // TaskPool represents a pool of workers that process tasks of type T
 // using a predefined handler function.
 type TaskPool[T any] struct {
-	handler  func(context.Context, T)
-	pool     pond.Pool
-	running  atomic.Bool
-	finished atomic.Bool
+	handler func(context.Context, T)
+	pool    pond.Pool
+	poolMu  sync.Mutex
+
+	maxWorkers int
 }
 
 // New creates a new TaskPool with the given maxWorkers and task handler.
 func New[T any](maxWorkers int, handler func(context.Context, T)) *TaskPool[T] {
 	return &TaskPool[T]{
-		handler:  handler,
-		pool:     pond.NewPool(maxWorkers),
-		running:  atomic.Bool{},
-		finished: atomic.Bool{},
+		handler:    handler,
+		maxWorkers: maxWorkers,
+		pool:       nil,
+		poolMu:     sync.Mutex{},
 	}
 }
 
 // Run starts the pool lifecycle and blocks until the context is canceled.
 // When the context is canceled, it waits for all submitted tasks to finish.
 func (p *TaskPool[T]) Run(ctx context.Context) error {
-	if !p.running.CompareAndSwap(false, true) {
+	p.poolMu.Lock()
+	if p.pool != nil {
 		//nolint:forbidigo // system-wide failure, absolutely unsafe to ignore
 		panic("taskpool: already running")
 	}
 
+	// using WithoutCancel to prevent pool from being stopped when the main
+	// context is canceled. main context works below. Here we are just saving
+	// values that might be necessary for tasks.
+	p.pool = pond.NewPool(p.maxWorkers, pond.WithContext(context.WithoutCancel(ctx)))
+	p.poolMu.Unlock()
+
 	// Wait for shutdown signal
 	<-ctx.Done()
-
-	p.finished.Store(true)
 	p.pool.StopAndWait()
 
 	return nil
 }
 
-// Running returns true if the pool is running and has not yet finished.
-func (p *TaskPool[T]) Running() bool { return p.running.Load() && !p.finished.Load() }
+func (p *TaskPool[T]) Running() bool {
+	p.poolMu.Lock()
+	defer p.poolMu.Unlock()
+
+	return p.pool != nil && !p.pool.Stopped()
+}
 
 // Submit submits a task for asynchronous processing.
 // It returns true if the task was submitted, and false if the pool is not running
@@ -57,7 +67,7 @@ func (p *TaskPool[T]) Running() bool { return p.running.Load() && !p.finished.Lo
 // internal context to ensure that values like Trace ID or User ID are
 // propagated to the handler.
 func (p *TaskPool[T]) Submit(ctx ContextValues, task T) bool {
-	if !p.Running() {
+	if p.pool == nil {
 		return false
 	}
 
@@ -73,7 +83,10 @@ func (p *TaskPool[T]) Submit(ctx ContextValues, task T) bool {
 		p.handler(mergedCtx, task)
 	})
 
-	return true
+	// NOTE: that's too tricky and unsafe way to check if the pool is running,
+	// but that's the only way with pond. It's a really great idea to contribude
+	// to lib to add in Task interface Submitted() method or sorta.
+	return !p.pool.Stopped()
 }
 
 // ContextValues is an interface that allows extracting values from a context.

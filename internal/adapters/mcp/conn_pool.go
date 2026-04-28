@@ -20,34 +20,30 @@ import (
 )
 
 const (
-	refreshTimeoutDefault = 10 * time.Second
-	noRetries             = -1
-	keepAliveInterval     = 1 * time.Second
+	noRetries         = -1
+	keepAliveInterval = 1 * time.Second
 )
 
 type connFactory struct {
-	internalTransport http.RoundTripper
-	externalTransport http.RoundTripper
-	tracer            trace.Tracer
-	storage           SaveTokenFunc
-	refreshTimeout    time.Duration
+	internalTransport      http.RoundTripper
+	externalTransport      http.RoundTripper
+	tracer                 trace.Tracer
+	tokenSourceConstructor TokenSourceConstructor
 }
 
 func NewConnectionFactory(
 	ctx context.Context,
-	storage SaveTokenFunc,
-	accountToken AccountTokenFunc,
 	tracer trace.Tracer,
+	tokenSourcer TokenSourceConstructor,
 	externalTransport http.RoundTripper,
 	internalTransport http.RoundTripper,
 	unsafeExternalTransport bool,
 ) (*connFactory, error) {
 	factory := &connFactory{
-		internalTransport: internalTransport,
-		externalTransport: externalTransport,
-		storage:           storage,
-		refreshTimeout:    refreshTimeoutDefault,
-		tracer:            tracer,
+		internalTransport:      internalTransport,
+		externalTransport:      externalTransport,
+		tracer:                 tracer,
+		tokenSourceConstructor: tokenSourcer,
 	}
 
 	if err := factory.validate(ctx, unsafeExternalTransport); err != nil {
@@ -93,40 +89,24 @@ func (f *connFactory) buildTempAuthTransport(token *oauth2.Token, internal bool)
 }
 
 func (f *connFactory) buildAuthorizedTransport(
-	ctx context.Context, account ids.AccountID, token *oauth2.Token, config *oauth2.Config,
-	isInternal bool,
-) http.RoundTripper {
+	id ids.AccountID, config *oauth2.Config, token *oauth2.Token, isInternal bool,
+) (http.RoundTripper, error) {
 	base := f.externalTransport
 	if isInternal {
 		base = f.internalTransport
 	}
 
-	// WithoutCancel preserves deadline but detaches from request cancellation.
-	// This ensures token refresh completes even if the user cancels the request,
-	// but still respects timeout constraints.
-	source := oauth2.ReuseTokenSource(token, NewRefresher(
-		// TODO: проработать момент, как втянуть сюда контекст от
-		// адаптера, котрый всё закрывает, чтобы не было ситуации,
-		// когда токен обновляется, но адаптер уже закрылся. это
-		// конечно решает вопрос с таймаутом, но все равно это
-		// неправилыно абсолютно.
-		context.WithoutCancel(ctx),
-		token,
-		f.storage,
-		account,
-		config,
-		f.refreshTimeout,
-		func(
-			ctx context.Context, config *oauth2.Config, token *oauth2.Token,
-		) (*oauth2.Token, error) {
-			return config.TokenSource(ctx, token).Token()
-		},
-	))
+	tokenSource, err := f.tokenSourceConstructor(id, config, token, isInternal)
+	if err != nil {
+		return nil, fmt.Errorf("building token source: %w", err)
+	}
+
+	source := oauth2.ReuseTokenSource(token, tokenSource)
 
 	return &oauth2.Transport{
 		Source: source,
 		Base:   base,
-	}
+	}, nil
 }
 
 type asyncClient struct {
@@ -196,7 +176,7 @@ func validatePartiallyParams(u *url.URL, token *oauth2.Token, proto tools.Protoc
 
 func (f *connFactory) GetAuthorized(
 	ctx context.Context,
-	accountID ids.AccountID,
+	id ids.AccountID,
 	server entities.ServerConfigReadOnly,
 	token *oauth2.Token,
 ) (
@@ -204,22 +184,23 @@ func (f *connFactory) GetAuthorized(
 	error,
 ) {
 	ctx, span := f.tracer.Start(ctx, "GetAuthorized", trace.WithAttributes(
-		attribute.String("mcp.account_id", accountID.ID().String()),
+		attribute.String("mcp.account_id", id.ID().String()),
 		attribute.Bool("mcp.token_is_nil", token == nil),
 	))
 	defer span.End()
 
-	if err := validateAuthorizedParams(accountID, server, token); err != nil {
+	if err := validateAuthorizedParams(id, server, token); err != nil {
 		span.RecordError(err)
 		return nil, err
 	}
 
+	transport, err := f.buildAuthorizedTransport(id, server.AuthConfig(), token, server.Internal())
+	if err != nil {
+		return nil, err
+	}
+
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(
-		f.buildAuthorizedTransport(
-			clientCtx, accountID, token, server.AuthConfig(), server.Internal(),
-		),
-	)
+	client := newHTTPClient(transport)
 
 	session, discovered, err := autoConnectProtocol(
 		clientCtx, server.SSELink().String(), client, server.PreferredProtocol(),

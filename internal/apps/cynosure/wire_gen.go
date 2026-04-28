@@ -46,7 +46,8 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
-	mcpHandler, err := newMCPHandler(ctx, config, serverStorage, accountStorage)
+	refreshConstructor := newOauthRefresher(accountStorage, serverStorage, portWrapped)
+	mcpHandler, err := newMCPHandler(ctx, config, refreshConstructor)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +101,7 @@ var (
 	geminiAdapter      = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
 	oauthAdapter       = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
 	mcpAdapter         = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
+	oauthRefresher     = wire.NewSet(newOauthRefresher)
 	oryAdapter         = wire.NewSet(newOryClient, wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)))
 	ratelimiterAdapter = wire.NewSet(newRateLimiter, wire.Bind(new(ratelimiter.PortFactory), new(*inmemory.RateLimiter)))
 )
