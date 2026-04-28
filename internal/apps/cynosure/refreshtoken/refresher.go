@@ -1,3 +1,4 @@
+// Package refreshtoken provides OAuth token refresh lifecycle management.
 package refreshtoken
 
 import (
@@ -25,6 +26,10 @@ type RefreshConstructor struct {
 	poolMu          sync.RWMutex
 }
 
+const (
+	defaultMaxTaskDuration = 30 * time.Second
+)
+
 func NewConstructor(
 	oauthPort oauthhandler.Port,
 	accounts ports.AccountStorage,
@@ -35,7 +40,7 @@ func NewConstructor(
 		oauthPort:       oauthPort,
 		accounts:        accounts,
 		servers:         servers,
-		maxTaskDuration: 30 * time.Second,
+		maxTaskDuration: defaultMaxTaskDuration,
 		pool:            nil,
 		workersCount:    workersCount,
 		poolMu:          sync.RWMutex{},
@@ -46,7 +51,7 @@ func (c *RefreshConstructor) Run(ctx context.Context) error {
 	c.poolMu.Lock()
 	if c.pool != nil {
 		//nolint:forbidigo // system-wide failure, absolutely unsafe to ignore
-		panic("taskpool: already running")
+		panic("already running")
 	}
 
 	// using WithoutCancel to prevent pool from being stopped when the main
@@ -80,7 +85,12 @@ func (c *RefreshConstructor) Token(ctx context.Context, accountID ids.AccountID)
 	return server, account.Token(), nil
 }
 
-func (c *RefreshConstructor) Build(id ids.AccountID, config *oauth2.Config, token *oauth2.Token, internal bool) (oauth2.TokenSource, error) {
+func (c *RefreshConstructor) Build(
+	id ids.AccountID,
+	config *oauth2.Config,
+	token *oauth2.Token,
+	internal bool,
+) (oauth2.TokenSource, error) {
 	if token.RefreshToken == "" {
 		return nil, ErrRefreshTokenNotSet
 	}
@@ -95,7 +105,12 @@ func (c *RefreshConstructor) Build(id ids.AccountID, config *oauth2.Config, toke
 	}, nil
 }
 
-func (c *RefreshConstructor) GetToken(id ids.AccountID, config *oauth2.Config, token *oauth2.Token, internal bool) (*oauth2.Token, error) {
+func (c *RefreshConstructor) GetToken(
+	id ids.AccountID,
+	config *oauth2.Config,
+	token *oauth2.Token,
+	internal bool,
+) (*oauth2.Token, error) {
 	c.poolMu.RLock()
 	pool := c.pool
 	c.poolMu.RUnlock()
@@ -116,7 +131,11 @@ func (c *RefreshConstructor) GetToken(id ids.AccountID, config *oauth2.Config, t
 	return newToken, nil
 }
 
-func (c *RefreshConstructor) getToken(id ids.AccountID, config *oauth2.Config, token *oauth2.Token, internal bool) (*oauth2.Token, error) {
+// TODO: create error like "probably you need to sign in again" in case when
+// token refreshed, but didn't save it to db?
+func (c *RefreshConstructor) getToken(
+	id ids.AccountID, config *oauth2.Config, token *oauth2.Token, internal bool,
+) (*oauth2.Token, error) {
 	ctx, cancel := context.WithTimeout(c.pool.Context(), c.maxTaskDuration)
 	defer cancel()
 
@@ -130,22 +149,30 @@ func (c *RefreshConstructor) getToken(id ids.AccountID, config *oauth2.Config, t
 		return nil, fmt.Errorf("refreshing token: %w", err)
 	}
 
-	// TODO: create error like "probably you need to sign in again"?
-
-	account, err := c.accounts.GetAccount(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("getting account: %w", err)
-	}
-
-	if err := account.UpdateToken(newToken); err != nil {
-		return nil, fmt.Errorf("updating token: %w", err)
-	}
-
-	if err := c.accounts.SaveAccount(ctx, account); err != nil {
-		return nil, fmt.Errorf("saving account: %w", err)
+	if err := c.updateAccountToken(ctx, id, newToken); err != nil {
+		return nil, err
 	}
 
 	return newToken, nil
+}
+
+func (c *RefreshConstructor) updateAccountToken(
+	ctx context.Context, id ids.AccountID, token *oauth2.Token,
+) error {
+	account, err := c.accounts.GetAccount(ctx, id)
+	if err != nil {
+		return fmt.Errorf("getting account: %w", err)
+	}
+
+	if err := account.UpdateToken(token); err != nil {
+		return fmt.Errorf("updating token: %w", err)
+	}
+
+	if err := c.accounts.SaveAccount(ctx, account); err != nil {
+		return fmt.Errorf("saving account: %w", err)
+	}
+
+	return nil
 }
 
 type tokenSource struct {

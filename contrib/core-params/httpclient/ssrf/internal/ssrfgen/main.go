@@ -25,6 +25,7 @@ var additionalV4Entries = []entry{
 	{Name: "Multicast", Prefix: "224.0.0.0/4", RFC: "RFC 1112, Section 4"},
 }
 
+//nolint:funlen // generator entry point
 func main() {
 	output := flag.String("output.gen", "", "file to write the generated code into")
 
@@ -47,31 +48,39 @@ func main() {
 		errExit(err)
 	}
 
-	//nolint:gosec // false positive: file is codegen with default permissions
-	f, err := os.OpenFile(*output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	const outputPerms = 0o644
+
+	outputFile, err := os.OpenFile(*output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, outputPerms)
 	if err != nil {
-		errExit(err, f)
+		errExit(err, outputFile)
 	}
-	defer f.Close()
 
-	if t, ok := templates["ssrf.tmpl"]; ok {
-		data := struct {
-			V6GlobalUnicast string
-			V4              []entry
-			V6              []entry
-		}{
-			V4:              append(ipv4, additionalV4Entries...),
-			V6:              ipv6,
-			V6GlobalUnicast: ipv6GlobalUnicast,
-		}
-		if err := t.Execute(f, data); err != nil {
-			errExit(err, f)
-		}
+	//nolint:errcheck // we don't care about closing errors for write-only files in generator
+	defer outputFile.Close()
 
-		//nolint:gosec // false positive: codegen must be formatted.
-		if res, err := exec.CommandContext(ctx, "go", "fmt", *output).CombinedOutput(); err != nil {
-			fmt.Println(string(res))
-		}
+	tmpl, ok := templates["ssrf.tmpl"]
+	if !ok {
+		return
+	}
+
+	data := struct {
+		V6GlobalUnicast string
+		V4              []entry
+		V6              []entry
+	}{
+		V4:              append(ipv4, additionalV4Entries...),
+		V6:              ipv6,
+		V6GlobalUnicast: ipv6GlobalUnicast,
+	}
+
+	if err := tmpl.Execute(outputFile, data); err != nil {
+		errExit(err, outputFile)
+	}
+
+	//nolint:gosec // false positive: codegen must be formatted.
+	if res, err := exec.CommandContext(ctx, "go", "fmt", *output).CombinedOutput(); err != nil {
+		//nolint:forbidigo // logging generator failure
+		fmt.Println(string(res))
 	}
 }
 
@@ -166,54 +175,55 @@ func fetch(ctx context.Context, url string) ([]entry, error) {
 		return nil, fmt.Errorf("failed to parse record in %s: %w", url, err)
 	}
 
+	return processRecords(records), nil
+}
+
+func processRecords(records [][]string) []entry {
 	entries := []entry{}
 
 	for _, rec := range records[1:] {
-		prefixes := rec[0]
-		for _, prefixRaw := range handleNetwork(prefixes) {
+		for _, prefixRaw := range handleNetwork(rec[0]) {
 			prefix := netip.MustParsePrefix(prefixRaw)
 			if prefix.Addr().Is4() {
-				if !containsPrefix(entries, prefixRaw) {
-					entries = append(entries, entry{
-						Prefix: prefixRaw,
-						Name:   cleanName(rec[1]),
-						RFC:    cleanRFC(rec[2]),
-					})
-				} else {
-					fmt.Printf(
-						"Skipping prefix: %s as it's already matched by another prefix\n",
-						prefixRaw,
-					)
-				}
-			}
-
-			if prefix.Addr().Is6() {
-				if containsPrefix([]entry{
-					{Prefix: ipv6GlobalUnicast, Name: "IPv6 Global Unicast", RFC: ""},
-				}, prefixRaw) {
-					if !containsPrefix(entries, prefixRaw) {
-						entries = append(entries, entry{
-							Prefix: prefixRaw,
-							Name:   cleanName(rec[1]),
-							RFC:    cleanRFC(rec[2]),
-						})
-					} else {
-						fmt.Printf(
-							"Skipping prefix: %s as it's already matched by another prefix\n",
-							prefixRaw,
-						)
-					}
-				} else {
-					fmt.Printf(
-						"Skipping prefix: %s as it's not within the IPv6 Global Unicast range\n",
-						prefixRaw,
-					)
-				}
+				entries = processIPv4Record(entries, prefixRaw, rec)
+			} else if prefix.Addr().Is6() {
+				entries = processIPv6Record(entries, prefixRaw, rec)
 			}
 		}
 	}
 
-	return entries, nil
+	return entries
+}
+
+func processIPv4Record(entries []entry, prefixRaw string, rec []string) []entry {
+	if containsPrefix(entries, prefixRaw) {
+		fmt.Printf("Skipping prefix: %s as it's already matched\n", prefixRaw)
+		return entries
+	}
+
+	return append(entries, entry{
+		Prefix: prefixRaw,
+		Name:   cleanName(rec[1]),
+		RFC:    cleanRFC(rec[2]),
+	})
+}
+
+func processIPv6Record(entries []entry, prefixRaw string, rec []string) []entry {
+	if !containsPrefix([]entry{{Prefix: ipv6GlobalUnicast, Name: "", RFC: ""}}, prefixRaw) {
+		fmt.Printf("Skipping prefix: %s as it's not within Global Unicast range\n", prefixRaw)
+		return entries
+	}
+
+	if containsPrefix(entries, prefixRaw) {
+		fmt.Printf("Skipping prefix: %s as it's already matched\n", prefixRaw)
+		return entries
+	}
+
+	return append(entries, entry{
+		Prefix: prefixRaw,
+		Name:   cleanName(rec[1]),
+		RFC:    cleanRFC(rec[2]),
+	})
 }
 
 // containsPrefix checks if a prefix we're encountering is already matched by

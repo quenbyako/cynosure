@@ -29,6 +29,12 @@ var (
 	ErrProtocolNotSupported = errors.New("protocol not supported")
 )
 
+type InternalError string
+
+func (e InternalError) Error() string { return string(e) }
+
+func ErrInternal(msg string) error { return InternalError(msg) }
+
 type RequiresAuthError struct {
 	suggestedMetadataEndpoint *url.URL
 }

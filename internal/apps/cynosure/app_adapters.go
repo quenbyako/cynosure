@@ -19,8 +19,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
-func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
-	adapter, err := sql.New(ctx, p.storage.databaseURL, sql.WithTrace(p.observability))
+func newSQLAdapter(ctx context.Context, params *appParams) (*sql.Adapter, error) {
+	adapter, err := sql.New(ctx, params.storage.databaseURL, sql.WithTrace(params.observability))
 	if err != nil {
 		return nil, fmt.Errorf("initializing sql adapter: %w", err)
 	}
@@ -31,13 +31,13 @@ func newSQLAdapter(ctx context.Context, p *appParams) (*sql.Adapter, error) {
 func newOauthRefresher(
 	accounts ports.AccountStorage,
 	servers ports.ServerStorage,
-	oauth oauthhandler.PortWrapped,
+	oauthPort oauthhandler.PortWrapped,
 ) *refreshtoken.RefreshConstructor {
 	return refreshtoken.NewConstructor(
-		oauth,
+		oauthPort,
 		accounts,
 		servers,
-		4, // todo: make it dynamic?
+		defaultWorkersCount,
 	)
 }
 
@@ -121,13 +121,13 @@ func (t *rotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, erro
 	return t.base.RoundTrip(req)
 }
 
-func newOAuthHandler(p *appParams) *oauth.Handler {
+func newOAuthHandler(params *appParams) *oauth.Handler {
 	return oauth.New(
-		p.ory.oauthScopes,
-		oauth.WithObservability(p.observability),
+		params.ory.oauthScopes,
+		oauth.WithObservability(params.observability),
 		// Note: using mcp clients, as it's using only for mcp clients.
 		// Authorization is related only to MCP and nothing more.
-		oauth.WithTransports(p.internalMcpClient, p.externalMcpClient),
+		oauth.WithTransports(params.internalMcpClient, params.externalMcpClient),
 	)
 }
 
@@ -157,6 +157,7 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Adapter, error) 
 }
 
 const (
+	defaultWorkersCount = 4
 	ttlPeriodMultiplier = 2
 )
 

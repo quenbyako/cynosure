@@ -75,6 +75,20 @@ func mapServerConfig(
 		return nil, err
 	}
 
+	cfg, err := entities.NewServerConfig(
+		id, sse,
+		buildServerOpts(auth, expiration, internal)...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("new server config: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func buildServerOpts(
+	auth *oauth2.Config, expiration *time.Time, internal bool,
+) []entities.ServerConfigOption {
 	opts := []entities.ServerConfigOption{
 		entities.WithAuthConfig(auth),
 		entities.WithProtocol(tools.ProtocolUnknown),
@@ -85,12 +99,7 @@ func mapServerConfig(
 		opts = append(opts, entities.WithExpiration(*expiration))
 	}
 
-	cfg, err := entities.NewServerConfig(id, sse, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("new server config: %w", err)
-	}
-
-	return cfg, nil
+	return opts
 }
 
 // buildOAuthConfig builds OAuth2 config from database row fields.

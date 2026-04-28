@@ -1,6 +1,8 @@
 // Package taskpool provides a generic, lifecycle-aware task pool.
 // It wraps github.com/alitto/pond/v2 to provide a type-safe handler-based
 // approach for processing asynchronous tasks.
+//
+//nolint:ireturn // This bug happened again, [context.Context.Value] was false-positively flagged.
 package taskpool
 
 import (
@@ -111,8 +113,6 @@ var _ context.Context = (*mergedContext)(nil)
 // Value returns the value associated with this context for key, or nil if no
 // value is associated with key. It first checks the values provider, then falls
 // back to the parent context.
-//
-//nolint:ireturn // implementation of [context.Context]
 func (m *mergedContext) Value(key any) any {
 	if m.values != nil {
 		if value := m.values.Value(key); value != nil {

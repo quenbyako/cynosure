@@ -2,12 +2,12 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -24,7 +24,9 @@ type (
 	SaveTokenFunc  func(context.Context, ids.AccountID, *oauth2.Token) error
 
 	// TokenSourceConstructor is a function that constructs an OAuth 2.0 source.
-	TokenSourceConstructor func(ids.AccountID, *oauth2.Config, *oauth2.Token, bool) (oauth2.TokenSource, error)
+	TokenSourceConstructor func(
+		ids.AccountID, *oauth2.Config, *oauth2.Token, bool,
+	) (oauth2.TokenSource, error)
 )
 
 const (
@@ -55,35 +57,22 @@ func (h *Handler) ToolClient() toolclient.PortWrapped {
 	return toolclient.Wrap(h, h.tracer)
 }
 
-//nolint:err113 // new may return unhandlable errors.
 func New(
 	ctx context.Context,
 	accountToken AccountTokenFunc,
 	refreshToken TokenSourceConstructor,
 	opts ...HandlerOption,
 ) (*Handler, error) {
-	if accountToken == nil {
-		return nil, errors.New("accountToken is required")
-	}
-
-	if refreshToken == nil {
-		return nil, errors.New("refreshToken is required")
+	if err := validateNewParams(accountToken, refreshToken); err != nil {
+		return nil, err
 	}
 
 	params := buildHandlerParams(opts...)
-
 	tracer := ports.StackFromCore(params.traceProvider, pkgName)
 
-	connFactory, err := NewConnectionFactory(
-		ctx,
-		tracer.Tracer(),
-		refreshToken,
-		params.externalTransport,
-		params.internalTransport,
-		params.unsafeExternalClient,
-	)
+	connFactory, err := newHandlerFactory(ctx, tracer.Tracer(), refreshToken, &params)
 	if err != nil {
-		return nil, fmt.Errorf("create connection factory: %w", err)
+		return nil, err
 	}
 
 	return &Handler{
@@ -97,6 +86,39 @@ func New(
 
 		factory: connFactory,
 	}, nil
+}
+
+func newHandlerFactory(
+	ctx context.Context,
+	tracer trace.Tracer,
+	refreshToken TokenSourceConstructor,
+	params *handlerParams,
+) (*connFactory, error) {
+	connFactory, err := NewConnectionFactory(
+		ctx,
+		tracer,
+		refreshToken,
+		params.externalTransport,
+		params.internalTransport,
+		params.unsafeExternalClient,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create connection factory: %w", err)
+	}
+
+	return connFactory, nil
+}
+
+func validateNewParams(accountToken AccountTokenFunc, refreshToken TokenSourceConstructor) error {
+	if accountToken == nil {
+		return fmt.Errorf("validation: %w", ports.ErrInternal("accountToken is required"))
+	}
+
+	if refreshToken == nil {
+		return fmt.Errorf("validation: %w", ports.ErrInternal("refreshToken is required"))
+	}
+
+	return nil
 }
 
 // Close closes the handler and all active MCP sessions.

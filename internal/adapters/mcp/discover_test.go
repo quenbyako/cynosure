@@ -25,7 +25,9 @@ func noopAccountToken(
 	return nil, nil, nil
 }
 
-func noopRefreshToken(_ ids.AccountID, _ *oauth2.Config, token *oauth2.Token, _ bool) (oauth2.TokenSource, error) {
+func noopRefreshToken(
+	_ ids.AccountID, _ *oauth2.Config, token *oauth2.Token, _ bool,
+) (oauth2.TokenSource, error) {
 	return oauth2.StaticTokenSource(token), nil
 }
 

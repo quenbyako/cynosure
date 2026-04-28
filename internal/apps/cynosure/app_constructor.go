@@ -13,6 +13,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
+	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
 )
@@ -384,6 +385,7 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 func connectDependencies(
 	params *appParams,
 	ratelimiter *inmemory.RateLimiter,
+	refreshConstructor *refreshtoken.RefreshConstructor,
 	accountsUsecase *accounts.Usecase,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
@@ -394,6 +396,7 @@ func connectDependencies(
 	return &App{
 		telegramTaskRunner: telegramController.runFunc,
 		accountsTaskRunner: accountsUsecase.Run,
+		tokenRefresherRun:  refreshConstructor.Run,
 		ratelimiterCleanup: ratelimiter.Cleanup,
 		mcpAdapterClose:    mcpHandler.Close,
 	}, nil

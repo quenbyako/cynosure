@@ -35,10 +35,11 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	accountStorage := ports.NewAccountStorage(adapter)
 	serverStorage := ports.NewServerStorage(adapter)
 	handler := newOAuthHandler(config)
 	portWrapped := oauthhandler.New(handler)
-	accountStorage := ports.NewAccountStorage(adapter)
+	refreshConstructor := newOauthRefresher(accountStorage, serverStorage, portWrapped)
 	toolStorage := ports.NewToolStorage(adapter)
 	baseLogger := newLogger(config)
 	geminiModel, err := newGeminiModel(ctx, config, baseLogger)
@@ -46,7 +47,6 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
-	refreshConstructor := newOauthRefresher(accountStorage, serverStorage, portWrapped)
 	mcpHandler, err := newMCPHandler(ctx, config, refreshConstructor)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app, err := connectDependencies(config, rateLimiter, usecase, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind, mcpHandler)
+	app, err := connectDependencies(config, rateLimiter, refreshConstructor, usecase, cynosureAdminControllerWireBind, cynosureOauthControllerWireBind, cynosureTelegramControllerWireBind, cynosureMcpControllerWireBind, mcpHandler)
 	if err != nil {
 		return nil, err
 	}

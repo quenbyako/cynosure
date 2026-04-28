@@ -23,6 +23,8 @@ var (
 	ErrAuthRequired           = errors.New("server requires auth, however, it's not provided")
 	ErrUnknownProtocol        = errors.New("unknown protocol")
 	ErrSSRFVerificationFailed = errors.New("SSRF verification failed")
+
+	ErrTransportsRequired = ports.ErrInternal("both internal and external transports are required")
 )
 
 // TransportError categorizes errors from MCP transport attempts.

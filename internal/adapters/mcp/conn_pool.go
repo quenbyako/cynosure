@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -55,7 +54,7 @@ func NewConnectionFactory(
 
 func (f *connFactory) validate(ctx context.Context, unsafeExternalTransport bool) error {
 	if f.internalTransport == nil || f.externalTransport == nil {
-		return errors.New("both internal and external transports are required")
+		return fmt.Errorf("factory initialization: %w", ErrTransportsRequired)
 	}
 
 	if err := verifySSRF(ctx, f.externalTransport); err != nil && !unsafeExternalTransport {
@@ -175,14 +174,9 @@ func validatePartiallyParams(u *url.URL, token *oauth2.Token, proto tools.Protoc
 }
 
 func (f *connFactory) GetAuthorized(
-	ctx context.Context,
-	id ids.AccountID,
-	server entities.ServerConfigReadOnly,
-	token *oauth2.Token,
-) (
-	*asyncClient,
-	error,
-) {
+	ctx context.Context, id ids.AccountID,
+	server entities.ServerConfigReadOnly, token *oauth2.Token,
+) (*asyncClient, error) {
 	ctx, span := f.tracer.Start(ctx, "GetAuthorized", trace.WithAttributes(
 		attribute.String("mcp.account_id", id.ID().String()),
 		attribute.Bool("mcp.token_is_nil", token == nil),
@@ -200,10 +194,8 @@ func (f *connFactory) GetAuthorized(
 	}
 
 	clientCtx, clientCancel := context.WithCancel(context.WithoutCancel(ctx))
-	client := newHTTPClient(transport)
-
 	session, discovered, err := autoConnectProtocol(
-		clientCtx, server.SSELink().String(), client, server.PreferredProtocol(),
+		clientCtx, server.SSELink().String(), newHTTPClient(transport), server.PreferredProtocol(),
 	)
 
 	return f.finalizeConnect(clientCancel, session, discovered, err)

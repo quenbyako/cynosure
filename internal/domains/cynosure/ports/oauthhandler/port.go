@@ -70,6 +70,7 @@ type Port interface {
 func defaultRegisterClientParams() *registerClientParams {
 	return &registerClientParams{
 		suggestedProtectedResource: nil,
+		internal:                   false,
 	}
 }
 

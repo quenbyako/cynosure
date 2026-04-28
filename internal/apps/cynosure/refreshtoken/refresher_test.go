@@ -94,11 +94,12 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 	)
 
 	// Start refresher lifecycle
-	lifecycleCtx, cancelLifecycle := context.WithCancel(context.Background())
+	lifecycleCtx, cancelLifecycle := context.WithCancel(t.Context())
 	defer cancelLifecycle()
 
 	go func() {
-		_ = refresher.Run(lifecycleCtx)
+		//nolint:errcheck // background task pool lifecycle
+		refresher.Run(lifecycleCtx)
 	}()
 
 	// Wait for pool to start
@@ -163,7 +164,12 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 	// Mock expectations - simulate slow token refresh that exceeds timeout
 	mockAuth.EXPECT().
 		RefreshToken(mock.Anything, serverConfig.AuthConfig(), oldToken).
-		Run(func(ctx context.Context, config *oauth2.Config, token *oauth2.Token, opts ...oauthhandler.RefreshTokenOption) {
+		Run(func(
+			ctx context.Context,
+			config *oauth2.Config,
+			token *oauth2.Token,
+			opts ...oauthhandler.RefreshTokenOption,
+		) {
 			// Simulate slow operation
 			time.Sleep(200 * time.Millisecond)
 		}).
@@ -183,7 +189,8 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 	defer cancelLifecycle()
 
 	go func() {
-		_ = refresher.Run(lifecycleCtx)
+		//nolint:errcheck // background task pool lifecycle
+		refresher.Run(lifecycleCtx)
 	}()
 
 	// Wait for pool to start

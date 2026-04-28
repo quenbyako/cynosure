@@ -12,6 +12,7 @@ type App struct {
 	telegramTaskRunner func(context.Context) error
 	accountsTaskRunner func(context.Context) error
 	ratelimiterCleanup func(context.Context) error
+	tokenRefresherRun  func(context.Context) error
 	mcpAdapterClose    func() error
 }
 
@@ -23,6 +24,7 @@ func (a *App) Run(ctx context.Context) error {
 		a.telegramTaskRunner,
 		a.accountsTaskRunner,
 		a.ratelimiterCleanup,
+		a.tokenRefresherRun,
 	); err != nil {
 		errs = append(errs, err)
 	}
