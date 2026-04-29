@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"slices"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 )
@@ -26,7 +27,15 @@ func (h *Handler) SendUpdate(
 		return noContentResponse{}, ErrInternalValidation("empty body")
 	}
 
-	if update.Message != nil {
+	switch {
+	case update.Message != nil &&
+		update.Message.Entities != nil &&
+		slices.ContainsFunc(*update.Message.Entities, func(entity botapi.MessageEntity) bool {
+			return entity.Type == "bot_command"
+		}):
+		h.processCommand(ctx, update.Message)
+
+	case update.Message != nil:
 		h.processMessage(ctx, update.Message)
 	}
 
