@@ -87,6 +87,8 @@ func (h *Handler) handleUserIdentificationError(
 	}
 
 	h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("making user id: %w", err))
+
+	h.sendErrorMessage(ctx, msg.Chat.Id, msg.MessageThreadId)
 }
 
 type asyncProcessRequest struct {
@@ -104,6 +106,8 @@ func (h *Handler) asyncProcess(ctx context.Context, req asyncProcessRequest) {
 	response, err := h.srv.GenerateResponse(ctx, req.threadID, req.userMessage)
 	if err != nil {
 		h.log.ProcessMessageIssue(ctx, req.chatID, fmt.Errorf("processing new message: %w", err))
+
+		h.sendErrorMessage(ctx, req.chatID, &req.tgThreadID)
 
 		return
 	}
@@ -138,6 +142,9 @@ func (h *Handler) processStream(
 	for res, err := range response {
 		if err != nil {
 			h.log.ProcessMessageIssue(ctx, chatID, fmt.Errorf("streaming response: %w", err))
+
+			h.sendErrorMessage(ctx, chatID, &threadID)
+
 			break
 		}
 

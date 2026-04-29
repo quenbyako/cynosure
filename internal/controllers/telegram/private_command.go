@@ -4,7 +4,9 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net/http"
 	"slices"
+	"strings"
 	"unicode/utf16"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
@@ -41,8 +43,9 @@ func (h *Handler) processCommand(ctx context.Context, msg *botapi.Message) {
 		return
 	}
 
-	switch cmdStr {
-	case "/start":
+	// note: telegram commands can be like /start@bot_name, so we should handle that.
+	switch {
+	case cmdStr == "/start" || strings.HasPrefix(cmdStr, "/start@"):
 		h.handleStart(ctx, msg)
 	default:
 		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("unknown command: %s", cmdStr))
@@ -58,6 +61,8 @@ func (h *Handler) handleStart(ctx context.Context, msg *botapi.Message) {
 
 	if err := h.users.InitializeAccount(ctx, userID); err != nil {
 		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("initializing account: %w", err))
+		h.sendErrorMessage(ctx, msg.Chat.Id, msg.MessageThreadId)
+
 		return
 	}
 
@@ -69,8 +74,17 @@ func (h *Handler) handleStart(ctx context.Context, msg *botapi.Message) {
 		MessageThreadId: msg.MessageThreadId,
 	}
 
-	if _, err := h.client.SendMessageWithResponse(ctx, params); err != nil {
-		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("sending welcome message: %w", err))
+	resp, err := h.client.SendMessageWithResponse(ctx, params)
+	if err != nil {
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("sending welcome message (network): %w", err))
+
+		return
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
+			fmt.Errorf("sending welcome message (api error %d): %s", resp.StatusCode(), string(resp.Body)),
+		)
 	}
 }
 
@@ -85,7 +99,9 @@ func extractEntity(entity *botapi.MessageEntity, text string) (string, bool) {
 		return "", false
 	}
 
-	return string(utf16.Decode(u16[entity.Offset : entity.Offset+entity.Length])), true
+	res := string(utf16.Decode(u16[entity.Offset : entity.Offset+entity.Length]))
+
+	return res, true
 }
 
 func ptr[T any](v T) *T {

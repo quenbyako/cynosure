@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/quenbyako/cynosure/contrib/ory-openapi/gen/go/ory"
 
@@ -49,7 +50,7 @@ func (a *Adapter) processLookupResponse(
 
 	if resp.StatusCode() != http.StatusOK {
 		return ids.UserID{}, fmt.Errorf("%w (status %d): %s",
-			ErrInternal, resp.StatusCode(), string(resp.Body))
+			ErrInternal, resp.StatusCode(), formatErrorBody(resp.HTTPResponse, resp.Body))
 	}
 
 	if resp.JSON200 == nil || len(*resp.JSON200) == 0 {
@@ -64,4 +65,41 @@ func (a *Adapter) processLookupResponse(
 	}
 
 	return uid, nil
+}
+
+func formatErrorBody(resp *http.Response, body []byte) string {
+	if len(body) == 0 {
+		return "empty body"
+	}
+
+	contentType := ""
+	if resp != nil {
+		contentType = resp.Header.Get("Content-Type")
+	}
+
+	s := string(body)
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.TrimSpace(s)
+
+	switch {
+	case strings.Contains(contentType, "text/html"):
+		if len(s) > 100 {
+			return fmt.Sprintf("(html): %s...", s[:100])
+		}
+
+		return "(html): " + s
+	case strings.Contains(contentType, "application/json"):
+		if len(s) > 200 {
+			return fmt.Sprintf("(json): %s...", s[:200])
+		}
+
+		return "(json): " + s
+	default:
+		if len(s) > 150 {
+			return s[:150] + "..."
+		}
+
+		return s
+	}
 }
