@@ -53,6 +53,39 @@ func (h *Handler) sendRateLimitedMessage(ctx context.Context, msg *botapi.Messag
 	}
 }
 
+func (h *Handler) sendErrorMessage(ctx context.Context, chatID int, threadID *int) {
+	traceID := trace.SpanFromContext(ctx).SpanContext().TraceID()
+
+	text := "Oops! I've got some problems 😳\n\n"
+	if traceID.IsValid() {
+		text += fmt.Sprintf("Trace ID: <code>%s</code>\n", traceID.String())
+	}
+
+	text += "Please, contact @quenbyako for help."
+
+	params := botapi.SendMessageJSONRequestBody{
+		ChatId:          chatID,
+		Text:            text,
+		ParseMode:       ptr("HTML"),
+		MessageThreadId: threadID,
+	}
+
+	resp, err := h.client.SendMessageWithResponse(ctx, params)
+	if err != nil {
+		h.log.ProcessMessageIssue(ctx, chatID,
+			fmt.Errorf("sending error message (network error): %w", err),
+		)
+
+		return
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		h.log.ProcessMessageIssue(ctx, chatID,
+			fmt.Errorf("sending error message (api error %d): %s", resp.StatusCode(), string(resp.Body)),
+		)
+	}
+}
+
 func (h *Handler) sendTooLargeMessage(ctx context.Context, chatID int, tgThreadID *int) {
 	text := "Your message is too long, please shorten it and try again."
 

@@ -4,6 +4,7 @@ package httpclient
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -59,7 +60,7 @@ func parseHTTPClient(_ context.Context, rawContent string) (Client, error) {
 		return nil, fmt.Errorf("parsing http client url: %w", err)
 	}
 
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+	if parsedURL.Scheme != "" && parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		return nil, ErrUnsupportedScheme(parsedURL.Scheme)
 	}
 
@@ -203,15 +204,36 @@ func (h *httpClientWrapper) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	ctx, cancel := h.prepareContext(req.Context())
-	if cancel != nil {
-		defer cancel()
-	}
 
 	out := req.WithContext(ctx)
 	h.prepareURL(out)
 
-	//nolint:wrapcheck // should not wrap transport errors.
-	return h.chain.RoundTrip(out)
+	resp, err := h.chain.RoundTrip(out)
+	if err != nil {
+		cancel()
+
+		//nolint:wrapcheck // should not wrap transport errors.
+		return nil, err
+	}
+
+	resp.Body = &bodyWrapper{
+		ReadCloser: resp.Body,
+		cancel:     cancel,
+	}
+
+	return resp, nil
+}
+
+type bodyWrapper struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *bodyWrapper) Close() error {
+	defer b.cancel()
+
+	//nolint:wrapcheck // implementing ReadCloser
+	return b.ReadCloser.Close()
 }
 
 func (h *httpClientWrapper) prepareContext(
@@ -221,16 +243,17 @@ func (h *httpClientWrapper) prepareContext(
 		return context.WithTimeout(ctx, h.timeout)
 	}
 
-	return ctx, nil
+	return ctx, func() {}
 }
 
 func (h *httpClientWrapper) prepareURL(out *http.Request) {
-	if out.URL.Host != "" {
-		return
+	if h.addr.Scheme != "" {
+		out.URL.Scheme = h.addr.Scheme
 	}
 
-	out.URL.Scheme = h.addr.Scheme
-	out.URL.Host = h.addr.Host
+	if h.addr.Host != "" {
+		out.URL.Host = h.addr.Host
+	}
 
 	basePath := strings.TrimSuffix(h.addr.Path, "/")
 	reqPath := strings.TrimPrefix(out.URL.Path, "/")
