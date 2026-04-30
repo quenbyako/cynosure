@@ -20,27 +20,38 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-type GenerateResponseOpt func(*generateResponseParams)
-
-type generateResponseParams struct {
-	toolChoice tools.ToolChoice
-	model      ids.AgentID
+func defaultGenerateResponseParams(required generateResponseRequiredParams) generateResponseParams {
+	return generateResponseParams{
+		generateResponseRequiredParams: required,
+		toolChoice:                     tools.ToolChoiceAllowed,
+		model:                          ids.AgentID{},
+	}
 }
 
-func WithToolChoice(toolChoice tools.ToolChoice) GenerateResponseOpt {
-	return func(params *generateResponseParams) { params.toolChoice = toolChoice }
+func (p generateResponseParams) validate() error {
+	switch {
+	case !p.threadID.Valid():
+		return errInternalValidation("thread id is required")
+	case !p.msg.Valid():
+		return errInternalValidation("message is required")
+	default:
+		return nil
+	}
 }
 
 func (u *Usecase) GenerateResponse(
 	ctx context.Context,
 	threadID ids.ThreadID,
 	msg messages.MessageUser,
-	opts ...GenerateResponseOpt,
+	opts ...GenerateResponseOption,
 ) (iter.Seq2[messages.Message, error], error) {
-	ctx, span := u.trace.Start(ctx, "Service.GenerateResponse")
-	defer span.End()
+	ctx, span := u.obs.generateResponse(ctx)
+	defer span.end()
 
-	params := u.resolveGenerateResponseParams(opts)
+	params, err := buildGenerateResponseParams(threadID, msg, opts...)
+	if err != nil {
+		return nil, err
+	}
 
 	allow, err := u.allowLimits(ctx, threadID.User())
 	if err != nil {
@@ -89,18 +100,6 @@ func (u *Usecase) getAgentWithChat(
 	}
 
 	return chatAgg, modelConfig, nil
-}
-
-func (u *Usecase) resolveGenerateResponseParams(opts []GenerateResponseOpt) generateResponseParams {
-	params := generateResponseParams{
-		toolChoice: tools.ToolChoiceAllowed,
-		model:      ids.AgentID{},
-	}
-	for _, opt := range opts {
-		opt(&params)
-	}
-
-	return params
 }
 
 func (u *Usecase) resolveAgentID(
@@ -184,14 +183,18 @@ func (u *Usecase) agentLoop(
 	toolChoice tools.ToolChoice,
 ) iter.Seq2[messages.Message, error] {
 	return func(yield func(messages.Message, error) bool) {
-		loopCtx, span := u.trace.Start(ctx, "Usecase.agentLoop")
-		defer span.End()
+		loopCtx, span := u.obs.agentLoop(ctx)
+		defer span.end()
+
+		var totalUsage chatmodel.UsageStats
 
 		for turn := range u.agentLoopTurns {
-			if !u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield) {
-				return
+			if !u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield, &totalUsage) {
+				break
 			}
 		}
+
+		u.obs.recordUsage(loopCtx, config.Model(), totalUsage.InputTokens, totalUsage.OutputTokens)
 	}
 }
 
@@ -202,11 +205,17 @@ func (u *Usecase) agentTurn(
 	toolChoice tools.ToolChoice,
 	turn uint8,
 	yield func(messages.Message, error) bool,
+	// using totalUsage only to provide stats to trace span, not for metrics!
+	totalUsage *chatmodel.UsageStats,
 ) bool {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("set.turn", trace.WithAttributes(attribute.Int("turn", int(turn))))
 
-	toolRequests, shouldContinue := u.askModel(ctx, thread, config, toolChoice, yield)
+	toolRequests, usage, shouldContinue := u.askModel(ctx, thread, config, toolChoice, yield)
+
+	totalUsage.InputTokens += usage.InputTokens
+	totalUsage.OutputTokens += usage.OutputTokens
+
 	if !shouldContinue || len(toolRequests) == 0 {
 		return false
 	}
@@ -225,14 +234,14 @@ func (u *Usecase) handleToolRequests(
 	toolRequests []messages.MessageToolRequest,
 	yield func(messages.Message, error) bool,
 ) bool {
-	u.log.ToolCalled(ctx, thread.ThreadID().String(), toolRequests)
+	u.obs.toolCalled(ctx, thread.ThreadID().String(), toolRequests)
 
 	if !u.executeTools(ctx, thread, toolRequests, yield) {
 		return false
 	}
 
 	if turn == u.agentLoopTurns-1 {
-		u.log.MaxTurnsReached(ctx, thread.ThreadID().String())
+		u.obs.maxTurnsReached(ctx, thread.ThreadID().String())
 	}
 
 	return true
@@ -244,11 +253,11 @@ func (u *Usecase) askModel(
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 	yield func(messages.Message, error) bool,
-) ([]messages.MessageToolRequest, bool) {
+) ([]messages.MessageToolRequest, chatmodel.UsageStats, bool) {
 	stream, err := u.callModel(ctx, thread, config, toolChoice)
 	if err != nil {
 		u.handleModelError(ctx, thread, err, yield)
-		return nil, false
+		return nil, chatmodel.UsageStats{}, false
 	}
 
 	return u.streamModelMessages(ctx, thread, stream, yield)
@@ -259,7 +268,7 @@ func (u *Usecase) callModel(
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
-) (iter.Seq2[messages.Message, error], error) {
+) (chatmodel.Iter, error) {
 	var opts []chatmodel.StreamOption
 	if toolChoice != tools.ToolChoiceForbidden {
 		opts = append(opts, chatmodel.WithStreamToolbox(thread.RelevantTools()))
@@ -270,7 +279,7 @@ func (u *Usecase) callModel(
 		maxContext = u.defaultChatLimit
 	}
 
-	resp, err := u.model.Stream(ctx, thread.Messages(maxContext), config, opts...)
+	resp, err := u.model.StreamWithStats(ctx, thread.Messages(maxContext), config, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("calling model stream: %w", err)
 	}
@@ -306,23 +315,43 @@ func (u *Usecase) handleModelError(
 func (u *Usecase) streamModelMessages(
 	ctx context.Context,
 	thread *chat.Chat,
-	stream iter.Seq2[messages.Message, error],
+	it chatmodel.Iter,
 	yield func(messages.Message, error) bool,
-) ([]messages.MessageToolRequest, bool) {
+) ([]messages.MessageToolRequest, chatmodel.UsageStats, bool) {
 	var toolRequests []messages.MessageToolRequest
+
+	// We wrap our pull iterator to a Seq2 to use our existing streaming merge logic.
+	stream := func(yield func(messages.Message, error) bool) {
+		for {
+			msg, ok := it.Next()
+			if !ok {
+				return
+			}
+
+			if !yield(msg, nil) {
+				return
+			}
+		}
+	}
 
 	for msg, err := range messages.MergeMessagesStreaming(stream) {
 		if err != nil {
 			yield(nil, fmt.Errorf("streaming messages: %w", err))
-			return nil, false
+			return nil, chatmodel.UsageStats{}, false
 		}
 
 		if !u.saveAndYieldMessage(ctx, thread, msg, &toolRequests, yield) {
-			return nil, false
+			return nil, chatmodel.UsageStats{}, false
 		}
 	}
 
-	return toolRequests, true
+	usage, err := it.Close()
+	if err != nil {
+		yield(nil, fmt.Errorf("closing stream: %w", err))
+		return nil, chatmodel.UsageStats{}, false
+	}
+
+	return toolRequests, usage, true
 }
 
 func (u *Usecase) saveAndYieldMessage(

@@ -39,11 +39,33 @@ type Port interface {
 		settings entities.AgentReadOnly,
 		opts ...StreamOption,
 	) (StreamIter, error)
+
+	StreamWithStats(
+		ctx context.Context,
+		input []messages.Message,
+		settings entities.AgentReadOnly,
+		opts ...StreamOption,
+	) (Iter, error)
 }
 
-func defaultStreamParams() streamParams {
+func defaultStreamParams(required streamRequiredParams) streamParams {
 	return streamParams{
-		tools:      tools.Toolbox{},
-		toolChoice: tools.ToolChoiceAllowed,
+		streamRequiredParams: required,
+		tools:                tools.Toolbox{},
+		toolChoice:           tools.ToolChoiceAllowed,
 	}
+}
+
+func (s *streamParams) validate() error {
+	return nil
+}
+
+type UsageStats struct {
+	InputTokens  uint32
+	OutputTokens uint32
+}
+
+type Iter interface {
+	Next() (messages.Message, bool)
+	Close() (UsageStats, error)
 }

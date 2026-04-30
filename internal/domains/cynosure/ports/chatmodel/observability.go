@@ -35,6 +35,7 @@ func newObservable(stack ports.ObserveStack) *observable {
 type streamCallback interface {
 	span
 	addOutputMessage(msg messages.Message)
+	setUsage(u UsageStats)
 }
 
 type streamSpan struct {
@@ -100,6 +101,13 @@ func (s *streamSpan) addOutputMessage(msg messages.Message) {
 		s.recordError(err)
 		s.reason = genai.FinishReasonError
 	}
+}
+
+func (s *streamSpan) setUsage(u UsageStats) {
+	s.span.SetAttributes(
+		attribute.Int64("gen_ai.usage.input_tokens", int64(u.InputTokens)),
+		attribute.Int64("gen_ai.usage.output_tokens", int64(u.OutputTokens)),
+	)
 }
 
 func (s *streamSpan) end() {

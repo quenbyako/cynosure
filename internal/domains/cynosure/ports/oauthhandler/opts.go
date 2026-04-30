@@ -31,6 +31,10 @@ type internalConnectionOption struct{}
 func (i internalConnectionOption) applyRegisterClient(p *registerClientParams) { p.internal = true }
 func (i internalConnectionOption) applyRefreshToken(p *refreshTokenParams)     { p.internal = true }
 
+// ========================================================================== //
+//                                [types]                                     //
+// ========================================================================== //
+
 type (
 	RegisterClientOption interface{ applyRegisterClient(p *registerClientParams) }
 	RefreshTokenOption   interface{ applyRefreshToken(p *refreshTokenParams) }

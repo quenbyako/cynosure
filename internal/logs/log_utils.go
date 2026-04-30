@@ -14,7 +14,6 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
 func New(l slog.Handler) *BaseLogger { return &BaseLogger{l: l} }
@@ -24,7 +23,6 @@ type BaseLogger struct {
 }
 
 var (
-	_ chat.LogCallbacks     = (*BaseLogger)(nil)
 	_ gemini.LogCallbacks   = (*BaseLogger)(nil)
 	_ telegram.LogCallbacks = (*BaseLogger)(nil)
 	_ runtime.LogCallbacks  = (*BaseLogger)(nil)
