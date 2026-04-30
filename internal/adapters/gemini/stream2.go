@@ -26,12 +26,12 @@ func (g *GeminiModel) StreamWithStats(
 
 	params, err := chatmodel.StreamParams(input, settings, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare stream params: %w", err)
 	}
 
 	genConfig, err := g.buildGenConfig(params.Settings(), &params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build genAI config: %w", err)
 	}
 
 	g.log.GeminiStreamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
@@ -78,8 +78,8 @@ func (s *geminiStreamSession) Map(msg *genai.GenerateContentResponse) ([]message
 
 func (s *geminiStreamSession) Collect(u chatmodel.UsageStats, msg *genai.GenerateContentResponse) chatmodel.UsageStats {
 	if msg.UsageMetadata != nil {
-		u.InputTokens += uint32(msg.UsageMetadata.PromptTokenCount)
-		u.OutputTokens += uint32(msg.UsageMetadata.CandidatesTokenCount)
+		u.InputTokens = uint32(max(0, msg.UsageMetadata.PromptTokenCount))
+		u.OutputTokens = uint32(max(0, msg.UsageMetadata.CandidatesTokenCount))
 	}
 
 	u.Duration = time.Since(s.startTime)
