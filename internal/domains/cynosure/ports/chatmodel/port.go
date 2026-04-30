@@ -4,6 +4,7 @@ package chatmodel
 import (
 	"context"
 	"iter"
+	"time"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
@@ -63,6 +64,7 @@ func (s *streamParams) validate() error {
 type UsageStats struct {
 	InputTokens  uint32
 	OutputTokens uint32
+	Duration     time.Duration
 }
 
 type Iter interface {

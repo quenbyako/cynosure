@@ -186,15 +186,11 @@ func (u *Usecase) agentLoop(
 		loopCtx, span := u.obs.agentLoop(ctx)
 		defer span.end()
 
-		var totalUsage chatmodel.UsageStats
-
 		for turn := range u.agentLoopTurns {
-			if !u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield, &totalUsage) {
+			if !u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield) {
 				break
 			}
 		}
-
-		u.obs.recordUsage(loopCtx, config.Model(), totalUsage.InputTokens, totalUsage.OutputTokens)
 	}
 }
 
@@ -205,16 +201,15 @@ func (u *Usecase) agentTurn(
 	toolChoice tools.ToolChoice,
 	turn uint8,
 	yield func(messages.Message, error) bool,
-	// using totalUsage only to provide stats to trace span, not for metrics!
-	totalUsage *chatmodel.UsageStats,
 ) bool {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("set.turn", trace.WithAttributes(attribute.Int("turn", int(turn))))
 
 	toolRequests, usage, shouldContinue := u.askModel(ctx, thread, config, toolChoice, yield)
 
-	totalUsage.InputTokens += usage.InputTokens
-	totalUsage.OutputTokens += usage.OutputTokens
+	u.obs.recordUsage(ctx, config.Model(),
+		usage.InputTokens, usage.OutputTokens, usage.Duration,
+	)
 
 	if !shouldContinue || len(toolRequests) == 0 {
 		return false

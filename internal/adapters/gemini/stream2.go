@@ -3,6 +3,7 @@ package gemini
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/genai"
 
@@ -43,20 +44,22 @@ func (g *GeminiModel) StreamWithStats(
 	stream := g.client.Models.GenerateContentStream(ctx, params.Settings().Model(), converted, genConfig)
 
 	session := &geminiStreamSession{
-		thought:  "",
-		metadata: nil,
-		tag:      randomUint64(),
-		agentID:  params.Settings().ID(),
+		thought:   "",
+		metadata:  nil,
+		tag:       randomUint64(),
+		agentID:   params.Settings().ID(),
+		startTime: time.Now(),
 	}
 
 	return NewIterCloser(stream, session.Map, session.Collect), nil
 }
 
 type geminiStreamSession struct {
-	thought  string
-	metadata []byte
-	tag      uint64
-	agentID  ids.AgentID
+	thought   string
+	metadata  []byte
+	tag       uint64
+	agentID   ids.AgentID
+	startTime time.Time
 }
 
 func (s *geminiStreamSession) Map(msg *genai.GenerateContentResponse) ([]messages.Message, error) {
@@ -78,6 +81,8 @@ func (s *geminiStreamSession) Collect(u chatmodel.UsageStats, msg *genai.Generat
 		u.InputTokens += uint32(msg.UsageMetadata.PromptTokenCount)
 		u.OutputTokens += uint32(msg.UsageMetadata.CandidatesTokenCount)
 	}
+
+	u.Duration = time.Since(s.startTime)
 
 	return u
 }

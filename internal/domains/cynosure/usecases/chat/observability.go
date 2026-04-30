@@ -25,7 +25,8 @@ type observable struct {
 	t   trace.Tracer
 	l   log.Logger
 
-	tokenUsage genaiconv.ClientTokenUsage
+	tokenUsage        genaiconv.ClientTokenUsage
+	operationDuration genaiconv.ClientOperationDuration
 }
 
 func newObservable(stack ports.ObserveStack) (observable, error) {
@@ -40,12 +41,18 @@ func newObservable(stack ports.ObserveStack) (observable, error) {
 		return observable{}, fmt.Errorf("client token usage meter: %w", err)
 	}
 
+	operationDuration, err := genaiconv.NewClientOperationDuration(meter)
+	if err != nil {
+		return observable{}, fmt.Errorf("client operation duration meter: %w", err)
+	}
+
 	return observable{
 		now: time.Now,
 		t:   stack.Tracer(),
 		l:   stack.Logger(),
 
-		tokenUsage: tokenUsage,
+		tokenUsage:        tokenUsage,
+		operationDuration: operationDuration,
 	}, nil
 }
 
@@ -78,19 +85,31 @@ func (o *observable) toolCalled(
 // metric callbacks
 
 func (o *observable) recordUsage(
-	ctx context.Context, model string, inputTokens, outputTokens uint32,
+	ctx context.Context, model string, inputTokens, outputTokens uint32, duration time.Duration,
 ) {
 	o.tokenUsage.Record(ctx, int64(inputTokens),
 		genaiconv.OperationNameChat,
 		genaiconv.ProviderNameGCPGenAI,
 		genaiconv.TokenTypeInput,
 		semconv.GenAIRequestModel(model),
+		// TODO: get response model from... response? is there a way?
+		semconv.GenAIResponseModel(model),
 	)
 	o.tokenUsage.Record(ctx, int64(outputTokens),
 		genaiconv.OperationNameChat,
 		genaiconv.ProviderNameGCPGenAI,
 		genaiconv.TokenTypeOutput,
 		semconv.GenAIRequestModel(model),
+		// TODO: get response model from... response? is there a way?
+		semconv.GenAIResponseModel(model),
+	)
+
+	o.operationDuration.Record(ctx, duration.Seconds(),
+		genaiconv.OperationNameChat,
+		genaiconv.ProviderNameGCPGenAI,
+		semconv.GenAIRequestModel(model),
+		// TODO: get response model from... response? is there a way?
+		semconv.GenAIResponseModel(model),
 	)
 
 	// Also add to span if exists
