@@ -23,7 +23,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/logs"
 )
 
@@ -67,7 +66,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	agentStorage := ports.NewAgentStorage(adapter)
 	ratelimiterPortWrapped := ratelimiter.New(rateLimiter)
-	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, ratelimiterPortWrapped, baseLogger)
+	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, ratelimiterPortWrapped)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +92,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 // wire.go:
 
 var loggerConstructor = wire.NewSet(
-	newLogger, wire.Bind(new(chat.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(gemini.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(telegram.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(runtime.LogCallbacks), new(*logs.BaseLogger)),
+	newLogger, wire.Bind(new(gemini.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(telegram.LogCallbacks), new(*logs.BaseLogger)), wire.Bind(new(runtime.LogCallbacks), new(*logs.BaseLogger)),
 )
 
 var (

@@ -68,3 +68,51 @@ func (i *portWrapped) Stream(
 		})
 	}, nil
 }
+
+func (i *portWrapped) StreamWithStats(
+	ctx context.Context,
+	input []messages.Message,
+	settings entities.AgentReadOnly,
+	opts ...StreamOption,
+) (Iter, error) {
+	ctx, span := i.t.stream(ctx, input, settings)
+
+	res, err := i.w.StreamWithStats(ctx, input, settings, opts...)
+	if err != nil {
+		span.recordError(err)
+		span.end()
+		//nolint:wrapcheck // should never wrap error
+		return nil, err
+	}
+
+	return &iterWrapped{
+		it:   res,
+		span: span,
+	}, nil
+}
+
+type iterWrapped struct {
+	it   Iter
+	span streamCallback
+}
+
+func (w *iterWrapped) Next() (messages.Message, bool) {
+	msg, ok := w.it.Next()
+	if ok {
+		w.span.addOutputMessage(msg)
+	}
+
+	return msg, ok
+}
+
+func (w *iterWrapped) Close() (UsageStats, error) {
+	usage, err := w.it.Close()
+	if err != nil {
+		w.span.recordError(err)
+	}
+
+	w.span.setUsage(usage)
+	w.span.end()
+
+	return usage, err
+}

@@ -7,14 +7,10 @@ import (
 	"net"
 
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
-
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
 const (
-	eventMaxTurnsReached      = "generate.max_turns_reached"
-	eventToolCalled           = "generate.tool_called"
 	eventGeminiStreamStarted  = "gemini.stream_started"
 	eventEffectiveEnvironment = "notify.effective_environment"
 	eventMetricsStarted       = "metrics.started"
@@ -57,32 +53,6 @@ func (l *BaseLogger) ProcessMessageSuccess(ctx context.Context, channelID int, d
 			attribute.Key("duration").String(duration),
 		).
 		Msg("message success")
-}
-
-func (l *BaseLogger) MaxTurnsReached(ctx context.Context, threadID string) {
-	l.event(ctx, slog.LevelWarn, eventMaxTurnsReached).
-		Context(
-			attribute.Key("thread_id").String(threadID),
-		).
-		Msg("Model reached max turns with tool calls, consider adjusting settings")
-}
-
-func (l *BaseLogger) ToolCalled(
-	ctx context.Context,
-	threadID string,
-	toolRequests []messages.MessageToolRequest,
-) {
-	names := make([]string, len(toolRequests))
-	for i, req := range toolRequests {
-		names[i] = req.ToolName()
-	}
-
-	l.event(ctx, slog.LevelInfo, eventToolCalled).
-		Context(
-			attribute.Key("thread_id").String(threadID),
-			attribute.Key("tool_names").StringSlice(names),
-		).
-		Msg("Tool called during generation")
 }
 
 func (l *BaseLogger) EffectiveEnvironment(ctx context.Context, env map[string]string) {

@@ -26,7 +26,6 @@ func newChatUsecase(
 	account ports.AccountStorage,
 	models ports.AgentStorage,
 	limiter ratelimiter.PortWrapped,
-	logger chat.LogCallbacks,
 ) (*chat.Usecase, error) {
 	usecase, err := chat.New(
 		storage,
@@ -38,8 +37,7 @@ func newChatUsecase(
 		account,
 		models,
 		limiter,
-		chat.WithLogger(logger),
-		chat.WithTracer(params.observability),
+		chat.WithObservability(params.observability),
 		chat.WithChatLimit(params.chat.softLimit),
 	)
 	if err != nil {

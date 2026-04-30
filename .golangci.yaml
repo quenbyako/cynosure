@@ -285,6 +285,8 @@ linters:
       # [bad]  a := b.(MyStruct)
       # [good] a, ok := b.(MyStruct)
       check-type-assertions: true
+    exhaustruct:
+      allow-empty: true
     exhaustive:
       check:
         - switch

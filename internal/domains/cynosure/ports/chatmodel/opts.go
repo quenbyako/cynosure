@@ -1,6 +1,8 @@
 package chatmodel
 
 import (
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
@@ -32,23 +34,40 @@ var _ StreamOption = streamFunc(nil)
 
 func (f streamFunc) applyStream(p *streamParams) { f(p) }
 
+// ========================================================================== //
+//                              [Port.Stream]                                 //
+// ========================================================================== //
+
+type streamRequiredParams struct {
+	settings entities.AgentReadOnly
+	input    []messages.Message
+}
+
 type streamParams struct {
-	tools      tools.Toolbox
+	tools tools.Toolbox
+	streamRequiredParams
 	toolChoice tools.ToolChoice
 }
 
-// ========================================================================== //
-//                            [ChatModel.Stream]                              //
-// ========================================================================== //
-
-func StreamParams(opts ...StreamOption) streamParams {
-	p := defaultStreamParams()
+func StreamParams(
+	input []messages.Message, settings entities.AgentReadOnly, opts ...StreamOption,
+) (streamParams, error) {
+	params := defaultStreamParams(streamRequiredParams{
+		input:    input,
+		settings: settings,
+	})
 	for _, opt := range opts {
-		opt.applyStream(&p)
+		opt.applyStream(&params)
 	}
 
-	return p
+	if err := params.validate(); err != nil {
+		return streamParams{}, err
+	}
+
+	return params, nil
 }
 
-func (s *streamParams) Toolbox() tools.Toolbox       { return s.tools }
-func (s *streamParams) ToolChoice() tools.ToolChoice { return s.toolChoice }
+func (s *streamParams) Input() []messages.Message        { return s.input }
+func (s *streamParams) Settings() entities.AgentReadOnly { return s.settings }
+func (s *streamParams) Toolbox() tools.Toolbox           { return s.tools }
+func (s *streamParams) ToolChoice() tools.ToolChoice     { return s.toolChoice }

@@ -21,13 +21,11 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/logs"
 )
 
 var loggerConstructor = wire.NewSet(
 	newLogger,
-	wire.Bind(new(chat.LogCallbacks), new(*logs.BaseLogger)),
 	wire.Bind(new(gemini.LogCallbacks), new(*logs.BaseLogger)),
 	wire.Bind(new(telegram.LogCallbacks), new(*logs.BaseLogger)),
 	wire.Bind(new(runtime.LogCallbacks), new(*logs.BaseLogger)),

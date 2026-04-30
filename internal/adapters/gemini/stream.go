@@ -27,21 +27,24 @@ func (g *GeminiModel) Stream(
 		return nil, chatmodel.ErrHistoryTooLong
 	}
 
-	params := chatmodel.StreamParams(opts...)
-
-	genConfig, err := g.buildGenConfig(settings, &params)
+	params, err := chatmodel.StreamParams(input, settings, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	g.log.GeminiStreamStarted(ctx, settings.Model(), len(params.Toolbox().List()))
+	genConfig, err := g.buildGenConfig(params.Settings(), &params)
+	if err != nil {
+		return nil, err
+	}
 
-	converted, err := datatransfer.MessagesToGenAIContent(input)
+	g.log.GeminiStreamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
+
+	converted, err := datatransfer.MessagesToGenAIContent(params.Input())
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert messages: %w", err)
 	}
 
-	stream := g.client.Models.GenerateContentStream(ctx, settings.Model(), converted, genConfig)
+	stream := g.client.Models.GenerateContentStream(ctx, params.Settings().Model(), converted, genConfig)
 	tag := randomUint64()
 
 	return func(yield func(messages.Message, error) bool) {
