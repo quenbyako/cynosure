@@ -186,11 +186,23 @@ func (u *Usecase) agentLoop(
 		loopCtx, span := u.obs.agentLoop(ctx)
 		defer span.end()
 
+		var totalUsage chatmodel.UsageStats
+
 		for turn := range u.agentLoopTurns {
-			if !u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield) {
+			usage, next := u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield)
+
+			totalUsage = chatmodel.UsageStats{
+				InputTokens:  usage.InputTokens + totalUsage.InputTokens,
+				OutputTokens: usage.OutputTokens + totalUsage.OutputTokens,
+				Duration:     usage.Duration + totalUsage.Duration,
+			}
+
+			if !next {
 				break
 			}
 		}
+
+		span.recordTotalUsage(totalUsage.InputTokens, totalUsage.OutputTokens)
 	}
 }
 
@@ -201,7 +213,7 @@ func (u *Usecase) agentTurn(
 	toolChoice tools.ToolChoice,
 	turn uint8,
 	yield func(messages.Message, error) bool,
-) bool {
+) (chatmodel.UsageStats, bool) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("set.turn", trace.WithAttributes(attribute.Int("turn", int(turn))))
 
@@ -212,14 +224,14 @@ func (u *Usecase) agentTurn(
 	)
 
 	if !shouldContinue || len(toolRequests) == 0 {
-		return false
+		return usage, false
 	}
 
 	if !u.handleToolRequests(ctx, thread, turn, toolRequests, yield) {
-		return false
+		return usage, false
 	}
 
-	return true
+	return usage, true
 }
 
 func (u *Usecase) handleToolRequests(
@@ -343,7 +355,7 @@ func (u *Usecase) streamModelMessages(
 	usage, err := it.Close()
 	if err != nil {
 		yield(nil, fmt.Errorf("closing stream: %w", err))
-		return nil, chatmodel.UsageStats{}, false
+		return nil, usage, false
 	}
 
 	return toolRequests, usage, true

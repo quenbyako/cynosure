@@ -111,13 +111,6 @@ func (o *observable) recordUsage(
 		// TODO: get response model from... response? is there a way?
 		semconv.GenAIResponseModel(model),
 	)
-
-	// Also add to span if exists
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(
-		semconv.GenAIUsageInputTokens(int(inputTokens)),
-		semconv.GenAIUsageOutputTokens(int(outputTokens)),
-	)
 }
 
 // trace callbacks
@@ -131,13 +124,51 @@ func (o *observable) generateResponse(ctx context.Context) (context.Context, spa
 	return ctx, &spanCallback{span: span}
 }
 
+type agentLoopCallback interface {
+	span
+
+	recordTotalUsage(inputTokens, outputTokens uint32)
+}
+
+type agentLoopSpan struct {
+	span trace.Span
+
+	inputTokens, outputTokens int
+}
+
 //nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
-func (o *observable) agentLoop(ctx context.Context) (context.Context, span) {
+func (o *observable) agentLoop(ctx context.Context) (context.Context, agentLoopCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.usecases.agent_loop",
 		trace.WithSpanKind(trace.SpanKindInternal),
 	)
 
-	return ctx, &spanCallback{span: span}
+	return ctx, &agentLoopSpan{
+		span:         span,
+		inputTokens:  0,
+		outputTokens: 0,
+	}
+}
+
+func (s *agentLoopSpan) recordTotalUsage(inputTokens, outputTokens uint32) {
+	s.inputTokens += int(inputTokens)
+	s.outputTokens += int(outputTokens)
+}
+
+func (s *agentLoopSpan) end() {
+	if s != nil && s.span != nil {
+		s.span.SetAttributes(
+			semconv.GenAIUsageInputTokens(s.inputTokens),
+			semconv.GenAIUsageOutputTokens(s.outputTokens),
+		)
+
+		s.span.End()
+	}
+}
+
+func (s *agentLoopSpan) recordError(err error) {
+	if err != nil && s != nil && s.span != nil {
+		s.span.RecordError(err)
+	}
 }
 
 // generic span
@@ -172,15 +203,15 @@ type eventBuilder struct {
 	r   log.Record
 }
 
-func (o *observable) event(ctx context.Context, level log.Severity, eventType string) *eventBuilder {
-	if !o.l.Enabled(ctx, log.EnabledParameters{Severity: level, EventName: eventType}) {
+func (o *observable) event(ctx context.Context, level log.Severity, name string) *eventBuilder {
+	if !o.l.Enabled(ctx, log.EnabledParameters{Severity: level, EventName: name}) {
 		return nil
 	}
 
 	event := log.Record{}
 	event.SetTimestamp(o.now())
 	event.SetSeverity(level)
-	event.SetEventName(eventType)
+	event.SetEventName(name)
 
 	// Note: here we are not providing trace context, service name, version,
 	// etc, since sdk logger already provides that features outside of body. By
@@ -207,12 +238,4 @@ func (e *eventBuilder) Msgf(format string, v ...any) { e.Msg(fmt.Sprintf(format,
 func (e *eventBuilder) Msg(msg string) {
 	e.r.SetBody(log.StringValue(msg))
 	e.h.Emit(e.ctx, e.r)
-}
-
-func omitOK[T any](s T, ok bool) T {
-	if !ok {
-		return *new(T)
-	}
-
-	return s
 }
