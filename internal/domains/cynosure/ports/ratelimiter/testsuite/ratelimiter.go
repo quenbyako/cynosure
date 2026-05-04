@@ -19,7 +19,6 @@ import (
 var features embed.FS
 
 var (
-	errUserNotFound    = errors.New("user not found")
 	errExpectedSuccess = errors.New("expected success")
 	errExpectedError   = errors.New("expected error")
 )
@@ -30,10 +29,12 @@ type Quota struct {
 }
 
 type SetupParams struct {
-	Now      func() time.Time
-	Messages Quota
-	Tokens   Quota
-	MaxWait  time.Duration
+	Now            func() time.Time
+	ChatInput      Quota
+	ChatOutput     Quota
+	EmbeddingInput Quota
+
+	MaxWait time.Duration
 }
 
 type setupFunc func(context.Context, SetupParams) (ratelimiter.Port, error)
@@ -129,10 +130,11 @@ func (s *godogState) InitializeScenario(setup setupFunc) func(*godog.ScenarioCon
 func (s *godogState) reset() {
 	*s = godogState{
 		setupParams: SetupParams{
-			Now:      func() time.Time { return s.currentTime },
-			Messages: Quota{},
-			Tokens:   Quota{},
-			MaxWait:  0,
+			Now:            func() time.Time { return s.currentTime },
+			ChatInput:      Quota{},
+			ChatOutput:     Quota{},
+			EmbeddingInput: Quota{},
+			MaxWait:        0,
 		},
 
 		setup:       s.setup,
@@ -148,8 +150,10 @@ func (s *godogState) setupMessageLimit(limit int, periodStr string) error {
 	if err != nil {
 		return err
 	}
-	s.setupParams.Messages.Limit = limit
-	s.setupParams.Messages.Period = dur
+
+	s.setupParams.ChatInput.Limit = limit
+	s.setupParams.ChatInput.Period = dur
+
 	return nil
 }
 
@@ -158,8 +162,8 @@ func (s *godogState) setupTokenLimit(limit int, periodStr string) error {
 	if err != nil {
 		return err
 	}
-	s.setupParams.Tokens.Limit = limit
-	s.setupParams.Tokens.Period = dur
+	s.setupParams.ChatOutput.Limit = limit
+	s.setupParams.ChatOutput.Period = dur
 	return nil
 }
 

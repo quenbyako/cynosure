@@ -7,7 +7,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-type ConsumedTokensFunc func(context.Context, int) error
+type ConsumedTokensFunc func(ctx context.Context, outputTokens int) error
 
 // Port manages resource consumption, quotas, and access control for users.
 //
@@ -34,7 +34,7 @@ type Port interface {
 	// Throws:
 	//
 	//  - [RateLimitExceededError] if user has reached its assigned quota.
-	ConsumeChatRequests(ctx context.Context, user ids.UserID, model string, messages int) (ConsumedTokensFunc, error)
+	ConsumeChatRequests(ctx context.Context, user ids.UserID, model string, inputTokens int) (ConsumedTokensFunc, error)
 
 	// ConsumeEmbeddingRequests consumes embedding requests quota for the given user.
 	// It returns a callback to record token usage after the embedding completes.
@@ -42,5 +42,5 @@ type Port interface {
 	// Throws:
 	//
 	//  - [RateLimitExceededError] if user has reached its assigned quota.
-	ConsumeEmbeddingRequests(ctx context.Context, user ids.UserID, model string, requests int) (ConsumedTokensFunc, error)
+	ConsumeEmbeddingRequests(ctx context.Context, user ids.UserID, model string, inputTokens int) error
 }

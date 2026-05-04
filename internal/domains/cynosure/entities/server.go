@@ -217,7 +217,6 @@ func (c *ServerConfig) SetConfigExpiration(t time.Time) {
 
 type ServerConfigEvent interface{ undo(c *ServerConfig) }
 
-//nolint:exhaustruct // interface check
 var (
 	_ ServerConfigEvent = ServerConfigEventOauthConfigUpdated{}
 	_ ServerConfigEvent = ServerConfigEventProtocolUpdated{}

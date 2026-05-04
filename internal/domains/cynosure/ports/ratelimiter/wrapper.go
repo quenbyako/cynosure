@@ -39,12 +39,12 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 
 // ConsumeChat consumes rate limit of messages for the given user.
 func (t *portWrapped) ConsumeChatRequests(
-	ctx context.Context, user ids.UserID, model string, messages int,
+	ctx context.Context, user ids.UserID, model string, inputTokens int,
 ) (callback ConsumedTokensFunc, err error) {
-	ctx, span := t.t.consumeChatRequests(ctx, user, messages)
+	ctx, span := t.t.consumeChatRequests(ctx, user, inputTokens)
 	defer span.end()
 
-	callback, err = t.w.ConsumeChatRequests(ctx, user, model, messages)
+	callback, err = t.w.ConsumeChatRequests(ctx, user, model, inputTokens)
 	span.recordError(err)
 
 	//nolint:wrapcheck // should not wrap adapter errors
@@ -52,14 +52,14 @@ func (t *portWrapped) ConsumeChatRequests(
 }
 
 func (t *portWrapped) ConsumeEmbeddingRequests(
-	ctx context.Context, user ids.UserID, model string, requests int,
-) (callback ConsumedTokensFunc, err error) {
-	ctx, span := t.t.consumeEmbeddingRequests(ctx, user, requests)
+	ctx context.Context, user ids.UserID, model string, inputTokens int,
+) (err error) {
+	ctx, span := t.t.consumeEmbeddingRequests(ctx, user, inputTokens)
 	defer span.end()
 
-	callback, err = t.w.ConsumeEmbeddingRequests(ctx, user, model, requests)
+	err = t.w.ConsumeEmbeddingRequests(ctx, user, model, inputTokens)
 	span.recordError(err)
 
 	//nolint:wrapcheck // should not wrap adapter errors
-	return callback, err
+	return err
 }

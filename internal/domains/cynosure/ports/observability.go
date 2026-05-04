@@ -38,5 +38,9 @@ func NoOpObserveStack() ObserveStack {
 
 // StackFromCore returns an observer stack that uses core metrics.
 func StackFromCore(m core.Metrics, name string) ObserveStack {
+	if m == nil {
+		return NoOpObserveStack()
+	}
+
 	return &observeStack{m: m, name: name}
 }

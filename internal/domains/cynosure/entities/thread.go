@@ -239,7 +239,6 @@ func (c *Thread) SetAgent(agentID ids.AgentID) bool {
 
 type ThreadEvent interface{ undo(c *Thread) }
 
-//nolint:exhaustruct // interface check
 var _ ThreadEvent = ThreadEventMessageAdded{}
 
 type ThreadEventMessageAdded struct {

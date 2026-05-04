@@ -199,6 +199,8 @@ func (r *Reservation) DelayFrom(t time.Time) time.Duration {
 	return delay
 }
 
+func (r *Reservation) RetryAt() time.Time { return r.timeToAct }
+
 // Cancel is shorthand for CancelAt(time.Now()).
 func (r *Reservation) Cancel() {
 	r.CancelAt(time.Now())

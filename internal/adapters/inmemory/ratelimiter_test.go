@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"golang.org/x/time/rate"
-
 	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter/testsuite"
@@ -19,10 +17,12 @@ func TestRateLimiter(t *testing.T) {
 
 func setupLimiter(_ context.Context, params testsuite.SetupParams) (ratelimiter.Port, error) {
 	return inmemory.NewRateLimiter(
-		rate.Every(params.Messages.Period),
-		params.Messages.Limit,
-		rate.Every(params.Tokens.Period),
-		params.Tokens.Limit,
+		params.ChatInput.Period,
+		params.ChatInput.Limit,
+		params.ChatOutput.Period,
+		params.ChatOutput.Limit,
+		params.EmbeddingInput.Period,
+		params.EmbeddingInput.Limit,
 		params.MaxWait,
 		params.Now,
 		nil,
