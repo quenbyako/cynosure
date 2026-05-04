@@ -19,6 +19,8 @@ type portWrapped struct {
 	t *observable
 }
 
+var _ PortWrapped = (*portWrapped)(nil)
+
 func (t *portWrapped) _PortWrapped() {}
 
 // Wrap wraps the given port with observability tools.
@@ -35,14 +37,29 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	return &t
 }
 
-// Consume consumes rate limit of messages for the given user.
-func (t *portWrapped) Consume(ctx context.Context, user ids.UserID, n int) (err error) {
-	ctx, span := t.t.consume(ctx, user, n)
+// ConsumeChat consumes rate limit of messages for the given user.
+func (t *portWrapped) ConsumeChatRequests(
+	ctx context.Context, user ids.UserID, model string, messages int,
+) (callback ConsumedTokensFunc, err error) {
+	ctx, span := t.t.consumeChatRequests(ctx, user, messages)
 	defer span.end()
 
-	err = t.w.Consume(ctx, user, n)
+	callback, err = t.w.ConsumeChatRequests(ctx, user, model, messages)
 	span.recordError(err)
 
 	//nolint:wrapcheck // should not wrap adapter errors
-	return err
+	return callback, err
+}
+
+func (t *portWrapped) ConsumeEmbeddingRequests(
+	ctx context.Context, user ids.UserID, model string, requests int,
+) (callback ConsumedTokensFunc, err error) {
+	ctx, span := t.t.consumeEmbeddingRequests(ctx, user, requests)
+	defer span.end()
+
+	callback, err = t.w.ConsumeEmbeddingRequests(ctx, user, model, requests)
+	span.recordError(err)
+
+	//nolint:wrapcheck // should not wrap adapter errors
+	return callback, err
 }

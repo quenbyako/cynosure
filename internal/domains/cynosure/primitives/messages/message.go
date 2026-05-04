@@ -28,7 +28,6 @@ type Message interface {
 	_Message()
 }
 
-//nolint:exhaustruct // interface check
 var (
 	_ Message = MessageToolRequest{}
 	_ Message = MessageToolResponse{}
@@ -52,7 +51,6 @@ type MessageTool interface {
 	_MessageTool()
 }
 
-//nolint:exhaustruct // interface check
 var (
 	_ MessageTool = MessageToolResponse{}
 	_ MessageTool = MessageToolError{}

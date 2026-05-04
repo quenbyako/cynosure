@@ -24,7 +24,7 @@ type ToolSemanticIndex interface {
 	//  - [TestToolEmbeddingGeneration] — embedding generation for various tool
 	//     types
 	//
-	IndexTool(ctx context.Context, tool entities.ToolReadOnly) ([embeddingSize]float32, error)
+	IndexTool(ctx context.Context, tool entities.ToolReadOnly) ([EmbeddingSize]float32, error)
 
 	// BuildToolEmbedding generates query embedding from conversation context.
 	// Used to find semantically relevant tools matching user's intent.
@@ -34,7 +34,7 @@ type ToolSemanticIndex interface {
 	//  - [TestToolEmbeddingSearch] — semantic search with various conversation
 	//     contexts
 	//
-	BuildToolEmbedding(ctx context.Context, msgs []messages.Message) ([embeddingSize]float32, error)
+	BuildToolEmbedding(ctx context.Context, msgs []messages.Message) ([EmbeddingSize]float32, error)
 }
 
 type ToolSemanticIndexFactory interface {

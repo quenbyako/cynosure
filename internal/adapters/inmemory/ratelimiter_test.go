@@ -3,7 +3,6 @@ package inmemory_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"golang.org/x/time/rate"
 
@@ -20,9 +19,11 @@ func TestRateLimiter(t *testing.T) {
 
 func setupLimiter(_ context.Context, params testsuite.SetupParams) (ratelimiter.Port, error) {
 	return inmemory.NewRateLimiter(
-		rate.Limit(params.Limit),
-		params.Burst,
-		time.Hour, // large TTL for tests
+		rate.Every(params.Messages.Period),
+		params.Messages.Limit,
+		rate.Every(params.Tokens.Period),
+		params.Tokens.Limit,
+		params.MaxWait,
 		params.Now,
 		nil,
 	), nil

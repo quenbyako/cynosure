@@ -55,11 +55,11 @@ func (g *GeminiModel) StreamWithStats(
 }
 
 type geminiStreamSession struct {
+	startTime time.Time
 	thought   string
 	metadata  []byte
 	tag       uint64
 	agentID   ids.AgentID
-	startTime time.Time
 }
 
 func (s *geminiStreamSession) Map(msg *genai.GenerateContentResponse) ([]messages.Message, error) {

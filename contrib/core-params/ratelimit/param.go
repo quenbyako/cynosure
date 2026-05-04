@@ -14,6 +14,14 @@ const (
 	expectedParts = 2
 )
 
+// NewPolicy creates a new rate limit policy.
+func NewPolicy(burst int, period time.Duration) Policy {
+	return Policy{
+		burst:  burst,
+		period: period,
+	}
+}
+
 // Policy defines a rate limit policy with a limit and burst.
 // It implements encoding.TextUnmarshaler to allow parsing from strings like "20/1h".
 //

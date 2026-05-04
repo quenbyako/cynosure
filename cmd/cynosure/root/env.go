@@ -55,7 +55,6 @@ type Config struct {
 	OtlpMetadata map[string]string `env:"CYNOSURE_OTLP_METADATA"         default:"" envSeparator:","`
 }
 
-//nolint:exhaustruct // interface check
 var _ core.ActionConfig = Config{}
 
 //nolint:gocritic // calls once

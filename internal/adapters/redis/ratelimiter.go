@@ -60,8 +60,8 @@ func NewRateLimiter(
 // RateLimiter returns ratelimiter.PortWrapped interface.
 func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped { return ratelimiter.Wrap(r, r.tracer) }
 
-// Consume consumes message quota for the given user.
-func (r *RateLimiter) Consume(ctx context.Context, user ids.UserID, count int) error {
+// ConsumeChat consumes message quota for the given user.
+func (r *RateLimiter) ConsumeChat(ctx context.Context, user ids.UserID, count int) error {
 	// For testing purposes: if the mocked clock advances into the future relative to
 	// real time, we actually sleep to let the Redis backend naturally catch up.
 	if r.now != nil {

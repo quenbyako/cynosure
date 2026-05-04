@@ -232,6 +232,7 @@ linters:
         - encoding/*
         - github.com/golang/protobuf/proto
       ignore-sigs:
+        - ctx.Err()
         - .Errorf(
         - errors.New(
         - errors.Unwrap(

@@ -1,4 +1,3 @@
-// Package inmemory provides simple in-memory implementations.
 package inmemory
 
 import (
@@ -18,7 +17,7 @@ import (
 )
 
 const (
-	pkgName = "github.com/quenbyako/cynosure/internal/adapters/inmemory"
+	defaultTTL = 24 * time.Hour
 )
 
 // userEntry stores the rate limiter and the last seen timestamp for a user.
@@ -73,11 +72,34 @@ func NewRateLimiter(
 	}
 }
 
+type operation uint8
+
+const (
+	_ operation = iota
+	opChatRequests
+	opChatTokens
+	opEmbeddingRequests
+	opEmbeddingTokens
+)
+
 // RateLimiter returns ratelimiter.PortWrapped interface.
 func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped { return ratelimiter.Wrap(r, r.tracer) }
 
-// Consume consumes message quota for the given user.
-func (r *RateLimiter) Consume(ctx context.Context, user ids.UserID, count int) error {
+// ConsumeChat consumes message quota for the given user and model.
+func (r *RateLimiter) ConsumeChatRequests(
+	_ context.Context, user ids.UserID, model string, messages int,
+) error {
+	return r.consume(user, opChatRequests, model, messages)
+}
+
+// ConsumeEmbeddingRequests consumes embedding requests quota for the given user.
+func (r *RateLimiter) ConsumeEmbeddingRequests(
+	_ context.Context, user ids.UserID, model string, requests int,
+) error {
+	return r.consume(user, opEmbeddingRequests, model, requests)
+}
+
+func (r *RateLimiter) consume(user ids.UserID, op operation, model string, amount int) error {
 	now := r.now()
 
 	r.entiresMux.RLock()
@@ -102,7 +124,9 @@ func (r *RateLimiter) Consume(ctx context.Context, user ids.UserID, count int) e
 
 	entry.lastSeen.Store(now.UnixNano())
 
-	if !entry.limiter.AllowN(now, count) {
+	cost := r.calculateCost(op, model, amount)
+
+	if !entry.limiter.AllowN(now, cost) {
 		return fmt.Errorf("%w for user %q", ratelimiter.ErrRateLimitExceeded, user.ID().String())
 	}
 
@@ -142,8 +166,8 @@ func (r *RateLimiter) Cleanup(ctx context.Context) error {
 
 func (r *RateLimiter) evictStaleEntries() {
 	now := r.now().UnixNano()
-	r.entiresMux.Lock()
-	defer r.entiresMux.Unlock()
+	r.entriesMux.Lock()
+	defer r.entriesMux.Unlock()
 
 	for user, entry := range r.entries {
 		lastSeen := entry.lastSeen.Load()
