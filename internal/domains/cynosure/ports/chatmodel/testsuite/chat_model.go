@@ -44,18 +44,27 @@ func (s *ChatModelTestSuite) TestSimpleChat(t *testing.T) {
 		"gemini-2.5-flash",
 	))
 
-	seq, err := s.adapter.Stream(t.Context(), msgs, settings)
+	iter, err := s.adapter.StreamWithStats(t.Context(), msgs, settings)
 	require.NoError(t, err, "Stream should not fail on a simple prompt")
 
 	var responseTextSb strings.Builder
 
-	for msg, err := range seq {
-		require.NoError(t, err, "Streaming should not produce an error")
+	for {
+		msg, ok := iter.Next()
+		if !ok {
+			break
+		}
 
 		if assistantMsg, ok := msg.(messages.MessageAssistant); ok {
 			responseTextSb.WriteString(assistantMsg.Content())
 		}
 	}
+
+	stats, err := iter.Close()
+
+	require.NoError(t, err, "Iterator should not fail on close")
+
+	require.NotEmpty(t, stats.OutputTokens, "Output tokens should not be zero")
 
 	require.NotEmpty(t, responseTextSb.String(), "Model should have provided a non-empty response")
 }

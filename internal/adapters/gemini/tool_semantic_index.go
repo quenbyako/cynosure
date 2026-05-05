@@ -3,18 +3,19 @@ package gemini
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
 const (
 	embeddingModel = "gemini-embedding-001"
-	embeddingSize  = 1536
 )
 
 // BuildToolEmbedding implements ports.ToolSemanticIndex.
@@ -23,6 +24,10 @@ func (g *GeminiModel) BuildToolEmbedding(
 	msgs []messages.Message,
 ) (embedding, error) {
 	var builder strings.Builder
+
+	if uint(len(msgs)) > g.maxMsgsPerReq {
+		return embedding{}, ports.ErrHistoryTooLong
+	}
 
 	for _, msg := range msgs {
 		switch typedMsg := msg.(type) {
@@ -51,12 +56,12 @@ func (g *GeminiModel) BuildToolEmbedding(
 func (g *GeminiModel) IndexTool(
 	ctx context.Context,
 	tool entities.ToolReadOnly,
-) ([embeddingSize]float32, error) {
+) ([ports.EmbeddingSize]float32, error) {
 	schema := tool.InputSchema()
 
 	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
-		return [embeddingSize]float32{}, fmt.Errorf("failed to marshal tool schema: %w", err)
+		return [ports.EmbeddingSize]float32{}, fmt.Errorf("failed to marshal tool schema: %w", err)
 	}
 
 	content := fmt.Sprintf("Tool Name: %s\nAccount: %s\nDescription: %s\nArguments: %s",
@@ -69,7 +74,7 @@ func (g *GeminiModel) IndexTool(
 	return g.embed(ctx, content, "RETRIEVAL_DOCUMENT")
 }
 
-type embedding = [embeddingSize]float32
+type embedding = [ports.EmbeddingSize]float32
 
 func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embedding, error) {
 	input := []*genai.Content{{
@@ -81,7 +86,7 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embe
 
 	config := &genai.EmbedContentConfig{
 		TaskType:             taskType,
-		OutputDimensionality: ptr(int32(embeddingSize)),
+		OutputDimensionality: ptr[int32](ports.EmbeddingSize),
 		HTTPOptions:          nil,
 		Title:                "",
 		MIMEType:             "",
@@ -90,22 +95,49 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embe
 		AudioTrackExtraction: nil,
 	}
 
+	// custom context to prevent too long wait for rate limiter
+	limiterCtx, cancel := context.WithTimeoutCause(ctx, maxLimiterWait, ports.ErrHardQuotaExhausted)
+	defer cancel()
+
+	// TODO: use local counting, since we may have a big latency due to http
+	// calls.
+	tokens, err := g.client.Models.CountTokens(ctx, embeddingModel, input, new(genai.CountTokensConfig))
+	if err != nil {
+		return embedding{}, fmt.Errorf("token counting failed: %w", err)
+	}
+
+	if err = g.embeddingLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+			return embedding{}, err //nolint:wrapcheck // returning context cancellation as is
+		}
+
+		return embedding{}, ports.ErrHardQuotaExhausted
+	}
+
 	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, input, config)
 	if err != nil {
 		return embedding{}, fmt.Errorf("embedding generation failed: %w", err)
 	}
 
-	return getEmbeddingResponse(res)
+	return g.getEmbeddingResponse(ctx, res, embeddingModel, uint32(max(0, tokens.TotalTokens)))
 }
 
-func getEmbeddingResponse(res *genai.EmbedContentResponse) (embedding, error) {
-	if len(res.Embeddings) == 0 {
+func (g *GeminiModel) getEmbeddingResponse(ctx context.Context, response *genai.EmbedContentResponse, model string, expectedTokens uint32) (embedding, error) {
+	if len(response.Embeddings) == 0 {
 		return embedding{}, ErrNoEmbeddings
 	}
 
-	values := res.Embeddings[0].Values
-	if len(values) != embeddingSize {
-		return embedding{}, ErrEmbeddingDimension(len(values), embeddingSize)
+	res := response.Embeddings[0]
+	if res.Statistics != nil {
+		tokenCount := uint32(max(0, res.Statistics.TokenCount))
+		if tokenCount != expectedTokens {
+			g.log.TokenCountMismatch(ctx, model, expectedTokens, tokenCount)
+		}
+	}
+
+	values := res.Values
+	if len(values) != ports.EmbeddingSize {
+		return embedding{}, ErrEmbeddingDimension(len(values), ports.EmbeddingSize)
 	}
 
 	var result embedding

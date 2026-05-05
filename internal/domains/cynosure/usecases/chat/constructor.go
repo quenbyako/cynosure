@@ -80,7 +80,16 @@ func New(
 	opts ...NewOption,
 ) (*Usecase, error) {
 	params, err := buildNewParams(
-		storage, model, tool, indexer, toolStorage, server, account, agents, limiter, opts...,
+		storage,
+		model,
+		tool,
+		indexer,
+		toolStorage,
+		server,
+		account,
+		agents,
+		limiter,
+		opts...,
 	)
 	if err != nil {
 		return nil, err

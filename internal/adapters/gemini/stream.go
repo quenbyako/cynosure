@@ -4,37 +4,38 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"iter"
+	"time"
 
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-// Stream implements ports.ChatModel.
-func (g *GeminiModel) Stream(
+func (g *GeminiModel) StreamWithStats(
 	ctx context.Context,
 	input []messages.Message,
 	settings entities.AgentReadOnly,
 	opts ...chatmodel.StreamOption,
-) (iter.Seq2[messages.Message, error], error) {
-	if uint(len(input)) > g.hardCap {
+) (chatmodel.Iter, error) {
+	if uint(len(input)) > g.maxMsgsPerReq {
 		return nil, chatmodel.ErrHistoryTooLong
 	}
 
 	params, err := chatmodel.StreamParams(input, settings, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare stream params: %w", err)
 	}
 
 	genConfig, err := g.buildGenConfig(params.Settings(), &params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build genAI config: %w", err)
 	}
 
 	g.log.GeminiStreamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
@@ -44,43 +45,82 @@ func (g *GeminiModel) Stream(
 		return nil, fmt.Errorf("failed to convert messages: %w", err)
 	}
 
-	stream := g.client.Models.GenerateContentStream(ctx, params.Settings().Model(), converted, genConfig)
-	tag := randomUint64()
+	// custom context to prevent too long wait for rate limiter
+	limiterCtx, cancel := context.WithTimeoutCause(ctx, maxLimiterWait, chatmodel.ErrHardQuotaExhausted)
+	defer cancel()
 
-	return func(yield func(messages.Message, error) bool) {
-		g.streamIter(yield, stream, tag, settings)
-	}, nil
-}
-
-func (g *GeminiModel) streamIter(
-	yield func(messages.Message, error) bool,
-	stream iter.Seq2[*genai.GenerateContentResponse, error],
-	tag uint64,
-	settings entities.AgentReadOnly,
-) {
-	var (
-		thought  string
-		metadata []byte
-	)
-
-	mapper := func(msg *genai.GenerateContentResponse, err error) ([]messages.Message, error) {
-		if err != nil {
-			return nil, err
-		}
-
-		var res []messages.Message
-
-		res, thought, metadata, err = datatransfer.MessageFromGenAIContent(
-			msg, thought, metadata, tag, settings.ID(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert message from Gemini: %w", err)
-		}
-
-		return res, nil
+	// TODO: use local counting, since we may have a big latency due to http
+	// calls.
+	tokens, err := g.client.Models.CountTokens(ctx, settings.Model(), converted, &genai.CountTokensConfig{
+		HTTPOptions:       nil,
+		SystemInstruction: genConfig.SystemInstruction,
+		Tools:             genConfig.Tools,
+		GenerationConfig:  nil,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("token counting failed: %w", err)
 	}
 
-	IterExtract(SafeMap(stream, mapper))(yield)
+	if err := g.chatInputLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+			return nil, err //nolint:wrapcheck // returning context cancellation as is
+		}
+
+		return nil, chatmodel.ErrHardQuotaExhausted
+	}
+
+	stream := g.client.Models.GenerateContentStream(ctx, params.Settings().Model(), converted, genConfig)
+
+	session := &geminiStreamSession{
+		thought:   "",
+		metadata:  nil,
+		tag:       randomUint64(),
+		agentID:   params.Settings().ID(),
+		startTime: time.Now(),
+		g:         g,
+	}
+
+	return NewIterCloser(stream, session.Map, session.Collect(ctx, params.Settings().Model(), uint32(tokens.TotalTokens))), nil
+}
+
+type geminiStreamSession struct {
+	g         *GeminiModel
+	startTime time.Time
+	thought   string
+	metadata  []byte
+	tag       uint64
+	agentID   ids.AgentID
+}
+
+func (s *geminiStreamSession) Map(msg *genai.GenerateContentResponse) ([]messages.Message, error) {
+	res, thought, meta, err := datatransfer.MessageFromGenAIContent(
+		msg, s.thought, s.metadata, s.tag, s.agentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert message from Gemini: %w", err)
+	}
+
+	s.thought = thought
+	s.metadata = meta
+
+	return res, nil
+}
+
+func (s *geminiStreamSession) Collect(ctx context.Context, model string, wantInputTokens uint32) func(chatmodel.UsageStats, *genai.GenerateContentResponse) chatmodel.UsageStats {
+	return func(u chatmodel.UsageStats, msg *genai.GenerateContentResponse) chatmodel.UsageStats {
+		if msg.UsageMetadata != nil {
+			u.InputTokens = uint32(max(0, msg.UsageMetadata.PromptTokenCount))
+			u.OutputTokens = uint32(max(0, msg.UsageMetadata.CandidatesTokenCount))
+
+			if u.InputTokens != wantInputTokens {
+				s.g.log.TokenCountMismatch(ctx, model, wantInputTokens, u.InputTokens)
+			}
+		}
+
+		u.Duration = time.Since(s.startTime)
+
+		return u
+	}
 }
 
 func (g *GeminiModel) buildGenConfig(

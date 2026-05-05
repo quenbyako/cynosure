@@ -1,10 +1,14 @@
 package gemini_test
 
 import (
+	"context"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
 
@@ -19,13 +23,30 @@ import (
 	. "github.com/quenbyako/cynosure/internal/adapters/gemini"
 )
 
-//go:embed .gemini.secret
-var apiKey string
+const (
+	maxDuration = time.Duration(math.MaxInt64)
+)
+
+var (
+	//go:embed .gemini.secret
+	apiKey string
+
+	// Setting maximum token usage for tests
+	geminiMaxTokenConsumptionPerTest = []NewOption{
+		WithEmbeddingLimit(ratelimit.NewPolicy(10000, maxDuration)),
+		WithChatInputLimit(ratelimit.NewPolicy(10000, maxDuration)),
+	}
+)
 
 func TestGeminiChatModel(t *testing.T) {
 	gem, err := New(t.Context(), &genai.ClientConfig{
 		APIKey: strings.TrimSpace(apiKey),
-	})
+	},
+		append(
+			geminiMaxTokenConsumptionPerTest,
+			WithLogCallbacks(TestLogCallbacks{t: t}),
+		)...,
+	)
 	require.NoError(t, err, "Failed to create GenAI client")
 
 	chatmodel.RunChatModelTests(gem)(t)
@@ -48,7 +69,10 @@ func TestGeminiWithRotatedKey(t *testing.T) {
 		},
 	}
 
-	gem, err := New(t.Context(), cfg)
+	gem, err := New(t.Context(), cfg, append(
+		geminiMaxTokenConsumptionPerTest,
+		WithLogCallbacks(TestLogCallbacks{t: t}),
+	)...)
 	require.NoError(t, err, "Failed to create GenAI client with rotated key")
 
 	// If Ping passes, it means the transport successfully injected the real key
@@ -121,4 +145,20 @@ func must[T any](v T, err error) T {
 	}
 
 	return v
+}
+
+type TestLogCallbacks struct {
+	t *testing.T
+}
+
+var _ LogCallbacks = TestLogCallbacks{}
+
+func (t TestLogCallbacks) GeminiStreamStarted(ctx context.Context, model string, toolCount int) {
+	t.t.Helper()
+	t.t.Logf("Gemini stream started for model %s with %d tools", model, toolCount)
+}
+
+func (t TestLogCallbacks) TokenCountMismatch(ctx context.Context, model string, expected, got uint32) {
+	t.t.Helper()
+	t.t.Logf("Token count mismatch for model %s: expected %d, got %d", model, expected, got)
 }

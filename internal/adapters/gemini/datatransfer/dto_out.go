@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/quenbyako/ext/set"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
@@ -12,69 +13,63 @@ import (
 
 // MessagesToGenAIContent converts internal messages to Gemini content format.
 func MessagesToGenAIContent(msgs []messages.Message) ([]*genai.Content, error) {
-	res := make([]*genai.Content, 0, len(msgs))
+	var (
+		res       = make([]*genai.Content, 0, len(msgs))
+		toolCalls = set.New[string]()
+		current   genai.Content
+		err       error
+	)
 
 	for _, msg := range msgs {
-		switch typedMsg := msg.(type) {
+		switch msg := msg.(type) {
 		case messages.MessageUser:
-			res = append(res, convertUserMsg(typedMsg))
+			res = convertUserMsg(res, &current, msg)
 		case messages.MessageAssistant:
-			res = append(res, convertAssistantMsg(typedMsg))
+			res = convertAssistantMsg(res, &current, msg)
 		case messages.MessageToolRequest:
-			content, err := convertToolReqMsg(typedMsg, res)
-			if err != nil {
-				return nil, err
-			}
-
-			if content != nil {
-				res = append(res, content)
-			}
+			res, err = convertToolReqMsg(res, &current, toolCalls, msg)
 		case messages.MessageToolResponse:
-			res = append(res, convertToolRespMsg(typedMsg, res))
+			res, err = convertToolRespMsg(res, &current, toolCalls, msg)
 		case messages.MessageToolError:
-			res = append(res, convertToolErrorMsg(typedMsg, res))
+			res, err = convertToolErrorMsg(res, &current, toolCalls, msg)
 		default:
-			return nil, fmt.Errorf("%w: %T", ErrUnsupportedMsgType, typedMsg)
+			err = fmt.Errorf("%w: %T", ErrUnsupportedMsgType, msg)
+		}
+
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return res, nil
+	return pushContent(res, &current), nil
 }
 
-func convertUserMsg(msg messages.MessageUser) *genai.Content {
-	return &genai.Content{
-		Role: genai.RoleUser,
-		Parts: []*genai.Part{
-			{
-				Text:                msg.Content(),
-				MediaResolution:     nil,
-				CodeExecutionResult: nil,
-				ExecutableCode:      nil,
-				FileData:            nil,
-				FunctionCall:        nil,
-				FunctionResponse:    nil,
-				InlineData:          nil,
-				Thought:             false,
-				ThoughtSignature:    nil,
-				VideoMetadata:       nil,
-			},
-		},
+func convertUserMsg(res []*genai.Content, current *genai.Content, msg messages.MessageUser) []*genai.Content {
+	if current.Role == genai.RoleModel {
+		res = pushContent(res, current)
 	}
+
+	current.Role = genai.RoleUser
+
+	current.Parts = append(current.Parts, genai.NewPartFromText(msg.Content()))
+
+	return res
 }
 
-func convertAssistantMsg(msg messages.MessageAssistant) *genai.Content {
-	var parts []*genai.Part
+func convertAssistantMsg(res []*genai.Content, current *genai.Content, msg messages.MessageAssistant) []*genai.Content {
+	if current.Role == genai.RoleUser {
+		res = pushContent(res, current)
+	}
+
+	current.Role = genai.RoleModel
 
 	if reasoning := msg.Reasoning(); reasoning != "" {
-		parts = append(parts, assistantReasoningPart(reasoning))
+		current.Parts = append(current.Parts, assistantReasoningPart(reasoning))
 	}
 
-	parts = append(parts, assistantContentPart(msg.Content()))
+	current.Parts = append(current.Parts, assistantContentPart(msg.Content()))
 
-	return &genai.Content{
-		Role:  genai.RoleModel,
-		Parts: parts,
-	}
+	return res
 }
 
 func assistantReasoningPart(reasoning string) *genai.Part {
@@ -115,34 +110,33 @@ func assistantContentPart(text string) *genai.Part {
 	}
 }
 
-func convertToolReqMsg(
-	msg messages.MessageToolRequest,
-	res []*genai.Content,
-) (*genai.Content, error) {
-	if len(res) == 0 {
-		return nil, ErrOrphanedToolResp
+func convertToolReqMsg(res []*genai.Content, current *genai.Content, toolCalls set.Set[string], msg messages.MessageToolRequest) ([]*genai.Content, error) {
+	if toolCalls.Has(msg.ToolCallID()) {
+		return nil, fmt.Errorf("%w: %s", ErrDuplicatedToolCallID, msg.ToolCallID())
 	}
 
-	last := res[len(res)-1]
-	if last.Role != genai.RoleModel {
-		return &genai.Content{
-			Role:  genai.RoleModel,
-			Parts: nil,
-		}, nil
+	if current.Role == genai.RoleUser {
+		res = pushContent(res, current)
 	}
 
-	appendToolCall(last, msg)
+	current.Role = genai.RoleModel
 
-	return nil, ErrNilMsg // return sentinel error instead of nil, nil
+	toolCalls.Add(msg.ToolCallID())
+	current.Parts = append(current.Parts, buildToolCallPart(msg))
+
+	return res, nil
 }
 
-func appendToolCall(last *genai.Content, msg messages.MessageToolRequest) {
+func buildToolCallPart(msg messages.MessageToolRequest) *genai.Part {
 	args := make(map[string]any)
 	for key, val := range msg.Arguments() {
 		args[key] = val
 	}
 
 	part := genai.NewPartFromFunctionCall(msg.ToolName(), args)
+	if part.FunctionCall != nil {
+		part.FunctionCall.ID = msg.ToolCallID()
+	}
 
 	if protocolMeta := msg.ProtocolMetadata(); protocolMeta != nil {
 		var content struct {
@@ -154,40 +148,53 @@ func appendToolCall(last *genai.Content, msg messages.MessageToolRequest) {
 		}
 	}
 
-	last.Parts = append(last.Parts, part)
+	return part
 }
 
-func convertToolRespMsg(msg messages.MessageToolResponse, res []*genai.Content) *genai.Content {
-	last := ensureUserContent(res)
+func convertToolRespMsg(res []*genai.Content, current *genai.Content, toolCalls set.Set[string], msg messages.MessageToolResponse) ([]*genai.Content, error) {
+	if !toolCalls.Has(msg.ToolCallID()) {
+		return nil, ErrOrphanedToolResp
+	}
+
+	if current.Role == genai.RoleModel {
+		res = pushContent(res, current)
+	}
+
+	current.Role = genai.RoleUser
+
 	part := genai.NewPartFromFunctionResponse(msg.ToolName(), map[string]any{
 		"output": msg.Content(),
 	})
+	if part.FunctionResponse != nil {
+		part.FunctionResponse.ID = msg.ToolCallID()
+	}
 
-	last.Parts = append(last.Parts, part)
+	current.Parts = append(current.Parts, part)
 
-	return last
+	return res, nil
 }
 
-func convertToolErrorMsg(msg messages.MessageToolError, res []*genai.Content) *genai.Content {
-	last := ensureUserContent(res)
+func convertToolErrorMsg(res []*genai.Content, current *genai.Content, toolCalls set.Set[string], msg messages.MessageToolError) ([]*genai.Content, error) {
+	if !toolCalls.Has(msg.ToolCallID()) {
+		return nil, ErrOrphanedToolResp
+	}
+
+	if current.Role == genai.RoleModel {
+		res = pushContent(res, current)
+	}
+
+	current.Role = genai.RoleUser
+
 	part := genai.NewPartFromFunctionResponse(msg.ToolName(), map[string]any{
 		"error": msg.Content(),
 	})
-
-	last.Parts = append(last.Parts, part)
-
-	return last
-}
-
-func ensureUserContent(res []*genai.Content) *genai.Content {
-	if len(res) > 0 && res[len(res)-1].Role == genai.RoleUser {
-		return res[len(res)-1]
+	if part.FunctionResponse != nil {
+		part.FunctionResponse.ID = msg.ToolCallID()
 	}
 
-	return &genai.Content{
-		Role:  genai.RoleUser,
-		Parts: nil,
-	}
+	current.Parts = append(current.Parts, part)
+
+	return res, nil
 }
 
 // ToolInfoToGenAI converts tool definitions to Gemini tool format.
@@ -209,4 +216,19 @@ func ToolInfoToGenAI(rawTools []tools.RawTool) []*genai.Tool {
 	return []*genai.Tool{{
 		FunctionDeclarations: decls,
 	}}
+}
+
+func pushContent(res []*genai.Content, current *genai.Content) []*genai.Content {
+	if current == nil {
+		return res
+	}
+
+	cloned := &genai.Content{
+		// pointer to this slice will be deleted, so just using same ref
+		Parts: current.Parts,
+		Role:  current.Role,
+	}
+	*current = genai.Content{}
+
+	return append(res, cloned)
 }

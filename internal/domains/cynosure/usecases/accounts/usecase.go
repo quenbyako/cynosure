@@ -19,6 +19,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
@@ -35,6 +36,7 @@ type Usecase struct {
 	accounts         ports.AccountStorage
 	tools            ports.ToolStorage
 	index            ports.ToolSemanticIndex
+	limiter          ratelimiter.Port
 	toolClient       toolclient.Port
 	servers          ports.ServerStorage
 	users            identitymanager.Port
@@ -96,6 +98,7 @@ func New(
 	index ports.ToolSemanticIndex,
 	toolClient toolclient.Port,
 	users identitymanager.Port,
+	limiter ratelimiter.Port,
 	opts ...NewOption,
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
@@ -108,6 +111,7 @@ func New(
 		index,
 		toolClient,
 		users,
+		limiter,
 		&params,
 	)
 
@@ -126,6 +130,7 @@ func newUsecase(
 	index ports.ToolSemanticIndex,
 	toolClient toolclient.Port,
 	users identitymanager.Port,
+	limiter ratelimiter.Port,
 	params *newParams,
 ) *Usecase {
 	usecase := &Usecase{
@@ -136,6 +141,7 @@ func newUsecase(
 		accounts:   accounts,
 		tools:      tools,
 		index:      index,
+		limiter:    limiter,
 		users:      users,
 		clock:      time.Now,
 		log:        NoOpLogCallbacks{},
@@ -207,6 +213,10 @@ func (s *Usecase) validatePorts() error {
 
 	if s.index == nil {
 		return ErrInternalValidation("tool semantic index is required")
+	}
+
+	if s.limiter == nil {
+		return ErrInternalValidation("rate limiter is required")
 	}
 
 	if s.users == nil {

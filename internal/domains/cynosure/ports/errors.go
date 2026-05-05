@@ -4,11 +4,14 @@ package ports
 import (
 	"errors"
 	"net/url"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrAlreadyExists = errors.New("already exists")
+	ErrHistoryTooLong = messages.ErrInternalValidation("history is too long")
+	ErrNotFound       = errors.New("not found")
+	ErrAlreadyExists  = errors.New("already exists")
 
 	ErrToolsNotCached = errors.New("tools were not cached")
 
@@ -27,6 +30,9 @@ var (
 	// ErrProtocolNotSupported indicates that server doesn't support any known
 	// protocols.
 	ErrProtocolNotSupported = errors.New("protocol not supported")
+
+	// ErrHardQuotaExhausted indicates that hard quota was exhausted.
+	ErrHardQuotaExhausted = errors.New("hard quota exhausted")
 )
 
 type InternalError string
