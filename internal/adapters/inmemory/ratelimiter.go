@@ -73,9 +73,9 @@ type clock = func() time.Time
 
 // NewRateLimiter creates a new in-memory rate limiter.
 func NewRateLimiter(
-	inputEvery time.Duration, inputBurst int,
-	outputEvery time.Duration, outputBurst int,
-	embeddingEvery time.Duration, embeddingBurst int,
+	inputPeriod time.Duration, inputLimit int,
+	outputPeriod time.Duration, outputLimit int,
+	embeddingPeriod time.Duration, embeddingLimit int,
 	maxWaitTime time.Duration,
 	now clock,
 	metrics core.Metrics,
@@ -90,12 +90,12 @@ func NewRateLimiter(
 		tracer:         observability,
 		now:            now,
 		entries:        make(map[ids.UserID]*userEntry),
-		inputEvery:     inputEvery,
-		inputBurst:     inputBurst,
-		outputEvery:    outputEvery,
-		outputBurst:    outputBurst,
-		embeddingEvery: embeddingEvery,
-		embeddingBurst: embeddingBurst,
+		inputEvery:     inputPeriod,
+		inputBurst:     inputLimit,
+		outputEvery:    outputPeriod,
+		outputBurst:    outputLimit,
+		embeddingEvery: embeddingPeriod,
+		embeddingBurst: embeddingLimit,
 		maxWaitTime:    maxWaitTime,
 		entriesMux:     sync.RWMutex{},
 	}
@@ -116,7 +116,7 @@ func (r *RateLimiter) ConsumeChatRequests(
 
 	// 1. Check Chat Input Limiter (Hard)
 	inputRes := entry.inputChatTokens.ReserveN(now, inputTokens)
-	if inputRes.RetryAt().After(now) {
+	if !inputRes.OK() || inputRes.RetryAt().After(now) {
 		inputRes.CancelAt(now)
 		return nil, ratelimiter.ErrRateLimitExceeded(inputRes.RetryAt())
 	}
@@ -124,7 +124,7 @@ func (r *RateLimiter) ConsumeChatRequests(
 	// 2. Check Chat Output Limiter (Soft)
 	// We only allow starting if the balance is currently positive.
 	outputRes := entry.outputChatTokens.SoftReserveN(now, 0)
-	if outputRes.RetryAt().After(now) {
+	if !outputRes.OK() || outputRes.RetryAt().After(now) {
 		// Rollback input consumption if output is not ready
 		inputRes.CancelAt(now)
 		outputRes.CancelAt(now)
@@ -153,7 +153,7 @@ func (r *RateLimiter) ConsumeEmbeddingRequests(
 
 	// Embedding tokens are always calculated upfront, so we use it as a hard limit.
 	res := entry.embeddingTokens.ReserveN(now, inputTokens)
-	if res.RetryAt().After(now) {
+	if !res.OK() || res.RetryAt().After(now) {
 		res.CancelAt(now)
 		return ratelimiter.ErrRateLimitExceeded(res.RetryAt())
 	}

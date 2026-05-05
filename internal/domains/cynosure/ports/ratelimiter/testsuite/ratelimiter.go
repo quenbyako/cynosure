@@ -94,6 +94,8 @@ type godogState struct {
 
 	// This flag is responsible to verify gherkin configuration.
 	selfTest bool
+
+	lastSettle ratelimiter.ConsumedTokensFunc
 }
 
 func (s *godogState) InitializeScenario(setup setupFunc) func(*godog.ScenarioContext) {
@@ -107,18 +109,15 @@ func (s *godogState) InitializeScenario(setup setupFunc) func(*godog.ScenarioCon
 		})
 
 		// Setup steps
-		ctx.Given(`^rate limit is set to (\d+) message(?:s)? per ([smh0-9.+-]+)$`, s.setupMessageLimit)
-		ctx.Given(`^token limit is set to (\d+) token(?:s)? per ([smh0-9.+-]+)$`, s.setupTokenLimit)
+		ctx.Given(`^(input|output|embedding) token limit is set to (\d+) token(?:s)? per ([smh0-9.+-]+)$`, s.setupTokenLimit)
 		ctx.Given(`^maximum wait time is set to ([smh0-9.+-]+)$`, s.setupMaxWait)
 
 		// State setup steps (pre-consumption)
-		ctx.Given(`^user has already sent (\d+) message(?:s)? for "([^"]*)" model$`, s.givenUserAlreadySent)
-		ctx.Given(`^user has already spent (\d+) token(?:s)? for "([^"]*)" model$`, s.givenUserAlreadySpent)
+		ctx.Given(`^user has already consumed (\d+) (input|output|embedding) token(?:s)? for "([^"]*)" model$`, s.givenUserAlreadySpent)
 
 		// Action steps
-		ctx.When(`^user consumes (\d+) message(?:s)? for "([^"]*)" model$`, s.whenUserConsumes)
-		ctx.When(`^user settles (\d+) token(?:s)? for "([^"]*)" model$`, s.whenUserSettles)
-		ctx.Step(`^time passes for ([smh0-9.+-]+)$`, s.timePasses)
+		ctx.When(`^user consumes (\d+) (input|output|embedding) token(?:s)? for "([^"]*)" model$`, s.whenUserConsumes)
+		ctx.When(`^time passes for ([smh0-9.+-]+)$`, s.timePasses)
 
 		// Assertion steps
 		ctx.Then(`^operation is successful$`, s.assertSuccess)
@@ -145,29 +144,29 @@ func (s *godogState) reset() {
 	}
 }
 
-func (s *godogState) setupMessageLimit(limit int, periodStr string) error {
+func (s *godogState) setupTokenLimit(ctx context.Context, typ string, limit int, periodStr string) error {
 	dur, err := time.ParseDuration(periodStr)
 	if err != nil {
 		return err
 	}
+	switch typ {
+	case "input":
+		s.setupParams.ChatInput.Limit = limit
+		s.setupParams.ChatInput.Period = dur
 
-	s.setupParams.ChatInput.Limit = limit
-	s.setupParams.ChatInput.Period = dur
+	case "output":
+		s.setupParams.ChatOutput.Limit = limit
+		s.setupParams.ChatOutput.Period = dur
 
-	return nil
-}
+	case "embedding":
+		s.setupParams.EmbeddingInput.Limit = limit
+		s.setupParams.EmbeddingInput.Period = dur
 
-func (s *godogState) setupTokenLimit(limit int, periodStr string) error {
-	dur, err := time.ParseDuration(periodStr)
-	if err != nil {
-		return err
 	}
-	s.setupParams.ChatOutput.Limit = limit
-	s.setupParams.ChatOutput.Period = dur
 	return nil
 }
 
-func (s *godogState) setupMaxWait(durStr string) error {
+func (s *godogState) setupMaxWait(ctx context.Context, durStr string) error {
 	dur, err := time.ParseDuration(durStr)
 	if err != nil {
 		return err
@@ -176,11 +175,7 @@ func (s *godogState) setupMaxWait(durStr string) error {
 	return nil
 }
 
-func (s *godogState) givenUserAlreadySent(ctx context.Context, count int) error {
-	return s.whenUserConsumes(ctx, count, "default")
-}
-
-func (s *godogState) givenUserAlreadySpent(ctx context.Context, tokens int, model string) error {
+func (s *godogState) givenUserAlreadySpent(ctx context.Context, count int, typ string, model string) error {
 	if err := s.ensureAdapterCreated(ctx); err != nil {
 		return err
 	}
@@ -189,26 +184,24 @@ func (s *godogState) givenUserAlreadySpent(ctx context.Context, tokens int, mode
 	}
 	userID := s.getUser("default")
 
-	settle, err := s.adapter.ConsumeChatRequests(ctx, userID, "default", 0)
-	if err != nil {
+	switch typ {
+	case "input":
+		_, err := s.adapter.ConsumeChatRequests(ctx, userID, model, count)
 		return err
+	case "output":
+		settle, err := s.adapter.ConsumeChatRequests(ctx, userID, model, 0)
+		if err != nil {
+			return err
+		}
+		return settle(ctx, count)
+	case "embedding":
+		return s.adapter.ConsumeEmbeddingRequests(ctx, userID, model, count)
 	}
-	return settle(ctx, tokens)
-}
 
-func (s *godogState) whenUserConsumes(ctx context.Context, count int, model string) error {
-	if err := s.ensureAdapterCreated(ctx); err != nil {
-		return err
-	}
-	if s.selfTest {
-		return nil
-	}
-	userID := s.getUser("default")
-	_, s.lastErr = s.adapter.ConsumeChatRequests(ctx, userID, model, count)
 	return nil
 }
 
-func (s *godogState) whenUserSettles(ctx context.Context, tokens int, model string) error {
+func (s *godogState) whenUserConsumes(ctx context.Context, count int, typ string, model string) error {
 	if err := s.ensureAdapterCreated(ctx); err != nil {
 		return err
 	}
@@ -216,14 +209,24 @@ func (s *godogState) whenUserSettles(ctx context.Context, tokens int, model stri
 		return nil
 	}
 	userID := s.getUser("default")
-	settle, err := s.adapter.ConsumeChatRequests(ctx, userID, model, 1)
-	if err != nil {
-		return err
+
+	switch typ {
+	case "input":
+		s.lastSettle, s.lastErr = s.adapter.ConsumeChatRequests(ctx, userID, model, count)
+	case "output":
+		if s.lastSettle == nil {
+			return errors.New("no active chat request to settle")
+		}
+		s.lastErr = s.lastSettle(ctx, count)
+		s.lastSettle = nil
+	case "embedding":
+		s.lastErr = s.adapter.ConsumeEmbeddingRequests(ctx, userID, model, count)
 	}
-	return settle(ctx, tokens)
+
+	return nil
 }
 
-func (s *godogState) timePasses(durStr string) error {
+func (s *godogState) timePasses(ctx context.Context, durStr string) error {
 	dur, err := time.ParseDuration(durStr)
 	if err != nil {
 		return err
@@ -232,7 +235,7 @@ func (s *godogState) timePasses(durStr string) error {
 	return nil
 }
 
-func (s *godogState) assertSuccess() error {
+func (s *godogState) assertSuccess(ctx context.Context) error {
 	if s.selfTest {
 		return nil
 	}
@@ -243,7 +246,7 @@ func (s *godogState) assertSuccess() error {
 	return nil
 }
 
-func (s *godogState) assertLimitError() error {
+func (s *godogState) assertLimitError(ctx context.Context) error {
 	if s.selfTest {
 		return nil
 	}
@@ -257,7 +260,7 @@ func (s *godogState) assertLimitError() error {
 	return nil
 }
 
-func (s *godogState) assertRetryAfter(durStr string) error {
+func (s *godogState) assertRetryAfter(ctx context.Context, durStr string) error {
 	expectedDur, err := time.ParseDuration(durStr)
 	if err != nil {
 		return err
