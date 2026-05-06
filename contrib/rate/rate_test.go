@@ -352,7 +352,7 @@ func runReserve(t *testing.T, lim *Limiter, req request) *Reservation {
 // error including the difference from expected durations in multiples of d (global constant).
 func runReserveMax(t *testing.T, lim *Limiter, req request, maxReserve time.Duration) *Reservation {
 	t.Helper()
-	r := lim.reserveN(req.t, req.n, maxReserve, false)
+	r := lim.reserveN(req.t, req.n, maxReserve, false, false)
 
 	if r.ok && (dSince(r.timeToAct) != dSince(req.act)) || r.ok != req.ok {
 		t.Errorf("lim.reserveN(t%d, %v, %v) = (t%d, %v) want (t%d, %v)",

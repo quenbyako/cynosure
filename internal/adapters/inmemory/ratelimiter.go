@@ -114,28 +114,27 @@ func (r *RateLimiter) ConsumeChatRequests(
 	now := r.now()
 	entry := r.getEntry(user, now)
 
-	// 1. Check Chat Input Limiter (Hard)
-	inputRes := entry.inputChatTokens.ReserveN(now, inputTokens)
-	if !inputRes.OK() || inputRes.RetryAt().After(now) {
-		inputRes.CancelAt(now)
-		return nil, ratelimiter.ErrRateLimitExceeded(inputRes.RetryAt())
-	}
-
-	// 2. Check Chat Output Limiter (Soft)
+	// 1. Check Chat Output Limiter (Soft)
 	// We only allow starting if the balance is currently positive.
 	outputRes := entry.outputChatTokens.SoftReserveN(now, 0)
 	if !outputRes.OK() || outputRes.RetryAt().After(now) {
-		// Rollback input consumption if output is not ready
-		inputRes.CancelAt(now)
 		outputRes.CancelAt(now)
 
 		return nil, ratelimiter.ErrRateLimitExceeded(outputRes.RetryAt())
 	}
 
+	// 2. Check Chat Input Limiter (Hard)
+	inputRes := entry.inputChatTokens.ReserveN(now, inputTokens)
+	if !inputRes.OK() || inputRes.RetryAt().After(now) {
+		inputRes.CancelAt(now)
+
+		return nil, ratelimiter.ErrRateLimitExceeded(inputRes.RetryAt())
+	}
+
 	return func(_ context.Context, outputTokens int) error {
-		// Use SoftAllowN for settlement to allow going into debt if balance was positive.
+		// Use ForceReserveN for settlement to ensure usage is recorded regardless of balance.
 		// The penalty ceiling is handled automatically by the Limiter's minTokens.
-		entry.outputChatTokens.SoftAllowN(r.now(), outputTokens)
+		entry.outputChatTokens.ForceReserveN(r.now(), outputTokens)
 		return nil
 	}, nil
 }
@@ -155,6 +154,7 @@ func (r *RateLimiter) ConsumeEmbeddingRequests(
 	res := entry.embeddingTokens.ReserveN(now, inputTokens)
 	if !res.OK() || res.RetryAt().After(now) {
 		res.CancelAt(now)
+
 		return ratelimiter.ErrRateLimitExceeded(res.RetryAt())
 	}
 

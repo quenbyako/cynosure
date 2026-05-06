@@ -36,6 +36,18 @@ func Every(interval time.Duration) Limit {
 	return 1 / Limit(interval.Seconds())
 }
 
+func rateAsLimit(period time.Duration, bucket int) Limit {
+	if period <= 0 {
+		return Inf
+	}
+
+	if period == InfDuration {
+		return 0
+	}
+
+	return Limit(float64(bucket) / period.Seconds())
+}
+
 // A Limiter controls how frequently events are allowed to happen. It implements
 // a "token bucket" of size b, initially full and refilled such that the entire
 // bucket is replenished every period p.
@@ -126,10 +138,7 @@ func NewLimiter(period time.Duration, bucket int) *Limiter {
 // NewLimiterWithMaxWait returns a new Limiter with a maximum wait time (Penalty
 // Ceiling).
 func NewLimiterWithMaxWait(period time.Duration, bucket int, maxWait time.Duration) *Limiter {
-	limit := Every(period)
-	if period > 0 {
-		limit = Limit(float64(bucket) / period.Seconds())
-	}
+	limit := rateAsLimit(period, bucket)
 
 	minTokens := -math.MaxFloat64
 	if maxWait > 0 {
@@ -153,7 +162,7 @@ func (lim *Limiter) Allow() bool {
 // Use this method if you intend to drop / skip events that exceed the rate limit.
 // Otherwise use Reserve or Wait.
 func (lim *Limiter) AllowN(t time.Time, n int) bool {
-	return lim.reserveN(t, n, 0, false).ok
+	return lim.reserveN(t, n, 0, false, false).ok
 }
 
 // SoftAllow reports whether an event may happen now with penalty.
@@ -167,7 +176,7 @@ func (lim *Limiter) SoftAllow() bool {
 // useful for allowing a logical bucket (e.g. one full LLM response) to finish
 // even if it slightly exceeds the rate, while delaying future requests.
 func (lim *Limiter) SoftAllowN(t time.Time, n int) bool {
-	return lim.reserveN(t, n, 0, true).ok
+	return lim.reserveN(t, n, 0, true, false).ok
 }
 
 // A Reservation holds information about events that are permitted by a Limiter
@@ -289,7 +298,7 @@ func (lim *Limiter) Reserve() *Reservation {
 // the delay, use Wait instead. To drop or skip events exceeding rate limit, use
 // Allow instead.
 func (lim *Limiter) ReserveN(t time.Time, n int) *Reservation {
-	r := lim.reserveN(t, n, InfDuration, false)
+	r := lim.reserveN(t, n, InfDuration, false, false)
 	return &r
 }
 
@@ -298,7 +307,16 @@ func (lim *Limiter) ReserveN(t time.Time, n int) *Reservation {
 // timeToAct = now, but the bucket goes into debt, delaying subsequent
 // reservations.
 func (lim *Limiter) SoftReserveN(t time.Time, n int) *Reservation {
-	r := lim.reserveN(t, n, InfDuration, true)
+	r := lim.reserveN(t, n, InfDuration, true, false)
+	return &r
+}
+
+// ForceReserveN is like ReserveN but it ALWAYS succeeds, even if the current
+// balance is negative or zero. This is used for "settlement" where we must
+// record usage regardless of limits. The Penalty Ceiling is still applied
+// to the resulting debt.
+func (lim *Limiter) ForceReserveN(t time.Time, n int) *Reservation {
+	r := lim.reserveN(t, n, InfDuration, false, true)
 	return &r
 }
 
@@ -344,7 +362,7 @@ func (lim *Limiter) wait(
 		waitLimit = deadline.Sub(t)
 	}
 	// Reserve
-	reservation := lim.reserveN(t, n, waitLimit, false)
+	reservation := lim.reserveN(t, n, waitLimit, false, false)
 	if !reservation.ok {
 		return fmt.Errorf("rate: Wait(n=%d) would exceed context deadline", n)
 	}
@@ -434,7 +452,7 @@ func (lim *Limiter) SetBurstAt(t time.Time, newBurst int) {
 // reserveN is a helper method for AllowN, ReserveN, and WaitN. maxFutureReserve
 // specifies the maximum reservation wait duration allowed. reserveN returns
 // Reservation, not *Reservation, to avoid allocation in AllowN and WaitN.
-func (lim *Limiter) reserveN(t time.Time, n int, maxFutureReserve time.Duration, overdraft bool) Reservation {
+func (lim *Limiter) reserveN(t time.Time, n int, maxFutureReserve time.Duration, overdraft, force bool) Reservation {
 	lim.mu.Lock()
 	defer lim.mu.Unlock()
 
@@ -449,7 +467,7 @@ func (lim *Limiter) reserveN(t time.Time, n int, maxFutureReserve time.Duration,
 	}
 
 	tokensBefore := lim.advance(t)
-	canOverdraft := overdraft && tokensBefore > 0
+	canOverdraft := force || (overdraft && tokensBefore > 0)
 
 	// Calculate the remaining number of tokens resulting from the request.
 	tokensAfter := tokensBefore - float64(n)
@@ -458,7 +476,7 @@ func (lim *Limiter) reserveN(t time.Time, n int, maxFutureReserve time.Duration,
 	waitDuration := lim.calculateWait(tokensAfter, canOverdraft)
 
 	// Decide result
-	ok := waitDuration <= maxFutureReserve && (n <= lim.bucket || canOverdraft)
+	ok := force || (waitDuration <= maxFutureReserve && (n <= lim.bucket || canOverdraft))
 	// Prepare reservation
 	reservation := Reservation{
 		ok:        ok,

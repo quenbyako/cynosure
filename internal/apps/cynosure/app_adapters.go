@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/time/rate"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -67,7 +68,9 @@ func newGeminiModel(
 		newGeminiConfig(params.gemini.key, params.gemini.apiClient),
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
-		gemini.WithHardCap(params.chat.hardCap),
+		gemini.WithMaxMessagesPerRequest(params.chat.hardCap),
+		gemini.WithEmbeddingLimit(params.embeddingRateLimit),
+		gemini.WithChatInputLimit(params.chatRateLimit),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing gemini model: %w", err)
@@ -157,8 +160,10 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Adapter, error) 
 }
 
 const (
-	defaultWorkersCount = 4
-	ttlPeriodMultiplier = 2
+	defaultWorkersCount     = 4
+	ttlPeriodMultiplier     = 2
+	defaultTokenConsumption = 1000000
+	defaultTokenPerion      = 24 * time.Hour
 )
 
 func newRateLimiter(params *appParams) *inmemory.RateLimiter {

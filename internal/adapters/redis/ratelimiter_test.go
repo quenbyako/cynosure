@@ -19,19 +19,16 @@ import (
 
 	_ "embed"
 
-	rr "github.com/quenbyako/cynosure/internal/adapters/redis"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter/testsuite"
+
+	. "github.com/quenbyako/cynosure/internal/adapters/redis"
 )
 
 //go:embed testdata/docker-compose.yaml
 var dockerComposeYaml []byte
 
 func TestRateLimiter(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-
 	tmpFile := filepath.Join(t.TempDir(), "docker-compose.yaml")
 	if err := os.WriteFile(tmpFile, dockerComposeYaml, 0o600); err != nil {
 		t.Fatalf("failed to write tmp compose file: %s", err)
@@ -48,16 +45,16 @@ func TestRateLimiter(t *testing.T) {
 		wait.ForLog("CLUSTER_READY_SIGNAL").WithPollInterval(time.Second))
 
 	t.Cleanup(func() {
-		if err := comp.Down(ctx, compose.RemoveOrphans(true)); err != nil {
+		if err := comp.Down(t.Context(), compose.RemoveOrphans(true)); err != nil {
 			t.Logf("failed to down compose: %s", err)
 		}
 	})
 
-	if err := comp.Up(ctx, compose.Wait(true)); err != nil {
+	if err := comp.Up(t.Context(), compose.Wait(true)); err != nil {
 		t.Fatalf("failed to compose up: %s", err)
 	}
 
-	mapping := getDNSMapping(ctx, t, comp)
+	mapping := getDNSMapping(t.Context(), t, comp)
 	seedAddr := mapping["redis-1:6379"]
 
 	redisURL, err := url.Parse(fmt.Sprintf("redis://%s?cluster=true", seedAddr))
@@ -68,7 +65,7 @@ func TestRateLimiter(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	client, _, err := redisconn.NewRedisUniversalConnection(
-		ctx,
+		t.Context(),
 		redisURL,
 		logger,
 		redisconn.WithDNSMapping(mapping),
@@ -85,9 +82,9 @@ func TestRateLimiter(t *testing.T) {
 
 	// Wait for the cluster state to be officially 'ok' from the client's perspective.
 	// This prevents 'CLUSTERDOWN' errors during the first few milliseconds of testing.
-	ensureClusterReady(ctx, t, client)
+	ensureClusterReady(t.Context(), t, client)
 
-	testsuite.Run(setupRedisLimiter(client))(t)
+	testsuite.Run(setupRedisLimiter(t, client))(t)
 }
 
 func ensureClusterReady(ctx context.Context, t *testing.T, client redis.UniversalClient) {
@@ -133,19 +130,25 @@ func getDNSMapping(ctx context.Context, t *testing.T, comp compose.ComposeStack)
 }
 
 func setupRedisLimiter(
+	t *testing.T,
 	client redis.UniversalClient,
 ) func(context.Context, testsuite.SetupParams) (ratelimiter.Port, error) {
+	t.Helper()
+
 	return func(ctx context.Context, params testsuite.SetupParams) (ratelimiter.Port, error) {
 		if err := client.FlushAll(ctx).Err(); err != nil {
 			return nil, fmt.Errorf("flush all: %w", err)
 		}
 
-		realStart := time.Now()
-		nowFn := func() time.Time {
-			elapsedMock := params.Now().Sub(time.Unix(0, 0))
-			return realStart.Add(elapsedMock)
-		}
+		inner := New(
+			client,
+			params.ChatInput.Period, params.ChatInput.Limit,
+			params.ChatOutput.Period, params.ChatOutput.Limit,
+			params.EmbeddingInput.Period, params.EmbeddingInput.Limit,
+			params.MaxWait,
+			nil,
+		)
 
-		return rr.NewRateLimiter(client, params.Limit, params.Burst, nowFn, nil), nil
+		return testsuite.NewWaitWrapper(t, inner, params), nil
 	}
 }

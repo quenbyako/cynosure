@@ -4,7 +4,7 @@ Feature: Basic Rate Limiting
   To protect the system from spam
 
   Background:
-    Given input token limit is set to 2 tokens per 1s
+    Given input token limit is set to 2 tokens per 10s
 
   Scenario: Allow requests within burst limit
     Given user has already consumed 1 input tokens for "simple" model
@@ -18,6 +18,6 @@ Feature: Basic Rate Limiting
 
   Scenario: Refill quota after time passes
     Given user has already consumed 2 input tokens for "simple" model
-    When time passes for 1s
+    When time passes for 10s
     And user consumes 1 input tokens for "simple" model
     Then operation is successful

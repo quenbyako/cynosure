@@ -43,6 +43,8 @@ type (
 		constructionErrors []error
 		chat               chatParams
 		rateLimit          ratelimit.Policy
+		chatRateLimit      ratelimit.Policy
+		embeddingRateLimit ratelimit.Policy
 		adminMCPID         ids.ServerID
 	}
 
@@ -94,7 +96,7 @@ func (p *appParams) validate(ctx context.Context) error {
 		p.validateGemini(),
 		p.validateStorage(),
 		p.validateInfra(),
-		p.validateRateLimit(),
+		p.validateRateLimits(),
 		p.validateMCPClient(ctx),
 	)
 }
@@ -165,9 +167,17 @@ func (p *appParams) validateInfra() error {
 	return nil
 }
 
-func (p *appParams) validateRateLimit() error {
+func (p *appParams) validateRateLimits() error {
 	if p.rateLimit.Period() <= 0 || p.rateLimit.Burst() <= 0 {
 		return MissingParamError("rate limit")
+	}
+
+	if p.embeddingRateLimit.Period() <= 0 || p.embeddingRateLimit.Burst() <= 0 {
+		return MissingParamError("embedding rate limit")
+	}
+
+	if p.chatRateLimit.Period() <= 0 || p.chatRateLimit.Burst() <= 0 {
+		return MissingParamError("chat rate limit")
 	}
 
 	return nil
@@ -233,6 +243,14 @@ func WithRedis(addr *url.URL) AppOpts {
 
 func WithRateLimit(limit ratelimit.Policy) AppOpts {
 	return func(p *appParams) { p.rateLimit = limit }
+}
+
+func WithEmbeddingRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.embeddingRateLimit = limit }
+}
+
+func WithChatRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.chatRateLimit = limit }
 }
 
 func WithChatLimits(softLimit, hardCap uint) AppOpts {
@@ -327,6 +345,8 @@ func defaultParams() appParams {
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
 		rateLimit:          ratelimit.Policy{},
+		embeddingRateLimit: ratelimit.Policy{},
+		chatRateLimit:      ratelimit.Policy{},
 		internalMcpClient:  nil,
 		externalMcpClient:  nil,
 	}
@@ -384,7 +404,7 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 //nolint:unparam // wire needs these parameters to be present to correctly bind dependencies
 func connectDependencies(
 	params *appParams,
-	ratelimiter *inmemory.RateLimiter,
+	limiter *inmemory.RateLimiter,
 	refreshConstructor *refreshtoken.RefreshConstructor,
 	accountsUsecase *accounts.Usecase,
 	_ adminControllerWireBind,
@@ -397,7 +417,7 @@ func connectDependencies(
 		telegramTaskRunner: telegramController.runFunc,
 		accountsTaskRunner: accountsUsecase.Run,
 		tokenRefresherRun:  refreshConstructor.Run,
-		ratelimiterCleanup: ratelimiter.Cleanup,
+		ratelimiterCleanup: limiter.Cleanup,
 		mcpAdapterClose:    mcpHandler.Close,
 	}, nil
 }

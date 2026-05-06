@@ -4,7 +4,7 @@ Feature: Adaptive Backoff (Token Management)
   But block them until their balance recovers
 
   Background:
-    Given output token limit is set to 100 tokens per 1h
+    Given output token limit is set to 100 tokens per 10s
 
   Scenario: User consumes tokens within the limit
     When user consumes 1 input tokens for "cheap" model
@@ -15,4 +15,4 @@ Feature: Adaptive Backoff (Token Management)
     Given user has already consumed 500 output tokens for "cheap" model
     When user consumes 1 input tokens for "cheap" model
     Then rate limit exceeded error is returned
-    And retry is after 4h
+    And retry is after 40s

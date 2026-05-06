@@ -14,7 +14,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
 )
 
-//nolint:funlen // for now that's okay, maybe later we'll split to 3 usecases.
 func newChatUsecase(
 	params *appParams,
 	storage ports.ThreadStorageWrapped,
@@ -56,6 +55,7 @@ func newAccountsUsecase(
 	index ports.ToolSemanticIndex,
 	toolClient toolclient.PortWrapped,
 	identities identitymanager.PortWrapped,
+	limiter ratelimiter.PortWrapped,
 ) (*accounts.Usecase, error) {
 	usecase, err := accounts.New(
 		servers,
@@ -65,6 +65,7 @@ func newAccountsUsecase(
 		index,
 		toolClient,
 		identities,
+		limiter,
 		accounts.WithOAuthRedirectURL(params.ory.callback),
 		accounts.WithTracerProvider(params.observability),
 	)
@@ -84,6 +85,7 @@ func newUsersUsecase(
 	tools ports.ToolStorage,
 	toolClient toolclient.PortWrapped,
 	index ports.ToolSemanticIndex,
+	limiter ratelimiter.PortWrapped,
 ) (*users.Usecase, error) {
 	usecase, err := users.New(
 		identities,
@@ -93,6 +95,7 @@ func newUsersUsecase(
 		tools,
 		toolClient,
 		index,
+		limiter,
 		params.adminMCPID,
 		users.WithTracerProvider(params.observability),
 	)

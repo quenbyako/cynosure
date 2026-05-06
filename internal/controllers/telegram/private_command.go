@@ -2,12 +2,14 @@ package telegram
 
 import (
 	"context"
-	_ "embed"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 	"unicode/utf16"
+
+	_ "embed"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 )
@@ -37,7 +39,7 @@ func (h *Handler) processCommand(ctx context.Context, msg *botapi.Message) {
 	cmdStr, ok := extractEntity(&commandEntity, text)
 	if !ok {
 		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
-			fmt.Errorf("extracting command entity: invalid offset or length"),
+			errors.New("extracting command entity: invalid offset or length"),
 		)
 
 		return

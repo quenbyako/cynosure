@@ -4,7 +4,7 @@ Feature: Embedding Rate Limiting
   To protect the system from resource exhaustion
 
   Background:
-    Given embedding token limit is set to 1000 tokens per 1h
+    Given embedding token limit is set to 1000 tokens per 10s
 
   Scenario: Allow embedding requests within the limit
     When user consumes 500 embedding tokens for "small" model
@@ -15,8 +15,8 @@ Feature: Embedding Rate Limiting
     Then rate limit exceeded error is returned
 
   Scenario: Combined chat and embedding usage
-    Given input token limit is set to 5 tokens per 1m
-    And output token limit is set to 100 tokens per 1m
+    Given input token limit is set to 5 tokens per 1s
+    And output token limit is set to 100 tokens per 1s
     When user consumes 1 input tokens for "cheap" model
     And user consumes 50 output tokens for "cheap" model
     And user consumes 500 embedding tokens for "small" model
