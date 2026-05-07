@@ -3,6 +3,7 @@ package root
 import (
 	"log/slog"
 	"net/url"
+	"time"
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/core/contrib/params/grpc"
@@ -35,7 +36,7 @@ type Config struct {
 	TelegramKey        secrets.Secret    `env:"CYNOSURE_TELEGRAM_KEY"`
 	TelegramPublicAddr *url.URL          `env:"CYNOSURE_TELEGRAM_PUBLIC_ADDR"`
 	TelegramClient     httpclient.Client `env:"CYNOSURE_TELEGRAM_API"  default:"https://api.telegram.org#rate=30/1s"`
-	FileSecret         *url.URL          `env:"CYNOSURE_FILE_SECRETS" default:""`
+	FileSecret         *url.URL          `env:"CYNOSURE_FILE_SECRETS"  default:""`
 	OryAdminKey        secrets.Secret    `env:"CYNOSURE_ORY_ADMIN_API_KEY"`
 	OryEndpoint        *url.URL          `env:"CYNOSURE_ORY_ISSUER_URL"`
 	OryClientID        string            `env:"CYNOSURE_ORY_CLIENT_ID"`
@@ -44,11 +45,14 @@ type Config struct {
 	InternalMCPClient  httpclient.Client `env:"CYNOSURE_MCP_API_INTERNAL"  default:"#timeout=30s"`
 	ExternalMCPClient  httpclient.Client `env:"CYNOSURE_MCP_API_EXTERNAL"  default:"#timeout=30s&ssrf=true"`
 	AdminMCPServerID   string            `env:"CYNOSURE_ADMIN_MCP_SERVER_ID"`
-	OAuthRedirectURL   *url.URL          `env:"CYNOSURE_OAUTH_REDIRECT_URL" default:"http://localhost:5002/oauth/callback"`
-	RateLimit          ratelimit.Policy  `env:"CYNOSURE_RATELIMIT"          default:"20/1h"`
-
-	ChatSoftLimit uint `env:"CYNOSURE_CHAT_SOFT_LIMIT" default:"20"`
-	ChatHardCap   uint `env:"CYNOSURE_CHAT_HARD_CAP"   default:"50"`
+	OAuthRedirectURL   *url.URL          `env:"CYNOSURE_OAUTH_REDIRECT_URL"        default:"http://localhost:5002/oauth/callback"`
+	ChatInputRate      ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_CHAT_INPUT"      default:"10000/12h"`
+	ChatOutputRate     ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_CHAT_OUTPUT"     default:"10000/12h"`
+	EmbeddingRate      ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_EMBEDDING"       default:"10000/12h"`
+	GlobChatInputRate  ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_GLOB_CHAT_INPUT" default:"1000000/24h"`
+	GlobEmbeddingRate  ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_GLOB_EMBEDDING"  default:"1000000/24h"`
+	MaxWaitTimeLimit   time.Duration     `env:"CYNOSURE_RATELIMIT_MAX_WAIT"        default:"6h"`
+	ChatHistoryLimit   uint              `env:"CYNOSURE_CHAT_HISTORY_LIMIT"        default:"50"`
 
 	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"          default:""`
 	OtlpHost     *url.URL          `env:"CYNOSURE_OTLP_HOST"             default:""`

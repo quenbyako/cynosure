@@ -1,7 +1,7 @@
 package ratelimiter
 
 type PortFactory interface {
-	RateLimiter() PortWrapped
+	RateLimiter() (PortWrapped, error)
 }
 
-func New(factory PortFactory) PortWrapped { return factory.RateLimiter() }
+func New(factory PortFactory) (PortWrapped, error) { return factory.RateLimiter() }

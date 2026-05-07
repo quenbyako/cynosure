@@ -11,6 +11,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
@@ -18,18 +19,26 @@ const (
 	embeddingModel = "gemini-embedding-001"
 )
 
+type vector = [embedding.EmbeddingSize]float32
+
 // BuildToolEmbedding implements ports.ToolSemanticIndex.
 func (g *GeminiModel) BuildToolEmbedding(
 	ctx context.Context,
 	msgs []messages.Message,
-) (embedding, error) {
-	var builder strings.Builder
-
-	if uint(len(msgs)) > g.maxMsgsPerReq {
-		return embedding{}, ports.ErrHistoryTooLong
+	opts ...embedding.BuildToolEmbeddingOption,
+) (vector, error) {
+	params, err := embedding.BuildToolEmbeddingParams(msgs, opts...)
+	if err != nil {
+		return vector{}, err
 	}
 
-	for _, msg := range msgs {
+	var builder strings.Builder
+
+	if uint(len(params.Messages())) > g.maxMsgsPerReq {
+		return vector{}, embedding.ErrHistoryTooLong
+	}
+
+	for _, msg := range params.Messages() {
 		switch typedMsg := msg.(type) {
 		case messages.MessageUser:
 			builder.WriteString("User: " + typedMsg.Content() + "\n\n")
@@ -49,34 +58,38 @@ func (g *GeminiModel) BuildToolEmbedding(
 		content = "No conversation context"
 	}
 
-	return g.embed(ctx, content, "RETRIEVAL_QUERY")
+	return g.embed(ctx, content, "RETRIEVAL_QUERY", params.PreflightCheck())
 }
 
 // IndexTool implements ports.ToolSemanticIndex.
 func (g *GeminiModel) IndexTool(
 	ctx context.Context,
 	tool entities.ToolReadOnly,
-) ([ports.EmbeddingSize]float32, error) {
-	schema := tool.InputSchema()
+	opts ...embedding.IndexToolOption,
+) (vector, error) {
+	params, err := embedding.IndexToolParams(tool, opts...)
+	if err != nil {
+		return vector{}, err
+	}
+
+	schema := params.Tool().InputSchema()
 
 	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
-		return [ports.EmbeddingSize]float32{}, fmt.Errorf("failed to marshal tool schema: %w", err)
+		return vector{}, fmt.Errorf("failed to marshal tool schema: %w", err)
 	}
 
 	content := fmt.Sprintf("Tool Name: %s\nAccount: %s\nDescription: %s\nArguments: %s",
-		tool.Name(),
-		tool.AccountName(),
-		tool.Description(),
+		params.Tool().Name(),
+		params.Tool().AccountName(),
+		params.Tool().Description(),
 		string(schemaBytes),
 	)
 
-	return g.embed(ctx, content, "RETRIEVAL_DOCUMENT")
+	return g.embed(ctx, content, "RETRIEVAL_DOCUMENT", params.PreflightCheck())
 }
 
-type embedding = [ports.EmbeddingSize]float32
-
-func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embedding, error) {
+func (g *GeminiModel) embed(ctx context.Context, content, taskType string, preflightCheck embedding.PreflightFunc) (vector, error) {
 	input := []*genai.Content{{
 		Parts: []*genai.Part{
 			genai.NewPartFromText(content),
@@ -103,28 +116,32 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string) (embe
 	// calls.
 	tokens, err := g.client.Models.CountTokens(ctx, embeddingModel, input, new(genai.CountTokensConfig))
 	if err != nil {
-		return embedding{}, fmt.Errorf("token counting failed: %w", err)
+		return vector{}, fmt.Errorf("token counting failed: %w", err)
+	}
+
+	if err := preflightCheck(ctx, embeddingModel, int(tokens.TotalTokens)); err != nil {
+		return vector{}, err
 	}
 
 	if err = g.embeddingLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return embedding{}, err //nolint:wrapcheck // returning context cancellation as is
+			return vector{}, err //nolint:wrapcheck // returning context cancellation as is
 		}
 
-		return embedding{}, ports.ErrHardQuotaExhausted
+		return vector{}, ports.ErrHardQuotaExhausted
 	}
 
 	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, input, config)
 	if err != nil {
-		return embedding{}, fmt.Errorf("embedding generation failed: %w", err)
+		return vector{}, fmt.Errorf("embedding generation failed: %w", err)
 	}
 
 	return g.getEmbeddingResponse(ctx, res, embeddingModel, uint32(max(0, tokens.TotalTokens)))
 }
 
-func (g *GeminiModel) getEmbeddingResponse(ctx context.Context, response *genai.EmbedContentResponse, model string, expectedTokens uint32) (embedding, error) {
+func (g *GeminiModel) getEmbeddingResponse(ctx context.Context, response *genai.EmbedContentResponse, model string, expectedTokens uint32) (vector, error) {
 	if len(response.Embeddings) == 0 {
-		return embedding{}, ErrNoEmbeddings
+		return vector{}, ErrNoEmbeddings
 	}
 
 	res := response.Embeddings[0]
@@ -137,10 +154,10 @@ func (g *GeminiModel) getEmbeddingResponse(ctx context.Context, response *genai.
 
 	values := res.Values
 	if len(values) != ports.EmbeddingSize {
-		return embedding{}, ErrEmbeddingDimension(len(values), ports.EmbeddingSize)
+		return vector{}, ErrEmbeddingDimension(len(values), ports.EmbeddingSize)
 	}
 
-	var result embedding
+	var result vector
 	copy(result[:], values)
 
 	return result, nil

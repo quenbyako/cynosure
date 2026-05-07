@@ -9,9 +9,9 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	_ "embed"
-
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
+
+	_ "embed"
 )
 
 //go:embed l10n/start.md

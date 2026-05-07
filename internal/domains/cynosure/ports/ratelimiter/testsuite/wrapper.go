@@ -17,15 +17,12 @@ type TB interface {
 }
 
 type waitWrapper struct {
-	tb     TB
-	inner  ratelimiter.Port
-	params SetupParams
-
+	recordedMock time.Time
+	tb           TB
+	inner        ratelimiter.Port
 	// mock clock, that returns from suite
 	mockNow func() time.Time
-
-	recordedMock time.Time
-
+	params  SetupParams
 	// diff between start mock and real time, recorded before any call
 	diffSync time.Duration
 }
@@ -55,17 +52,17 @@ func (w *waitWrapper) ConsumeChatRequests(
 		return nil, fmt.Errorf("sync before consume: %w", err)
 	}
 
-	settle, err := w.inner.ConsumeChatRequests(ctx, user, model, inputTokens)
+	report, err := w.inner.ConsumeChatRequests(ctx, user, model, inputTokens)
 	if err != nil {
 		return nil, w.scaleError(err)
 	}
 
 	return func(ctx context.Context, outputTokens int) error {
 		if err := w.sync(ctx); err != nil {
-			return fmt.Errorf("sync before settle: %w", err)
+			return fmt.Errorf("sync before reporting: %w", err)
 		}
 
-		err := settle(ctx, outputTokens)
+		err := report(ctx, outputTokens)
 
 		return w.scaleError(err)
 	}, nil

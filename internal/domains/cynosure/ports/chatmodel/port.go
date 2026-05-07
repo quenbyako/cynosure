@@ -3,16 +3,11 @@ package chatmodel
 
 import (
 	"context"
-	"iter"
-	"time"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
-
-// StreamIter is an iterator of message chunks.
-type StreamIter = iter.Seq2[messages.Message, error]
 
 // Port generates AI responses via LLM streaming API. Supports tool calling and
 // custom agent parameters (temperature, system prompt, etc.).
@@ -44,7 +39,7 @@ type Port interface {
 	// Throws:
 	//
 	//  - [ErrHistoryTooLong] if history is too long.
-	//  - [HardQuotaExhaustedError] if hard quota is exhausted. See
+	//  - [ErrHardQuotaExhausted] if hard quota is exhausted. See
 	//    documentation for [Port] to get more about quotas and rate limiting.
 	StreamWithStats(
 		ctx context.Context,
@@ -59,20 +54,10 @@ func defaultStreamParams(required streamRequiredParams) streamParams {
 		streamRequiredParams: required,
 		tools:                tools.Toolbox{},
 		toolChoice:           tools.ToolChoiceAllowed,
+		preflight:            func(context.Context, string, int) error { return nil },
 	}
 }
 
 func (s *streamParams) validate() error {
 	return nil
-}
-
-type UsageStats struct {
-	InputTokens  uint32
-	OutputTokens uint32
-	Duration     time.Duration
-}
-
-type Iter interface {
-	Next() (messages.Message, bool)
-	Close() (UsageStats, error)
 }

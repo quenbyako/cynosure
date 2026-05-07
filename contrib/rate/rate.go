@@ -312,7 +312,7 @@ func (lim *Limiter) SoftReserveN(t time.Time, n int) *Reservation {
 }
 
 // ForceReserveN is like ReserveN but it ALWAYS succeeds, even if the current
-// balance is negative or zero. This is used for "settlement" where we must
+// balance is negative or zero. This is used for "reservations" where we must
 // record usage regardless of limits. The Penalty Ceiling is still applied
 // to the resulting debt.
 func (lim *Limiter) ForceReserveN(t time.Time, n int) *Reservation {

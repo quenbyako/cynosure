@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/time/rate"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -68,9 +67,9 @@ func newGeminiModel(
 		newGeminiConfig(params.gemini.key, params.gemini.apiClient),
 		gemini.WithLogCallbacks(log),
 		gemini.WithTrace(params.observability),
-		gemini.WithMaxMessagesPerRequest(params.chat.hardCap),
-		gemini.WithEmbeddingLimit(params.embeddingRateLimit),
-		gemini.WithChatInputLimit(params.chatRateLimit),
+		gemini.WithMaxMessagesPerRequest(params.chat.historyLimit),
+		gemini.WithChatInputLimit(params.rate.chatInputGlobal),
+		gemini.WithEmbeddingLimit(params.rate.embeddingGlobal),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing gemini model: %w", err)
@@ -160,20 +159,16 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Adapter, error) 
 }
 
 const (
-	defaultWorkersCount     = 4
-	ttlPeriodMultiplier     = 2
-	defaultTokenConsumption = 1000000
-	defaultTokenPerion      = 24 * time.Hour
+	defaultWorkersCount = 4
 )
 
 func newRateLimiter(params *appParams) *inmemory.RateLimiter {
-	limit := params.rateLimit.Limit()
-	burst := params.rateLimit.Burst()
-
+	// todo: ADD REDIS!!!
 	return inmemory.NewRateLimiter(
-		limit,
-		burst,
-		params.rateLimit.Period()*ttlPeriodMultiplier,
+		params.rate.chatInput.Period(), params.rate.chatInput.Limit(),
+		params.rate.chatOutput.Period(), params.rate.chatOutput.Limit(),
+		params.rate.embedding.Period(), params.rate.embedding.Limit(),
+		params.rate.maxWait,
 		time.Now,
 		params.observability,
 	)

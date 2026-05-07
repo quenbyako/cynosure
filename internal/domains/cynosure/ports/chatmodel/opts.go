@@ -1,6 +1,8 @@
 package chatmodel
 
 import (
+	"context"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -10,7 +12,7 @@ import (
 //
 // Applies to:
 //
-//   - [ChatModel.Stream]
+//   - [Port.StreamWithStats]
 func WithStreamToolbox(toolbox tools.Toolbox) StreamOption {
 	return streamFunc(func(p *streamParams) { p.tools = toolbox })
 }
@@ -19,9 +21,22 @@ func WithStreamToolbox(toolbox tools.Toolbox) StreamOption {
 //
 // Applies to:
 //
-//   - [ChatModel.Stream]
+//   - [Port.StreamWithStats]
 func WithStreamToolChoice(choice tools.ToolChoice) StreamOption {
 	return streamFunc(func(p *streamParams) { p.toolChoice = choice })
+}
+
+// WithPreflightCheck sets the preflight check for newly creating tools.
+//
+// Applies to:
+//
+//   - [Port.StreamWithStats]
+func WithPreflightCheck(check PreflightFunc) StreamOption {
+	if check == nil {
+		check = func(context.Context, string, int) error { return nil }
+	}
+
+	return streamFunc(func(p *streamParams) { p.preflight = check })
 }
 
 type (
@@ -44,7 +59,8 @@ type streamRequiredParams struct {
 }
 
 type streamParams struct {
-	tools tools.Toolbox
+	preflight PreflightFunc
+	tools     tools.Toolbox
 	streamRequiredParams
 	toolChoice tools.ToolChoice
 }
@@ -71,3 +87,4 @@ func (s *streamParams) Input() []messages.Message        { return s.input }
 func (s *streamParams) Settings() entities.AgentReadOnly { return s.settings }
 func (s *streamParams) Toolbox() tools.Toolbox           { return s.tools }
 func (s *streamParams) ToolChoice() tools.ToolChoice     { return s.toolChoice }
+func (s *streamParams) PreflightCheck() PreflightFunc    { return s.preflight }

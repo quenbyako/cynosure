@@ -102,9 +102,9 @@ func NewRateLimiter(
 }
 
 // RateLimiter returns ratelimiter.PortWrapped interface.
-func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped { return ratelimiter.Wrap(r, r.tracer) }
+func (r *RateLimiter) RateLimiter() (ratelimiter.PortWrapped, error) { return ratelimiter.Wrap(r, r.tracer) }
 
-// ConsumeChatRequests consumes message quota and returns a settlement callback.
+// ConsumeChatRequests consumes message quota and returns a reservation callback.
 //
 // TODO: Currently implementation doesn't use model name, however, we must
 // recalculate tokens based on model.
@@ -132,8 +132,9 @@ func (r *RateLimiter) ConsumeChatRequests(
 	}
 
 	return func(_ context.Context, outputTokens int) error {
-		// Use ForceReserveN for settlement to ensure usage is recorded regardless of balance.
-		// The penalty ceiling is handled automatically by the Limiter's minTokens.
+		// Use ForceReserveN for reservation to ensure usage is recorded
+		// regardless of balance. The penalty ceiling is handled automatically
+		// by the Limiter's minTokens.
 		entry.outputChatTokens.ForceReserveN(r.now(), outputTokens)
 		return nil
 	}, nil

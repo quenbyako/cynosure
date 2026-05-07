@@ -13,6 +13,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 )
 
 const (
@@ -35,14 +36,11 @@ type GeminiModel struct {
 }
 
 var (
-	_ chatmodel.PortFactory          = (*GeminiModel)(nil)
-	_ ports.ToolSemanticIndexFactory = (*GeminiModel)(nil)
+	_ chatmodel.PortFactory = (*GeminiModel)(nil)
+	_ embedding.PortFactory = (*GeminiModel)(nil)
 )
 
-// ToolSemanticIndex returns ports.ToolSemanticIndex interface.
-func (g *GeminiModel) ToolSemanticIndex() ports.ToolSemanticIndex { return g }
-
-// ChatModel returns ports.ChatModel interface.
+func (g *GeminiModel) Embedding() embedding.PortWrapped { return embedding.Wrap(g, g.tracer) }
 func (g *GeminiModel) ChatModel() chatmodel.PortWrapped { return chatmodel.Wrap(g, g.tracer) }
 
 type newParams struct {
@@ -118,8 +116,8 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 		tracer:        ports.StackFromCore(params.traceProvider, pkgName),
 		maxMsgsPerReq: params.maxMsgsPerReq,
 
-		embeddingLimiter: rate.NewLimiter(params.embeddingLimit.Limit(), params.embeddingLimit.Burst()),
-		chatInputLimiter: rate.NewLimiter(params.chatInputLimit.Limit(), params.chatInputLimit.Burst()),
+		embeddingLimiter: rate.NewLimiter(params.embeddingLimit.Rate(), params.embeddingLimit.Limit()),
+		chatInputLimiter: rate.NewLimiter(params.chatInputLimit.Rate(), params.chatInputLimit.Limit()),
 	}
 
 	if err := model.validate(); err != nil {

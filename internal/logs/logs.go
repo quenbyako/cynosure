@@ -87,3 +87,13 @@ func (l *BaseLogger) GeminiStreamStarted(ctx context.Context, model string, tool
 		).
 		Msg("Passing tools to Gemini")
 }
+
+func (l *BaseLogger) TokenCountMismatch(ctx context.Context, model string, expected, got uint32) {
+	l.event(ctx, slog.LevelWarn, "gemini.token_count_mismatch").
+		Context(
+			attribute.Key("model").String(model),
+			attribute.Key("expected").Int(int(expected)),
+			attribute.Key("got").Int(int(got)),
+		).
+		Msg("Token count mismatch")
+}

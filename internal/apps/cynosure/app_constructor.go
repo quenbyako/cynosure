@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
@@ -19,8 +20,7 @@ import (
 )
 
 const (
-	DefaultSoftLimit = 20
-	DefaultHardCap   = 50
+	DefaultHistoryLimit = 50
 )
 
 type SecretGetter interface {
@@ -42,10 +42,17 @@ type (
 		ory                oryParams
 		constructionErrors []error
 		chat               chatParams
-		rateLimit          ratelimit.Policy
-		chatRateLimit      ratelimit.Policy
-		embeddingRateLimit ratelimit.Policy
 		adminMCPID         ids.ServerID
+		rate               rateParams
+	}
+
+	rateParams struct {
+		chatInput       ratelimit.Policy
+		chatOutput      ratelimit.Policy
+		embedding       ratelimit.Policy
+		chatInputGlobal ratelimit.Policy
+		embeddingGlobal ratelimit.Policy
+		maxWait         time.Duration
 	}
 
 	oryParams struct {
@@ -80,8 +87,7 @@ type (
 		url *url.URL
 	}
 	chatParams struct {
-		softLimit uint
-		hardCap   uint
+		historyLimit uint
 	}
 )
 
@@ -96,7 +102,7 @@ func (p *appParams) validate(ctx context.Context) error {
 		p.validateGemini(),
 		p.validateStorage(),
 		p.validateInfra(),
-		p.validateRateLimits(),
+		p.rate.validate(),
 		p.validateMCPClient(ctx),
 	)
 }
@@ -167,17 +173,29 @@ func (p *appParams) validateInfra() error {
 	return nil
 }
 
-func (p *appParams) validateRateLimits() error {
-	if p.rateLimit.Period() <= 0 || p.rateLimit.Burst() <= 0 {
-		return MissingParamError("rate limit")
+func (p *rateParams) validate() error {
+	if p.chatInput.Period() <= 0 || p.chatInput.Limit() <= 0 {
+		return MissingParamError("chat input rate limit")
 	}
 
-	if p.embeddingRateLimit.Period() <= 0 || p.embeddingRateLimit.Burst() <= 0 {
+	if p.chatOutput.Period() <= 0 || p.chatOutput.Limit() <= 0 {
+		return MissingParamError("chat output rate limit")
+	}
+
+	if p.embedding.Period() <= 0 || p.embedding.Limit() <= 0 {
 		return MissingParamError("embedding rate limit")
 	}
 
-	if p.chatRateLimit.Period() <= 0 || p.chatRateLimit.Burst() <= 0 {
-		return MissingParamError("chat rate limit")
+	if p.chatInputGlobal.Period() <= 0 || p.chatInputGlobal.Limit() <= 0 {
+		return MissingParamError("chat input global rate limit")
+	}
+
+	if p.embeddingGlobal.Period() <= 0 || p.embeddingGlobal.Limit() <= 0 {
+		return MissingParamError("embedding global rate limit")
+	}
+
+	if p.maxWait <= 0 {
+		return MissingParamError("max wait time limit")
 	}
 
 	return nil
@@ -241,23 +259,32 @@ func WithRedis(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.redis.url = addr }
 }
 
-func WithRateLimit(limit ratelimit.Policy) AppOpts {
-	return func(p *appParams) { p.rateLimit = limit }
+func WithChatInputRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.chatInput = limit }
+}
+
+func WithChatOutputRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.chatOutput = limit }
 }
 
 func WithEmbeddingRateLimit(limit ratelimit.Policy) AppOpts {
-	return func(p *appParams) { p.embeddingRateLimit = limit }
+	return func(p *appParams) { p.rate.embedding = limit }
 }
 
-func WithChatRateLimit(limit ratelimit.Policy) AppOpts {
-	return func(p *appParams) { p.chatRateLimit = limit }
+func WithGlobalChatInputRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.chatInputGlobal = limit }
 }
 
-func WithChatLimits(softLimit, hardCap uint) AppOpts {
-	return func(p *appParams) {
-		p.chat.softLimit = softLimit
-		p.chat.hardCap = hardCap
-	}
+func WithGlobalEmbeddingRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.embeddingGlobal = limit }
+}
+
+func WithMaxWaitTimeLimit(limit time.Duration) AppOpts {
+	return func(p *appParams) { p.rate.maxWait = limit }
+}
+
+func WithChatLimits(historyLimit uint) AppOpts {
+	return func(p *appParams) { p.chat.historyLimit = historyLimit }
 }
 
 func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
@@ -338,15 +365,13 @@ func defaultParams() appParams {
 		storage:            defaultStorageParams(),
 		redis:              defaultRedisParams(),
 		chat:               defaultChatParams(),
+		rate:               defaultRateParams(),
 		observability:      core.NoopMetrics(),
 		grpcAddr:           nil,
 		httpAddr:           nil,
 		mcpAddr:            nil,
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
-		rateLimit:          ratelimit.Policy{},
-		embeddingRateLimit: ratelimit.Policy{},
-		chatRateLimit:      ratelimit.Policy{},
 		internalMcpClient:  nil,
 		externalMcpClient:  nil,
 	}
@@ -382,8 +407,15 @@ func defaultRedisParams() redisParams {
 
 func defaultChatParams() chatParams {
 	return chatParams{
-		softLimit: DefaultSoftLimit,
-		hardCap:   DefaultHardCap,
+		historyLimit: DefaultHistoryLimit,
+	}
+}
+
+func defaultRateParams() rateParams {
+	return rateParams{
+		chatInput:  ratelimit.Policy{},
+		chatOutput: ratelimit.Policy{},
+		embedding:  ratelimit.Policy{},
 	}
 }
 

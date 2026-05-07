@@ -6,7 +6,9 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -22,7 +24,8 @@ type Usecase struct {
 	servers    ports.ServerStorage
 	tools      ports.ToolStorage
 	toolClient toolclient.Port
-	index      ports.ToolSemanticIndex
+	index      embedding.Port
+	limiter    ratelimiter.Port
 	trace      trace.Tracer
 	adminMCPID ids.ServerID
 }
@@ -56,7 +59,8 @@ func New(
 	servers ports.ServerStorage,
 	tools ports.ToolStorage,
 	toolClient toolclient.Port,
-	index ports.ToolSemanticIndex,
+	index embedding.Port,
+	limiter ratelimiter.Port,
 	adminMCPID ids.ServerID,
 	opts ...NewOption,
 ) (*Usecase, error) {
@@ -70,6 +74,7 @@ func New(
 		tools:      tools,
 		toolClient: toolClient,
 		index:      index,
+		limiter:    limiter,
 		adminMCPID: adminMCPID,
 		trace:      params.tracer.Tracer(pkgName),
 	}
@@ -97,6 +102,8 @@ func (u *Usecase) validate() error {
 		return errInternalValidation("tool client is required")
 	case u.index == nil:
 		return errInternalValidation("tool semantic index is required")
+	case u.limiter == nil:
+		return errInternalValidation("rate limiter is required")
 	case !u.adminMCPID.Valid():
 		return errInternalValidation("admin MCP ID is required")
 	default:

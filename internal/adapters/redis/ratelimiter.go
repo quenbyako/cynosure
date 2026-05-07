@@ -71,7 +71,7 @@ func New(
 }
 
 // RateLimiter returns ratelimiter.PortWrapped interface.
-func (r *RateLimiter) RateLimiter() ratelimiter.PortWrapped {
+func (r *RateLimiter) RateLimiter() (ratelimiter.PortWrapped, error) {
 	return ratelimiter.Wrap(r, r.observability)
 }
 
@@ -95,8 +95,9 @@ func (r *RateLimiter) ConsumeChatRequests(
 	}
 
 	return func(ctx context.Context, outputTokens int) error {
-		// Settlement: allow going into debt. We pass force=true (last arg) to ensure
-		// it never blocks during settlement and caps debt to maxWaitTime.
+		// Reservation: allow going into debt. We pass force=true (last arg) to
+		// ensure
+		// it never blocks during reservation and caps debt to maxWaitTime.
 		return r.consumeWithMaxWait(ctx, user, model, outputTokens, "output", r.maxWaitTime, true)
 	}, nil
 }

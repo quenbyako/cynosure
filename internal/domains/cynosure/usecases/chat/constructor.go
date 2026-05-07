@@ -5,6 +5,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
@@ -19,7 +20,7 @@ type Usecase struct {
 	storage          ports.ThreadStorage
 	model            chatmodel.Port
 	tools            toolclient.Port
-	indexer          ports.ToolSemanticIndex
+	indexer          embedding.Port
 	toolStorage      ports.ToolStorage
 	servers          ports.ServerStorage
 	accounts         ports.AccountStorage
@@ -71,7 +72,7 @@ func New(
 	storage ports.ThreadStorage,
 	model chatmodel.Port,
 	tool toolclient.Port,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,

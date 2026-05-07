@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
@@ -57,14 +58,20 @@ func (c *Chat) buildToolbox(ctx context.Context, contextLimit uint) (tools.Toolb
 }
 
 func (c *Chat) lookupRelevantTools(ctx context.Context, msgLimit uint) ([]*entities.Tool, error) {
-	embedding, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages(msgLimit))
+	preflight := func(ctx context.Context, modelName string, tokens int) error {
+		return c.limiter.ConsumeEmbeddingRequests(ctx, c.thread.ID().User(), modelName, tokens)
+	}
+
+	vector, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages(msgLimit),
+		embedding.WithPreflightCheck(preflight),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("building embedding: %w", err)
 	}
 
 	const topK = 10
 
-	relevantTools, err := c.toolStorage.LookupTools(ctx, c.thread.ID().User(), embedding, topK)
+	relevantTools, err := c.toolStorage.LookupTools(ctx, c.thread.ID().User(), vector, topK)
 	if err != nil {
 		return nil, fmt.Errorf("looking up tools: %w", err)
 	}

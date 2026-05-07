@@ -5,6 +5,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
@@ -19,7 +20,7 @@ func newChatUsecase(
 	storage ports.ThreadStorageWrapped,
 	model chatmodel.PortWrapped,
 	tool toolclient.PortWrapped,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.PortWrapped,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,
@@ -37,7 +38,7 @@ func newChatUsecase(
 		models,
 		limiter,
 		chat.WithObservability(params.observability),
-		chat.WithChatLimit(params.chat.softLimit),
+		chat.WithChatLimit(params.chat.historyLimit),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chat usecase: %w", err)
@@ -52,7 +53,7 @@ func newAccountsUsecase(
 	oauth oauthhandler.PortWrapped,
 	accountsPort ports.AccountStorage,
 	tools ports.ToolStorage,
-	index ports.ToolSemanticIndex,
+	index embedding.PortWrapped,
 	toolClient toolclient.PortWrapped,
 	identities identitymanager.PortWrapped,
 	limiter ratelimiter.PortWrapped,
@@ -84,7 +85,7 @@ func newUsersUsecase(
 	servers ports.ServerStorage,
 	tools ports.ToolStorage,
 	toolClient toolclient.PortWrapped,
-	index ports.ToolSemanticIndex,
+	index embedding.PortWrapped,
 	limiter ratelimiter.PortWrapped,
 ) (*users.Usecase, error) {
 	usecase, err := users.New(

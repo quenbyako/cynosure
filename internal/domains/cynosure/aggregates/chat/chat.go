@@ -8,6 +8,8 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -41,9 +43,10 @@ import (
 // of inconsistent state (e.g., history updated but tools not refreshed).
 type Chat struct {
 	storage     ports.ThreadStorage
-	indexer     ports.ToolSemanticIndex
+	indexer     embedding.Port
 	toolStorage ports.ToolStorage
 	accounts    ports.AccountStorage
+	limiter     ratelimiter.Port
 	thread      *entities.Thread
 	// tools caches the actual entities.Tool objects for execution after model
 	// picks them
@@ -58,9 +61,10 @@ type Chat struct {
 func New(
 	ctx context.Context,
 	storage ports.ThreadStorage,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
+	limiter ratelimiter.Port,
 	threadID ids.ThreadID,
 	toolboxContextLimit uint,
 ) (*Chat, error) {
@@ -70,16 +74,17 @@ func New(
 	}
 
 	return newChatAggregate(
-		ctx, thread, storage, indexer, toolStorage, accounts, toolboxContextLimit,
+		ctx, thread, storage, indexer, toolStorage, accounts, limiter, toolboxContextLimit,
 	)
 }
 
 func CreateChatAggregate(
 	ctx context.Context,
 	storage ports.ThreadStorage,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
+	limiter ratelimiter.Port,
 	threadID ids.ThreadID,
 	history []messages.Message,
 	toolboxContextLimit uint,
@@ -95,7 +100,7 @@ func CreateChatAggregate(
 	}
 
 	return newChatAggregate(
-		ctx, thread, storage, indexer, toolStorage, accounts, toolboxContextLimit,
+		ctx, thread, storage, indexer, toolStorage, accounts, limiter, toolboxContextLimit,
 	)
 }
 
@@ -103,9 +108,10 @@ func newChatAggregate(
 	ctx context.Context,
 	thread *entities.Thread,
 	storage ports.ThreadStorage,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
+	limiter ratelimiter.Port,
 	toolboxContextLimit uint,
 ) (*Chat, error) {
 	chat := initChat(
@@ -114,6 +120,7 @@ func newChatAggregate(
 		indexer,
 		toolStorage,
 		accounts,
+		limiter,
 		toolboxContextLimit,
 	)
 	if err := chat.validate(); err != nil {
@@ -133,9 +140,10 @@ func newChatAggregate(
 func initChat(
 	thread *entities.Thread,
 	storage ports.ThreadStorage,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
+	limiter ratelimiter.Port,
 	toolboxContextLimit uint,
 ) *Chat {
 	return &Chat{
@@ -148,6 +156,7 @@ func initChat(
 		indexer:             indexer,
 		toolStorage:         toolStorage,
 		accounts:            accounts,
+		limiter:             limiter,
 		toolboxContextLimit: toolboxContextLimit,
 
 		mu: sync.RWMutex{},
@@ -169,6 +178,10 @@ func (c *Chat) validate() error {
 
 	if c.accounts == nil {
 		return errInternalValidation("accounts is nil")
+	}
+
+	if c.limiter == nil {
+		return errInternalValidation("limiter is nil")
 	}
 
 	if !c.thread.Valid() {

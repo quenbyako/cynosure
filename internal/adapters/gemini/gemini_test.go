@@ -16,7 +16,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini/datatransfer"
 	chatmodel "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel/testsuite"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
+	embedding "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding/testsuite"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 
@@ -50,7 +50,7 @@ func TestGeminiChatModel(t *testing.T) {
 	require.NoError(t, err, "Failed to create GenAI client")
 
 	chatmodel.RunChatModelTests(gem)(t)
-	testsuite.RunToolSemanticIndexTests(gem)(t)
+	embedding.RunToolSemanticIndexTests(gem)(t)
 }
 
 func TestGeminiWithRotatedKey(t *testing.T) {

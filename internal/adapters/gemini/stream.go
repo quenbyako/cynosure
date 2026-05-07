@@ -61,6 +61,10 @@ func (g *GeminiModel) StreamWithStats(
 		return nil, fmt.Errorf("token counting failed: %w", err)
 	}
 
+	if err := params.PreflightCheck()(ctx, settings.Model(), int(tokens.TotalTokens)); err != nil {
+		return nil, err // Abort request if rate limit exceeded
+	}
+
 	if err := g.chatInputLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			return nil, err //nolint:wrapcheck // returning context cancellation as is
@@ -189,6 +193,7 @@ func toolConfig(mode genai.FunctionCallingConfigMode) *genai.ToolConfig {
 type streamParamsProxy interface {
 	Toolbox() tools.Toolbox
 	ToolChoice() tools.ToolChoice
+	PreflightCheck() chatmodel.PreflightFunc
 }
 
 func convertToolChoice(choice tools.ToolChoice) (genai.FunctionCallingConfigMode, error) {

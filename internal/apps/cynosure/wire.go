@@ -17,6 +17,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
@@ -41,7 +42,7 @@ var (
 	)
 	geminiAdapter = wire.NewSet(newGeminiModel,
 		wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)),
-		wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)),
+		wire.Bind(new(embedding.PortFactory), new(*gemini.GeminiModel)),
 	)
 	oauthAdapter = wire.NewSet(newOAuthHandler,
 		wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)),
@@ -75,6 +76,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	panic(wire.Build(
 		ports.WirePorts,
 		chatmodel.New,
+		embedding.New,
 		identitymanager.New,
 		oauthhandler.New,
 		ratelimiter.New,

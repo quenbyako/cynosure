@@ -40,8 +40,8 @@ func (_m *ChatModel) EXPECT() *ChatModel_Expecter {
 	return &ChatModel_Expecter{mock: &_m.Mock}
 }
 
-// Stream provides a mock function for the type ChatModel
-func (_mock *ChatModel) Stream(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...chatmodel.StreamOption) (chatmodel.StreamIter, error) {
+// StreamWithStats provides a mock function for the type ChatModel
+func (_mock *ChatModel) StreamWithStats(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...chatmodel.StreamOption) (chatmodel.Iter, error) {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
 		tmpRet = _mock.Called(ctx, input, settings, opts)
@@ -51,19 +51,19 @@ func (_mock *ChatModel) Stream(ctx context.Context, input []messages.Message, se
 	ret := tmpRet
 
 	if len(ret) == 0 {
-		panic("no return value specified for Stream")
+		panic("no return value specified for StreamWithStats")
 	}
 
-	var r0 chatmodel.StreamIter
+	var r0 chatmodel.Iter
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []messages.Message, entities.AgentReadOnly, ...chatmodel.StreamOption) (chatmodel.StreamIter, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []messages.Message, entities.AgentReadOnly, ...chatmodel.StreamOption) (chatmodel.Iter, error)); ok {
 		return returnFunc(ctx, input, settings, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []messages.Message, entities.AgentReadOnly, ...chatmodel.StreamOption) chatmodel.StreamIter); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []messages.Message, entities.AgentReadOnly, ...chatmodel.StreamOption) chatmodel.Iter); ok {
 		r0 = returnFunc(ctx, input, settings, opts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chatmodel.StreamIter)
+			r0 = ret.Get(0).(chatmodel.Iter)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, []messages.Message, entities.AgentReadOnly, ...chatmodel.StreamOption) error); ok {
@@ -74,22 +74,22 @@ func (_mock *ChatModel) Stream(ctx context.Context, input []messages.Message, se
 	return r0, r1
 }
 
-// ChatModel_Stream_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Stream'
-type ChatModel_Stream_Call struct {
+// ChatModel_StreamWithStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StreamWithStats'
+type ChatModel_StreamWithStats_Call struct {
 	*mock.Call
 }
 
-// Stream is a helper method to define mock.On call
+// StreamWithStats is a helper method to define mock.On call
 //   - ctx context.Context
 //   - input []messages.Message
 //   - settings entities.AgentReadOnly
 //   - opts ...chatmodel.StreamOption
-func (_e *ChatModel_Expecter) Stream(ctx interface{}, input interface{}, settings interface{}, opts ...interface{}) *ChatModel_Stream_Call {
-	return &ChatModel_Stream_Call{Call: _e.mock.On("Stream",
+func (_e *ChatModel_Expecter) StreamWithStats(ctx interface{}, input interface{}, settings interface{}, opts ...interface{}) *ChatModel_StreamWithStats_Call {
+	return &ChatModel_StreamWithStats_Call{Call: _e.mock.On("StreamWithStats",
 		append([]interface{}{ctx, input, settings}, opts...)...)}
 }
 
-func (_c *ChatModel_Stream_Call) Run(run func(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...chatmodel.StreamOption)) *ChatModel_Stream_Call {
+func (_c *ChatModel_StreamWithStats_Call) Run(run func(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...chatmodel.StreamOption)) *ChatModel_StreamWithStats_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -119,12 +119,12 @@ func (_c *ChatModel_Stream_Call) Run(run func(ctx context.Context, input []messa
 	return _c
 }
 
-func (_c *ChatModel_Stream_Call) Return(v chatmodel.StreamIter, err error) *ChatModel_Stream_Call {
-	_c.Call.Return(v, err)
+func (_c *ChatModel_StreamWithStats_Call) Return(iter chatmodel.Iter, err error) *ChatModel_StreamWithStats_Call {
+	_c.Call.Return(iter, err)
 	return _c
 }
 
-func (_c *ChatModel_Stream_Call) RunAndReturn(run func(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...chatmodel.StreamOption) (chatmodel.StreamIter, error)) *ChatModel_Stream_Call {
+func (_c *ChatModel_StreamWithStats_Call) RunAndReturn(run func(ctx context.Context, input []messages.Message, settings entities.AgentReadOnly, opts ...chatmodel.StreamOption) (chatmodel.Iter, error)) *ChatModel_StreamWithStats_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -240,12 +241,16 @@ func (u *Usecase) newToolWithEmbedding(
 		return nil, fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 	}
 
-	embedding, err := u.index.IndexTool(ctx, tool)
+	preflight := func(ctx context.Context, modelName string, tokens int) error {
+		return u.limiter.ConsumeEmbeddingRequests(ctx, toolID.Account().User(), modelName, tokens)
+	}
+
+	vector, err := u.index.IndexTool(ctx, tool, embedding.WithPreflightCheck(preflight))
 	if err != nil {
 		return nil, fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
 	}
 
-	tool.SetEmbedding(embedding)
+	tool.SetEmbedding(vector)
 
 	// cleaning events, cause it's newly created tool
 	tool.ClearEvents()

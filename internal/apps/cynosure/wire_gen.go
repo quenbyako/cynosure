@@ -19,6 +19,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
@@ -45,7 +46,7 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	toolSemanticIndex := ports.NewToolSemanticIndex(geminiModel)
+	embeddingPortWrapped := embedding.New(geminiModel)
 	mcpHandler, err := newMCPHandler(ctx, config, refreshConstructor)
 	if err != nil {
 		return nil, err
@@ -56,7 +57,11 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 		return nil, err
 	}
 	identitymanagerPortWrapped := identitymanager.New(adapter2)
-	usecase, err := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, toolSemanticIndex, toolclientPortWrapped, identitymanagerPortWrapped)
+	ratelimiterPortWrapped, err := ratelimiter.New(rateLimiter)
+	if err != nil {
+		return nil, err
+	}
+	usecase, err := newAccountsUsecase(config, serverStorage, portWrapped, accountStorage, toolStorage, embeddingPortWrapped, toolclientPortWrapped, identitymanagerPortWrapped, ratelimiterPortWrapped)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +70,11 @@ func buildApp(ctx context.Context, config *appParams) (*App, error) {
 	threadStorageWrapped := ports.NewThreadStorage(adapter)
 	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	agentStorage := ports.NewAgentStorage(adapter)
-	ratelimiterPortWrapped := ratelimiter.New(rateLimiter)
-	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, toolSemanticIndex, toolStorage, serverStorage, accountStorage, agentStorage, ratelimiterPortWrapped)
+	usecase2, err := newChatUsecase(config, threadStorageWrapped, chatmodelPortWrapped, toolclientPortWrapped, embeddingPortWrapped, toolStorage, serverStorage, accountStorage, agentStorage, ratelimiterPortWrapped)
 	if err != nil {
 		return nil, err
 	}
-	usecase3, err := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, toolSemanticIndex)
+	usecase3, err := newUsersUsecase(config, identitymanagerPortWrapped, agentStorage, accountStorage, serverStorage, toolStorage, toolclientPortWrapped, embeddingPortWrapped, ratelimiterPortWrapped)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +101,7 @@ var loggerConstructor = wire.NewSet(
 
 var (
 	sqlAdapter         = wire.NewSet(newSQLAdapter, wire.Bind(new(ports.AgentStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.AccountStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ServerStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ThreadStorageFactory), new(*sql.Adapter)), wire.Bind(new(ports.ToolStorageFactory), new(*sql.Adapter)))
-	geminiAdapter      = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(ports.ToolSemanticIndexFactory), new(*gemini.GeminiModel)))
+	geminiAdapter      = wire.NewSet(newGeminiModel, wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)), wire.Bind(new(embedding.PortFactory), new(*gemini.GeminiModel)))
 	oauthAdapter       = wire.NewSet(newOAuthHandler, wire.Bind(new(oauthhandler.Factory), new(*oauth.Handler)))
 	mcpAdapter         = wire.NewSet(newMCPHandler, wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)))
 	oauthRefresher     = wire.NewSet(newOauthRefresher)

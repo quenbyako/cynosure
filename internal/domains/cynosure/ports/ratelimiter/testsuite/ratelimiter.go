@@ -22,7 +22,7 @@ var (
 	errExpectedSuccess = errors.New("expected success")
 	errExpectedError   = errors.New("expected error")
 	errInvalidParam    = errors.New("invalid parameter")
-	errNoActiveChat    = errors.New("no active chat request to settle")
+	errNoActiveChat    = errors.New("no active chat request to reserve")
 	errRetryMismatch   = errors.New("retry time mismatch")
 )
 
@@ -95,14 +95,14 @@ func createOptions(t *testing.T) *godog.Options {
 }
 
 type godogState struct {
-	currentTime time.Time
-	adapter     ratelimiter.Port
-	lastErr     error
-	setup       setupFunc
-	users       map[string]ids.UserID
-	lastSettle  ratelimiter.ConsumedTokensFunc
-	setupParams SetupParams
-	selfTest    bool
+	currentTime        time.Time
+	adapter            ratelimiter.Port
+	lastErr            error
+	setup              setupFunc
+	users              map[string]ids.UserID
+	lastOutputRecorder ratelimiter.ConsumedTokensFunc
+	setupParams        SetupParams
+	selfTest           bool
 }
 
 func (s *godogState) InitializeScenario(setup setupFunc) func(*godog.ScenarioContext) {
@@ -152,12 +152,12 @@ func (s *godogState) reset() {
 			EmbeddingInput: Quota{Limit: 0, Period: 0},
 			MaxWait:        0,
 		},
-		adapter:     nil,
-		lastSettle:  nil,
-		lastErr:     nil,
-		users:       make(map[string]ids.UserID),
-		currentTime: start,
-		selfTest:    false,
+		adapter:            nil,
+		lastOutputRecorder: nil,
+		lastErr:            nil,
+		users:              make(map[string]ids.UserID),
+		currentTime:        start,
+		selfTest:           false,
 	}
 }
 
@@ -233,13 +233,13 @@ func (s *godogState) spendInput(
 func (s *godogState) spendOutput(
 	ctx context.Context, userID ids.UserID, model string, count int,
 ) error {
-	settle, err := s.adapter.ConsumeChatRequests(ctx, userID, model, 0)
+	report, err := s.adapter.ConsumeChatRequests(ctx, userID, model, 0)
 	if err != nil {
-		return fmt.Errorf("spend output (settle): %w", err)
+		return fmt.Errorf("spend output: %w", err)
 	}
 
-	if err := settle(ctx, count); err != nil {
-		return fmt.Errorf("settle output: %w", err)
+	if err := report(ctx, count); err != nil {
+		return fmt.Errorf("report output: %w", err)
 	}
 
 	return nil
@@ -268,14 +268,14 @@ func (s *godogState) whenUserConsumes(ctx context.Context, count int, typ, model
 
 	switch typ {
 	case tokenInput:
-		s.lastSettle, s.lastErr = s.adapter.ConsumeChatRequests(ctx, userID, model, count)
+		s.lastOutputRecorder, s.lastErr = s.adapter.ConsumeChatRequests(ctx, userID, model, count)
 	case tokenOutput:
-		if s.lastSettle == nil {
+		if s.lastOutputRecorder == nil {
 			return errNoActiveChat
 		}
 
-		s.lastErr = s.lastSettle(ctx, count)
-		s.lastSettle = nil
+		s.lastErr = s.lastOutputRecorder(ctx, count)
+		s.lastOutputRecorder = nil
 	case tokenEmbedding:
 		s.lastErr = s.adapter.ConsumeEmbeddingRequests(ctx, userID, model, count)
 	}

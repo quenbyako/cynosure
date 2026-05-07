@@ -2,13 +2,16 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
@@ -31,23 +34,39 @@ func (h *Handler) identifyUser(ctx context.Context, msg *botapi.Message) (ids.Us
 	return userID, nil
 }
 
-func (h *Handler) sendRateLimitedMessage(ctx context.Context, msg *botapi.Message) {
+func (h *Handler) sendRateLimitedMessage(ctx context.Context, chatID int, threadID *int, err error) {
 	traceID := trace.SpanFromContext(ctx).SpanContext().TraceID()
 
-	text := "Sorry, I'm currently overwhelmed with requests. Please try again in a moment."
+	var (
+		retryAfter string
+		e          *ratelimiter.RateLimitExceededError
+	)
+
+	if errors.As(err, &e) {
+		retryIn := time.Until(e.RetryAt()).Round(time.Minute)
+		if retryIn < time.Minute {
+			retryIn = time.Until(e.RetryAt()).Round(time.Second)
+		}
+
+		if retryIn > 0 {
+			retryAfter = fmt.Sprintf(" Please try again in about %s.", retryIn.String())
+		}
+	}
+
+	text := "Sorry, you've reached the message rate limit." + retryAfter+"\n\nYou can increase your limit, by getting /premium"
 	if traceID.IsValid() {
 		text += fmt.Sprintf(" (trace id: %s)", traceID.String())
 	}
 
 	//nolint:exhaustruct // too many optional fields.
 	params := botapi.SendMessageJSONRequestBody{
-		ChatId:          msg.Chat.Id,
+		ChatId:          chatID,
 		Text:            text,
-		MessageThreadId: msg.MessageThreadId,
+		MessageThreadId: threadID,
 	}
 
 	if _, err := h.client.SendMessageWithResponse(ctx, params); err != nil {
-		h.log.ProcessMessageIssue(ctx, msg.Chat.Id,
+		h.log.ProcessMessageIssue(ctx, chatID,
 			fmt.Errorf("sending rate limit message: %w", err),
 		)
 	}
