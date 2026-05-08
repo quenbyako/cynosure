@@ -14,8 +14,16 @@ import (
 	_ "embed"
 )
 
-//go:embed l10n/start.md
-var startText string
+var (
+	//go:embed l10n/start.md
+	startText string
+
+	//go:embed l10n/help.md
+	helpText string
+
+	//go:embed l10n/premium.md
+	premiumText string
+)
 
 func (h *Handler) processCommand(ctx context.Context, msg *botapi.Message) {
 	if msg.Chat.Type != "private" || msg.Entities == nil || len(*msg.Entities) == 0 {
@@ -49,12 +57,28 @@ func (h *Handler) processCommand(ctx context.Context, msg *botapi.Message) {
 	switch {
 	case cmdStr == "/start" || strings.HasPrefix(cmdStr, "/start@"):
 		h.handleStart(ctx, msg)
+	case cmdStr == "/help" || strings.HasPrefix(cmdStr, "/help@"):
+		h.handleHelp(ctx, msg)
+	case cmdStr == "/premium" || strings.HasPrefix(cmdStr, "/premium@"):
+		h.handlePremium(ctx, msg)
 	default:
 		h.log.ProcessMessageIssue(ctx, msg.Chat.Id, fmt.Errorf("unknown command: %s", cmdStr))
 	}
 }
 
 func (h *Handler) handleStart(ctx context.Context, msg *botapi.Message) {
+	h.sendCommandMessage(ctx, msg, startText)
+}
+
+func (h *Handler) handleHelp(ctx context.Context, msg *botapi.Message) {
+	h.sendCommandMessage(ctx, msg, helpText)
+}
+
+func (h *Handler) handlePremium(ctx context.Context, msg *botapi.Message) {
+	h.sendCommandMessage(ctx, msg, premiumText)
+}
+
+func (h *Handler) sendCommandMessage(ctx context.Context, msg *botapi.Message, text string) {
 	userID, err := h.identifyUser(ctx, msg)
 	if err != nil {
 		h.handleUserIdentificationError(ctx, msg, err)
@@ -71,7 +95,7 @@ func (h *Handler) handleStart(ctx context.Context, msg *botapi.Message) {
 	//nolint:exhaustruct // too many optional fields.
 	params := botapi.SendMessageJSONRequestBody{
 		ChatId:          msg.Chat.Id,
-		Text:            startText,
+		Text:            text,
 		ParseMode:       ptr("MarkdownV2"),
 		MessageThreadId: msg.MessageThreadId,
 	}
