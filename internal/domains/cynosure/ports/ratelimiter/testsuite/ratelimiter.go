@@ -32,6 +32,9 @@ const (
 	tokenEmbedding = "embedding"
 
 	maxWaitTime = time.Minute
+
+	unlimitedLimit  = 100_000_000
+	unlimitedPeriod = time.Second
 )
 
 type Quota struct {
@@ -51,8 +54,25 @@ type SetupParams struct {
 
 type setupFunc func(context.Context, SetupParams) (ratelimiter.Port, error)
 
+type runParams struct {
+	cleanup func(context.Context) error
+}
+
+type RunOption func(*runParams)
+
+func WithCleanup(f func(context.Context) error) RunOption {
+	return func(s *runParams) { s.cleanup = f }
+}
+
 // Run test suite for the Rate Limiter port.
-func Run(setup setupFunc) func(t *testing.T) {
+func Run(setup setupFunc, opts ...RunOption) func(t *testing.T) {
+	params := runParams{
+		cleanup: func(ctx context.Context) error { return nil },
+	}
+	for _, opt := range opts {
+		opt(&params)
+	}
+
 	return func(t *testing.T) {
 		t.Helper()
 
@@ -60,7 +80,7 @@ func Run(setup setupFunc) func(t *testing.T) {
 
 		suite := godog.TestSuite{
 			Name:                 "ratelimiter",
-			ScenarioInitializer:  state.InitializeScenario(setup),
+			ScenarioInitializer:  state.InitializeScenario(setup, params.cleanup),
 			TestSuiteInitializer: nil,
 			Options:              createOptions(t),
 		}
@@ -105,12 +125,15 @@ type godogState struct {
 	selfTest           bool
 }
 
-func (s *godogState) InitializeScenario(setup setupFunc) func(*godog.ScenarioContext) {
+func (s *godogState) InitializeScenario(setup setupFunc, cleanup func(context.Context) error) func(*godog.ScenarioContext) {
 	s.setup = setup
 
 	return func(ctx *godog.ScenarioContext) {
 		ctx.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 			s.reset()
+			if err := cleanup(ctx); err != nil {
+				return ctx, fmt.Errorf("cleanup failed: %w", err)
+			}
 
 			return ctx, nil
 		})
@@ -147,9 +170,9 @@ func (s *godogState) reset() {
 		setupParams: SetupParams{
 			StartedAt:      start,
 			Now:            func() time.Time { return s.currentTime },
-			ChatInput:      Quota{Limit: 0, Period: 0},
-			ChatOutput:     Quota{Limit: 0, Period: 0},
-			EmbeddingInput: Quota{Limit: 0, Period: 0},
+			ChatInput:      Quota{Limit: unlimitedLimit, Period: unlimitedPeriod},
+			ChatOutput:     Quota{Limit: unlimitedLimit, Period: unlimitedPeriod},
+			EmbeddingInput: Quota{Limit: unlimitedLimit, Period: unlimitedPeriod},
 			MaxWait:        0,
 		},
 		adapter:            nil,

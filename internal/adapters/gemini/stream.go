@@ -66,7 +66,7 @@ func (g *GeminiModel) StreamWithStats(
 	}
 
 	if err := g.chatInputLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		if errors.Is(err, context.Canceled) || errors.Is(context.Cause(limiterCtx), context.Canceled) {
 			return nil, err //nolint:wrapcheck // returning context cancellation as is
 		}
 

@@ -93,7 +93,7 @@ func (w *waitWrapper) sync(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return context.Cause(ctx)
 		case <-timer.C:
 			return nil
 		}

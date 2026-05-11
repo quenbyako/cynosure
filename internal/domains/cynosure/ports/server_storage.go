@@ -73,5 +73,3 @@ type ServerStorageWrite interface {
 type ServerStorageFactory interface {
 	ServerStorage() ServerStorage
 }
-
-func NewServerStorage(factory ServerStorageFactory) ServerStorage { return factory.ServerStorage() }

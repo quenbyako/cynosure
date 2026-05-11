@@ -223,7 +223,7 @@ func TestCache_ContextCancellation(t *testing.T) {
 	constructor := func(ctx context.Context, key int) (string, error) {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", context.Cause(ctx)
 		case <-blockCh:
 			return testValue, nil
 		}

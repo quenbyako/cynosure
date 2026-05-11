@@ -10,17 +10,11 @@ import (
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
+	redisparam "github.com/quenbyako/cynosure/contrib/core-params/redis"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 
-	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
-	"github.com/quenbyako/cynosure/internal/adapters/mcp"
-	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
-)
-
-const (
-	DefaultHistoryLimit = 50
 )
 
 type SecretGetter interface {
@@ -84,7 +78,7 @@ type (
 	}
 
 	redisParams struct {
-		url *url.URL
+		client redis.UniversalClient
 	}
 	chatParams struct {
 		historyLimit uint
@@ -255,8 +249,8 @@ func WithDatabaseURL(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.storage.databaseURL = addr }
 }
 
-func WithRedis(addr *url.URL) AppOpts {
-	return func(p *appParams) { p.redis.url = addr }
+func WithRedis(p redisparam.Parameter) AppOpts {
+	return func(ap *appParams) { ap.redis.client = p.Client }
 }
 
 func WithChatInputRateLimit(limit ratelimit.Policy) AppOpts {
@@ -401,7 +395,7 @@ func defaultStorageParams() storageParams {
 
 func defaultRedisParams() redisParams {
 	return redisParams{
-		url: nil,
+		client: nil,
 	}
 }
 
@@ -430,26 +424,20 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 		return nil, fmt.Errorf("validating params: %w", err)
 	}
 
-	return buildApp(ctx, &params)
+	app, err := buildApp(ctx, &params)
+	return app, err
 }
 
 //nolint:unparam // wire needs these parameters to be present to correctly bind dependencies
 func connectDependencies(
 	params *appParams,
-	limiter *inmemory.RateLimiter,
-	refreshConstructor *refreshtoken.RefreshConstructor,
-	accountsUsecase *accounts.Usecase,
+	lifecycle *lifecycle,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
-	telegramController telegramControllerWireBind,
+	_ telegramControllerWireBind,
 	_ mcpControllerWireBind,
-	mcpHandler *mcp.Handler,
 ) (*App, error) {
 	return &App{
-		telegramTaskRunner: telegramController.runFunc,
-		accountsTaskRunner: accountsUsecase.Run,
-		tokenRefresherRun:  refreshConstructor.Run,
-		ratelimiterCleanup: limiter.Cleanup,
-		mcpAdapterClose:    mcpHandler.Close,
+		lifecycle: lifecycle,
 	}, nil
 }

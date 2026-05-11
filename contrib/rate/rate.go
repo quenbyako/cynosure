@@ -353,7 +353,7 @@ func (lim *Limiter) wait(
 	// Check if ctx is already cancelled
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return context.Cause(ctx)
 	default:
 	}
 	// Determine wait limit
@@ -405,7 +405,7 @@ func (lim *Limiter) waitWithTimer(
 		// Context was canceled before we could proceed.  Cancel the
 		// reservation, which may permit other events to proceed sooner.
 		reservation.Cancel()
-		return ctx.Err()
+		return context.Cause(ctx)
 	}
 }
 

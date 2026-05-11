@@ -81,7 +81,3 @@ type ToolStorageWrite interface {
 type ToolStorageFactory interface {
 	ToolStorage() ToolStorage
 }
-
-func NewToolStorage(f ToolStorageFactory) ToolStorage {
-	return f.ToolStorage()
-}

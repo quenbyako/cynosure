@@ -102,7 +102,9 @@ func NewRateLimiter(
 }
 
 // RateLimiter returns ratelimiter.PortWrapped interface.
-func (r *RateLimiter) RateLimiter() (ratelimiter.PortWrapped, error) { return ratelimiter.Wrap(r, r.tracer) }
+func (r *RateLimiter) RateLimiter() (ratelimiter.PortWrapped, error) {
+	return ratelimiter.Wrap(r, r.tracer)
+}
 
 // ConsumeChatRequests consumes message quota and returns a reservation callback.
 //
@@ -195,11 +197,11 @@ const (
 	tickerPeriodFactor = 2
 )
 
-// Cleanup periodically removes stale rate limiters from memory.
+// StartCleanupJob periodically removes stale rate limiters from memory.
 //
-// Cleanup uses maxWaitTime to determine when a rate limiter is stale, since all
-// limits are constrained to maxWaitTime.
-func (r *RateLimiter) Cleanup(ctx context.Context) error {
+// StartCleanupJob uses maxWaitTime to determine when a rate limiter is stale,
+// since all limits are constrained to maxWaitTime.
+func (r *RateLimiter) StartCleanupJob(ctx context.Context) error {
 	if r.maxWaitTime <= 0 {
 		return nil
 	}
@@ -210,7 +212,7 @@ func (r *RateLimiter) Cleanup(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			err := ctx.Err()
+			err := context.Cause(ctx)
 			if errors.Is(err, context.Canceled) {
 				// returning nil, cause cleanup is optional and it doesn't affect
 				// on logic so much.

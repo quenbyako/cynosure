@@ -124,7 +124,7 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string, prefl
 	}
 
 	if err = g.embeddingLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		if errors.Is(err, context.Canceled) || errors.Is(context.Cause(limiterCtx), context.Canceled) {
 			return vector{}, err //nolint:wrapcheck // returning context cancellation as is
 		}
 

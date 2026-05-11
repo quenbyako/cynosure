@@ -1,6 +1,7 @@
 package cynosure
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -16,27 +17,57 @@ import (
 )
 
 func newChatUsecase(
+	ctx context.Context,
 	params *appParams,
-	storage ports.ThreadStorageWrapped,
+	storage constructor[ports.ThreadStorageWrapped],
 	model chatmodel.PortWrapped,
 	tool toolclient.PortWrapped,
 	indexer embedding.PortWrapped,
-	toolStorage ports.ToolStorage,
-	server ports.ServerStorage,
-	account ports.AccountStorage,
-	models ports.AgentStorage,
-	limiter ratelimiter.PortWrapped,
+	toolStorage constructor[ports.ToolStorage],
+	server constructor[ports.ServerStorage],
+	account constructor[ports.AccountStorage],
+	models constructor[ports.AgentStorage],
+	limiter constructor[ratelimiter.PortWrapped],
 ) (*chat.Usecase, error) {
+	limiterPort, err := limiter.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build limiter port: %w", err)
+	}
+	accountsPort, err := account.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build accounts port: %w", err)
+	}
+
+	serversPort, err := server.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build servers port: %w", err)
+	}
+
+	modelsPort, err := models.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build models port: %w", err)
+	}
+
+	toolStoragePort, err := toolStorage.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build tool storage port: %w", err)
+	}
+
+	storagePort, err := storage.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build storage port: %w", err)
+	}
+
 	usecase, err := chat.New(
-		storage,
+		storagePort,
 		model,
 		tool,
 		indexer,
-		toolStorage,
-		server,
-		account,
-		models,
-		limiter,
+		toolStoragePort,
+		serversPort,
+		accountsPort,
+		modelsPort,
+		limiterPort,
 		chat.WithObservability(params.observability),
 		chat.WithChatLimit(params.chat.historyLimit),
 	)
@@ -48,25 +79,47 @@ func newChatUsecase(
 }
 
 func newAccountsUsecase(
+	ctx context.Context,
 	params *appParams,
-	servers ports.ServerStorage,
+	lifecycle *lifecycle,
+	servers constructor[ports.ServerStorage],
 	oauth oauthhandler.PortWrapped,
-	accountsPort ports.AccountStorage,
-	tools ports.ToolStorage,
+	accountsStorage constructor[ports.AccountStorage],
+	tools constructor[ports.ToolStorage],
 	index embedding.PortWrapped,
 	toolClient toolclient.PortWrapped,
 	identities identitymanager.PortWrapped,
-	limiter ratelimiter.PortWrapped,
+	limiter constructor[ratelimiter.PortWrapped],
 ) (*accounts.Usecase, error) {
+	limiterPort, err := limiter.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build limiter port: %w", err)
+	}
+
+	serversPort, err := servers.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build servers port: %w", err)
+	}
+
+	accountsPort, err := accountsStorage.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build accounts port: %w", err)
+	}
+
+	toolsPort, err := tools.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build tools port: %w", err)
+	}
+
 	usecase, err := accounts.New(
-		servers,
+		serversPort,
 		oauth,
 		accountsPort,
-		tools,
+		toolsPort,
 		index,
 		toolClient,
 		identities,
-		limiter,
+		limiterPort,
 		accounts.WithOAuthRedirectURL(params.ory.callback),
 		accounts.WithTracerProvider(params.observability),
 	)
@@ -74,29 +127,57 @@ func newAccountsUsecase(
 		return nil, fmt.Errorf("failed to create accounts usecase: %w", err)
 	}
 
+	lifecycle.schedule(usecase.Run)
+
 	return usecase, nil
 }
 
 func newUsersUsecase(
+	ctx context.Context,
 	params *appParams,
 	identities identitymanager.PortWrapped,
-	agents ports.AgentStorage,
-	accStorage ports.AccountStorage,
-	servers ports.ServerStorage,
-	tools ports.ToolStorage,
+	agents constructor[ports.AgentStorage],
+	accStorage constructor[ports.AccountStorage],
+	servers constructor[ports.ServerStorage],
+	tools constructor[ports.ToolStorage],
 	toolClient toolclient.PortWrapped,
 	index embedding.PortWrapped,
-	limiter ratelimiter.PortWrapped,
+	limiter constructor[ratelimiter.PortWrapped],
 ) (*users.Usecase, error) {
+	limiterPort, err := limiter.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build limiter port: %w", err)
+	}
+
+	agentsPort, err := agents.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build agents port: %w", err)
+	}
+
+	accPort, err := accStorage.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build accounts port: %w", err)
+	}
+
+	serversPort, err := servers.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build servers port: %w", err)
+	}
+
+	toolsPort, err := tools.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build tools port: %w", err)
+	}
+
 	usecase, err := users.New(
 		identities,
-		agents,
-		accStorage,
-		servers,
-		tools,
+		agentsPort,
+		accPort,
+		serversPort,
+		toolsPort,
 		toolClient,
 		index,
-		limiter,
+		limiterPort,
 		params.adminMCPID,
 		users.WithTracerProvider(params.observability),
 	)

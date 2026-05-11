@@ -9,6 +9,10 @@ import (
 
 type ConsumedTokensFunc func(ctx context.Context, outputTokens int) error
 
+type PortFactory interface {
+	RateLimiter() (PortWrapped, error)
+}
+
 // Port manages resource consumption, quotas, and access control for users.
 //
 // # Architectural Role

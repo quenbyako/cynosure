@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	mcpraw "github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
@@ -17,21 +16,11 @@ import (
 	"github.com/quenbyako/cynosure/internal/logs"
 )
 
-var mcpImpl = mcpraw.Implementation{
-	Name:       "admin-mcp-server",
-	Title:      "Admin MCP Server",
-	Version:    "1.0.0",
-	WebsiteURL: "https://t.me/zhopakotabot",
-	Icons:      nil,
-}
-
 type (
 	adminControllerWireBind    struct{}
 	oauthControllerWireBind    struct{}
-	telegramControllerWireBind struct {
-		runFunc func(context.Context) error
-	}
-	mcpControllerWireBind struct{}
+	telegramControllerWireBind struct{}
+	mcpControllerWireBind      struct{}
 )
 
 func bindAdminController(
@@ -55,6 +44,7 @@ func bindOAuthController(
 func bindTelegramController(
 	ctx context.Context,
 	params *appParams,
+	lifecycle *lifecycle,
 	log *logs.BaseLogger,
 	chatUsecase *chat.Usecase,
 	usersUsecase *users.Usecase,
@@ -79,10 +69,9 @@ func bindTelegramController(
 	}
 
 	params.telegram.register(handler)
+	lifecycle.schedule(job)
 
-	return telegramControllerWireBind{
-		runFunc: job,
-	}, nil
+	return telegramControllerWireBind{}, nil
 }
 
 func bindMCPController(

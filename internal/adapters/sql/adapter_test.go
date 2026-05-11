@@ -6,10 +6,15 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
+	rlport "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
+	ratelimiter "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter/testsuite"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 
 	. "github.com/quenbyako/cynosure/internal/adapters/sql"
 )
@@ -41,6 +46,74 @@ func TestAdapter(t *testing.T) {
 	t.Run("Servers", testsuite.RunServerStorageTests(adapter,
 		testsuite.WithServerStorageCleanup(cleaner(pool)),
 	))
+
+	t.Run("RateLimiter", ratelimiter.Run(func(ctx context.Context, params ratelimiter.SetupParams) (rlport.Port, error) {
+		planID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+		// Insert plan
+		_, err := pool.Exec(ctx, `
+			INSERT INTO agents.plans (
+				id, chat_input_period, chat_input_limit,
+				chat_output_period, chat_output_limit,
+				embedding_period, embedding_limit,
+				max_await_period, agents_limit, mcp_accounts_limit
+			) VALUES (
+				$1, $2, $3, $4, $5, $6, $7, $8, 100, 100
+			) ON CONFLICT (id) DO UPDATE SET
+				chat_input_period = EXCLUDED.chat_input_period,
+				chat_input_limit = EXCLUDED.chat_input_limit,
+				chat_output_period = EXCLUDED.chat_output_period,
+				chat_output_limit = EXCLUDED.chat_output_limit,
+				embedding_period = EXCLUDED.embedding_period,
+				embedding_limit = EXCLUDED.embedding_limit,
+				max_await_period = EXCLUDED.max_await_period
+		`,
+			planID,
+			pgtype.Interval{Microseconds: params.ChatInput.Period.Microseconds(), Valid: true}, params.ChatInput.Limit,
+			pgtype.Interval{Microseconds: params.ChatOutput.Period.Microseconds(), Valid: true}, params.ChatOutput.Limit,
+			pgtype.Interval{Microseconds: params.EmbeddingInput.Period.Microseconds(), Valid: true}, params.EmbeddingInput.Limit,
+			pgtype.Interval{Microseconds: params.MaxWait.Microseconds(), Valid: true},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("seeding plan: %w", err)
+		}
+
+		rl, err := adapter.WithClock(params.Now).RateLimiter()
+		if err != nil {
+			return nil, err
+		}
+
+		return &testRateLimiter{Port: rl, pool: pool, planID: planID}, nil
+	},
+		ratelimiter.WithCleanup(cleaner(pool)),
+	))
+}
+
+// custom wrapper, intended only to provide plans for all users that are
+// provided from testsuite
+type testRateLimiter struct {
+	rlport.Port
+	pool   *pgxpool.Pool
+	planID uuid.UUID
+}
+
+func (t *testRateLimiter) ConsumeChatRequests(ctx context.Context, user ids.UserID, model string, inputTokens int) (rlport.ConsumedTokensFunc, error) {
+	if err := t.ensurePlan(ctx, user); err != nil {
+		return nil, err
+	}
+	return t.Port.ConsumeChatRequests(ctx, user, model, inputTokens)
+}
+
+func (t *testRateLimiter) ConsumeEmbeddingRequests(ctx context.Context, user ids.UserID, model string, tokens int) error {
+	if err := t.ensurePlan(ctx, user); err != nil {
+		return err
+	}
+	return t.Port.ConsumeEmbeddingRequests(ctx, user, model, tokens)
+}
+
+func (t *testRateLimiter) ensurePlan(ctx context.Context, user ids.UserID) error {
+	_, err := t.pool.Exec(ctx, "INSERT INTO agents.user_plans (user_id, plan_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", user.ID(), t.planID)
+	return err
 }
 
 func seeder(pool *pgxpool.Pool) testsuite.AccountFixtureBuilder {
@@ -80,6 +153,8 @@ func cleaner(pool *pgxpool.Pool) func(context.Context) error {
 			"agents.mcp_accounts",
 			"agents.mcp_servers",
 			"agents.oauth_configs",
+			"agents.plans",
+			"agents.user_plans",
 		}
 
 		for _, table := range tables {
