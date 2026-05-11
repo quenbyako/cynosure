@@ -1,7 +1,9 @@
+// Package quotas provides a PostgreSQL implementation of the ratelimiter.Port.
 package quotas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
@@ -19,7 +22,6 @@ type conn interface {
 }
 
 // Quotas is a PostgreSQL-backed implementation of ratelimiter.Port.
-// It uses a leaky bucket algorithm with debt support, mirroring the Redis logic.
 type Quotas struct {
 	tx conn
 	q  *db.Queries
@@ -41,175 +43,239 @@ func New(conn conn) Quotas {
 // WithClock sets a custom clock for the rate limiter.
 func (q Quotas) WithClock(now func() time.Time) Quotas {
 	q.now = now
+
 	return q
 }
 
 // ConsumeChatRequests consumes message quota for the given user and model.
 func (q Quotas) ConsumeChatRequests(
-	ctx context.Context, user ids.UserID, model string, inputTokens int,
+	ctx context.Context, user ids.UserID, _ string, inputTokens int,
 ) (ratelimiter.ConsumedTokensFunc, error) {
-	// 1. Get Quota
 	quota, err := q.q.GetUserQuota(ctx, user.ID())
 	if err != nil {
 		return nil, fmt.Errorf("getting user quota: %w", err)
 	}
 
-	maxWait := time.Duration(quota.MaxAwaitPeriod.Microseconds) * time.Microsecond
-	maxWait += time.Duration(quota.MaxAwaitPeriod.Days) * 24 * time.Hour
-
-	// 1. Check Chat Output Limiter (Soft)
-	if err := q.consumeWithMaxWait(ctx, user, "output", 0, maxWait, false); err != nil {
-		return nil, err
-	}
-
-	// 2. Check Chat Input Limiter (Hard)
-	if err := q.consumeWithMaxWait(ctx, user, "input", inputTokens, maxWait, false); err != nil {
+	maxWait := intervalToDuration(quota.MaxAwaitPeriod)
+	if err := q.atomicConsume(ctx, user, quota, inputTokens, maxWait); err != nil {
 		return nil, err
 	}
 
 	return func(ctx context.Context, outputTokens int) error {
-		// Chat Output Limiter (Soft)
-		return q.consumeWithMaxWait(ctx, user, "output", outputTokens, -1, false)
+		return q.consume(ctx, user, "output", quota, outputTokens, -1, false)
 	}, nil
+}
+
+func (q Quotas) atomicConsume(
+	ctx context.Context, user ids.UserID, quota db.GetUserQuotaRow,
+	input int, maxWait time.Duration,
+) error {
+	transaction, err := q.tx.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+
+	defer func() { _ = transaction.Rollback(ctx) }() //nolint:errcheck
+
+	queries := q.q.WithTx(transaction)
+	types := []string{"output", "input"}
+	amounts := []int{0, input}
+
+	for i, typ := range types {
+		err = q.lockedConsume(
+			ctx, queries, user, typ, quota, amounts[i], maxWait, false,
+		)
+		if err != nil {
+			if errors.As(err, new(*ratelimiter.RateLimitExceededError)) {
+				_ = transaction.Commit(ctx) //nolint:errcheck
+			}
+
+			return err
+		}
+	}
+
+	if err := transaction.Commit(ctx); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return nil
 }
 
 // ConsumeEmbeddingRequests consumes embedding quota for the given user.
 func (q Quotas) ConsumeEmbeddingRequests(
 	ctx context.Context, user ids.UserID, _ string, tokens int,
 ) error {
-	return q.consumeWithMaxWait(ctx, user, "embedding", tokens, 0, false)
+	quota, err := q.q.GetUserQuota(ctx, user.ID())
+	if err != nil {
+		return fmt.Errorf("getting user quota: %w", err)
+	}
+
+	return q.consume(ctx, user, "embedding", quota, tokens, 0, false)
 }
 
-func (q Quotas) consumeWithMaxWait(
+func (q Quotas) consume(
 	ctx context.Context, user ids.UserID, typ string,
-	amount int, maxWait time.Duration, force bool,
+	quota db.GetUserQuotaRow, amount int, maxWait time.Duration, force bool,
 ) error {
-	now := q.now()
-
-	// Using manual transaction to match the 'conn' interface pattern
-	tx, err := q.tx.BeginTx(ctx, pgx.TxOptions{})
+	transaction, err := q.tx.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
 
-	qq := q.q.WithTx(tx)
+	defer func() { _ = transaction.Rollback(ctx) }() //nolint:errcheck
 
-	quota, err := qq.GetUserQuota(ctx, user.ID())
+	err = q.lockedConsume(
+		ctx, q.q.WithTx(transaction), user, typ, quota, amount, maxWait, force,
+	)
 	if err != nil {
-		return fmt.Errorf("getting quota: %w", err)
+		if errors.As(err, new(*ratelimiter.RateLimitExceededError)) {
+			_ = transaction.Commit(ctx) //nolint:errcheck
+		}
+
+		return err
 	}
 
-	var period pgtype.Interval
-	var limit int
-	switch typ {
-	case "input":
-		period = quota.ChatInputPeriod
-		limit = int(quota.ChatInputLimit)
-	case "output":
-		period = quota.ChatOutputPeriod
-		limit = int(quota.ChatOutputLimit)
-	case "embedding":
-		period = quota.EmbeddingPeriod
-		limit = int(quota.EmbeddingLimit)
-	}
-
-	// 2. Get and lock the bucket
-	bucket, err := qq.GetOrCreateBucket(ctx, db.GetOrCreateBucketParams{
-		UserID:       user.ID(),
-		ResourceType: typ,
-		LastLeakAt:   now,
-	})
-	if err != nil {
-		return fmt.Errorf("upserting bucket: %w", err)
-	}
-
-	// 3. Leaky Bucket Logic
-	calc := calculateLeakyBucket(bucket.Level, bucket.LastLeakAt.Time, now, period, limit, amount, maxWait, force)
-
-	var errResult error
-	if calc.err != nil {
-		errResult = calc.err
-	}
-	newLevel := calc.newLevel
-
-
-	// 4. Update bucket
-	err = qq.UpdateBucket(ctx, db.UpdateBucketParams{
-		Level:        newLevel,
-		LastLeakAt:   now,
-		UserID:       user.ID(),
-		ResourceType: typ,
-	})
-	if err != nil {
-		return fmt.Errorf("updating bucket: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
+	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 
-	return errResult
+	return nil
+}
+
+func (q Quotas) lockedConsume(
+	ctx context.Context, queries *db.Queries, user ids.UserID,
+	typ string, quota db.GetUserQuotaRow, amount int, maxWait time.Duration, force bool,
+) error {
+	now := q.now()
+	period, limit := selectQuota(typ, quota)
+
+	bucket, err := q.getAndLockBucket(ctx, queries, user, typ, now)
+	if err != nil {
+		return err
+	}
+
+	calc := calculateLeakyBucket(bucket, now, period, limit, amount, maxWait, force)
+
+	if err := queries.UpdateBucket(ctx, db.UpdateBucketParams{
+		Level: calc.newLevel, LastLeakAt: now, UserID: user.ID(), ResourceType: typ,
+	}); err != nil {
+		return fmt.Errorf("updating bucket: %w", err)
+	}
+
+	return calc.err
+}
+
+func (q Quotas) getAndLockBucket(
+	ctx context.Context, queries *db.Queries, user ids.UserID, typ string, now time.Time,
+) (db.GetBucketForUpdateRow, error) {
+	bucket, err := queries.GetBucketForUpdate(ctx, db.GetBucketForUpdateParams{
+		UserID: user.ID(), ResourceType: typ,
+	})
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return q.createAndLockBucket(ctx, queries, user, typ, now)
+	}
+
+	if err != nil {
+		return db.GetBucketForUpdateRow{}, fmt.Errorf("getting bucket: %w", err)
+	}
+
+	return bucket, nil
+}
+
+func (q Quotas) createAndLockBucket(
+	ctx context.Context, queries *db.Queries, user ids.UserID, typ string, now time.Time,
+) (db.GetBucketForUpdateRow, error) {
+	if err := queries.CreateBucketIfNotExists(ctx, db.CreateBucketIfNotExistsParams{
+		UserID: user.ID(), ResourceType: typ, LastLeakAt: now,
+	}); err != nil {
+		return db.GetBucketForUpdateRow{}, fmt.Errorf("creating bucket: %w", err)
+	}
+
+	res, err := queries.GetBucketForUpdate(ctx, db.GetBucketForUpdateParams{
+		UserID: user.ID(), ResourceType: typ,
+	})
+	if err != nil {
+		return db.GetBucketForUpdateRow{}, fmt.Errorf("getting bucket after creation: %w", err)
+	}
+
+	return res, nil
+}
+
+func selectQuota(typ string, quota db.GetUserQuotaRow) (period pgtype.Interval, limit int) {
+	switch typ {
+	case "input":
+		return quota.ChatInputPeriod, int(quota.ChatInputLimit)
+	case "output":
+		return quota.ChatOutputPeriod, int(quota.ChatOutputLimit)
+	case "embedding":
+		return quota.EmbeddingPeriod, int(quota.EmbeddingLimit)
+	default:
+		return pgtype.Interval{}, 0
+	}
 }
 
 type bucketCalculation struct {
-	newLevel float64
 	err      error
+	newLevel float64
 }
 
 func calculateLeakyBucket(
-	currentLevel float64, lastLeakAt, now time.Time,
-	period pgtype.Interval, limit, amount int,
-	maxWait time.Duration, force bool,
+	bucket db.GetBucketForUpdateRow, now time.Time, period pgtype.Interval,
+	limit, amount int, maxWait time.Duration, force bool,
 ) bucketCalculation {
-	elapsedUs := float64(now.Sub(lastLeakAt).Microseconds())
-
-	periodUs := float64(period.Microseconds)
-	periodUs += float64(period.Days) * 24 * 60 * 60 * 1000000
-	periodUs += float64(period.Months) * 30 * 24 * 60 * 60 * 1000000
+	periodUs := float64(intervalToDuration(period).Microseconds())
 
 	if periodUs <= 0 {
-		periodUs = 1000000 // avoid division by zero, default 1s
-	}
-	leakRate := float64(limit) / periodUs // tokens per microsecond
-
-	leaked := elapsedUs * leakRate
-	actualLevel := math.Max(0, currentLevel-leaked)
-	newLevel := actualLevel
-
-	retryAfterUs := 0.0
-	if actualLevel+float64(amount) > float64(limit) {
-		retryAfterUs = (actualLevel + float64(amount) - float64(limit)) / leakRate
+		periodUs = 1000000
 	}
 
-	var errResult error
-	if !force && maxWait >= 0 {
-		if (maxWait == 0 && retryAfterUs > 0) ||
-			(maxWait > 0 && retryAfterUs >= float64(maxWait.Microseconds())) {
+	leakRate := float64(limit) / periodUs
+	leakDurationUs := math.Max(0, float64(now.Sub(bucket.LastLeakAt.Time).Microseconds()))
+	leaked := leakDurationUs * leakRate
+	level := math.Max(0, bucket.Level-leaked)
 
-			effectiveRetryUs := retryAfterUs
-			if maxWait > 0 && effectiveRetryUs > float64(maxWait.Microseconds()) {
-				effectiveRetryUs = float64(maxWait.Microseconds())
-			}
-			errResult = ratelimiter.ErrRateLimitExceeded(now.Add(time.Duration(math.Ceil(effectiveRetryUs)) * time.Microsecond))
-		}
-	}
+	newLevel, err := checkRateLimit(level, amount, limit, leakRate, maxWait, now, force)
 
-	if errResult == nil {
-		newLevel += float64(amount)
-	}
-
-	// Cap the level to (limit + maxWait) during update
 	if maxWait >= 0 {
-		limitLevel := float64(limit)
-		if maxWait > 0 {
-			limitLevel += float64(maxWait.Microseconds()) * leakRate
-		}
-		if newLevel > limitLevel {
-			newLevel = limitLevel
-		}
+		limitLevel := float64(limit) + float64(maxWait.Microseconds())*leakRate
+		newLevel = math.Min(newLevel, limitLevel)
 	}
 
-	return bucketCalculation{newLevel: newLevel, err: errResult}
+	return bucketCalculation{newLevel: newLevel, err: err}
 }
 
+func checkRateLimit(
+	level float64, amount, limit int, leakRate float64,
+	maxWait time.Duration, now time.Time, force bool,
+) (float64, error) {
+	retryUs := (level + float64(amount) - float64(limit)) / leakRate
+
+	if !force && maxWait >= 0 && retryUs > 0 &&
+		(maxWait == 0 || retryUs >= float64(maxWait.Microseconds())) {
+		effectiveRetryUs := retryUs
+		if maxWait > 0 {
+			effectiveRetryUs = math.Min(retryUs, float64(maxWait.Microseconds()))
+		}
+
+		return level, ratelimiter.ErrRateLimitExceeded(
+			now.Add(time.Duration(math.Ceil(effectiveRetryUs)) * time.Microsecond),
+		)
+	}
+
+	return level + float64(amount), nil
+}
+
+func intervalToDuration(interval pgtype.Interval) time.Duration {
+	const (
+		hoursPerDay   = 24
+		daysPerMonth  = 30
+		hoursPerMonth = daysPerMonth * hoursPerDay
+	)
+
+	d := time.Duration(interval.Microseconds) * time.Microsecond
+	d += time.Duration(interval.Days) * hoursPerDay * time.Hour
+	d += time.Duration(interval.Months) * hoursPerMonth * time.Hour
+
+	return d
+}

@@ -13,27 +13,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getOrCreateBucket = `-- name: GetOrCreateBucket :one
+const createBucketIfNotExists = `-- name: CreateBucketIfNotExists :exec
 INSERT INTO agents.rate_limit_buckets (user_id, resource_type, last_leak_at)
 VALUES ($1, $2, $3)
-ON CONFLICT (user_id, resource_type) DO UPDATE SET user_id = EXCLUDED.user_id
-RETURNING level, last_leak_at
+ON CONFLICT (user_id, resource_type) DO NOTHING
 `
 
-type GetOrCreateBucketParams struct {
+type CreateBucketIfNotExistsParams struct {
 	UserID       uuid.UUID
 	ResourceType string
 	LastLeakAt   time.Time
 }
 
-type GetOrCreateBucketRow struct {
+func (q *Queries) CreateBucketIfNotExists(ctx context.Context, arg CreateBucketIfNotExistsParams) error {
+	_, err := q.db.Exec(ctx, createBucketIfNotExists, arg.UserID, arg.ResourceType, arg.LastLeakAt)
+	return err
+}
+
+const getBucketForUpdate = `-- name: GetBucketForUpdate :one
+SELECT level, last_leak_at
+FROM agents.rate_limit_buckets
+WHERE user_id = $1 AND resource_type = $2
+FOR UPDATE
+`
+
+type GetBucketForUpdateParams struct {
+	UserID       uuid.UUID
+	ResourceType string
+}
+
+type GetBucketForUpdateRow struct {
 	Level      float64
 	LastLeakAt pgtype.Timestamptz
 }
 
-func (q *Queries) GetOrCreateBucket(ctx context.Context, arg GetOrCreateBucketParams) (GetOrCreateBucketRow, error) {
-	row := q.db.QueryRow(ctx, getOrCreateBucket, arg.UserID, arg.ResourceType, arg.LastLeakAt)
-	var i GetOrCreateBucketRow
+func (q *Queries) GetBucketForUpdate(ctx context.Context, arg GetBucketForUpdateParams) (GetBucketForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getBucketForUpdate, arg.UserID, arg.ResourceType)
+	var i GetBucketForUpdateRow
 	err := row.Scan(&i.Level, &i.LastLeakAt)
 	return i, err
 }

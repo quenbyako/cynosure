@@ -12,11 +12,16 @@ SELECT
 FROM agents.user_quotas
 WHERE user_id = $1;
 
--- name: GetOrCreateBucket :one
+-- name: CreateBucketIfNotExists :exec
 INSERT INTO agents.rate_limit_buckets (user_id, resource_type, last_leak_at)
 VALUES ($1, $2, $3)
-ON CONFLICT (user_id, resource_type) DO UPDATE SET user_id = EXCLUDED.user_id
-RETURNING level, last_leak_at;
+ON CONFLICT (user_id, resource_type) DO NOTHING;
+
+-- name: GetBucketForUpdate :one
+SELECT level, last_leak_at
+FROM agents.rate_limit_buckets
+WHERE user_id = $1 AND resource_type = $2
+FOR UPDATE;
 
 -- name: UpdateBucket :exec
 UPDATE agents.rate_limit_buckets

@@ -155,6 +155,7 @@ func cleaner(pool *pgxpool.Pool) func(context.Context) error {
 			"agents.oauth_configs",
 			"agents.plans",
 			"agents.user_plans",
+			"agents.rate_limit_buckets",
 		}
 
 		for _, table := range tables {
