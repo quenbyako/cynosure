@@ -54,6 +54,50 @@ func (q *Queries) GetBucketForUpdate(ctx context.Context, arg GetBucketForUpdate
 	return i, err
 }
 
+const getPlanQuotaByID = `-- name: GetPlanQuotaByID :one
+SELECT
+    chat_input_period,
+    chat_input_limit,
+    chat_output_period,
+    chat_output_limit,
+    embedding_period,
+    embedding_limit,
+    max_await_period,
+    agents_limit,
+    mcp_accounts_limit
+FROM agents.plans
+WHERE id = $1
+`
+
+type GetPlanQuotaByIDRow struct {
+	ChatInputPeriod  pgtype.Interval
+	ChatInputLimit   int32
+	ChatOutputPeriod pgtype.Interval
+	ChatOutputLimit  int32
+	EmbeddingPeriod  pgtype.Interval
+	EmbeddingLimit   int32
+	MaxAwaitPeriod   pgtype.Interval
+	AgentsLimit      int32
+	McpAccountsLimit int32
+}
+
+func (q *Queries) GetPlanQuotaByID(ctx context.Context, id uuid.UUID) (GetPlanQuotaByIDRow, error) {
+	row := q.db.QueryRow(ctx, getPlanQuotaByID, id)
+	var i GetPlanQuotaByIDRow
+	err := row.Scan(
+		&i.ChatInputPeriod,
+		&i.ChatInputLimit,
+		&i.ChatOutputPeriod,
+		&i.ChatOutputLimit,
+		&i.EmbeddingPeriod,
+		&i.EmbeddingLimit,
+		&i.MaxAwaitPeriod,
+		&i.AgentsLimit,
+		&i.McpAccountsLimit,
+	)
+	return i, err
+}
+
 const getUserQuota = `-- name: GetUserQuota :one
 SELECT
     chat_input_period,

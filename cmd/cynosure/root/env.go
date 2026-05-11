@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/core/contrib/params/grpc"
 	"github.com/quenbyako/core/contrib/params/http"
@@ -52,6 +53,7 @@ type Config struct {
 	GlobChatInputRate  ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_GLOB_CHAT_INPUT" default:"1000000/24h"`
 	GlobEmbeddingRate  ratelimit.Policy  `env:"CYNOSURE_RATELIMIT_GLOB_EMBEDDING"  default:"1000000/24h"`
 	MaxWaitTimeLimit   time.Duration     `env:"CYNOSURE_RATELIMIT_MAX_WAIT"        default:"6h"`
+	DefaultPlanID      uuid.UUID         `env:"CYNOSURE_DEFAULT_PLAN_ID"`
 	ChatHistoryLimit   uint              `env:"CYNOSURE_CHAT_HISTORY_LIMIT"        default:"50"`
 
 	MetricsPort  *url.URL          `env:"CYNOSURE_METRICS_ADDR"          default:""`

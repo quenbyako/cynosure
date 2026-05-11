@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
-	redisparam "github.com/quenbyako/cynosure/contrib/core-params/redis"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 
@@ -47,6 +47,7 @@ type (
 		chatInputGlobal ratelimit.Policy
 		embeddingGlobal ratelimit.Policy
 		maxWait         time.Duration
+		defaultPlanID   uuid.UUID
 	}
 
 	oryParams struct {
@@ -249,10 +250,6 @@ func WithDatabaseURL(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.storage.databaseURL = addr }
 }
 
-func WithRedis(p redisparam.Parameter) AppOpts {
-	return func(ap *appParams) { ap.redis.client = p.Client }
-}
-
 func WithChatInputRateLimit(limit ratelimit.Policy) AppOpts {
 	return func(p *appParams) { p.rate.chatInput = limit }
 }
@@ -275,6 +272,10 @@ func WithGlobalEmbeddingRateLimit(limit ratelimit.Policy) AppOpts {
 
 func WithMaxWaitTimeLimit(limit time.Duration) AppOpts {
 	return func(p *appParams) { p.rate.maxWait = limit }
+}
+
+func WithDefaultPlanID(id uuid.UUID) AppOpts {
+	return func(p *appParams) { p.rate.defaultPlanID = id }
 }
 
 func WithChatLimits(historyLimit uint) AppOpts {
@@ -407,9 +408,10 @@ func defaultChatParams() chatParams {
 
 func defaultRateParams() rateParams {
 	return rateParams{
-		chatInput:  ratelimit.Policy{},
-		chatOutput: ratelimit.Policy{},
-		embedding:  ratelimit.Policy{},
+		chatInput:     ratelimit.Policy{},
+		chatOutput:    ratelimit.Policy{},
+		embedding:     ratelimit.Policy{},
+		defaultPlanID: uuid.Nil,
 	}
 }
 

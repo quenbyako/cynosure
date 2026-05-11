@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
@@ -22,7 +23,14 @@ import (
 
 func newPostgres(params *appParams, lifecycle *lifecycle) constructor[*sql.Adapter] {
 	return construct(func(ctx context.Context) (*sql.Adapter, error) {
-		adapter, err := sql.New(ctx, params.storage.databaseURL, sql.WithObservability(params.observability))
+		opts := []sql.NewOption{
+			sql.WithObservability(params.observability),
+		}
+		if params.rate.defaultPlanID != uuid.Nil {
+			opts = append(opts, sql.WithDefaultPlanID(params.rate.defaultPlanID))
+		}
+
+		adapter, err := sql.New(ctx, params.storage.databaseURL, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("initializing sql adapter: %w", err)
 		}

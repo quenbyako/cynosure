@@ -24,7 +24,9 @@ func TestAdapter(t *testing.T) {
 
 	// Get connection string from pool for NewAdapter
 	connStr := pool.Config().ConnString()
-	adapter, err := New(t.Context(), must(url.Parse(connStr)))
+	adapter, err := New(t.Context(), must(url.Parse(connStr)),
+		WithDefaultPlanID(uuid.New()),
+	)
 	require.NoError(t, err, "Failed to create SQL adapter")
 	require.NotNil(t, adapter, "Adapter should not be nil")
 

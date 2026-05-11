@@ -51,7 +51,6 @@ func buildApp(context.Context, *appParams) (*App, error) {
 		wire.NewSet(newOryClient,
 			wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)),
 		),
-		// newInmem,
 		newPostgres,
 
 		newRateLimiter,

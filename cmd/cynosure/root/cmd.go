@@ -42,6 +42,7 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithGlobalEmbeddingRateLimit(cfg.GlobEmbeddingRate),
 		cynosure.WithChatLimits(cfg.ChatHistoryLimit),
 		cynosure.WithMaxWaitTimeLimit(cfg.MaxWaitTimeLimit),
+		cynosure.WithDefaultPlanID(cfg.DefaultPlanID),
 	}
 
 	if cfg.DatabaseURL != nil && cfg.DatabaseURL.Scheme != "" {

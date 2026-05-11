@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
@@ -27,16 +28,23 @@ type Quotas struct {
 	q  *db.Queries
 
 	now func() time.Time
+	cfg Config
+}
+
+// Config defines the default quota configuration for users without an assigned plan.
+type Config struct {
+	DefaultPlanID uuid.UUID
 }
 
 var _ ratelimiter.Port = (*Quotas)(nil)
 
 // New creates a new PostgreSQL rate limiter.
-func New(conn conn) Quotas {
+func New(conn conn, cfg Config) Quotas {
 	return Quotas{
 		tx:  conn,
 		q:   db.New(conn),
 		now: time.Now,
+		cfg: cfg,
 	}
 }
 
@@ -51,9 +59,9 @@ func (q Quotas) WithClock(now func() time.Time) Quotas {
 func (q Quotas) ConsumeChatRequests(
 	ctx context.Context, user ids.UserID, _ string, inputTokens int,
 ) (ratelimiter.ConsumedTokensFunc, error) {
-	quota, err := q.q.GetUserQuota(ctx, user.ID())
+	quota, err := q.getQuota(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("getting user quota: %w", err)
+		return nil, err
 	}
 
 	maxWait := intervalToDuration(quota.MaxAwaitPeriod)
@@ -105,9 +113,9 @@ func (q Quotas) atomicConsume(
 func (q Quotas) ConsumeEmbeddingRequests(
 	ctx context.Context, user ids.UserID, _ string, tokens int,
 ) error {
-	quota, err := q.q.GetUserQuota(ctx, user.ID())
+	quota, err := q.getQuota(ctx, user)
 	if err != nil {
-		return fmt.Errorf("getting user quota: %w", err)
+		return err
 	}
 
 	return q.consume(ctx, user, "embedding", quota, tokens, 0, false)
@@ -200,6 +208,39 @@ func (q Quotas) createAndLockBucket(
 	}
 
 	return res, nil
+}
+
+func (q Quotas) getQuota(ctx context.Context, uid ids.UserID) (db.GetUserQuotaRow, error) { //nolint:funlen,lll
+	quota, err := q.q.GetUserQuota(ctx, uid.ID())
+	if err == nil {
+		return quota, nil
+	}
+
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return db.GetUserQuotaRow{}, fmt.Errorf("getting user quota: %w", err)
+	}
+
+	if q.cfg.DefaultPlanID == uuid.Nil {
+		return db.GetUserQuotaRow{}, errors.New("no default plan configured")
+	}
+
+	// Fallback to Configured Default/Trial Plan from DB
+	planQuota, err := q.q.GetPlanQuotaByID(ctx, q.cfg.DefaultPlanID)
+	if err != nil {
+		return db.GetUserQuotaRow{}, fmt.Errorf("getting default plan %s: %w", q.cfg.DefaultPlanID, err)
+	}
+
+	return db.GetUserQuotaRow{
+		ChatInputPeriod:  planQuota.ChatInputPeriod,
+		ChatInputLimit:   planQuota.ChatInputLimit,
+		ChatOutputPeriod: planQuota.ChatOutputPeriod,
+		ChatOutputLimit:  planQuota.ChatOutputLimit,
+		EmbeddingPeriod:  planQuota.EmbeddingPeriod,
+		EmbeddingLimit:   planQuota.EmbeddingLimit,
+		MaxAwaitPeriod:   planQuota.MaxAwaitPeriod,
+		AgentsLimit:      planQuota.AgentsLimit,
+		McpAccountsLimit: planQuota.McpAccountsLimit,
+	}, nil
 }
 
 func selectQuota(typ string, quota db.GetUserQuotaRow) (period pgtype.Interval, limit int) {

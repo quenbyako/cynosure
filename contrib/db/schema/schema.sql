@@ -251,7 +251,7 @@ CREATE TABLE agents.rate_limit_buckets (
 	last_leak_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
 	PRIMARY KEY (user_id, resource_type)
-);
+) WITH (fillfactor = 70);
 
 CREATE VIEW agents.user_quotas AS
 	SELECT

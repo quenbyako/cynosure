@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/exaring/otelpgx"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/quenbyako/core"
 
@@ -45,13 +46,18 @@ var (
 )
 
 type newParams struct {
-	metrics core.Metrics
+	metrics      core.Metrics
+	defaultQuota quotas.Config
 }
 
 type NewOption func(*newParams)
 
 func WithObservability(m core.Metrics) NewOption {
 	return func(p *newParams) { p.metrics = m }
+}
+
+func WithDefaultPlanID(planID uuid.UUID) NewOption {
+	return func(p *newParams) { p.defaultQuota.DefaultPlanID = planID }
 }
 
 func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter, error) {
@@ -74,7 +80,7 @@ func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter,
 		Servers:       servers.New(pool),
 		Threads:       threads.New(pool),
 		Tools:         tools.New(pool),
-		Quotas:        quotas.New(pool),
+		Quotas:        quotas.New(pool, params.defaultQuota),
 		pool:          pool,
 		observability: ports.StackFromCore(params.metrics, pkgName),
 	}
