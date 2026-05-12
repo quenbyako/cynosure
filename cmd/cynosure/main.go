@@ -5,7 +5,6 @@ import (
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/core/contrib/runtime"
-
 	"github.com/quenbyako/cynosure/cmd/cynosure/root"
 )
 

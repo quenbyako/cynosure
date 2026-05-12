@@ -78,7 +78,7 @@ func (o *observable) recordRateLimit(ctx context.Context, model string, retryAt 
 
 // trace callbacks
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) consumeChatRequests(
 	ctx context.Context, user ids.UserID, amount int,
 ) (context.Context, span) {
@@ -93,41 +93,11 @@ func (o *observable) consumeChatRequests(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
-func (o *observable) consumeChatTokens(
-	ctx context.Context, user ids.UserID, amount int,
-) (context.Context, span) {
-	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_chat_tokens",
-		trace.WithSpanKind(trace.SpanKindInternal),
-		trace.WithAttributes(
-			cynosureUserID.String(user.ID().String()),
-			cynosureRatelimiterAmount.Int(amount),
-		),
-	)
-
-	return ctx, &spanCallback{span: span}
-}
-
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) consumeEmbeddingRequests(
 	ctx context.Context, user ids.UserID, amount int,
 ) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_embedding_requests",
-		trace.WithSpanKind(trace.SpanKindInternal),
-		trace.WithAttributes(
-			cynosureUserID.String(user.ID().String()),
-			cynosureRatelimiterAmount.Int(amount),
-		),
-	)
-
-	return ctx, &spanCallback{span: span}
-}
-
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
-func (o *observable) consumeEmbeddingTokens(
-	ctx context.Context, user ids.UserID, amount int,
-) (context.Context, span) {
-	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_embedding_tokens",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
 			cynosureUserID.String(user.ID().String()),

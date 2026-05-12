@@ -11,6 +11,9 @@ var (
 
 	// ErrUnexpectedMessageType is returned when an unknown message type is encountered.
 	ErrUnexpectedMessageType = errors.New("unexpected message type")
+
+	// ErrEmptyReport is returned when a report is empty and cannot be written.
+	ErrEmptyReport = errors.New("empty report, can't write to ratelimiter")
 )
 
 // InternalValidationError is returned when usecase configuration or parameters are invalid.

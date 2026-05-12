@@ -36,7 +36,7 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) discoverTools(
 	ctx context.Context,
 	accountID, serverURL string,
@@ -69,7 +69,7 @@ func (c *executeToolSpan) recordResponse(response json.RawMessage) {
 	}
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) executeTool(
 	ctx context.Context,
 	toolName string,

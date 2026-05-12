@@ -3,6 +3,7 @@ package cynosure
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -14,8 +15,8 @@ import (
 // underlying dependencies (e.g., database connections) receive the cancellation
 // signal.
 type lifecycle struct {
-	mu    sync.Mutex
 	tasks []func(context.Context) error
+	mu    sync.Mutex
 }
 
 func newLifecycle() *lifecycle { return &lifecycle{} }
@@ -69,67 +70,85 @@ func (l *lifecycle) schedule(task func(context.Context) error) {
 //     errors from gracefully shutting down tasks are typically filtered out to
 //     prevent noise.
 func (l *lifecycle) run(ctx context.Context) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
+	if err := context.Cause(ctx); err != nil {
+		return fmt.Errorf("parent context error: %w", err)
 	}
 
-	var funcs []func(context.Context) error
 	l.mu.Lock()
-	funcs, l.tasks = l.tasks, nil
+	funcs := l.tasks
+	l.tasks = nil
 	l.mu.Unlock()
 
-	n := len(funcs)
-	if n == 0 {
+	if len(funcs) == 0 {
 		return nil
 	}
 
-	tasks := make([]struct {
-		cancel context.CancelFunc
-		done   chan struct{}
-	}, n)
+	return l.executeTasks(ctx, funcs)
+}
 
-	errs := make([]error, n+1) // +1 for context error
-	success := make(chan bool, n)
+func (l *lifecycle) executeTasks(ctx context.Context, funcs []func(context.Context) error) error {
+	taskCount := len(funcs)
+	tasks := l.setupTasks(ctx, taskCount, funcs)
+	errs := make([]error, taskCount+1) // +1 for context error
+
+	success := make(chan bool, taskCount)
 	defer close(success)
 
-	for i := range n {
-		tasks[i].done = make(chan struct{})
-
-		workerCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-		tasks[i].cancel = cancel
-
-		go func(idx int, c context.Context) {
+	for i, task := range tasks {
+		go func(idx int, workerCtx context.Context, done chan struct{}) { //nolint:contextcheck
 			// note: panic in func drops all application, since there is no
-			// recover in spwaned goroutine. THIS MADE BY INTENTION, to prevent
+			// recover in spawned goroutine. THIS MADE BY INTENTION, to prevent
 			// unexpected behavior, better to make all app dead instead of
 			// handling billion cases and scenarios.
 			defer func() {
 				success <- errs[idx] == nil
-				close(tasks[idx].done)
+
+				close(done)
 			}()
 
-			errs[idx] = funcs[idx](c)
-		}(i, workerCtx)
+			errs[idx] = funcs[idx](workerCtx)
+		}(i, task.ctx, task.done)
 	}
 
-waitLoop:
-	for range n {
-		select {
-		case <-ctx.Done():
-			errs[n] = context.Cause(ctx)
-			break waitLoop
+	l.waitForTasks(ctx, taskCount, success, errs)
 
-		case ok := <-success:
-			if !ok {
-				break waitLoop
-			}
-		}
-	}
-
-	for i := n - 1; i >= 0; i-- {
+	for i := taskCount - 1; i >= 0; i-- {
 		tasks[i].cancel()
 		<-tasks[i].done
 	}
 
 	return errors.Join(errs...)
+}
+
+type taskState struct {
+	ctx    context.Context //nolint:containedctx
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+func (l *lifecycle) setupTasks(
+	ctx context.Context, count int, _ []func(context.Context) error,
+) []taskState {
+	tasks := make([]taskState, count)
+	for i := range count {
+		tasks[i].done = make(chan struct{})
+		//nolint:gosec,fatcontext // see teardown
+		tasks[i].ctx, tasks[i].cancel = context.WithCancel(context.WithoutCancel(ctx))
+	}
+
+	return tasks
+}
+
+func (l *lifecycle) waitForTasks(ctx context.Context, count int, success chan bool, errs []error) {
+	for range count {
+		select {
+		case <-ctx.Done():
+			errs[count] = context.Cause(ctx)
+			return
+		case ok := <-success:
+			if !ok {
+				return
+			}
+		}
+	}
 }

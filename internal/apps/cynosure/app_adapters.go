@@ -4,17 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
-	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
-	"github.com/quenbyako/cynosure/internal/adapters/redis"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -198,6 +195,9 @@ func newOryClient(ctx context.Context, params *appParams) (*ory.Adapter, error) 
 	return client, nil
 }
 
+// This constructor is saved as a insurance in case if postgresql will be too
+// slow for ratelimit purposes. It is not used in the application for now.
+/*
 func newInmem(params *appParams, lifecycle *lifecycle) constructor[*inmemory.RateLimiter] {
 	return construct(func(_ context.Context) (*inmemory.RateLimiter, error) {
 		adapter := inmemory.NewRateLimiter(
@@ -214,7 +214,11 @@ func newInmem(params *appParams, lifecycle *lifecycle) constructor[*inmemory.Rat
 		return adapter, nil
 	})
 }
+*/
 
+// This constructor is saved as a insurance in case if postgresql will be too
+// slow for ratelimit purposes. It is not used in the application for now.
+/*
 func newRedis(params *appParams) constructor[*redis.RateLimiter] {
 	if params.redis.client == nil {
 		return &noopConstructor[*redis.RateLimiter]{}
@@ -231,3 +235,4 @@ func newRedis(params *appParams) constructor[*redis.RateLimiter] {
 		), nil
 	})
 }
+*/

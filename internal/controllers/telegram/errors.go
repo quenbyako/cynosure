@@ -17,7 +17,13 @@ const (
 	errAddressIsNil ArgumentError = "server public address is nil"
 )
 
-var ErrInvalidMessageID = errors.New("invalid message id")
+var (
+	ErrInvalidMessageID     = errors.New("invalid message id")
+	ErrInvalidCommandEntity = errors.New("extracting command entity: invalid offset or length")
+	ErrUnknownCommand       = errors.New("unknown command")
+	ErrWelcomeMessageFailed = errors.New("sending welcome message")
+	ErrSendMessageFailed    = errors.New("sending error message")
+)
 
 type APIError struct {
 	op          string

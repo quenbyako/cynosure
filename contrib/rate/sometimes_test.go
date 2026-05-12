@@ -15,58 +15,58 @@ import (
 
 func ExampleSometimes_once() {
 	// The zero value of Sometimes behaves like sync.Once, though less efficiently.
-	var s rate.Sometimes
-	s.Do(func() { fmt.Println("1") })
-	s.Do(func() { fmt.Println("2") })
-	s.Do(func() { fmt.Println("3") })
+	var sometimes rate.Sometimes
+	sometimes.Do(func() { fmt.Println("1") })
+	sometimes.Do(func() { fmt.Println("2") })
+	sometimes.Do(func() { fmt.Println("3") })
 	// Output:
 	// 1
 }
 
 func ExampleSometimes_first() {
-	s := rate.Sometimes{First: 2}
-	s.Do(func() { fmt.Println("1") })
-	s.Do(func() { fmt.Println("2") })
-	s.Do(func() { fmt.Println("3") })
+	sometimes := rate.Sometimes{First: 2}
+	sometimes.Do(func() { fmt.Println("1") })
+	sometimes.Do(func() { fmt.Println("2") })
+	sometimes.Do(func() { fmt.Println("3") })
 	// Output:
 	// 1
 	// 2
 }
 
 func ExampleSometimes_every() {
-	s := rate.Sometimes{Every: 2}
-	s.Do(func() { fmt.Println("1") })
-	s.Do(func() { fmt.Println("2") })
-	s.Do(func() { fmt.Println("3") })
+	sometimes := rate.Sometimes{Every: 2}
+	sometimes.Do(func() { fmt.Println("1") })
+	sometimes.Do(func() { fmt.Println("2") })
+	sometimes.Do(func() { fmt.Println("3") })
 	// Output:
 	// 1
 	// 3
 }
 
 func ExampleSometimes_interval() {
-	s := rate.Sometimes{Interval: 1 * time.Second}
-	s.Do(func() { fmt.Println("1") })
-	s.Do(func() { fmt.Println("2") })
+	sometimes := rate.Sometimes{Interval: 1 * time.Second}
+	sometimes.Do(func() { fmt.Println("1") })
+	sometimes.Do(func() { fmt.Println("2") })
 	time.Sleep(1 * time.Second)
-	s.Do(func() { fmt.Println("3") })
+	sometimes.Do(func() { fmt.Println("3") })
 	// Output:
 	// 1
 	// 3
 }
 
 func ExampleSometimes_mix() {
-	s := rate.Sometimes{
+	sometimes := rate.Sometimes{
 		First:    2,
 		Every:    2,
 		Interval: 2 * time.Second,
 	}
-	s.Do(func() { fmt.Println("1 (First:2)") })
-	s.Do(func() { fmt.Println("2 (First:2)") })
-	s.Do(func() { fmt.Println("3 (Every:2)") })
+	sometimes.Do(func() { fmt.Println("1 (First:2)") })
+	sometimes.Do(func() { fmt.Println("2 (First:2)") })
+	sometimes.Do(func() { fmt.Println("3 (Every:2)") })
 	time.Sleep(2 * time.Second)
-	s.Do(func() { fmt.Println("4 (Interval)") })
-	s.Do(func() { fmt.Println("5 (Every:2)") })
-	s.Do(func() { fmt.Println("6") })
+	sometimes.Do(func() { fmt.Println("4 (Interval)") })
+	sometimes.Do(func() { fmt.Println("5 (Every:2)") })
+	sometimes.Do(func() { fmt.Println("6") })
 	// Output:
 	// 1 (First:2)
 	// 2 (First:2)
@@ -76,34 +76,34 @@ func ExampleSometimes_mix() {
 }
 
 func TestSometimesZero(t *testing.T) {
-	s := rate.Sometimes{Interval: 0}
-	s.Do(func() {})
-	s.Do(func() {})
+	sometimes := rate.Sometimes{Interval: 0}
+	sometimes.Do(func() {})
+	sometimes.Do(func() {})
 }
 
 func TestSometimesMax(t *testing.T) {
-	s := rate.Sometimes{Interval: math.MaxInt64}
-	s.Do(func() {})
-	s.Do(func() {})
+	sometimes := rate.Sometimes{Interval: math.MaxInt64}
+	sometimes.Do(func() {})
+	sometimes.Do(func() {})
 }
 
 func TestSometimesNegative(t *testing.T) {
-	s := rate.Sometimes{Interval: -1}
-	s.Do(func() {})
-	s.Do(func() {})
+	sometimes := rate.Sometimes{Interval: -1}
+	sometimes.Do(func() {})
+	sometimes.Do(func() {})
 }
 
 func BenchmarkSometimes(b *testing.B) {
 	b.Run("no-interval", func(b *testing.B) {
-		s := rate.Sometimes{Every: 10}
+		sometimes := rate.Sometimes{Every: 10}
 		for range b.N {
-			s.Do(func() {})
+			sometimes.Do(func() {})
 		}
 	})
 	b.Run("with-interval", func(b *testing.B) {
-		s := rate.Sometimes{Interval: time.Second}
+		sometimes := rate.Sometimes{Interval: time.Second}
 		for range b.N {
-			s.Do(func() {})
+			sometimes.Do(func() {})
 		}
 	})
 }

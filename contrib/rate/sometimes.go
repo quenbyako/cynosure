@@ -20,12 +20,17 @@ import (
 //	        sometimes.Do(func() { log.Info("here I am!") })
 //	}
 type Sometimes struct {
-	last     time.Time     // last time f was run
-	First    int           // if non-zero, the first N calls to Do will run f.
-	Every    int           // if non-zero, every Nth call to Do will run f.
-	Interval time.Duration // if non-zero and Interval has elapsed since f's last run, Do will run f.
-	count    int           // number of Do calls
-	mu       sync.Mutex
+	// last time f was run
+	last time.Time
+	// if non-zero, the first N calls to Do will run f.
+	First int
+	// if non-zero, every Nth call to Do will run f.
+	Every int
+	// if non-zero and Interval has elapsed since f's last run, Do will run f.
+	Interval time.Duration
+	// number of Do calls
+	count int
+	mu    sync.Mutex
 }
 
 // Do runs the function f as allowed by First, Every, and Interval.
@@ -52,7 +57,7 @@ type Sometimes struct {
 //
 // Because a call to Do may block until f returns, if f causes Do to be called,
 // it will deadlock.
-func (s *Sometimes) Do(f func()) {
+func (s *Sometimes) Do(action func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -60,7 +65,7 @@ func (s *Sometimes) Do(f func()) {
 		(s.First > 0 && s.count < s.First) ||
 		(s.Every > 0 && s.count%s.Every == 0) ||
 		(s.Interval > 0 && time.Since(s.last) >= s.Interval) {
-		f()
+		action()
 
 		if s.Interval > 0 {
 			s.last = time.Now()

@@ -84,16 +84,11 @@ func buildNewParams(
 	opts ...NewOption,
 ) (newParams, error) {
 	params := defaultNewParams(newRequiredParams{
-		storage:     storage,
-		model:       model,
-		tool:        tool,
-		indexer:     indexer,
-		toolStorage: toolStorage,
-		server:      server,
-		account:     account,
-		agents:      agents,
-		limiter:     limiter,
+		storage: storage, model: model, tool: tool, indexer: indexer,
+		toolStorage: toolStorage, server: server, account: account,
+		agents: agents, limiter: limiter,
 	})
+
 	for _, opt := range opts {
 		opt.applyNew(&params)
 	}

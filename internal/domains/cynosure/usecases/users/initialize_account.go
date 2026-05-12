@@ -241,13 +241,9 @@ func (u *Usecase) newToolWithEmbedding(
 		return nil, fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 	}
 
-	preflight := func(ctx context.Context, modelName string, tokens int) error {
-		return u.limiter.ConsumeEmbeddingRequests(ctx, toolID.Account().User(), modelName, tokens)
-	}
-
-	vector, err := u.index.IndexTool(ctx, tool, embedding.WithPreflightCheck(preflight))
+	vector, err := u.indexTool(ctx, tool, toolID.Account().User())
 	if err != nil {
-		return nil, fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
+		return nil, err
 	}
 
 	tool.SetEmbedding(vector)
@@ -256,4 +252,20 @@ func (u *Usecase) newToolWithEmbedding(
 	tool.ClearEvents()
 
 	return tool, nil
+}
+
+func (u *Usecase) indexTool(
+	ctx context.Context, tool *entities.Tool, userID ids.UserID,
+) ([embedding.EmbeddingSize]float32, error) {
+	preflight := func(ctx context.Context, modelName string, tokens int) error {
+		return u.limiter.ConsumeEmbeddingRequests(ctx, userID, modelName, tokens)
+	}
+
+	vector, err := u.index.IndexTool(ctx, tool, embedding.WithPreflightCheck(preflight))
+	if err != nil {
+		return [embedding.EmbeddingSize]float32{},
+			fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
+	}
+
+	return vector, nil
 }

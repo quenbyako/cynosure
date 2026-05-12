@@ -95,9 +95,15 @@ func (f *chatFixture) expectRAG(tools map[string][]*entities.Tool) {
 	}
 
 	emb := [1536]float32{0.1}
-	f.indexer.EXPECT().BuildToolEmbedding(mock.Anything, mock.Anything, mock.Anything).Return(emb, nil).Twice()
-	f.limiter.EXPECT().ConsumeEmbeddingRequests(mock.Anything, f.user, mock.Anything, mock.Anything).Return(nil).Twice()
-	f.toolStorage.EXPECT().LookupTools(mock.Anything, f.user, emb, 10).Return(allTools, nil).Twice()
+	f.indexer.EXPECT().
+		BuildToolEmbedding(mock.Anything, mock.Anything, mock.Anything).
+		Return(emb, nil).Twice()
+	f.limiter.EXPECT().
+		ConsumeEmbeddingRequests(mock.Anything, f.user, mock.Anything, mock.Anything).
+		Return(nil).Twice()
+	f.toolStorage.EXPECT().
+		LookupTools(mock.Anything, f.user, emb, 10).
+		Return(allTools, nil).Twice()
 
 	var accounts []*entities.Account
 

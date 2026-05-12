@@ -104,20 +104,15 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 		return nil, fmt.Errorf("failed to create GenAI client: %w", err)
 	}
 
-	model := GeminiModel{
-		client: client,
-		thinkingConfig: &genai.ThinkingConfig{
-			IncludeThoughts: true,
-			ThinkingBudget:  ptr(int32(thinkingBudget)),
-			ThinkingLevel:   "",
-		},
-		log:           params.log,
-		trace:         params.traceProvider.Tracer(pkgName),
-		tracer:        ports.StackFromCore(params.traceProvider, pkgName),
-		maxMsgsPerReq: params.maxMsgsPerReq,
-
-		embeddingLimiter: rate.NewLimiter(params.embeddingLimit.Rate(), params.embeddingLimit.Limit()),
-		chatInputLimiter: rate.NewLimiter(params.chatInputLimit.Rate(), params.chatInputLimit.Limit()),
+	model := &GeminiModel{
+		client:           client,
+		thinkingConfig:   defaultThinkingConfig(),
+		log:              params.log,
+		trace:            params.traceProvider.Tracer(pkgName),
+		tracer:           ports.StackFromCore(params.traceProvider, pkgName),
+		maxMsgsPerReq:    params.maxMsgsPerReq,
+		embeddingLimiter: newRateLimiter(params.embeddingLimit),
+		chatInputLimiter: newRateLimiter(params.chatInputLimit),
 	}
 
 	if err := model.validate(); err != nil {
@@ -128,7 +123,19 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 		return nil, fmt.Errorf("can't connect to Google API: %w", err)
 	}
 
-	return &model, nil
+	return model, nil
+}
+
+func defaultThinkingConfig() *genai.ThinkingConfig {
+	return &genai.ThinkingConfig{
+		IncludeThoughts: true,
+		ThinkingBudget:  ptr(int32(thinkingBudget)),
+		ThinkingLevel:   "",
+	}
+}
+
+func newRateLimiter(p ratelimit.Policy) *rate.Limiter {
+	return rate.NewLimiter(p.Rate(), p.Limit())
 }
 
 // ping verifies connectivity and API key validity.

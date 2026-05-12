@@ -29,16 +29,22 @@ func (g *GeminiModel) BuildToolEmbedding(
 ) (vector, error) {
 	params, err := embedding.BuildToolEmbeddingParams(msgs, opts...)
 	if err != nil {
-		return vector{}, err
+		return vector{}, fmt.Errorf("building params: %w", err)
 	}
-
-	var builder strings.Builder
 
 	if uint(len(params.Messages())) > g.maxMsgsPerReq {
 		return vector{}, embedding.ErrHistoryTooLong
 	}
 
-	for _, msg := range params.Messages() {
+	content := g.formatMessages(params.Messages())
+
+	return g.embed(ctx, content, "RETRIEVAL_QUERY", params.PreflightCheck())
+}
+
+func (g *GeminiModel) formatMessages(msgs []messages.Message) string {
+	var builder strings.Builder
+
+	for _, msg := range msgs {
 		switch typedMsg := msg.(type) {
 		case messages.MessageUser:
 			builder.WriteString("User: " + typedMsg.Content() + "\n\n")
@@ -55,10 +61,10 @@ func (g *GeminiModel) BuildToolEmbedding(
 
 	content := builder.String()
 	if content == "" {
-		content = "No conversation context"
+		return "No conversation context"
 	}
 
-	return g.embed(ctx, content, "RETRIEVAL_QUERY", params.PreflightCheck())
+	return content
 }
 
 // IndexTool implements ports.ToolSemanticIndex.
@@ -69,7 +75,7 @@ func (g *GeminiModel) IndexTool(
 ) (vector, error) {
 	params, err := embedding.IndexToolParams(tool, opts...)
 	if err != nil {
-		return vector{}, err
+		return vector{}, fmt.Errorf("indexing params: %w", err)
 	}
 
 	schema := params.Tool().InputSchema()
@@ -89,15 +95,22 @@ func (g *GeminiModel) IndexTool(
 	return g.embed(ctx, content, "RETRIEVAL_DOCUMENT", params.PreflightCheck())
 }
 
-func (g *GeminiModel) embed(ctx context.Context, content, taskType string, preflightCheck embedding.PreflightFunc) (vector, error) {
+func (g *GeminiModel) embed(
+	ctx context.Context,
+	content, taskType string,
+	preflightCheck embedding.PreflightFunc,
+) (vector, error) {
 	input := []*genai.Content{{
-		Parts: []*genai.Part{
-			genai.NewPartFromText(content),
-		},
-		Role: "",
+		Parts: []*genai.Part{genai.NewPartFromText(content)},
+		Role:  "",
 	}}
 
-	config := &genai.EmbedContentConfig{
+	totalTokens, err := g.countAndCheckEmbeddingTokens(ctx, input, preflightCheck)
+	if err != nil {
+		return vector{}, err
+	}
+
+	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, input, &genai.EmbedContentConfig{
 		TaskType:             taskType,
 		OutputDimensionality: ptr[int32](ports.EmbeddingSize),
 		HTTPOptions:          nil,
@@ -106,40 +119,63 @@ func (g *GeminiModel) embed(ctx context.Context, content, taskType string, prefl
 		AutoTruncate:         false,
 		DocumentOcr:          nil,
 		AudioTrackExtraction: nil,
-	}
-
-	// custom context to prevent too long wait for rate limiter
-	limiterCtx, cancel := context.WithTimeoutCause(ctx, maxLimiterWait, ports.ErrHardQuotaExhausted)
-	defer cancel()
-
-	// TODO: use local counting, since we may have a big latency due to http
-	// calls.
-	tokens, err := g.client.Models.CountTokens(ctx, embeddingModel, input, new(genai.CountTokensConfig))
-	if err != nil {
-		return vector{}, fmt.Errorf("token counting failed: %w", err)
-	}
-
-	if err := preflightCheck(ctx, embeddingModel, int(tokens.TotalTokens)); err != nil {
-		return vector{}, err
-	}
-
-	if err = g.embeddingLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(context.Cause(limiterCtx), context.Canceled) {
-			return vector{}, err //nolint:wrapcheck // returning context cancellation as is
-		}
-
-		return vector{}, ports.ErrHardQuotaExhausted
-	}
-
-	res, err := g.client.Models.EmbedContent(ctx, embeddingModel, input, config)
+	})
 	if err != nil {
 		return vector{}, fmt.Errorf("embedding generation failed: %w", err)
 	}
 
-	return g.getEmbeddingResponse(ctx, res, embeddingModel, uint32(max(0, tokens.TotalTokens)))
+	return g.getEmbeddingResponse(ctx, res, embeddingModel, uint32(max(0, totalTokens)))
 }
 
-func (g *GeminiModel) getEmbeddingResponse(ctx context.Context, response *genai.EmbedContentResponse, model string, expectedTokens uint32) (vector, error) {
+// TODO: use local counting, since we may have a big latency due to http
+// calls.
+func (g *GeminiModel) countAndCheckEmbeddingTokens(
+	ctx context.Context,
+	input []*genai.Content,
+	preflightCheck embedding.PreflightFunc,
+) (int32, error) {
+	tokens, err := g.client.Models.CountTokens(ctx, embeddingModel, input, nil)
+	if err != nil {
+		return 0, fmt.Errorf("token counting failed: %w", err)
+	}
+
+	if err = preflightCheck(ctx, embeddingModel, int(tokens.TotalTokens)); err != nil {
+		return 0, fmt.Errorf("preflight check failed: %w", err)
+	}
+
+	if err = g.waitEmbeddingLimit(ctx, int(tokens.TotalTokens)); err != nil {
+		return 0, err
+	}
+
+	return tokens.TotalTokens, nil
+}
+
+func (g *GeminiModel) waitEmbeddingLimit(ctx context.Context, numTokens int) error {
+	cause := ports.ErrHardQuotaExhausted
+	limCtx, cancel := context.WithTimeoutCause(ctx, maxLimiterWait, cause)
+
+	defer cancel()
+
+	if err := g.embeddingLimiter.WaitN(limCtx, numTokens); err != nil {
+		isCanceled := errors.Is(err, context.Canceled) ||
+			errors.Is(context.Cause(limCtx), context.Canceled)
+
+		if isCanceled {
+			return err //nolint:wrapcheck
+		}
+
+		return ports.ErrHardQuotaExhausted
+	}
+
+	return nil
+}
+
+func (g *GeminiModel) getEmbeddingResponse(
+	ctx context.Context,
+	response *genai.EmbedContentResponse,
+	model string,
+	expectedTokens uint32,
+) (vector, error) {
 	if len(response.Embeddings) == 0 {
 		return vector{}, ErrNoEmbeddings
 	}

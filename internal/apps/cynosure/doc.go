@@ -1,7 +1,9 @@
 // Package cynosure provides cynosure application.
 package cynosure
 
-import "github.com/modelcontextprotocol/go-sdk/mcp"
+import (
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
 
 const (
 	defaultWorkersCount = 4

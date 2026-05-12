@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"iter"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -137,25 +134,35 @@ func (u *Usecase) loadOrCreateChat(
 		u.limiter,
 		id, u.defaultChatLimit,
 	)
-	switch {
-	case errors.Is(err, ports.ErrNotFound):
-		agg, err = chat.CreateChatAggregate(
-			ctx, u.storage,
-			u.indexer,
-			u.toolStorage, u.accounts,
-			u.limiter,
-			id, []messages.Message{msg},
-			u.defaultChatLimit,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("creating chat: %w", err)
-		}
-	case err != nil:
+
+	if errors.Is(err, ports.ErrNotFound) {
+		return u.createChat(ctx, id, msg)
+	}
+
+	if err != nil {
 		return nil, fmt.Errorf("loading chat: %w", err)
-	default:
-		if err = agg.AcceptUserMessage(ctx, msg); err != nil {
-			return nil, fmt.Errorf("adding user message: %w", err)
-		}
+	}
+
+	if err = agg.AcceptUserMessage(ctx, msg); err != nil {
+		return nil, fmt.Errorf("adding user message: %w", err)
+	}
+
+	return agg, nil
+}
+
+func (u *Usecase) createChat(
+	ctx context.Context, id ids.ThreadID, msg messages.MessageUser,
+) (*chat.Chat, error) {
+	agg, err := chat.CreateChatAggregate(
+		ctx, u.storage,
+		u.indexer,
+		u.toolStorage, u.accounts,
+		u.limiter,
+		id, []messages.Message{msg},
+		u.defaultChatLimit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating chat: %w", err)
 	}
 
 	return agg, nil
@@ -171,66 +178,115 @@ func (u *Usecase) agentLoop(
 		loopCtx, span := u.obs.agentLoop(ctx)
 		defer span.end()
 
-		totalUsage := chatmodel.UsageStats{}
-		reportOutput := func(ctx context.Context, outputTokens int) error {
-			return errors.New("empty report, can't write to ratelimiter")
-		}
+		usage, reportOutput := u.executeAgentLoop(loopCtx, thread, config, toolChoice, yield)
 
-		preflight := func(ctx context.Context, modelName string, inputTokens int) (err error) {
-			reportOutput, err = u.limiter.ConsumeChatRequests(ctx, thread.ThreadID().User(), modelName, inputTokens)
+		span.recordTotalUsage(usage.InputTokens, usage.OutputTokens)
 
-			return err
-		}
-
-		for turn := range u.agentLoopTurns {
-			usage, next := u.agentTurn(loopCtx, thread, config, toolChoice, turn, preflight, yield)
-
-			totalUsage = chatmodel.UsageStats{
-				InputTokens:  usage.InputTokens + totalUsage.InputTokens,
-				OutputTokens: usage.OutputTokens + totalUsage.OutputTokens,
-				Duration:     usage.Duration + totalUsage.Duration,
-			}
-
-			if !next {
-				break
-			}
-		}
-
-		span.recordTotalUsage(totalUsage.InputTokens, totalUsage.OutputTokens)
-
-		if err := reportOutput(loopCtx, int(totalUsage.OutputTokens)); err != nil {
+		if err := reportOutput(loopCtx, int(usage.OutputTokens)); err != nil {
 			span.recordError(err)
 		}
 	}
 }
 
-func (u *Usecase) agentTurn(
+func (u *Usecase) executeAgentLoop(
+	ctx context.Context,
+	thread *chat.Chat,
+	config entities.AgentReadOnly,
+	toolChoice tools.ToolChoice,
+	yield func(messages.Message, error) bool,
+) (usage chatmodel.UsageStats, report func(context.Context, int) error) {
+	totalUsage := chatmodel.UsageStats{}
+
+	for turn := range u.agentLoopTurns {
+		usage, next, err := u.executeAgentTurn(
+			ctx, thread, config, toolChoice, turn, yield,
+		)
+
+		totalUsage = u.accumulateUsage(totalUsage, usage)
+
+		if err != nil || !next {
+			break
+		}
+	}
+
+	return totalUsage, func(context.Context, int) error { return nil }
+}
+
+func (u *Usecase) executeAgentTurn(
 	ctx context.Context,
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 	turn uint8,
-	preflight chatmodel.PreflightFunc,
 	yield func(messages.Message, error) bool,
-) (chatmodel.UsageStats, bool) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("set.turn", trace.WithAttributes(attribute.Int("turn", int(turn))))
+) (chatmodel.UsageStats, bool, error) {
+	ctx, span := u.obs.agentLoopTurn(ctx, int(turn))
+	defer span.end()
 
-	toolRequests, usage, shouldContinue := u.askModel(ctx, thread, config, toolChoice, preflight, yield)
+	var settle func(context.Context, int) error
 
-	u.obs.recordUsage(ctx, config.Model(),
-		usage.InputTokens, usage.OutputTokens, usage.Duration,
-	)
+	preflight := u.newPreflight(thread, &settle)
 
-	if !shouldContinue || len(toolRequests) == 0 {
-		return usage, false
+	toolRequests, usage, cont := u.askModel(ctx, thread, config, toolChoice, preflight, yield)
+
+	u.obs.recordUsage(ctx, config.Model(), usage.InputTokens, usage.OutputTokens, usage.Duration)
+
+	if err := u.settleTurn(ctx, settle, usage.OutputTokens, yield); err != nil {
+		span.recordError(err)
+
+		return usage, false, err
 	}
 
-	if !u.handleToolRequests(ctx, thread, turn, toolRequests, yield) {
-		return usage, false
+	next := cont && len(toolRequests) > 0 &&
+		u.handleToolRequests(ctx, thread, turn, toolRequests, yield)
+
+	return usage, next, nil
+}
+
+func (u *Usecase) newPreflight(
+	thread *chat.Chat, turnSettlement *func(context.Context, int) error,
+) chatmodel.PreflightFunc {
+	return func(ctx context.Context, modelName string, inputTokens int) error {
+		report, err := u.limiter.ConsumeChatRequests(
+			ctx, thread.ThreadID().User(), modelName, inputTokens,
+		)
+		if err != nil {
+			return fmt.Errorf("requesting chat quota: %w", err)
+		}
+
+		*turnSettlement = report
+
+		return nil
+	}
+}
+
+func (u *Usecase) settleTurn(
+	ctx context.Context,
+	report func(context.Context, int) error,
+	outputTokens uint32,
+	yield func(messages.Message, error) bool,
+) error {
+	if report == nil {
+		return nil
 	}
 
-	return usage, true
+	if err := report(ctx, int(outputTokens)); err != nil {
+		if errors.Is(err, chatmodel.ErrHardQuotaExhausted) {
+			_ = yield(nil, err)
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (u *Usecase) accumulateUsage(total, current chatmodel.UsageStats) chatmodel.UsageStats {
+	return chatmodel.UsageStats{
+		InputTokens:  current.InputTokens + total.InputTokens,
+		OutputTokens: current.OutputTokens + total.OutputTokens,
+		Duration:     current.Duration + total.Duration,
+	}
 }
 
 func (u *Usecase) handleToolRequests(
@@ -290,7 +346,9 @@ func (u *Usecase) callModel(
 		maxContext = u.defaultChatLimit
 	}
 
-	resp, err := u.model.StreamWithStats(ctx, thread.Messages(maxContext), config, opts...)
+	resp, err := u.model.StreamWithStats(
+		ctx, thread.Messages(maxContext), config, opts...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("calling model stream: %w", err)
 	}
@@ -332,20 +390,7 @@ func (u *Usecase) streamModelMessages(
 	var toolRequests []messages.MessageToolRequest
 
 	// We wrap our pull iterator to a Seq2 to use our existing streaming merge logic.
-	stream := func(yield func(messages.Message, error) bool) {
-		for {
-			msg, ok := iterator.Next()
-			if !ok {
-				return
-			}
-
-			if !yield(msg, nil) {
-				return
-			}
-		}
-	}
-
-	for msg, err := range messages.MergeMessagesStreaming(stream) {
+	for msg, err := range messages.MergeMessagesStreaming(u.iteratorToSeq2(iterator)) {
 		if err != nil {
 			yield(nil, fmt.Errorf("streaming messages: %w", err))
 			return nil, chatmodel.UsageStats{}, false
@@ -363,6 +408,21 @@ func (u *Usecase) streamModelMessages(
 	}
 
 	return toolRequests, usage, true
+}
+
+func (u *Usecase) iteratorToSeq2(iterator chatmodel.Iter) iter.Seq2[messages.Message, error] {
+	return func(yield func(messages.Message, error) bool) {
+		for {
+			msg, ok := iterator.Next()
+			if !ok {
+				return
+			}
+
+			if !yield(msg, nil) {
+				return
+			}
+		}
+	}
 }
 
 func (u *Usecase) saveAndYieldMessage(

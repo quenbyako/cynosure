@@ -26,7 +26,7 @@ type (
 func bindAdminController(
 	params *appParams,
 	usecase *accounts.Usecase,
-) adminControllerWireBind {
+) adminControllerWireBind { //nolint:unparam // wire bind
 	admin.Register(usecase)(params.grpcAddr)
 
 	return adminControllerWireBind{}
@@ -35,7 +35,7 @@ func bindAdminController(
 func bindOAuthController(
 	params *appParams,
 	usecase *accounts.Usecase,
-) oauthControllerWireBind {
+) oauthControllerWireBind { //nolint:unparam // wire bind
 	params.httpAddr(oauth.NewHandler(usecase))
 
 	return oauthControllerWireBind{}
@@ -48,7 +48,7 @@ func bindTelegramController(
 	log *logs.BaseLogger,
 	chatUsecase *chat.Usecase,
 	usersUsecase *users.Usecase,
-) (telegramControllerWireBind, error) {
+) (telegramControllerWireBind, error) { //nolint:unparam // wire bind
 	telegramKey, err := params.telegram.key.Get(ctx)
 	if err != nil {
 		return telegramControllerWireBind{}, fmt.Errorf("getting telegram key: %w", err)
@@ -77,7 +77,7 @@ func bindTelegramController(
 func bindMCPController(
 	params *appParams,
 	usecase *accounts.Usecase,
-) (mcpControllerWireBind, error) {
+) (mcpControllerWireBind, error) { //nolint:unparam // wire bind
 	handler, err := mcp.New(
 		usecase,
 		mcpImpl,

@@ -125,12 +125,15 @@ type godogState struct {
 	selfTest           bool
 }
 
-func (s *godogState) InitializeScenario(setup setupFunc, cleanup func(context.Context) error) func(*godog.ScenarioContext) {
+func (s *godogState) InitializeScenario(
+	setup setupFunc, cleanup func(context.Context) error,
+) func(*godog.ScenarioContext) {
 	s.setup = setup
 
 	return func(ctx *godog.ScenarioContext) {
 		ctx.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 			s.reset()
+
 			if err := cleanup(ctx); err != nil {
 				return ctx, fmt.Errorf("cleanup failed: %w", err)
 			}
@@ -138,29 +141,33 @@ func (s *godogState) InitializeScenario(setup setupFunc, cleanup func(context.Co
 			return ctx, nil
 		})
 
-		const (
-			tokenExpr = `(` + tokenInput + `|` + tokenOutput + `|` + tokenEmbedding + `)`
-		)
-
-		// Setup steps
-		ctx.Given(`^`+tokenExpr+` token limit is set to (\d+) token(?:s)? per ([smh0-9.+-]+)$`,
-			s.setupTokenLimit)
-		ctx.Given(`^maximum wait time is set to ([smh0-9.+-]+)$`, s.setupMaxWait)
-
-		// State setup steps (pre-consumption)
-		ctx.Given(`^user has already consumed (\d+) `+tokenExpr+` token(?:s)? for "([^"]*)" model$`,
-			s.givenUserAlreadySpent)
-
-		// Action steps
-		ctx.When(`^user consumes (\d+) `+tokenExpr+` token(?:s)? for "([^"]*)" model$`,
-			s.whenUserConsumes)
-		ctx.When(`^time passes for ([smh0-9.+-]+)$`, s.timePasses)
-
-		// Assertion steps
-		ctx.Then(`^operation is successful$`, s.assertSuccess)
-		ctx.Then(`^rate limit exceeded error is returned$`, s.assertLimitError)
-		ctx.Then(`^retry is after ([smh0-9.+-]+)$`, s.assertRetryAfter)
+		s.registerSteps(ctx)
 	}
+}
+
+func (s *godogState) registerSteps(ctx *godog.ScenarioContext) {
+	const (
+		tokenExpr = `(` + tokenInput + `|` + tokenOutput + `|` + tokenEmbedding + `)`
+	)
+
+	// Setup steps
+	ctx.Given(`^`+tokenExpr+` token limit is set to (\d+) token(?:s)? per ([smh0-9.+-]+)$`,
+		s.setupTokenLimit)
+	ctx.Given(`^maximum wait time is set to ([smh0-9.+-]+)$`, s.setupMaxWait)
+
+	// State setup steps (pre-consumption)
+	ctx.Given(`^user has already consumed (\d+) `+tokenExpr+` token(?:s)? for "([^"]*)" model$`,
+		s.givenUserAlreadySpent)
+
+	// Action steps
+	ctx.When(`^user consumes (\d+) `+tokenExpr+` token(?:s)? for "([^"]*)" model$`,
+		s.whenUserConsumes)
+	ctx.When(`^time passes for ([smh0-9.+-]+)$`, s.timePasses)
+
+	// Assertion steps
+	ctx.Then(`^operation is successful$`, s.assertSuccess)
+	ctx.Then(`^rate limit exceeded error is returned$`, s.assertLimitError)
+	ctx.Then(`^retry is after ([smh0-9.+-]+)$`, s.assertRetryAfter)
 }
 
 func (s *godogState) reset() {

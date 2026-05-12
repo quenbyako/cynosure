@@ -38,7 +38,9 @@ type Port interface {
 	// Throws:
 	//
 	//  - [RateLimitExceededError] if user has reached its assigned quota.
-	ConsumeChatRequests(ctx context.Context, user ids.UserID, model string, inputTokens int) (ConsumedTokensFunc, error)
+	ConsumeChatRequests(
+		ctx context.Context, user ids.UserID, model string, inputTokens int,
+	) (ConsumedTokensFunc, error)
 
 	// ConsumeEmbeddingRequests consumes embedding requests quota for the given user.
 	// It returns a callback to record token usage after the embedding completes.
@@ -46,5 +48,7 @@ type Port interface {
 	// Throws:
 	//
 	//  - [RateLimitExceededError] if user has reached its assigned quota.
-	ConsumeEmbeddingRequests(ctx context.Context, user ids.UserID, model string, inputTokens int) error
+	ConsumeEmbeddingRequests(
+		ctx context.Context, user ids.UserID, model string, inputTokens int,
+	) error
 }

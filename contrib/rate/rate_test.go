@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package rate
+package rate_test
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	. "github.com/quenbyako/cynosure/contrib/rate"
 )
 
 func TestLimit(t *testing.T) {
@@ -51,17 +53,17 @@ func TestEvery(t *testing.T) {
 }
 
 const (
-	d = 100 * time.Millisecond
+	pointDelay = 100 * time.Millisecond
 )
 
 var (
-	t0 = time.Now()
-	t1 = t0.Add(time.Duration(1) * d)
-	t2 = t0.Add(time.Duration(2) * d)
-	t3 = t0.Add(time.Duration(3) * d)
-	t4 = t0.Add(time.Duration(4) * d)
-	t5 = t0.Add(time.Duration(5) * d)
-	t9 = t0.Add(time.Duration(9) * d)
+	point0 = time.Now()
+	point1 = point0.Add(time.Duration(1) * pointDelay)
+	point2 = point0.Add(time.Duration(2) * pointDelay)
+	point3 = point0.Add(time.Duration(3) * pointDelay)
+	point4 = point0.Add(time.Duration(4) * pointDelay)
+	point5 = point0.Add(time.Duration(5) * pointDelay)
+	point9 = point0.Add(time.Duration(9) * pointDelay)
 )
 
 type allow struct {
@@ -89,50 +91,50 @@ func run(t *testing.T, lim *Limiter, allows []allow) {
 }
 
 func TestLimiterBurst1(t *testing.T) {
-	run(t, NewLimiter(1*d, 1), []allow{
-		{t0, 1, 1, true},
-		{t0, 0, 1, false},
-		{t0, 0, 1, false},
-		{t1, 1, 1, true},
-		{t1, 0, 1, false},
-		{t1, 0, 1, false},
-		{t2, 1, 2, false}, // burst size is 1, so n=2 always fails
-		{t2, 1, 1, true},
-		{t2, 0, 1, false},
+	run(t, NewLimiter(1*pointDelay, 1), []allow{
+		{point0, 1, 1, true},
+		{point0, 0, 1, false},
+		{point0, 0, 1, false},
+		{point1, 1, 1, true},
+		{point1, 0, 1, false},
+		{point1, 0, 1, false},
+		{point2, 1, 2, false}, // burst size is 1, so n=2 always fails
+		{point2, 1, 1, true},
+		{point2, 0, 1, false},
 	})
 }
 
 func TestLimiterBurst3(t *testing.T) {
-	run(t, NewLimiter(3*d, 3), []allow{
-		{t0, 3, 2, true},
-		{t0, 1, 2, false},
-		{t0, 1, 1, true},
-		{t0, 0, 1, false},
-		{t1, 1, 4, false},
-		{t2, 2, 1, true},
-		{t3, 2, 1, true},
-		{t4, 2, 1, true},
-		{t4, 1, 1, true},
-		{t4, 0, 1, false},
-		{t4, 0, 1, false},
-		{t9, 3, 3, true},
-		{t9, 0, 0, true},
+	run(t, NewLimiter(3*pointDelay, 3), []allow{
+		{point0, 3, 2, true},
+		{point0, 1, 2, false},
+		{point0, 1, 1, true},
+		{point0, 0, 1, false},
+		{point1, 1, 4, false},
+		{point2, 2, 1, true},
+		{point3, 2, 1, true},
+		{point4, 2, 1, true},
+		{point4, 1, 1, true},
+		{point4, 0, 1, false},
+		{point4, 0, 1, false},
+		{point9, 3, 3, true},
+		{point9, 0, 0, true},
 	})
 }
 
 func TestLimiterJumpBackwards(t *testing.T) {
-	run(t, NewLimiter(3*d, 3), []allow{
-		{t1, 3, 1, true}, // start at t1
-		{t0, 2, 1, true}, // jump back to t0, two tokens remain
-		{t0, 1, 1, true},
-		{t0, 0, 1, false},
-		{t0, 0, 1, false},
-		{t1, 1, 1, true}, // got a token
-		{t1, 0, 1, false},
-		{t1, 0, 1, false},
-		{t2, 1, 1, true}, // got another token
-		{t2, 0, 1, false},
-		{t2, 0, 1, false},
+	run(t, NewLimiter(3*pointDelay, 3), []allow{
+		{point1, 3, 1, true}, // start at t1
+		{point0, 2, 1, true}, // jump back to t0, two tokens remain
+		{point0, 1, 1, true},
+		{point0, 0, 1, false},
+		{point0, 0, 1, false},
+		{point1, 1, 1, true}, // got a token
+		{point1, 0, 1, false},
+		{point1, 0, 1, false},
+		{point2, 1, 1, true}, // got another token
+		{point2, 0, 1, false},
+		{point2, 0, 1, false},
 	})
 }
 
@@ -169,18 +171,20 @@ func (tt *testTime) now() time.Time {
 // newTimer creates a fake timer. It returns the channel,
 // a function to stop the timer (which we don't care about),
 // and a function to advance to the next timer.
-func (tt *testTime) newTimer(dur time.Duration) (<-chan time.Time, func() bool, func()) {
+func (tt *testTime) newTimer(dur time.Duration) (
+	ch <-chan time.Time, stop func() bool, advance func(),
+) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 
-	ch := make(chan time.Time, 1)
+	ticks := make(chan time.Time, 1)
 	timer := testTimer{
 		when: tt.cur.Add(dur),
-		ch:   ch,
+		ch:   ticks,
 	}
 	tt.timers = append(tt.timers, timer)
 
-	return ch, func() bool { return true }, tt.advanceToTimer
+	return ticks, func() bool { return true }, tt.advanceToTimer
 }
 
 // since returns the fake time since the given time.
@@ -237,6 +241,8 @@ func (tt *testTime) advanceToTimer() {
 
 // makeTestTime hooks the testTimer into the package.
 func makeTestTime(t *testing.T) *testTime {
+	t.Helper()
+
 	return &testTime{
 		cur: time.Now(),
 	}
@@ -259,7 +265,7 @@ func TestSimultaneousRequests(t *testing.T) {
 
 	// Tries to take a token, atomically updates the counter and decreases the wait
 	// group counter.
-	f := func() {
+	task := func() {
 		defer wg.Done()
 
 		if ok := lim.Allow(); ok {
@@ -270,7 +276,7 @@ func TestSimultaneousRequests(t *testing.T) {
 	wg.Add(numRequests)
 
 	for range numRequests {
-		go f()
+		go task()
 	}
 
 	wg.Wait()
@@ -334,12 +340,12 @@ func dFromDuration(dur time.Duration) int {
 	// Add d/2 to dur so that integer division will round to
 	// the nearest multiple instead of truncating.
 	// (We don't care about small inaccuracies.)
-	return int((dur + (d / 2)) / d)
+	return int((dur + (pointDelay / 2)) / pointDelay)
 }
 
 // dSince returns multiples of d since t0
 func dSince(t time.Time) int {
-	return dFromDuration(t.Sub(t0))
+	return dFromDuration(t.Sub(point0))
 }
 
 func runReserve(t *testing.T, lim *Limiter, req request) *Reservation {
@@ -352,178 +358,198 @@ func runReserve(t *testing.T, lim *Limiter, req request) *Reservation {
 // error including the difference from expected durations in multiples of d (global constant).
 func runReserveMax(t *testing.T, lim *Limiter, req request, maxReserve time.Duration) *Reservation {
 	t.Helper()
-	r := lim.reserveN(req.t, req.n, maxReserve, false, false)
+	reservation := lim.ReserveNRaw(req.t, req.n, maxReserve, false, false)
 
-	if r.ok && (dSince(r.timeToAct) != dSince(req.act)) || r.ok != req.ok {
+	if reservation.OK() && (dSince(reservation.RetryAt()) != dSince(req.act)) ||
+		reservation.OK() != req.ok {
 		t.Errorf("lim.reserveN(t%d, %v, %v) = (t%d, %v) want (t%d, %v)",
-			dSince(req.t), req.n, maxReserve, dSince(r.timeToAct), r.ok, dSince(req.act), req.ok)
+			dSince(req.t),
+			req.n,
+			maxReserve,
+			dSince(reservation.RetryAt()),
+			reservation.OK(),
+			dSince(req.act),
+			req.ok,
+		)
 	}
 
-	return &r
+	return &reservation
 }
 
 func TestSimpleReserve(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	runReserve(t, lim, request{t0, 2, t2, true})
-	runReserve(t, lim, request{t3, 2, t4, true})
+	runReserve(t, lim, request{point0, 2, point0, true})
+	runReserve(t, lim, request{point0, 2, point2, true})
+	runReserve(t, lim, request{point3, 2, point4, true})
 }
 
 func TestMix(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 3, t1, false}) // should return false because n > Burst
-	runReserve(t, lim, request{t0, 2, t0, true})
-	run(t, lim, []allow{{t1, 1, 2, false}}) // not enough tokens - don't allow
-	runReserve(t, lim, request{t1, 2, t2, true})
-	run(t, lim, []allow{{t1, -1, 1, false}}) // negative tokens - don't allow
-	run(t, lim, []allow{{t3, 1, 1, true}})
+	runReserve(t, lim, request{point0, 3, point1, false}) // should return false because n > Burst
+	runReserve(t, lim, request{point0, 2, point0, true})
+	run(t, lim, []allow{{point1, 1, 2, false}}) // not enough tokens - don't allow
+	runReserve(t, lim, request{point1, 2, point2, true})
+	run(t, lim, []allow{{point1, -1, 1, false}}) // negative tokens - don't allow
+	run(t, lim, []allow{{point3, 1, 1, true}})
 }
 
 func TestCancelInvalid(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	r := runReserve(t, lim, request{t0, 3, t3, false})
-	r.CancelAt(t0)                               // should have no effect
-	runReserve(t, lim, request{t0, 2, t2, true}) // did not get extra tokens
+	runReserve(t, lim, request{point0, 2, point0, true})
+	r := runReserve(t, lim, request{point0, 3, point3, false})
+	r.CancelAt(point0)                                   // should have no effect
+	runReserve(t, lim, request{point0, 2, point2, true}) // did not get extra tokens
 }
 
 func TestCancelLast(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	r := runReserve(t, lim, request{t0, 2, t2, true})
-	r.CancelAt(t1) // got 2 tokens back
-	runReserve(t, lim, request{t1, 2, t2, true})
+	runReserve(t, lim, request{point0, 2, point0, true})
+	r := runReserve(t, lim, request{point0, 2, point2, true})
+	r.CancelAt(point1) // got 2 tokens back
+	runReserve(t, lim, request{point1, 2, point2, true})
 }
 
 func TestCancelTooLate(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	r := runReserve(t, lim, request{t0, 2, t2, true})
-	r.CancelAt(t3) // too late to cancel - should have no effect
-	runReserve(t, lim, request{t3, 2, t4, true})
+	runReserve(t, lim, request{point0, 2, point0, true})
+	r := runReserve(t, lim, request{point0, 2, point2, true})
+	r.CancelAt(point3) // too late to cancel - should have no effect
+	runReserve(t, lim, request{point3, 2, point4, true})
 }
 
 func TestCancel0Tokens(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	r := runReserve(t, lim, request{t0, 1, t1, true})
-	runReserve(t, lim, request{t0, 1, t2, true})
-	r.CancelAt(t0) // got 0 tokens back
-	runReserve(t, lim, request{t0, 1, t3, true})
+	runReserve(t, lim, request{point0, 2, point0, true})
+	r := runReserve(t, lim, request{point0, 1, point1, true})
+	runReserve(t, lim, request{point0, 1, point2, true})
+	r.CancelAt(point0) // got 0 tokens back
+	runReserve(t, lim, request{point0, 1, point3, true})
 }
 
 func TestCancel1Token(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	r := runReserve(t, lim, request{t0, 2, t2, true})
-	runReserve(t, lim, request{t0, 1, t3, true})
-	r.CancelAt(t2) // got 1 token back
-	runReserve(t, lim, request{t2, 2, t4, true})
+	runReserve(t, lim, request{point0, 2, point0, true})
+	r := runReserve(t, lim, request{point0, 2, point2, true})
+	runReserve(t, lim, request{point0, 1, point3, true})
+	r.CancelAt(point2) // got 1 token back
+	runReserve(t, lim, request{point2, 2, point4, true})
 }
 
 func TestCancelMulti(t *testing.T) {
-	lim := NewLimiter(4*d, 4)
+	lim := NewLimiter(4*pointDelay, 4)
 
-	runReserve(t, lim, request{t0, 4, t0, true})
-	rA := runReserve(t, lim, request{t0, 3, t3, true})
-	runReserve(t, lim, request{t0, 1, t4, true})
-	rC := runReserve(t, lim, request{t0, 1, t5, true})
-	rC.CancelAt(t1) // get 1 token back
-	rA.CancelAt(t1) // get 2 tokens back, as if C was never reserved
-	runReserve(t, lim, request{t1, 3, t5, true})
+	runReserve(t, lim, request{point0, 4, point0, true})
+	rA := runReserve(t, lim, request{point0, 3, point3, true})
+	runReserve(t, lim, request{point0, 1, point4, true})
+	rC := runReserve(t, lim, request{point0, 1, point5, true})
+	rC.CancelAt(point1) // get 1 token back
+	rA.CancelAt(point1) // get 2 tokens back, as if C was never reserved
+	runReserve(t, lim, request{point1, 3, point5, true})
 }
 
 func TestReserveJumpBack(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t1, 2, t1, true}) // start at t1
-	runReserve(t, lim, request{t0, 1, t1, true}) // should violate Limit,Burst
-	runReserve(t, lim, request{t2, 2, t3, true})
+	runReserve(t, lim, request{point1, 2, point1, true}) // start at t1
+	runReserve(t, lim, request{point0, 1, point1, true}) // should violate Limit,Burst
+	runReserve(t, lim, request{point2, 2, point3, true})
 	// burst size is 2, so n=3 always fails, and the state of lim should not be changed
-	runReserve(t, lim, request{t0, 3, time.Time{}, false})
-	runReserve(t, lim, request{t2, 1, t4, true})
+	runReserve(t, lim, request{point0, 3, time.Time{}, false})
+	runReserve(t, lim, request{point2, 1, point4, true})
 	// the maxReserve is not enough so it fails, and the state of lim should not be changed
-	runReserveMax(t, lim, request{t0, 2, time.Time{}, false}, d)
-	runReserve(t, lim, request{t2, 1, t5, true})
+	runReserveMax(t, lim, request{point0, 2, time.Time{}, false}, pointDelay)
+	runReserve(t, lim, request{point2, 1, point5, true})
 }
 
 func TestReserveJumpBackCancel(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
+	lim := NewLimiter(2*pointDelay, 2)
 
-	runReserve(t, lim, request{t1, 2, t1, true}) // start at t1
-	r := runReserve(t, lim, request{t1, 2, t3, true})
-	runReserve(t, lim, request{t1, 1, t4, true})
-	r.CancelAt(t0)                               // cancel at t0, get 1 token back
-	runReserve(t, lim, request{t1, 2, t4, true}) // should violate Limit,Burst
+	runReserve(t, lim, request{point1, 2, point1, true}) // start at t1
+	r := runReserve(t, lim, request{point1, 2, point3, true})
+	runReserve(t, lim, request{point1, 1, point4, true})
+	r.CancelAt(point0)                                   // cancel at t0, get 1 token back
+	runReserve(t, lim, request{point1, 2, point4, true}) // should violate Limit,Burst
 }
 
 func TestReserveSetLimit(t *testing.T) {
-	lim := NewLimiter(4*d, 2)
+	lim := NewLimiter(4*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	runReserve(t, lim, request{t0, 2, t4, true})
-	lim.SetLimitAt(t2, 2*d)
-	runReserve(t, lim, request{t2, 1, t4, true}) // violates Limit and Burst
+	runReserve(t, lim, request{point0, 2, point0, true})
+	runReserve(t, lim, request{point0, 2, point4, true})
+	lim.SetLimitAt(point2, 2*pointDelay)
+	runReserve(t, lim, request{point2, 1, point4, true}) // violates Limit and Burst
 }
 
 func TestReserveSetBurst(t *testing.T) {
-	lim := NewLimiter(4*d, 2)
+	lim := NewLimiter(4*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	runReserve(t, lim, request{t0, 2, t4, true})
-	lim.SetBurstAt(t3, 4)
-	runReserve(t, lim, request{t0, 4, t9, true}) // violates Limit and Burst
+	runReserve(t, lim, request{point0, 2, point0, true})
+	runReserve(t, lim, request{point0, 2, point4, true})
+	lim.SetBurstAt(point3, 4)
+	runReserve(t, lim, request{point0, 4, point9, true}) // violates Limit and Burst
 }
 
 func TestReserveSetLimitCancel(t *testing.T) {
-	lim := NewLimiter(4*d, 2)
+	lim := NewLimiter(4*pointDelay, 2)
 
-	runReserve(t, lim, request{t0, 2, t0, true})
-	r := runReserve(t, lim, request{t0, 2, t4, true})
-	lim.SetLimitAt(t2, 2*d)
-	r.CancelAt(t2) // 2 tokens back
-	runReserve(t, lim, request{t2, 2, t3, true})
+	runReserve(t, lim, request{point0, 2, point0, true})
+	r := runReserve(t, lim, request{point0, 2, point4, true})
+	lim.SetLimitAt(point2, 2*pointDelay)
+	r.CancelAt(point2) // 2 tokens back
+	runReserve(t, lim, request{point2, 2, point3, true})
 }
 
 func TestReserveMax(t *testing.T) {
-	lim := NewLimiter(2*d, 2)
-	maxT := d
+	lim := NewLimiter(2*pointDelay, 2)
+	maxT := pointDelay
 
-	runReserveMax(t, lim, request{t0, 2, t0, true}, maxT)
-	runReserveMax(t, lim, request{t0, 1, t1, true}, maxT)  // reserve for close future
-	runReserveMax(t, lim, request{t0, 1, t2, false}, maxT) // time to act too far in the future
+	runReserveMax(t, lim, request{point0, 2, point0, true}, maxT)
+	// reserve for close future
+	runReserveMax(t, lim, request{point0, 1, point1, true}, maxT)
+	// time to act too far in the future
+	runReserveMax(t, lim, request{point0, 1, point2, false}, maxT)
 }
 
 type wait struct {
-	name   string
+	name string
+	//nolint:containedctx // used for tests
 	ctx    context.Context
 	n      int
 	delay  int // in multiples of d
 	nilErr bool
 }
 
-func runWait(t *testing.T, tt *testTime, lim *Limiter, w wait) {
+func runWait(t *testing.T, tt *testTime, lim *Limiter, waitRequest wait) {
 	t.Helper()
 
 	start := tt.now()
-	err := lim.wait(w.ctx, w.n, start, tt.newTimer)
+	err := lim.WaitRaw(waitRequest.ctx, waitRequest.n, start, tt.newTimer)
 	delay := tt.since(start)
 
-	if (w.nilErr && err != nil) || (!w.nilErr && err == nil) || !waitDelayOk(w.delay, delay) {
+	if (waitRequest.nilErr && err != nil) ||
+		(!waitRequest.nilErr && err == nil) ||
+		!waitDelayOk(waitRequest.delay, delay) {
 		errString := "<nil>"
-		if !w.nilErr {
+		if !waitRequest.nilErr {
 			errString = "<non-nil error>"
 		}
 
 		t.Errorf("lim.WaitN(%v, lim, %v) = %v with delay %v; want %v with delay %v (±%v)",
-			w.name, w.n, err, delay, errString, d*time.Duration(w.delay), d/2)
+			waitRequest.name,
+			waitRequest.n,
+			err,
+			delay,
+			errString,
+			pointDelay*time.Duration(waitRequest.delay),
+			pointDelay/2,
+		)
 	}
 }
 
@@ -533,24 +559,25 @@ func waitDelayOk(wantD int, got time.Duration) bool {
 	gotD := dFromDuration(got)
 
 	// The actual time spent waiting will be REDUCED by the amount of time spent
-	// since the last call to the limiter. We expect the time in between calls to
-	// be executing simple, straight-line, non-blocking code, so it should reduce
-	// the wait time by no more than half a d, which would round to exactly wantD.
+	// since the last call to the limiter. We expect the time in between calls
+	// to be executing simple, straight-line, non-blocking code, so it should
+	// reduce the wait time by no more than half a d, which would round to
+	// exactly wantD.
 	if gotD < wantD {
 		return false
 	}
 
-	// The actual time spend waiting will be INCREASED by the amount of scheduling
-	// slop in the platform's sleep syscall, plus the amount of time spent executing
-	// straight-line code before measuring the elapsed duration.
+	// The actual time spend waiting will be INCREASED by the amount of
+	// scheduling slop in the platform's sleep syscall, plus the amount of time
+	// spent executing straight-line code before measuring the elapsed duration.
 	//
 	// The latter is surely less than half a d, but the former is empirically
-	// sometimes larger on a number of platforms for a number of reasons.
-	// NetBSD and OpenBSD tend to overshoot sleeps by a wide margin due to a
-	// suspected platform bug; see https://go.dev/issue/44067 and
-	// https://go.dev/issue/50189.
-	// Longer delays were also observed on slower builders with Linux kernels
-	// (linux-ppc64le-buildlet, android-amd64-emu), and on Solaris and Plan 9.
+	// sometimes larger on a number of platforms for a number of reasons. NetBSD
+	// and OpenBSD tend to overshoot sleeps by a wide margin due to a suspected
+	// platform bug; see https://go.dev/issue/44067 and
+	// https://go.dev/issue/50189. Longer delays were also observed on slower
+	// builders with Linux kernels (linux-ppc64le-buildlet, android-amd64-emu),
+	// and on Solaris and Plan 9.
 	//
 	// Since d is already fairly generous, we take 150% of wantD rounded up —
 	// that's at least enough to account for the overruns we've seen so far in
@@ -563,7 +590,7 @@ func waitDelayOk(wantD int, got time.Duration) bool {
 func TestWaitSimple(t *testing.T) {
 	tt := makeTestTime(t)
 
-	lim := NewLimiter(3*d, 3)
+	lim := NewLimiter(3*pointDelay, 3)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -578,11 +605,11 @@ func TestWaitSimple(t *testing.T) {
 func TestWaitCancel(t *testing.T) {
 	tt := makeTestTime(t)
 
-	lim := NewLimiter(3*d, 3)
+	lim := NewLimiter(3*pointDelay, 3)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	runWait(t, tt, lim, wait{"act-now", ctx, 2, 0, true}) // after this lim.tokens = 1
-	ch, _, _ := tt.newTimer(d)
+	ch, _, _ := tt.newTimer(pointDelay)
 
 	go func() {
 		<-ch
@@ -591,16 +618,16 @@ func TestWaitCancel(t *testing.T) {
 
 	runWait(t, tt, lim, wait{"will-cancel", ctx, 3, 1, false})
 	// should get 3 tokens back, and have lim.tokens = 2
-	t.Logf("tokens:%v last:%v lastEvent:%v", lim.tokens, lim.last, lim.lastEvent)
+	t.Logf("tokens:%v last:%v lastEvent:%v", lim.TokensRaw(), lim.Last(), lim.LastEvent())
 	runWait(t, tt, lim, wait{"act-now-after-cancel", context.Background(), 2, 0, true})
 }
 
 func TestWaitTimeout(t *testing.T) {
 	tt := makeTestTime(t)
 
-	lim := NewLimiter(3*d, 3)
+	lim := NewLimiter(3*pointDelay, 3)
 
-	ctx, cancel := context.WithTimeout(context.Background(), d)
+	ctx, cancel := context.WithTimeout(context.Background(), pointDelay)
 	defer cancel()
 
 	runWait(t, tt, lim, wait{"act-now", ctx, 2, 0, true})
@@ -636,7 +663,9 @@ func BenchmarkWaitNNoDelay(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		lim.WaitN(ctx, 1)
+		if err := lim.WaitN(ctx, 1); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -694,29 +723,31 @@ func TestPenaltyCeiling(t *testing.T) {
 	lim := NewLimiterWithMaxWait(time.Second, 1, maxWait)
 
 	// Making huge overdraft
-	if !lim.SoftAllowN(t0, 1_000_000) {
+	if !lim.SoftAllowN(point0, 1_000_000) {
 		t.Fatal("Overdraft should be allowed when balance is slightly positive")
 	}
 
 	// checking penalty ceiling
 	wantMinTokens := -4.0
-	if got := lim.TokensAt(t0); got != wantMinTokens {
-		t.Errorf("TokensAt() = %v, want %v (Penalty Ceiling not applied via advance)", got, wantMinTokens)
+	if got := lim.TokensAt(point0); got != wantMinTokens {
+		t.Errorf("TokensAt() = %v, want %v (Penalty Ceiling not applied via advance)",
+			got, wantMinTokens,
+		)
 	}
 }
 
 func TestOverdraft(t *testing.T) {
 	lim := NewLimiter(24*time.Hour, 100)
 
-	lim.AllowN(t0, 99)
+	lim.AllowN(point0, 99)
 
 	// overdraft without penalty
-	if !lim.SoftAllowN(t0, 50) {
+	if !lim.SoftAllowN(point0, 50) {
 		t.Error("SoftAllowN(50) should be allowed when balance is 1")
 	}
 
 	// Now balance is negative. Next SoftAllow should be rejected.
-	if lim.SoftAllowN(t0, 1) {
+	if lim.SoftAllowN(point0, 1) {
 		t.Error("SoftAllowN should be rejected when balance is negative")
 	}
 }

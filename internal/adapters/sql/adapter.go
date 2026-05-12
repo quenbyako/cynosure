@@ -29,10 +29,9 @@ type Adapter struct {
 	servers.Servers
 	threads.Threads
 	tools.Tools
-	quotas.Quotas
-
-	pool          *pgxpool.Pool
 	observability ports.ObserveStack
+	pool          *pgxpool.Pool
+	quotas.Quotas
 }
 
 var (
@@ -62,7 +61,8 @@ func WithDefaultPlanID(planID uuid.UUID) NewOption {
 
 func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter, error) {
 	params := newParams{
-		metrics: core.NoopMetrics(),
+		metrics:      core.NoopMetrics(),
+		defaultQuota: quotas.Config{},
 	}
 
 	for _, opt := range opts {

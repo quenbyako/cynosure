@@ -53,30 +53,17 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 }
 
 func New(
-	users identitymanager.Port,
-	agents ports.AgentStorage,
-	accounts ports.AccountStorage,
-	servers ports.ServerStorage,
-	tools ports.ToolStorage,
-	toolClient toolclient.Port,
-	index embedding.Port,
-	limiter ratelimiter.Port,
-	adminMCPID ids.ServerID,
+	users identitymanager.Port, agents ports.AgentStorage, accounts ports.AccountStorage,
+	servers ports.ServerStorage, tools ports.ToolStorage, toolClient toolclient.Port,
+	index embedding.Port, limiter ratelimiter.Port, adminMCPID ids.ServerID,
 	opts ...NewOption,
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
 
 	usecase := &Usecase{
-		users:      users,
-		agents:     agents,
-		accounts:   accounts,
-		servers:    servers,
-		tools:      tools,
-		toolClient: toolClient,
-		index:      index,
-		limiter:    limiter,
-		adminMCPID: adminMCPID,
-		trace:      params.tracer.Tracer(pkgName),
+		users: users, agents: agents, accounts: accounts, servers: servers,
+		tools: tools, toolClient: toolClient, index: index, limiter: limiter,
+		adminMCPID: adminMCPID, trace: params.tracer.Tracer(pkgName),
 	}
 
 	if err := usecase.validate(); err != nil {
@@ -87,6 +74,14 @@ func New(
 }
 
 func (u *Usecase) validate() error {
+	if err := u.validateStorages(); err != nil {
+		return err
+	}
+
+	return u.validateClients()
+}
+
+func (u *Usecase) validateStorages() error {
 	switch {
 	case u.users == nil:
 		return errInternalValidation("user storage is required")
@@ -98,6 +93,13 @@ func (u *Usecase) validate() error {
 		return errInternalValidation("server storage is required")
 	case u.tools == nil:
 		return errInternalValidation("tool storage is required")
+	default:
+		return nil
+	}
+}
+
+func (u *Usecase) validateClients() error {
+	switch {
 	case u.toolClient == nil:
 		return errInternalValidation("tool client is required")
 	case u.index == nil:

@@ -50,4 +50,7 @@ var (
 
 	// ErrTracerProviderNil is returned when tracer provider is nil.
 	ErrTracerProviderNil = errors.New("tracer provider is nil")
+
+	// ErrNoDefaultPlan is returned when no default plan is configured.
+	ErrNoDefaultPlan = errors.New("no default plan configured")
 )

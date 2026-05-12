@@ -39,15 +39,17 @@ func defaultNewParams(required newRequiredParams) newParams {
 }
 
 func (s *newParams) validate() error {
+	if err := s.validateStoragePorts(); err != nil {
+		return err
+	}
+
+	return s.validateLogicPorts()
+}
+
+func (s *newParams) validateStoragePorts() error {
 	switch {
 	case s.storage == nil:
 		return errInternalValidation("storage repository is required")
-	case s.model == nil:
-		return errInternalValidation("chat model is required")
-	case s.tool == nil:
-		return errInternalValidation("tool manager is required")
-	case s.indexer == nil:
-		return errInternalValidation("indexer is required")
 	case s.toolStorage == nil:
 		return errInternalValidation("tool storage is required")
 	case s.server == nil:
@@ -56,6 +58,19 @@ func (s *newParams) validate() error {
 		return errInternalValidation("account storage is required")
 	case s.agents == nil:
 		return errInternalValidation("model settings storage is required")
+	default:
+		return nil
+	}
+}
+
+func (s *newParams) validateLogicPorts() error {
+	switch {
+	case s.model == nil:
+		return errInternalValidation("chat model is required")
+	case s.tool == nil:
+		return errInternalValidation("tool manager is required")
+	case s.indexer == nil:
+		return errInternalValidation("indexer is required")
 	case s.limiter == nil:
 		return errInternalValidation("rate limiter is required")
 	default:

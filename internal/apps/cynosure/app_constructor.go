@@ -168,25 +168,30 @@ func (p *appParams) validateInfra() error {
 	return nil
 }
 
+func checkPolicy(q ratelimit.Policy, name string) error {
+	if q.Period() <= 0 || q.Limit() < 0 {
+		return MissingParamError(name)
+	}
+
+	return nil
+}
+
 func (p *rateParams) validate() error {
-	if p.chatInput.Period() <= 0 || p.chatInput.Limit() <= 0 {
-		return MissingParamError("chat input rate limit")
+	items := []struct {
+		name string
+		q    ratelimit.Policy
+	}{
+		{"chat input rate limit", p.chatInput},
+		{"chat output rate limit", p.chatOutput},
+		{"embedding rate limit", p.embedding},
+		{"chat input global rate limit", p.chatInputGlobal},
+		{"embedding global rate limit", p.embeddingGlobal},
 	}
 
-	if p.chatOutput.Period() <= 0 || p.chatOutput.Limit() <= 0 {
-		return MissingParamError("chat output rate limit")
-	}
-
-	if p.embedding.Period() <= 0 || p.embedding.Limit() <= 0 {
-		return MissingParamError("embedding rate limit")
-	}
-
-	if p.chatInputGlobal.Period() <= 0 || p.chatInputGlobal.Limit() <= 0 {
-		return MissingParamError("chat input global rate limit")
-	}
-
-	if p.embeddingGlobal.Period() <= 0 || p.embeddingGlobal.Limit() <= 0 {
-		return MissingParamError("embedding global rate limit")
+	for _, item := range items {
+		if err := checkPolicy(item.q, item.name); err != nil {
+			return err
+		}
 	}
 
 	if p.maxWait <= 0 {
@@ -408,10 +413,13 @@ func defaultChatParams() chatParams {
 
 func defaultRateParams() rateParams {
 	return rateParams{
-		chatInput:     ratelimit.Policy{},
-		chatOutput:    ratelimit.Policy{},
-		embedding:     ratelimit.Policy{},
-		defaultPlanID: uuid.Nil,
+		chatInput:       ratelimit.Policy{},
+		chatOutput:      ratelimit.Policy{},
+		embedding:       ratelimit.Policy{},
+		chatInputGlobal: ratelimit.Policy{},
+		embeddingGlobal: ratelimit.Policy{},
+		maxWait:         0,
+		defaultPlanID:   uuid.Nil,
 	}
 }
 
@@ -427,6 +435,7 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 	}
 
 	app, err := buildApp(ctx, &params)
+
 	return app, err
 }
 

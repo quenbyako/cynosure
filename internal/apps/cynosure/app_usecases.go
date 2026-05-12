@@ -29,45 +29,30 @@ func newChatUsecase(
 	models constructor[ports.AgentStorage],
 	limiter constructor[ratelimiter.PortWrapped],
 ) (*chat.Usecase, error) {
-	limiterPort, err := limiter.Build(ctx)
+	dps, err := buildChatPorts(ctx, account, server, models, toolStorage, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildChat(ctx, params, model, tool, indexer, limiter, dps)
+}
+
+func buildChat(
+	ctx context.Context,
+	params *appParams,
+	model chatmodel.PortWrapped,
+	tool toolclient.PortWrapped,
+	indexer embedding.PortWrapped,
+	limiter constructor[ratelimiter.PortWrapped],
+	dps chatPorts,
+) (*chat.Usecase, error) {
+	lim, err := limiter.Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build limiter port: %w", err)
 	}
-	accountsPort, err := account.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build accounts port: %w", err)
-	}
-
-	serversPort, err := server.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build servers port: %w", err)
-	}
-
-	modelsPort, err := models.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build models port: %w", err)
-	}
-
-	toolStoragePort, err := toolStorage.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build tool storage port: %w", err)
-	}
-
-	storagePort, err := storage.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build storage port: %w", err)
-	}
 
 	usecase, err := chat.New(
-		storagePort,
-		model,
-		tool,
-		indexer,
-		toolStoragePort,
-		serversPort,
-		accountsPort,
-		modelsPort,
-		limiterPort,
+		dps.thread, model, tool, indexer, dps.tools, dps.server, dps.account, dps.agents, lim,
 		chat.WithObservability(params.observability),
 		chat.WithChatLimit(params.chat.historyLimit),
 	)
@@ -76,6 +61,35 @@ func newChatUsecase(
 	}
 
 	return usecase, nil
+}
+
+type chatPorts struct {
+	account ports.AccountStorage
+	server  ports.ServerStorage
+	agents  ports.AgentStorage
+	tools   ports.ToolStorage
+	thread  ports.ThreadStorageWrapped
+}
+
+func buildChatPorts(
+	ctx context.Context,
+	account constructor[ports.AccountStorage],
+	server constructor[ports.ServerStorage],
+	models constructor[ports.AgentStorage],
+	toolStorage constructor[ports.ToolStorage],
+	storage constructor[ports.ThreadStorageWrapped],
+) (chatPorts, error) {
+	accs, err1 := account.Build(ctx)
+	srvs, err2 := server.Build(ctx)
+	ags, err3 := models.Build(ctx)
+	tStr, err4 := toolStorage.Build(ctx)
+	str, err5 := storage.Build(ctx)
+
+	if err := firstErr(err1, err2, err3, err4, err5); err != nil {
+		return chatPorts{}, err
+	}
+
+	return chatPorts{account: accs, server: srvs, agents: ags, tools: tStr, thread: str}, nil
 }
 
 func newAccountsUsecase(
@@ -91,35 +105,33 @@ func newAccountsUsecase(
 	identities identitymanager.PortWrapped,
 	limiter constructor[ratelimiter.PortWrapped],
 ) (*accounts.Usecase, error) {
-	limiterPort, err := limiter.Build(ctx)
+	dps, err := buildAccountsPorts(ctx, servers, accountsStorage, tools)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildAccounts(ctx, params, lifecycle, oauth, index, toolClient, identities, limiter, dps)
+}
+
+func buildAccounts(
+	ctx context.Context,
+	params *appParams,
+	lifecycle *lifecycle,
+	oauth oauthhandler.PortWrapped,
+	index embedding.PortWrapped,
+	toolClient toolclient.PortWrapped,
+	identities identitymanager.PortWrapped,
+	limiter constructor[ratelimiter.PortWrapped],
+	dps accountsPorts,
+) (*accounts.Usecase, error) {
+	lim, err := limiter.Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build limiter port: %w", err)
 	}
 
-	serversPort, err := servers.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build servers port: %w", err)
-	}
-
-	accountsPort, err := accountsStorage.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build accounts port: %w", err)
-	}
-
-	toolsPort, err := tools.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build tools port: %w", err)
-	}
-
 	usecase, err := accounts.New(
-		serversPort,
-		oauth,
-		accountsPort,
-		toolsPort,
-		index,
-		toolClient,
-		identities,
-		limiterPort,
+		dps.server, oauth, dps.account, dps.tools, index, toolClient,
+		identities, lim,
 		accounts.WithOAuthRedirectURL(params.ory.callback),
 		accounts.WithTracerProvider(params.observability),
 	)
@@ -130,6 +142,29 @@ func newAccountsUsecase(
 	lifecycle.schedule(usecase.Run)
 
 	return usecase, nil
+}
+
+type accountsPorts struct {
+	server  ports.ServerStorage
+	account ports.AccountStorage
+	tools   ports.ToolStorage
+}
+
+func buildAccountsPorts(
+	ctx context.Context,
+	servers constructor[ports.ServerStorage],
+	accountsStorage constructor[ports.AccountStorage],
+	tools constructor[ports.ToolStorage],
+) (accountsPorts, error) {
+	srvs, err1 := servers.Build(ctx)
+	accs, err2 := accountsStorage.Build(ctx)
+	tStr, err3 := tools.Build(ctx)
+
+	if err := firstErr(err1, err2, err3); err != nil {
+		return accountsPorts{}, err
+	}
+
+	return accountsPorts{server: srvs, account: accs, tools: tStr}, nil
 }
 
 func newUsersUsecase(
@@ -144,40 +179,31 @@ func newUsersUsecase(
 	index embedding.PortWrapped,
 	limiter constructor[ratelimiter.PortWrapped],
 ) (*users.Usecase, error) {
-	limiterPort, err := limiter.Build(ctx)
+	dps, err := buildUsersPorts(ctx, agents, accStorage, servers, tools)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildUsers(ctx, params, identities, toolClient, index, limiter, dps)
+}
+
+func buildUsers(
+	ctx context.Context,
+	params *appParams,
+	identities identitymanager.PortWrapped,
+	toolClient toolclient.PortWrapped,
+	index embedding.PortWrapped,
+	limiter constructor[ratelimiter.PortWrapped],
+	dps usersPorts,
+) (*users.Usecase, error) {
+	lim, err := limiter.Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build limiter port: %w", err)
 	}
 
-	agentsPort, err := agents.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build agents port: %w", err)
-	}
-
-	accPort, err := accStorage.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build accounts port: %w", err)
-	}
-
-	serversPort, err := servers.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build servers port: %w", err)
-	}
-
-	toolsPort, err := tools.Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build tools port: %w", err)
-	}
-
 	usecase, err := users.New(
-		identities,
-		agentsPort,
-		accPort,
-		serversPort,
-		toolsPort,
-		toolClient,
-		index,
-		limiterPort,
+		identities, dps.agents, dps.account, dps.server,
+		dps.tools, toolClient, index, lim,
 		params.adminMCPID,
 		users.WithTracerProvider(params.observability),
 	)
@@ -186,4 +212,40 @@ func newUsersUsecase(
 	}
 
 	return usecase, nil
+}
+
+type usersPorts struct {
+	agents  ports.AgentStorage
+	account ports.AccountStorage
+	server  ports.ServerStorage
+	tools   ports.ToolStorage
+}
+
+func buildUsersPorts(
+	ctx context.Context,
+	agents constructor[ports.AgentStorage],
+	accStorage constructor[ports.AccountStorage],
+	servers constructor[ports.ServerStorage],
+	tools constructor[ports.ToolStorage],
+) (usersPorts, error) {
+	ags, err1 := agents.Build(ctx)
+	accs, err2 := accStorage.Build(ctx)
+	srvs, err3 := servers.Build(ctx)
+	tStr, err4 := tools.Build(ctx)
+
+	if err := firstErr(err1, err2, err3, err4); err != nil {
+		return usersPorts{}, err
+	}
+
+	return usersPorts{agents: ags, account: accs, server: srvs, tools: tStr}, nil
+}
+
+func firstErr(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

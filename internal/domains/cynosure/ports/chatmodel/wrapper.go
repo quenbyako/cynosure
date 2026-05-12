@@ -2,6 +2,7 @@ package chatmodel
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -82,5 +83,9 @@ func (w *iterWrapped) Close() (UsageStats, error) {
 	w.span.setUsage(usage)
 	w.span.end()
 
-	return usage, err
+	if err != nil {
+		return usage, fmt.Errorf("closing iterator: %w", err)
+	}
+
+	return usage, nil
 }

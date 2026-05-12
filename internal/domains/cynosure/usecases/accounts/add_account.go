@@ -53,8 +53,6 @@ func (r AddAccountResponseOK) AuthAvailable() bool      { return r.authAvailable
 //
 // This is special case: if user was just created, there must be created a new
 // MCP admin account for user.
-//
-//nolint:ireturn // ReadOnly interface is intentional for domain boundary
 func (s *Usecase) AddAccountByID(
 	ctx context.Context,
 	userID ids.UserID,
@@ -79,7 +77,6 @@ func (s *Usecase) AddAccountByID(
 	return s.AddAccount(ctx, userID, server.SSELink(), accName, accDescription)
 }
 
-//nolint:ireturn // ReadOnly interface is intentional for domain boundary
 func (s *Usecase) AddAccount(
 	ctx context.Context,
 	userID ids.UserID,
@@ -146,7 +143,6 @@ func (s *Usecase) handleLookupError(
 	return server, nil
 }
 
-//nolint:ireturn // ReadOnly interface is intentional for domain boundary
 func (s *Usecase) addAnonymousAccount(
 	ctx context.Context,
 	server entities.ServerConfigReadOnly,
@@ -175,7 +171,6 @@ func (s *Usecase) addAnonymousAccount(
 	return AddAccountResponseOK{account: account.ID(), authAvailable: false}, nil
 }
 
-//nolint:ireturn // Response interface is intentional
 func (s *Usecase) initiateOAuthFlow(
 	ctx context.Context,
 	userID ids.UserID,
@@ -221,7 +216,6 @@ func (s *Usecase) checkUserExistence(ctx context.Context, userID ids.UserID) err
 	return nil
 }
 
-//nolint:ireturn // Response interface is intentional
 func (s *Usecase) createOAuthAuthResponse(
 	account ids.AccountID,
 	name, description string,

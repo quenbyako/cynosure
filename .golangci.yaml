@@ -312,10 +312,10 @@ linters:
         # option pattern
         - "Option$"
         # internal domain ports
-        - ".+/internal/domains/cynosure/ports\\.ObserveStack$"
-        - ".+/internal/domains/cynosure/ports/.*\\.Port(Read|Write|Wrapped)?$"
-        - ".+/internal/domains/cynosure/ports\\..+$"
-        - ".+/internal/domains/cynosure/primitives/messages\\.Message$"
+        - ".+/internal/domains/cynosure/ports.*$"
+        - ".+/internal/adapters/.*\\.span$"
+        - ".+/internal/domains/cynosure/primitives.*$"
+        - ".+/internal/domains/cynosure/usecases.*$"
         - "golang\\.org/x/oauth2\\.TokenSource"
 
         # bug in linter: for some reason it always report that any function
@@ -331,7 +331,7 @@ linters:
     govet:
       enable-all: true
     staticcheck:
-      checks: [ "all" ]
+      checks: ["all"]
     mnd:
       ignored-files:
         - ".*_test\\.go"

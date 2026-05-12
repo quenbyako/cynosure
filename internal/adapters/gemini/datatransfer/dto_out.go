@@ -44,7 +44,9 @@ func MessagesToGenAIContent(msgs []messages.Message) ([]*genai.Content, error) {
 	return pushContent(res, &current), nil
 }
 
-func convertUserMsg(res []*genai.Content, current *genai.Content, msg messages.MessageUser) []*genai.Content {
+func convertUserMsg(
+	res []*genai.Content, current *genai.Content, msg messages.MessageUser,
+) []*genai.Content {
 	if current.Role == genai.RoleModel {
 		res = pushContent(res, current)
 	}
@@ -56,7 +58,9 @@ func convertUserMsg(res []*genai.Content, current *genai.Content, msg messages.M
 	return res
 }
 
-func convertAssistantMsg(res []*genai.Content, current *genai.Content, msg messages.MessageAssistant) []*genai.Content {
+func convertAssistantMsg(
+	res []*genai.Content, current *genai.Content, msg messages.MessageAssistant,
+) []*genai.Content {
 	if current.Role == genai.RoleUser {
 		res = pushContent(res, current)
 	}
@@ -110,7 +114,10 @@ func assistantContentPart(text string) *genai.Part {
 	}
 }
 
-func convertToolReqMsg(res []*genai.Content, current *genai.Content, toolCalls set.Set[string], msg messages.MessageToolRequest) ([]*genai.Content, error) {
+func convertToolReqMsg(
+	res []*genai.Content, current *genai.Content, toolCalls set.Set[string],
+	msg messages.MessageToolRequest,
+) ([]*genai.Content, error) {
 	if toolCalls.Has(msg.ToolCallID()) {
 		return nil, fmt.Errorf("%w: %s", ErrDuplicatedToolCallID, msg.ToolCallID())
 	}
@@ -151,7 +158,10 @@ func buildToolCallPart(msg messages.MessageToolRequest) *genai.Part {
 	return part
 }
 
-func convertToolRespMsg(res []*genai.Content, current *genai.Content, toolCalls set.Set[string], msg messages.MessageToolResponse) ([]*genai.Content, error) {
+func convertToolRespMsg(
+	res []*genai.Content, current *genai.Content, toolCalls set.Set[string],
+	msg messages.MessageToolResponse,
+) ([]*genai.Content, error) {
 	if !toolCalls.Has(msg.ToolCallID()) {
 		return nil, ErrOrphanedToolResp
 	}
@@ -174,7 +184,10 @@ func convertToolRespMsg(res []*genai.Content, current *genai.Content, toolCalls 
 	return res, nil
 }
 
-func convertToolErrorMsg(res []*genai.Content, current *genai.Content, toolCalls set.Set[string], msg messages.MessageToolError) ([]*genai.Content, error) {
+func convertToolErrorMsg(
+	res []*genai.Content, current *genai.Content, toolCalls set.Set[string],
+	msg messages.MessageToolError,
+) ([]*genai.Content, error) {
 	if !toolCalls.Has(msg.ToolCallID()) {
 		return nil, ErrOrphanedToolResp
 	}

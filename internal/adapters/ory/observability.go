@@ -32,7 +32,7 @@ type span interface {
 
 // Returns internal interface; wrapper ensures End() is called eventually.
 //
-//nolint:ireturn,spancheck
+//nolint:spancheck
 func (o *observable) initiateAuth(ctx context.Context, name string) (context.Context, span) {
 	ctx, s := o.tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal))
 
@@ -41,7 +41,7 @@ func (o *observable) initiateAuth(ctx context.Context, name string) (context.Con
 
 // Returns internal interface; wrapper ensures End() is called eventually.
 //
-//nolint:ireturn,spancheck
+//nolint:spancheck
 func (o *observable) step(ctx context.Context, name string) (context.Context, span) {
 	ctx, s := o.tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal))
 

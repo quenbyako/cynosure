@@ -124,36 +124,20 @@ func New(
 }
 
 func newUsecase(
-	servers ports.ServerStorage,
-	authHandler oauthhandler.Port,
-	accounts ports.AccountStorage,
-	tools ports.ToolStorage,
-	index embedding.Port,
-	toolClient toolclient.Port,
-	users identitymanager.Port,
-	limiter ratelimiter.Port,
-	params *newParams,
+	servers ports.ServerStorage, authHandler oauthhandler.Port, accounts ports.AccountStorage,
+	tools ports.ToolStorage, index embedding.Port, toolClient toolclient.Port,
+	users identitymanager.Port, limiter ratelimiter.Port, params *newParams,
 ) *Usecase {
 	usecase := &Usecase{
-		toolClient: toolClient,
-		pool:       nil, // initialized below
-		oauth:      authHandler,
-		servers:    servers,
-		accounts:   accounts,
-		tools:      tools,
-		index:      index,
-		limiter:    limiter,
-		users:      users,
-		clock:      time.Now,
-		log:        NoOpLogCallbacks{},
-
-		oauthRedirectURL: params.oauthRedirectURL,
-		oauthClientName:  params.clientName,
-		key:              params.fixedKey,
-		stateExpiration:  params.stateExpiration,
-
+		toolClient: toolClient, oauth: authHandler, servers: servers,
+		accounts: accounts, tools: tools, index: index, limiter: limiter,
+		users: users, clock: time.Now, log: NoOpLogCallbacks{},
+		oauthRedirectURL: params.oauthRedirectURL, oauthClientName: params.clientName,
+		key: params.fixedKey, stateExpiration: params.stateExpiration,
 		trace: params.tracer.Tracer(pkgName),
+		pool:  nil, // set below
 	}
+
 	usecase.pool = taskpool.New(discoveryPoolWorkers, usecase.runDiscoveryTask)
 
 	return usecase
@@ -192,39 +176,41 @@ func (s *Usecase) validate() error {
 }
 
 func (s *Usecase) validatePorts() error {
-	if s.toolClient == nil {
-		return ErrInternalValidation("tool registry is required")
+	if err := s.validateStoragePorts(); err != nil {
+		return err
 	}
 
-	if s.servers == nil {
+	return s.validateLogicPorts()
+}
+
+func (s *Usecase) validateStoragePorts() error {
+	switch {
+	case s.servers == nil:
 		return ErrInternalValidation("server storage is required")
-	}
-
-	if s.oauth == nil {
-		return ErrInternalValidation("OAuth handler is required")
-	}
-
-	if s.accounts == nil {
+	case s.accounts == nil:
 		return ErrInternalValidation("account storage is required")
-	}
-
-	if s.tools == nil {
+	case s.tools == nil:
 		return ErrInternalValidation("tool storage is required")
-	}
-
-	if s.index == nil {
-		return ErrInternalValidation("tool semantic index is required")
-	}
-
-	if s.limiter == nil {
-		return ErrInternalValidation("rate limiter is required")
-	}
-
-	if s.users == nil {
+	case s.users == nil:
 		return ErrInternalValidation("user storage is required")
+	default:
+		return nil
 	}
+}
 
-	return nil
+func (s *Usecase) validateLogicPorts() error {
+	switch {
+	case s.toolClient == nil:
+		return ErrInternalValidation("tool registry is required")
+	case s.oauth == nil:
+		return ErrInternalValidation("OAuth handler is required")
+	case s.index == nil:
+		return ErrInternalValidation("tool semantic index is required")
+	case s.limiter == nil:
+		return ErrInternalValidation("rate limiter is required")
+	default:
+		return nil
+	}
 }
 
 func (s *Usecase) validateConfig() error {

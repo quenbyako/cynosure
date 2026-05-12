@@ -39,8 +39,10 @@ func newUserEntry(
 	return &userEntry{
 		inputChatTokens:  rate.NewLimiterWithMaxWait(inputTokensEvery, inputTokensBurst, maxWait),
 		outputChatTokens: rate.NewLimiterWithMaxWait(outputTokensEvery, outputTokensBurst, maxWait),
-		embeddingTokens:  rate.NewLimiterWithMaxWait(embeddingTokensEvery, embeddingTokensBurst, maxWait),
-		lastSeen:         atomic.Int64{},
+		embeddingTokens: rate.NewLimiterWithMaxWait(
+			embeddingTokensEvery, embeddingTokensBurst, maxWait,
+		),
+		lastSeen: atomic.Int64{},
 	}
 }
 

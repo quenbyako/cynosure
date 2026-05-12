@@ -34,8 +34,14 @@ func TestMessagesToGenAIContent(t *testing.T) {
 		msgs: []messages.Message{
 			must(messages.NewMessageUser("What is the weather?")),
 			must(messages.NewMessageAssistant("Checking...")),
-			must(messages.NewMessageToolRequest(map[string]json.RawMessage{"loc": []byte(`"London"`)}, "get_weather", "call_1")),
-			must(messages.NewMessageToolResponse([]byte(`{"temp": 20}`), "get_weather", "call_1")),
+			must(messages.NewMessageToolRequest(
+				map[string]json.RawMessage{"loc": []byte(`"London"`)},
+				"get_weather", "call_1",
+			)),
+			must(messages.NewMessageToolResponse(
+				[]byte(`{"temp": 20}`),
+				"get_weather", "call_1",
+			)),
 		},
 		want: []*genai.Content{{
 			Role:  genai.RoleUser,
@@ -68,8 +74,14 @@ func TestMessagesToGenAIContent(t *testing.T) {
 		name: "multiple tool calls in one model turn",
 		msgs: []messages.Message{
 			must(messages.NewMessageUser("Get weather in London and Paris")),
-			must(messages.NewMessageToolRequest(map[string]json.RawMessage{"loc": []byte(`"London"`)}, "get_weather", "call_1")),
-			must(messages.NewMessageToolRequest(map[string]json.RawMessage{"loc": []byte(`"Paris"`)}, "get_weather", "call_2")),
+			must(messages.NewMessageToolRequest(
+				map[string]json.RawMessage{"loc": []byte(`"London"`)},
+				"get_weather", "call_1",
+			)),
+			must(messages.NewMessageToolRequest(
+				map[string]json.RawMessage{"loc": []byte(`"Paris"`)},
+				"get_weather", "call_2",
+			)),
 		},
 		want: []*genai.Content{{
 			Role:  genai.RoleUser,

@@ -28,7 +28,12 @@ local new_level = math.max(0, level - leaked)
 -- Check if we can allow this request
 local retry_after = 0
 if new_level + amount > capacity then
-    retry_after = math.ceil((new_level + amount - capacity) / leak_rate)
+    if leak_rate > 0 then
+        retry_after = math.ceil((new_level + amount - capacity) / leak_rate)
+    else
+        -- TODO: handle it properly, it's a dirty hack
+        retry_after = 1000000 * 3600 * 1000 -- ~115 days
+    end
 end
 
 if not force and max_wait >= 0 then
@@ -51,8 +56,12 @@ redis.call("SET", level_key, new_level)
 redis.call("SET", last_leak_key, now)
 
 -- TTL: enough time to fully drain the bucket (plus a safety hour)
-local debt = math.max(0, new_level - capacity)
-local expire = math.floor((capacity + debt) / leak_rate / 1000) + 3600
+-- TODO: dirty hack, need to handle it properly
+local expire = 3600
+if leak_rate > 0 then
+    local debt = math.max(0, new_level - capacity)
+    expire = math.floor((capacity + debt) / leak_rate / 1000) + 3600
+end
 redis.call("EXPIRE", level_key, expire)
 redis.call("EXPIRE", last_leak_key, expire)
 

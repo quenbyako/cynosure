@@ -2,6 +2,7 @@ package cynosure
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -21,7 +22,12 @@ func newRateLimiter(
 }
 
 func rateLimiter[T ratelimiter.PortFactory](t T) (ratelimiter.PortWrapped, error) {
-	return t.RateLimiter()
+	res, err := t.RateLimiter()
+	if err != nil {
+		return nil, fmt.Errorf("getting rate limiter: %w", err)
+	}
+
+	return res, nil
 }
 
 func newAgentStorage(

@@ -28,7 +28,7 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) hasUser(
 	ctx context.Context, userID string,
 ) (context.Context, span) {
@@ -42,7 +42,7 @@ func (o *observable) hasUser(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck,ireturn // isolated in a wrapper
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) lookupUser(
 	ctx context.Context, telegramID string,
 ) (context.Context, span) {
@@ -56,7 +56,7 @@ func (o *observable) lookupUser(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) createUser(
 	ctx context.Context, telegramID, nickname, firstName, lastName string,
 ) (context.Context, span) {
@@ -73,7 +73,7 @@ func (o *observable) createUser(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) issueToken(
 	ctx context.Context, userID string,
 ) (context.Context, span) {

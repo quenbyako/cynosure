@@ -27,7 +27,6 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-//nolint:ireturn // it's a factory function
 func (o *observable) indexTool(
 	ctx context.Context,
 ) (context.Context, span) {
@@ -40,7 +39,6 @@ func (o *observable) indexTool(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:ireturn // it's a factory function
 func (o *observable) buildToolEmbedding(
 	ctx context.Context,
 ) (context.Context, span) {

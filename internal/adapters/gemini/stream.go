@@ -38,6 +38,14 @@ func (g *GeminiModel) StreamWithStats(
 		return nil, fmt.Errorf("failed to build genAI config: %w", err)
 	}
 
+	return g.executeStream(ctx, genConfig, &params)
+}
+
+func (g *GeminiModel) executeStream(
+	ctx context.Context,
+	genConfig *genai.GenerateContentConfig,
+	params streamParamsProxy,
+) (chatmodel.Iter, error) {
 	g.log.GeminiStreamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
 
 	converted, err := datatransfer.MessagesToGenAIContent(params.Input())
@@ -45,46 +53,81 @@ func (g *GeminiModel) StreamWithStats(
 		return nil, fmt.Errorf("failed to convert messages: %w", err)
 	}
 
-	// custom context to prevent too long wait for rate limiter
-	limiterCtx, cancel := context.WithTimeoutCause(ctx, maxLimiterWait, chatmodel.ErrHardQuotaExhausted)
-	defer cancel()
-
-	// TODO: use local counting, since we may have a big latency due to http
-	// calls.
-	tokens, err := g.client.Models.CountTokens(ctx, settings.Model(), converted, &genai.CountTokensConfig{
-		HTTPOptions:       nil,
-		SystemInstruction: genConfig.SystemInstruction,
-		Tools:             genConfig.Tools,
-		GenerationConfig:  nil,
-	})
+	totalTokens, err := g.countAndCheckTokens(
+		ctx, params.Settings().Model(), converted, genConfig, params,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("token counting failed: %w", err)
+		return nil, err
 	}
 
-	if err := params.PreflightCheck()(ctx, settings.Model(), int(tokens.TotalTokens)); err != nil {
-		return nil, err // Abort request if rate limit exceeded
-	}
+	stream := g.client.Models.GenerateContentStream(
+		ctx, params.Settings().Model(), converted, genConfig,
+	)
 
-	if err := g.chatInputLimiter.WaitN(limiterCtx, int(tokens.TotalTokens)); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(context.Cause(limiterCtx), context.Canceled) {
-			return nil, err //nolint:wrapcheck // returning context cancellation as is
-		}
+	session := g.newStreamSession(params)
 
-		return nil, chatmodel.ErrHardQuotaExhausted
-	}
+	return NewIterCloser(
+		stream,
+		session.Map,
+		session.Collect(ctx, params.Settings().Model(), uint32(max(0, totalTokens))),
+	), nil
+}
 
-	stream := g.client.Models.GenerateContentStream(ctx, params.Settings().Model(), converted, genConfig)
-
-	session := &geminiStreamSession{
+func (g *GeminiModel) newStreamSession(params streamParamsProxy) *geminiStreamSession {
+	return &geminiStreamSession{
+		g:         g,
+		startTime: time.Now(),
 		thought:   "",
 		metadata:  nil,
 		tag:       randomUint64(),
 		agentID:   params.Settings().ID(),
-		startTime: time.Now(),
-		g:         g,
+	}
+}
+
+func (g *GeminiModel) countAndCheckTokens(
+	ctx context.Context,
+	model string,
+	input []*genai.Content,
+	genConfig *genai.GenerateContentConfig,
+	params streamParamsProxy,
+) (int32, error) {
+	tokens, err := g.client.Models.CountTokens(
+		ctx, model, input, &genai.CountTokensConfig{
+			SystemInstruction: genConfig.SystemInstruction,
+			Tools:             genConfig.Tools,
+			HTTPOptions:       nil,
+			GenerationConfig:  nil,
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("token counting failed: %w", err)
 	}
 
-	return NewIterCloser(stream, session.Map, session.Collect(ctx, params.Settings().Model(), uint32(tokens.TotalTokens))), nil
+	if err := params.PreflightCheck()(ctx, model, int(tokens.TotalTokens)); err != nil {
+		return 0, err
+	}
+
+	return tokens.TotalTokens, g.waitInputLimit(ctx, int(tokens.TotalTokens))
+}
+
+func (g *GeminiModel) waitInputLimit(ctx context.Context, numTokens int) error {
+	cause := chatmodel.ErrHardQuotaExhausted
+	limCtx, cancel := context.WithTimeoutCause(ctx, maxLimiterWait, cause)
+
+	defer cancel()
+
+	if err := g.chatInputLimiter.WaitN(limCtx, numTokens); err != nil {
+		isCanceled := errors.Is(err, context.Canceled) ||
+			errors.Is(context.Cause(limCtx), context.Canceled)
+
+		if isCanceled {
+			return err //nolint:wrapcheck
+		}
+
+		return chatmodel.ErrHardQuotaExhausted
+	}
+
+	return nil
 }
 
 type geminiStreamSession struct {
@@ -110,20 +153,24 @@ func (s *geminiStreamSession) Map(msg *genai.GenerateContentResponse) ([]message
 	return res, nil
 }
 
-func (s *geminiStreamSession) Collect(ctx context.Context, model string, wantInputTokens uint32) func(chatmodel.UsageStats, *genai.GenerateContentResponse) chatmodel.UsageStats {
-	return func(u chatmodel.UsageStats, msg *genai.GenerateContentResponse) chatmodel.UsageStats {
+func (s *geminiStreamSession) Collect(
+	ctx context.Context, model string, wantInputTokens uint32,
+) func(chatmodel.UsageStats, *genai.GenerateContentResponse) chatmodel.UsageStats {
+	return func(
+		usage chatmodel.UsageStats, msg *genai.GenerateContentResponse,
+	) chatmodel.UsageStats {
 		if msg.UsageMetadata != nil {
-			u.InputTokens = uint32(max(0, msg.UsageMetadata.PromptTokenCount))
-			u.OutputTokens = uint32(max(0, msg.UsageMetadata.CandidatesTokenCount))
+			usage.InputTokens = uint32(max(0, msg.UsageMetadata.PromptTokenCount))
+			usage.OutputTokens = uint32(max(0, msg.UsageMetadata.CandidatesTokenCount))
 
-			if u.InputTokens != wantInputTokens {
-				s.g.log.TokenCountMismatch(ctx, model, wantInputTokens, u.InputTokens)
+			if usage.InputTokens != wantInputTokens {
+				s.g.log.TokenCountMismatch(ctx, model, wantInputTokens, usage.InputTokens)
 			}
 		}
 
-		u.Duration = time.Since(s.startTime)
+		usage.Duration = time.Since(s.startTime)
 
-		return u
+		return usage
 	}
 }
 
@@ -191,6 +238,8 @@ func toolConfig(mode genai.FunctionCallingConfigMode) *genai.ToolConfig {
 }
 
 type streamParamsProxy interface {
+	Input() []messages.Message
+	Settings() entities.AgentReadOnly
 	Toolbox() tools.Toolbox
 	ToolChoice() tools.ToolChoice
 	PreflightCheck() chatmodel.PreflightFunc

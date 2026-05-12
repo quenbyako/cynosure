@@ -158,7 +158,9 @@ func (t TestLogCallbacks) GeminiStreamStarted(ctx context.Context, model string,
 	t.t.Logf("Gemini stream started for model %s with %d tools", model, toolCount)
 }
 
-func (t TestLogCallbacks) TokenCountMismatch(ctx context.Context, model string, expected, got uint32) {
+func (t TestLogCallbacks) TokenCountMismatch(
+	ctx context.Context, model string, expected, got uint32,
+) {
 	t.t.Helper()
 	t.t.Logf("Token count mismatch for model %s: expected %d, got %d", model, expected, got)
 }
