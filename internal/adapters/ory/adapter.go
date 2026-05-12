@@ -8,34 +8,37 @@ import (
 	"net/url"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/ory-openapi/gen/go/ory"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const (
 	pkgName = "github.com/quenbyako/cynosure/internal/adapters/ory"
+
+	tgIDCacheSize = 1000
 )
 
 type Adapter struct {
+	transport    http.RoundTripper
+	observeStack ports.ObserveStack
 	// For IssueToken
-	config    *injectedConfig
-	transport http.RoundTripper
-	trace     ports.ObserveStack
-	obs       *observable
-	api       *ory.ClientWithResponses
-	baseURL   string
-	adminKey  string
+	config      *injectedConfig
+	obs         *observable
+	api         *ory.ClientWithResponses
+	userIDCache *lru.Cache[string, ids.UserID]
 }
 
 var _ identitymanager.PortFactory = (*Adapter)(nil)
 
 // IdentityManager returns the identity manager port.
 func (a *Adapter) IdentityManager() identitymanager.PortWrapped {
-	return identitymanager.Wrap(a, a.trace)
+	return identitymanager.Wrap(a, a.observeStack)
 }
 
 type newParams struct {
@@ -97,48 +100,62 @@ func New(endpoint *url.URL, adminKey string, opts ...NewOption) (*Adapter, error
 		return nil, fmt.Errorf("new oauth config: %w", err)
 	}
 
-	client := &Adapter{
-		baseURL:   endpoint.String(),
-		adminKey:  adminKey,
-		config:    config,
-		transport: params.transport,
-		obs:       newObservable(ports.StackFromCore(params.metrics, pkgName)),
-		trace:     ports.StackFromCore(params.metrics, pkgName),
-		api:       nil,
+	cache, err := lru.New[string, ids.UserID](tgIDCacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("new lru cache: %w", err)
 	}
 
-	if err := client.initAPI(); err != nil {
+	api, err := newAPI(endpoint.String(), adminKey, params.transport)
+	if err != nil {
 		return nil, fmt.Errorf("init api: %w", err)
 	}
 
-	if !client.Valid() {
-		return nil, fmt.Errorf("%w: invalid state", ErrInternal)
-	}
+	observeStack := ports.StackFromCore(params.metrics, pkgName)
 
-	return client, nil
+	return buildAdapter(params, config, cache, api, observeStack)
 }
 
-func (a *Adapter) initAPI() error {
+func buildAdapter(
+	params newParams,
+	oauthConfig *injectedConfig,
+	cache *lru.Cache[string, ids.UserID],
+	api *ory.ClientWithResponses,
+	observeStack ports.ObserveStack,
+) (*Adapter, error) {
+	adapter := &Adapter{
+		config:       oauthConfig,
+		transport:    params.transport,
+		obs:          newObservable(observeStack),
+		observeStack: observeStack,
+		api:          api,
+		userIDCache:  cache,
+	}
+	if err := adapter.validate(); err != nil {
+		return nil, fmt.Errorf("failed to create adapter: %w", err)
+	}
+
+	return adapter, nil
+}
+
+func newAPI(baseURL, apiKey string, transport http.RoundTripper) (*ory.ClientWithResponses, error) {
 	apiClient, err := ory.NewClientWithResponses(
-		a.baseURL,
+		baseURL,
 		ory.WithHTTPClient(&http.Client{
-			Transport:     a.transport,
+			Transport:     transport,
 			CheckRedirect: nil,
 			Jar:           nil,
 			Timeout:       time.Minute, // TODO: configurable timeout for client?
 		}),
 		ory.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
-			req.Header.Set("Authorization", "Bearer "+a.adminKey)
+			req.Header.Set("Authorization", "Bearer "+apiKey)
 			return nil
 		}),
 	)
 	if err != nil {
-		return fmt.Errorf("creating ory api client: %w", err)
+		return nil, fmt.Errorf("creating ory api client: %w", err)
 	}
 
-	a.api = apiClient
-
-	return nil
+	return apiClient, nil
 }
 
 func newOauthConfig(
@@ -174,14 +191,6 @@ func newOauthConfig(
 func (a *Adapter) Valid() bool { return a != nil && a.validate() == nil }
 
 func (a *Adapter) validate() error {
-	if a.baseURL == "" {
-		return ErrBaseURLRequired
-	}
-
-	if a.adminKey == "" {
-		return ErrAdminKeyRequired
-	}
-
 	return nil
 }
 

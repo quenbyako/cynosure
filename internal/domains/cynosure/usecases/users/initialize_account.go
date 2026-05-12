@@ -106,7 +106,7 @@ func (u *Usecase) ensureAdminAccountValid(
 		return nil, fmt.Errorf("getting admin account: %w", err)
 	}
 
-	if acc.Token() != nil && acc.Token().Expiry.After(time.Now().Add(time.Minute)) {
+	if !acc.TokenValid(time.Now()) {
 		return acc, nil
 	}
 

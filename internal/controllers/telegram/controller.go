@@ -12,6 +12,7 @@ import (
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"go.opentelemetry.io/otel/trace"
 	noopTrace "go.opentelemetry.io/otel/trace/noop"
+	"golang.org/x/time/rate"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/users"
@@ -22,6 +23,8 @@ const (
 
 	defaultUpdateInterval = 2 * time.Second
 	defaultMaxWorkers     = 10
+	defaultGlobalBurst    = 10
+	defaultGlobalRate     = 30
 )
 
 type Handler struct {
@@ -109,12 +112,12 @@ func newHandler(
 	client *botapi.ClientWithResponses, params *newParams,
 ) *Handler {
 	handler := Handler{
-		log:            params.log,
-		tracer:         params.tracer.Tracer(pkgName),
 		srv:            chatUsecase,
 		users:          usersUsecase,
 		client:         client,
 		updateInterval: params.updateInterval,
+		log:            params.log,
+		tracer:         params.tracer.Tracer(pkgName),
 		pool:           nil,
 	}
 
@@ -149,9 +152,15 @@ func wrapWebhookHandler(inner botapi.WebhookInterface, secret string) http.Handl
 }
 
 func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, error) {
+	limiter := rate.NewLimiter(rate.Limit(defaultGlobalRate), defaultGlobalBurst)
+	transport := &rateLimitedTransport{
+		base:    params.client,
+		limiter: limiter,
+	}
+
 	client, err := botapi.NewClientWithResponses("https://api.telegram.org/bot"+string(token),
 		botapi.WithHTTPClient(&http.Client{
-			Transport:     params.client,
+			Transport:     transport,
 			CheckRedirect: nil,
 			Jar:           nil,
 			Timeout:       time.Minute,
@@ -162,6 +171,21 @@ func newClient(token []byte, params *newParams) (*botapi.ClientWithResponses, er
 	}
 
 	return client, nil
+}
+
+type rateLimitedTransport struct {
+	base    http.RoundTripper
+	limiter *rate.Limiter
+}
+
+func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := t.limiter.Wait(req.Context()); err != nil {
+		//nolint:wrapcheck // implementing RoundTripper
+		return nil, err
+	}
+
+	//nolint:wrapcheck // implementing RoundTripper
+	return t.base.RoundTrip(req)
 }
 
 func setWebhook(

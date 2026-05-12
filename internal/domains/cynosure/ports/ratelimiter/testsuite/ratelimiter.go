@@ -258,6 +258,7 @@ func (s *godogState) spendInput(
 		if errors.As(err, &rlErr) {
 			return nil
 		}
+
 		return fmt.Errorf("spend input: %w", err)
 	}
 

@@ -322,7 +322,8 @@ func (u *Usecase) askModel(
 ) ([]messages.MessageToolRequest, chatmodel.UsageStats, bool) {
 	stream, err := u.callModel(ctx, thread, config, toolChoice, preflight)
 	if err != nil {
-		u.handleModelError(ctx, thread, err, yield)
+		yield(nil, fmt.Errorf("model stream error: %w", err))
+
 		return nil, chatmodel.UsageStats{}, false
 	}
 
@@ -357,31 +358,6 @@ func (u *Usecase) callModel(
 	}
 
 	return resp, nil
-}
-
-func (u *Usecase) handleModelError(
-	ctx context.Context,
-	thread *chat.Chat,
-	err error,
-	yield func(messages.Message, error) bool,
-) {
-	errorMsg, msgErr := messages.NewMessageAssistant(
-		fmt.Sprintf(
-			"I apologize, but I encountered a technical error while processing your request: %v",
-			err,
-		),
-	)
-	if msgErr != nil {
-		yield(nil, fmt.Errorf("creating error message: %w", msgErr))
-		return
-	}
-
-	if acceptErr := thread.AcceptAssistantMessage(ctx, errorMsg); acceptErr != nil {
-		yield(nil, fmt.Errorf("saving error message: %w", acceptErr))
-		return
-	}
-
-	yield(errorMsg, err)
 }
 
 func (u *Usecase) streamModelMessages(

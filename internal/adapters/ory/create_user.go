@@ -31,7 +31,12 @@ func (a *Adapter) CreateUser(
 		return ids.UserID{}, fmt.Errorf("invalid telegram id: %w", err)
 	}
 
-	return a.createUser(ctx, telegramID, username, firstName, lastName)
+	userID, err := a.createUser(ctx, telegramID, username, firstName, lastName)
+	if err == nil {
+		a.userIDCache.Add(externalID, userID)
+	}
+
+	return userID, err
 }
 
 func (a *Adapter) createUser(

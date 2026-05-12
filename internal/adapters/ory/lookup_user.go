@@ -20,12 +20,21 @@ const (
 
 // LookupUser looks up a user in Ory Kratos by their external ID.
 func (a *Adapter) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
+	if userID, found := a.userIDCache.Get(externalID); found {
+		return userID, nil
+	}
+
 	resp, err := a.listIdentitiesByIdentifier(ctx, externalID)
 	if err != nil {
 		return ids.UserID{}, err
 	}
 
-	return a.processLookupResponse(resp)
+	userID, err := a.processLookupResponse(resp)
+	if err == nil {
+		a.userIDCache.Add(externalID, userID)
+	}
+
+	return userID, err
 }
 
 func (a *Adapter) listIdentitiesByIdentifier(
