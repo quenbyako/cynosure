@@ -3,6 +3,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE SCHEMA IF NOT EXISTS agents;
 
+DO $$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'cynosure') THEN
+      CREATE ROLE cynosure;
+   END IF;
+END
+$$;
+
 -- =============================================================================
 -- TABLES
 -- =============================================================================
@@ -224,8 +232,6 @@ ALTER TABLE agents.messages_tool_result ADD CONSTRAINT fk_message_tool_result_re
 -- =============================================================================
 -- PERMISSIONS
 -- =============================================================================
-
-CREATE ROLE cynosure;
 
 GRANT INSERT, DELETE, SELECT, UPDATE ON TABLE agents.threads TO cynosure;
 GRANT INSERT, DELETE, SELECT, UPDATE ON TABLE agents.mcp_servers TO cynosure;

@@ -46,3 +46,5 @@ CREATE VIEW agents.user_quotas AS
 GRANT INSERT, DELETE, SELECT, UPDATE ON TABLE agents.plans TO cynosure;
 GRANT INSERT, DELETE, SELECT, UPDATE ON TABLE agents.user_plans TO cynosure;
 GRANT INSERT, DELETE, SELECT, UPDATE ON TABLE agents.rate_limit_buckets TO cynosure;
+
+GRANT SELECT ON TABLE agents.user_quotas TO cynosure;
