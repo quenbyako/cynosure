@@ -29,6 +29,10 @@ type Handler struct {
 
 var _ a2a.A2AServiceServer = (*Handler)(nil)
 
+const (
+	toolKey = "tool"
+)
+
 func Register(srv *chat.Usecase, anonUser ids.UserID) func(server grpc.ServiceRegistrar) {
 	handler := &Handler{
 		UnsafeA2AServiceServer: nil,
@@ -263,8 +267,8 @@ func toolRequestParts(msg messages.MessageToolRequest) ([]*a2a.Part, error) {
 			Data: &a2a.DataPart{
 				Data: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						"tool": structpb.NewStringValue(msg.ToolName()),
-						"args": args,
+						toolKey: structpb.NewStringValue(msg.ToolName()),
+						"args":  args,
 					},
 				},
 			},
@@ -288,7 +292,7 @@ func toolResponseParts(msg messages.MessageToolResponse) ([]*a2a.Part, error) {
 			Data: &a2a.DataPart{
 				Data: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						"tool":    structpb.NewStringValue(msg.ToolName()),
+						toolKey:   structpb.NewStringValue(msg.ToolName()),
 						"content": content,
 					},
 				},

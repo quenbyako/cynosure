@@ -1,9 +1,16 @@
 package entities
 
 import (
+	"time"
+
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+)
+
+const (
+	allowTokenExpiryZero   = true
+	minimalValidExpiryTime = 1 * time.Minute
 )
 
 // Account represents an OAuth2 account with associated MCP server. It holds
@@ -85,6 +92,19 @@ func (c *Account) ID() ids.AccountID    { return c.id }
 func (c *Account) Token() *oauth2.Token { return c.token }
 func (c *Account) Name() string         { return c.name }
 func (c *Account) Description() string  { return c.description }
+
+func (c *Account) Expiry() time.Time {
+	if c.token == nil { // accounts MAY be anonymous, that's okay
+		return time.Time{}
+	}
+
+	return c.token.Expiry
+}
+
+func (c *Account) TokenValid(now time.Time) bool {
+	return c.token != nil &&
+		(!allowTokenExpiryZero || c.token.Expiry.After(now.Add(minimalValidExpiryTime)))
+}
 
 // WRITE
 

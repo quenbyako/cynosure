@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/genai"
@@ -129,7 +130,7 @@ func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientCo
 			},
 			CheckRedirect: nil,
 			Jar:           nil,
-			Timeout:       0,
+			Timeout:       time.Minute,
 		},
 		HTTPOptions: genai.HTTPOptions{
 			BaseURL:               "",

@@ -274,6 +274,7 @@ func (m *MockServer) setupOAuthRoutes(mux *http.ServeMux, authPath, tokenPath st
 
 		m.authCodes.Store(code, "mock_token_"+state)
 
+		//nolint:gosec // this is a mock server, and here ssrf attack is actually intended
 		http.Redirect(w, r, redirectURI+"?code="+code+"&state="+state, http.StatusFound)
 	})
 

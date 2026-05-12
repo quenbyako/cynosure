@@ -295,7 +295,6 @@ func buildJwksRequest(ctx context.Context, issuerDomain string) (*http.Request, 
 
 	endpoint := fmt.Sprintf("https://%s/.well-known/jwks.json", issuerDomain)
 
-	//nolint:gosec // false positive, domain is allowlisted through allowedIssuers map.
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating jwks request: %w", err)

@@ -16,6 +16,8 @@ import (
 )
 
 func (h *Handler) identifyUser(ctx context.Context, msg *botapi.Message) (ids.UserID, error) {
+	tgIDStr := strconv.Itoa(msg.From.Id)
+
 	var nickname, firstName, lastName string
 	if msg.From.Username != nil {
 		nickname = *msg.From.Username
@@ -26,7 +28,7 @@ func (h *Handler) identifyUser(ctx context.Context, msg *botapi.Message) (ids.Us
 		lastName = *msg.From.LastName
 	}
 
-	userID, err := h.users.EnsureUser(ctx, strconv.Itoa(msg.From.Id), nickname, firstName, lastName)
+	userID, err := h.users.EnsureUser(ctx, tgIDStr, nickname, firstName, lastName)
 	if err != nil {
 		return ids.UserID{}, fmt.Errorf("looking up user by telegram id: %w", err)
 	}
@@ -142,17 +144,14 @@ func (h *Handler) upsertTelegramMessage(
 func (h *Handler) updateTelegramMessage(
 	ctx context.Context, chatID, _, msgID int, text string,
 ) (sentMessageID int, err error) {
-	_, err = h.client.EditMessageTextWithResponse(ctx, botapi.EditMessageTextJSONRequestBody{
-		ChatId:               &chatID,
-		MessageId:            &msgID,
-		Text:                 text,
-		BusinessConnectionId: nil,
-		Entities:             nil,
-		InlineMessageId:      nil,
-		LinkPreviewOptions:   nil,
-		ParseMode:            nil,
-		ReplyMarkup:          nil,
-	})
+	//nolint:exhaustruct // too many optional fields.
+	params := botapi.EditMessageTextJSONRequestBody{
+		ChatId:    &chatID,
+		MessageId: &msgID,
+		Text:      text,
+	}
+
+	_, err = h.client.EditMessageTextWithResponse(ctx, params)
 	if err != nil {
 		return 0, fmt.Errorf("edit message: %w", err)
 	}
@@ -169,11 +168,13 @@ func (h *Handler) createTelegramMessage(
 	}
 
 	//nolint:exhaustruct // too many optional fields.
-	resp, err := h.client.SendMessageWithResponse(ctx, botapi.SendMessageJSONRequestBody{
+	params := botapi.SendMessageJSONRequestBody{
 		ChatId:          chatID,
 		Text:            text,
 		MessageThreadId: thread,
-	})
+	}
+
+	resp, err := h.client.SendMessageWithResponse(ctx, params)
 	if err != nil {
 		return 0, fmt.Errorf("send message: %w", err)
 	}

@@ -8,6 +8,16 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/mcp/rfc9110"
 )
 
+const (
+	realmKey   = "realm"
+	realmValue = "example"
+
+	schemeBearer = "bearer"
+	schemeBasic  = "basic"
+	paramError   = "error"
+	testInvalid  = "invalid"
+)
+
 func TestParseWWWAuthenticate(t *testing.T) {
 	t.Parallel()
 
@@ -30,8 +40,8 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		name:   "single challenge with params",
 		header: `Bearer realm="example"`,
 		want: []rfc9110.AuthChallenge{{
-			Params: map[string]string{"realm": "example"},
-			Scheme: "bearer",
+			Params: map[string]string{realmKey: realmValue},
+			Scheme: schemeBearer,
 			Data:   "",
 		}},
 		valid: true,
@@ -40,15 +50,15 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `Newauth realm="apps", type=1, title="Login to \"apps\"", Basic realm="simple"`,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{
-				"realm": "apps",
-				"type":  "1",
-				"title": `Login to "apps"`,
+				realmKey: "apps",
+				"type":   "1",
+				"title":  `Login to "apps"`,
 			},
 			Scheme: "newauth",
 			Data:   "",
 		}, {
-			Params: map[string]string{"realm": "simple"},
-			Scheme: "basic",
+			Params: map[string]string{realmKey: "simple"},
+			Scheme: schemeBasic,
 			Data:   "",
 		}},
 		valid: true,
@@ -57,7 +67,7 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `Basic ZXhhbXBsZXRva2Vu`,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{},
-			Scheme: "basic",
+			Scheme: schemeBasic,
 			Data:   "ZXhhbXBsZXRva2Vu",
 		}},
 		valid: true,
@@ -66,10 +76,10 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `  Bearer   realm  =  "example"  ,  error = "invalid"  `,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{
-				"realm": "example",
-				"error": "invalid",
+				realmKey:   realmValue,
+				paramError: testInvalid,
 			},
-			Scheme: "bearer",
+			Scheme: schemeBearer,
 			Data:   "",
 		}},
 		valid: true,
@@ -78,10 +88,10 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `Bearer realm=example, error=invalid_token`,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{
-				"realm": "example",
-				"error": "invalid_token",
+				realmKey:   realmValue,
+				paramError: "invalid_token",
 			},
-			Scheme: "bearer",
+			Scheme: schemeBearer,
 			Data:   "",
 		}},
 		valid: true,
@@ -89,12 +99,12 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		name:   "multiple empty elements",
 		header: `Bearer realm="a", , , , Basic`,
 		want: []rfc9110.AuthChallenge{{
-			Params: map[string]string{"realm": "a"},
-			Scheme: "bearer",
+			Params: map[string]string{realmKey: "a"},
+			Scheme: schemeBearer,
 			Data:   "",
 		}, {
 			Params: map[string]string{},
-			Scheme: "basic",
+			Scheme: schemeBasic,
 			Data:   "",
 		}},
 		valid: true,
@@ -103,10 +113,10 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `Bearer  realm = "a" , error = invalid `,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{
-				"realm": "a",
-				"error": "invalid",
+				realmKey:   "a",
+				paramError: testInvalid,
 			},
-			Scheme: "bearer",
+			Scheme: schemeBearer,
 			Data:   "",
 		}},
 		valid: true,
@@ -115,10 +125,10 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `BEARER REALM="example", Error=invalid`,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{
-				"realm": "example",
-				"error": "invalid",
+				realmKey:   realmValue,
+				paramError: testInvalid,
 			},
-			Scheme: "bearer",
+			Scheme: schemeBearer,
 			Data:   "",
 		}},
 		valid: true,
@@ -127,10 +137,10 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		header: `BEARER REALM="example", Error="INVALID"`,
 		want: []rfc9110.AuthChallenge{{
 			Params: map[string]string{
-				"realm": "example",
-				"error": "INVALID",
+				realmKey:   realmValue,
+				paramError: "INVALID",
 			},
-			Scheme: "bearer",
+			Scheme: schemeBearer,
 			Data:   "",
 		}},
 		valid: true,
@@ -138,12 +148,12 @@ func TestParseWWWAuthenticate(t *testing.T) {
 		name:   "multiple same scheme",
 		header: `Basic realm="a", Basic realm="b"`,
 		want: []rfc9110.AuthChallenge{{
-			Params: map[string]string{"realm": "a"},
-			Scheme: "basic",
+			Params: map[string]string{realmKey: "a"},
+			Scheme: schemeBasic,
 			Data:   "",
 		}, {
-			Params: map[string]string{"realm": "b"},
-			Scheme: "basic",
+			Params: map[string]string{realmKey: "b"},
+			Scheme: schemeBasic,
 			Data:   "",
 		}},
 		valid: true,

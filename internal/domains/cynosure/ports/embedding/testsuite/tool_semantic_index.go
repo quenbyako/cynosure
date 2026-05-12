@@ -16,6 +16,8 @@ import (
 
 const (
 	embeddingSize = 1536
+
+	locationKey = "location"
 )
 
 type ToolSemanticIndexTestSuite struct {
@@ -144,7 +146,7 @@ func toolInteractionTestCases(t *testing.T) []toolEmbeddingTestCase {
 			must[messages.Message](t)(messages.NewMessageUser("What's the weather in New York?")),
 			must[messages.Message](t)(messages.NewMessageAssistant("Let me check that for you.")),
 			must[messages.Message](t)(messages.NewMessageToolRequest(
-				map[string]json.RawMessage{"location": json.RawMessage(`"New York"`)},
+				map[string]json.RawMessage{locationKey: json.RawMessage(`"New York"`)},
 				"get_weather", "call_123",
 			)),
 			must[messages.Message](t)(messages.NewMessageToolResponse(
@@ -163,7 +165,7 @@ func errorTestCases(t *testing.T) []toolEmbeddingTestCase {
 		messages: []messages.Message{
 			must[messages.Message](t)(messages.NewMessageUser("Get weather")),
 			must[messages.Message](t)(messages.NewMessageToolRequest(
-				map[string]json.RawMessage{"location": json.RawMessage(`"Invalid"`)},
+				map[string]json.RawMessage{locationKey: json.RawMessage(`"Invalid"`)},
 				"get_weather", "call_456",
 			)),
 			must[messages.Message](t)(messages.NewMessageToolError(
@@ -182,7 +184,7 @@ func multiToolTestCases(t *testing.T) []toolEmbeddingTestCase {
 		messages: []messages.Message{
 			must[messages.Message](t)(messages.NewMessageUser("Get weather and time")),
 			must[messages.Message](t)(messages.NewMessageToolRequest(
-				map[string]json.RawMessage{"location": json.RawMessage(`"NYC"`)},
+				map[string]json.RawMessage{locationKey: json.RawMessage(`"NYC"`)},
 				"get_weather", "call_1",
 			)),
 			must[messages.Message](t)(messages.NewMessageToolRequest(

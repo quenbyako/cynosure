@@ -56,7 +56,7 @@ func toolRequestMessage(msg messages.MessageToolRequest) (*a2a.Message, error) {
 			},
 		}},
 		Metadata: &structpb.Struct{Fields: map[string]*structpb.Value{
-			"tool":   structpb.NewStringValue(msg.ToolName()),
+			toolKey:  structpb.NewStringValue(msg.ToolName()),
 			"reason": structpb.NewStringValue("Invoking tool"),
 		}},
 		MessageId:  "",
@@ -89,7 +89,7 @@ func toolResponseMessage(msg messages.MessageToolResponse) (*a2a.Message, error)
 			},
 		}},
 		Metadata: &structpb.Struct{Fields: map[string]*structpb.Value{
-			"tool":   structpb.NewStringValue(msg.ToolName()),
+			toolKey:  structpb.NewStringValue(msg.ToolName()),
 			"reason": structpb.NewStringValue("Invoking tool"),
 		}},
 		MessageId:  "",

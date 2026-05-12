@@ -91,12 +91,17 @@ func (g *GeminiModel) countAndCheckTokens(
 	genConfig *genai.GenerateContentConfig,
 	params streamParamsProxy,
 ) (int32, error) {
+	content := getCountTokensContent(genConfig.SystemInstruction, input)
+
 	tokens, err := g.client.Models.CountTokens(
-		ctx, model, input, &genai.CountTokensConfig{
-			SystemInstruction: genConfig.SystemInstruction,
-			Tools:             genConfig.Tools,
-			HTTPOptions:       nil,
-			GenerationConfig:  nil,
+		ctx, model, content, &genai.CountTokensConfig{
+			// NOTE: for some silly reason, SystemInstruction is not supported
+			// as field. Instead, we have to pass it in contents array.
+			SystemInstruction: nil,
+			// Tools are not supported in CountTokens for Gemini API too.
+			Tools:            nil,
+			HTTPOptions:      nil,
+			GenerationConfig: nil,
 		},
 	)
 	if err != nil {
@@ -108,6 +113,20 @@ func (g *GeminiModel) countAndCheckTokens(
 	}
 
 	return tokens.TotalTokens, g.waitInputLimit(ctx, int(tokens.TotalTokens))
+}
+
+func getCountTokensContent(systemMessage *genai.Content, input []*genai.Content) []*genai.Content {
+	if systemMessage == nil || len(systemMessage.Parts) == 0 {
+		return input
+	}
+
+	sysInstr := &genai.Content{
+		Parts: systemMessage.Parts,
+		// unlike GenerateContent, CountTokens does not treat empty role as system.
+		Role: genai.RoleUser,
+	}
+
+	return append([]*genai.Content{sysInstr}, input...)
 }
 
 func (g *GeminiModel) waitInputLimit(ctx context.Context, numTokens int) error {

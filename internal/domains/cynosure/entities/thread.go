@@ -122,7 +122,6 @@ func (c *Thread) Messages(limit uint) []messages.Message {
 		return slices.Clone(c.messages)
 	}
 
-	//nolint:gosec // safe conversion after length check
 	window := c.messages[len(c.messages)-int(limit):]
 	result := filterIncompletePairs(slices.Clone(window))
 

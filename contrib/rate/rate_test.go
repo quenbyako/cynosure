@@ -517,6 +517,10 @@ func TestReserveMax(t *testing.T) {
 	runReserveMax(t, lim, request{point0, 1, point2, false}, maxT)
 }
 
+const (
+	waitActNow = "act-now"
+)
+
 type wait struct {
 	name string
 	//nolint:containedctx // used for tests
@@ -598,7 +602,7 @@ func TestWaitSimple(t *testing.T) {
 
 	runWait(t, tt, lim, wait{"exceed-burst-error", context.Background(), 4, 0, false})
 
-	runWait(t, tt, lim, wait{"act-now", context.Background(), 2, 0, true})
+	runWait(t, tt, lim, wait{waitActNow, context.Background(), 2, 0, true})
 	runWait(t, tt, lim, wait{"act-later", context.Background(), 3, 2, true})
 }
 
@@ -608,7 +612,7 @@ func TestWaitCancel(t *testing.T) {
 	lim := NewLimiter(3*pointDelay, 3)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	runWait(t, tt, lim, wait{"act-now", ctx, 2, 0, true}) // after this lim.tokens = 1
+	runWait(t, tt, lim, wait{waitActNow, ctx, 2, 0, true}) // after this lim.tokens = 1
 	ch, _, _ := tt.newTimer(pointDelay)
 
 	go func() {
@@ -630,7 +634,7 @@ func TestWaitTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), pointDelay)
 	defer cancel()
 
-	runWait(t, tt, lim, wait{"act-now", ctx, 2, 0, true})
+	runWait(t, tt, lim, wait{waitActNow, ctx, 2, 0, true})
 	runWait(t, tt, lim, wait{"w-timeout-err", ctx, 3, 0, false})
 }
 

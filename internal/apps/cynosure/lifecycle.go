@@ -132,7 +132,7 @@ func (l *lifecycle) setupTasks(
 	tasks := make([]taskState, count)
 	for i := range count {
 		tasks[i].done = make(chan struct{})
-		//nolint:gosec,fatcontext // see teardown
+		//nolint:fatcontext // see teardown
 		tasks[i].ctx, tasks[i].cancel = context.WithCancel(context.WithoutCancel(ctx))
 	}
 
