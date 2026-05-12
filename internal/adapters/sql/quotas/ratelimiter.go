@@ -100,7 +100,7 @@ func (q Quotas) atomicConsume(
 		if err := q.lockedConsume(
 			ctx, queries, user, typ, quota, amounts[i], maxWait, false, strict,
 		); err != nil {
-			return handleConsumeError(ctx, transaction, err)
+			return err
 		}
 	}
 
@@ -109,14 +109,6 @@ func (q Quotas) atomicConsume(
 	}
 
 	return nil
-}
-
-func handleConsumeError(ctx context.Context, transaction pgx.Tx, err error) error {
-	if errors.As(err, new(*ratelimiter.RateLimitExceededError)) {
-		_ = transaction.Commit(ctx) //nolint:errcheck
-	}
-
-	return err
 }
 
 // ConsumeEmbeddingRequests consumes embedding quota for the given user.
