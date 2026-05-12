@@ -12,6 +12,12 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+const (
+	maxHTMLErrorBodyLength    = 100
+	maxJSONErrorBodyLength    = 200
+	maxDefaultErrorBodyLength = 150
+)
+
 // LookupUser looks up a user in Ory Kratos by their external ID.
 func (a *Adapter) LookupUser(ctx context.Context, externalID string) (ids.UserID, error) {
 	resp, err := a.listIdentitiesByIdentifier(ctx, externalID)
@@ -77,29 +83,23 @@ func formatErrorBody(resp *http.Response, body []byte) string {
 		contentType = resp.Header.Get("Content-Type")
 	}
 
-	s := string(body)
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", "")
-	s = strings.TrimSpace(s)
+	bodyStr := strings.ReplaceAll(string(body), "\n", " ")
+	bodyStr = strings.ReplaceAll(bodyStr, "\r", "")
 
 	switch {
 	case strings.Contains(contentType, "text/html"):
-		if len(s) > 100 {
-			return fmt.Sprintf("(html): %s...", s[:100])
-		}
-
-		return "(html): " + s
+		return "(html): " + truncateBody(bodyStr, maxHTMLErrorBodyLength)
 	case strings.Contains(contentType, "application/json"):
-		if len(s) > 200 {
-			return fmt.Sprintf("(json): %s...", s[:200])
-		}
-
-		return "(json): " + s
+		return "(json): " + truncateBody(bodyStr, maxJSONErrorBodyLength)
 	default:
-		if len(s) > 150 {
-			return s[:150] + "..."
-		}
-
-		return s
+		return truncateBody(bodyStr, maxDefaultErrorBodyLength)
 	}
+}
+
+func truncateBody(s string, maxLen int) string {
+	if len(s) > maxLen {
+		return s[:maxLen] + "..."
+	}
+
+	return s
 }

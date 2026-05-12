@@ -5,6 +5,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 )
@@ -19,7 +20,7 @@ type Usecase struct {
 	storage          ports.ThreadStorage
 	model            chatmodel.Port
 	tools            toolclient.Port
-	indexer          ports.ToolSemanticIndex
+	indexer          embedding.Port
 	toolStorage      ports.ToolStorage
 	servers          ports.ServerStorage
 	accounts         ports.AccountStorage
@@ -38,15 +39,17 @@ func defaultNewParams(required newRequiredParams) newParams {
 }
 
 func (s *newParams) validate() error {
+	if err := s.validateStoragePorts(); err != nil {
+		return err
+	}
+
+	return s.validateLogicPorts()
+}
+
+func (s *newParams) validateStoragePorts() error {
 	switch {
 	case s.storage == nil:
 		return errInternalValidation("storage repository is required")
-	case s.model == nil:
-		return errInternalValidation("chat model is required")
-	case s.tool == nil:
-		return errInternalValidation("tool manager is required")
-	case s.indexer == nil:
-		return errInternalValidation("indexer is required")
 	case s.toolStorage == nil:
 		return errInternalValidation("tool storage is required")
 	case s.server == nil:
@@ -55,6 +58,19 @@ func (s *newParams) validate() error {
 		return errInternalValidation("account storage is required")
 	case s.agents == nil:
 		return errInternalValidation("model settings storage is required")
+	default:
+		return nil
+	}
+}
+
+func (s *newParams) validateLogicPorts() error {
+	switch {
+	case s.model == nil:
+		return errInternalValidation("chat model is required")
+	case s.tool == nil:
+		return errInternalValidation("tool manager is required")
+	case s.indexer == nil:
+		return errInternalValidation("indexer is required")
 	case s.limiter == nil:
 		return errInternalValidation("rate limiter is required")
 	default:
@@ -71,7 +87,7 @@ func New(
 	storage ports.ThreadStorage,
 	model chatmodel.Port,
 	tool toolclient.Port,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,
@@ -80,7 +96,16 @@ func New(
 	opts ...NewOption,
 ) (*Usecase, error) {
 	params, err := buildNewParams(
-		storage, model, tool, indexer, toolStorage, server, account, agents, limiter, opts...,
+		storage,
+		model,
+		tool,
+		indexer,
+		toolStorage,
+		server,
+		account,
+		agents,
+		limiter,
+		opts...,
 	)
 	if err != nil {
 		return nil, err

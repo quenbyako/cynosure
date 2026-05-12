@@ -51,10 +51,6 @@ type ThreadStorageFactory interface {
 	ThreadStorage() ThreadStorageWrapped
 }
 
-func NewThreadStorage(factory ThreadStorageFactory) ThreadStorageWrapped {
-	return factory.ThreadStorage()
-}
-
 type ThreadStorageWrapped interface {
 	ThreadStorage
 

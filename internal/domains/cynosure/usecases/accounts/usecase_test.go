@@ -11,7 +11,7 @@ func TestAddAccount(t *testing.T) {
 	// be added, or url link will be created.
 	t.Skip("unimplemented")
 
-	if _, err := New(nil, nil, nil, nil, nil, nil, nil); err != nil {
+	if _, err := New(nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
 		t.Logf("expected error in test: %v", err)
 	}
 }

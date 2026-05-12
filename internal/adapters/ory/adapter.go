@@ -185,7 +185,6 @@ func (a *Adapter) validate() error {
 	return nil
 }
 
-//nolint:ireturn
 func (a *Adapter) initiateAuth(ctx context.Context, name string) (context.Context, span) {
 	return a.obs.initiateAuth(ctx, name)
 }

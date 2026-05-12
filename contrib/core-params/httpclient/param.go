@@ -170,10 +170,10 @@ func (h *httpClientWrapper) buildTransport(
 ) http.RoundTripper {
 	var transport http.RoundTripper = base
 
-	if h.rateLimit.Burst() > 0 && h.rateLimit.Limit() > 0 {
+	if h.rateLimit.Period() > 0 && h.rateLimit.Limit() > 0 {
 		transport = NewRateLimitTransport(
 			transport,
-			rate.NewLimiter(h.rateLimit.Limit(), h.rateLimit.Burst()),
+			rate.NewLimiter(h.rateLimit.Rate(), h.rateLimit.Limit()),
 		)
 	}
 

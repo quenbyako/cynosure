@@ -30,12 +30,34 @@ jobs:
       fail-fast: false
       matrix:
         module: ${{ fromJson(needs.discover.outputs.modules) }}
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: sqlc
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          go-version-file: "go.mod"
+          token: ${{ github.token }}
           cache: true
+          cache-dependency-path: 'go.sum'
+      - name: Create dummy secrets for CI
+        run: |
+          mkdir -p internal/adapters/ory
+          touch internal/adapters/ory/ory.secret
+          mkdir -p internal/adapters/gemini
+          touch internal/adapters/gemini/.gemini.secret
       - name: Generate
         run: go generate ./...
         working-directory: ${{ matrix.module }}

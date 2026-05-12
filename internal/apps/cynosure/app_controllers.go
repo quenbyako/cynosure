@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	mcpraw "github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 
 	"github.com/quenbyako/cynosure/internal/controllers/admin"
@@ -17,27 +16,17 @@ import (
 	"github.com/quenbyako/cynosure/internal/logs"
 )
 
-var mcpImpl = mcpraw.Implementation{
-	Name:       "admin-mcp-server",
-	Title:      "Admin MCP Server",
-	Version:    "1.0.0",
-	WebsiteURL: "https://t.me/zhopakotabot",
-	Icons:      nil,
-}
-
 type (
 	adminControllerWireBind    struct{}
 	oauthControllerWireBind    struct{}
-	telegramControllerWireBind struct {
-		runFunc func(context.Context) error
-	}
-	mcpControllerWireBind struct{}
+	telegramControllerWireBind struct{}
+	mcpControllerWireBind      struct{}
 )
 
 func bindAdminController(
 	params *appParams,
 	usecase *accounts.Usecase,
-) adminControllerWireBind {
+) adminControllerWireBind { //nolint:unparam // wire bind
 	admin.Register(usecase)(params.grpcAddr)
 
 	return adminControllerWireBind{}
@@ -46,7 +35,7 @@ func bindAdminController(
 func bindOAuthController(
 	params *appParams,
 	usecase *accounts.Usecase,
-) oauthControllerWireBind {
+) oauthControllerWireBind { //nolint:unparam // wire bind
 	params.httpAddr(oauth.NewHandler(usecase))
 
 	return oauthControllerWireBind{}
@@ -55,10 +44,11 @@ func bindOAuthController(
 func bindTelegramController(
 	ctx context.Context,
 	params *appParams,
+	lifecycle *lifecycle,
 	log *logs.BaseLogger,
 	chatUsecase *chat.Usecase,
 	usersUsecase *users.Usecase,
-) (telegramControllerWireBind, error) {
+) (telegramControllerWireBind, error) { //nolint:unparam // wire bind
 	telegramKey, err := params.telegram.key.Get(ctx)
 	if err != nil {
 		return telegramControllerWireBind{}, fmt.Errorf("getting telegram key: %w", err)
@@ -79,16 +69,15 @@ func bindTelegramController(
 	}
 
 	params.telegram.register(handler)
+	lifecycle.schedule(job)
 
-	return telegramControllerWireBind{
-		runFunc: job,
-	}, nil
+	return telegramControllerWireBind{}, nil
 }
 
 func bindMCPController(
 	params *appParams,
 	usecase *accounts.Usecase,
-) (mcpControllerWireBind, error) {
+) (mcpControllerWireBind, error) { //nolint:unparam // wire bind
 	handler, err := mcp.New(
 		usecase,
 		mcpImpl,

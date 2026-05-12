@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"iter"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -53,32 +50,12 @@ func (u *Usecase) GenerateResponse(
 		return nil, err
 	}
 
-	allow, err := u.allowLimits(ctx, threadID.User())
-	if err != nil {
-		return nil, err
-	} else if !allow {
-		return u.yieldRateLimitError(err)
-	}
-
 	chatAgg, modelConfig, err := u.getAgentWithChat(ctx, threadID, params.model, msg)
 	if err != nil {
 		return nil, fmt.Errorf("getting model: %w", err)
 	}
 
 	return u.agentLoop(ctx, chatAgg, modelConfig, params.toolChoice), nil
-}
-
-func (u *Usecase) allowLimits(ctx context.Context, id ids.UserID) (bool, error) {
-	err := u.limiter.Consume(ctx, id, 1)
-	if err == nil {
-		return true, nil
-	}
-
-	if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
-		return false, nil
-	}
-
-	return false, fmt.Errorf("checking rate limit: %w", err)
 }
 
 func (u *Usecase) getAgentWithChat(
@@ -152,25 +129,41 @@ func (u *Usecase) loadOrCreateChat(
 	msg messages.MessageUser,
 ) (*chat.Chat, error) {
 	agg, err := chat.New(ctx,
-		u.storage, u.indexer, u.toolStorage, u.accounts,
+		u.storage,
+		u.indexer,
+		u.toolStorage, u.accounts,
+		u.limiter,
 		id, u.defaultChatLimit,
 	)
-	switch {
-	case errors.Is(err, ports.ErrNotFound):
-		agg, err = chat.CreateChatAggregate(
-			ctx, u.storage, u.indexer, u.toolStorage, u.accounts,
-			id, []messages.Message{msg},
-			u.defaultChatLimit,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("creating chat: %w", err)
-		}
-	case err != nil:
+
+	if errors.Is(err, ports.ErrNotFound) {
+		return u.createChat(ctx, id, msg)
+	}
+
+	if err != nil {
 		return nil, fmt.Errorf("loading chat: %w", err)
-	default:
-		if err = agg.AcceptUserMessage(ctx, msg); err != nil {
-			return nil, fmt.Errorf("adding user message: %w", err)
-		}
+	}
+
+	if err = agg.AcceptUserMessage(ctx, msg); err != nil {
+		return nil, fmt.Errorf("adding user message: %w", err)
+	}
+
+	return agg, nil
+}
+
+func (u *Usecase) createChat(
+	ctx context.Context, id ids.ThreadID, msg messages.MessageUser,
+) (*chat.Chat, error) {
+	agg, err := chat.CreateChatAggregate(
+		ctx, u.storage,
+		u.indexer,
+		u.toolStorage, u.accounts,
+		u.limiter,
+		id, []messages.Message{msg},
+		u.defaultChatLimit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating chat: %w", err)
 	}
 
 	return agg, nil
@@ -186,52 +179,117 @@ func (u *Usecase) agentLoop(
 		loopCtx, span := u.obs.agentLoop(ctx)
 		defer span.end()
 
-		var totalUsage chatmodel.UsageStats
+		usage := u.executeAgentLoop(loopCtx, thread, config, toolChoice, yield)
 
-		for turn := range u.agentLoopTurns {
-			usage, next := u.agentTurn(loopCtx, thread, config, toolChoice, turn, yield)
-
-			totalUsage = chatmodel.UsageStats{
-				InputTokens:  usage.InputTokens + totalUsage.InputTokens,
-				OutputTokens: usage.OutputTokens + totalUsage.OutputTokens,
-				Duration:     usage.Duration + totalUsage.Duration,
-			}
-
-			if !next {
-				break
-			}
-		}
-
-		span.recordTotalUsage(totalUsage.InputTokens, totalUsage.OutputTokens)
+		span.recordTotalUsage(usage.InputTokens, usage.OutputTokens)
 	}
 }
 
-func (u *Usecase) agentTurn(
+func (u *Usecase) executeAgentLoop(
+	ctx context.Context,
+	thread *chat.Chat,
+	config entities.AgentReadOnly,
+	toolChoice tools.ToolChoice,
+	yield func(messages.Message, error) bool,
+) (usage chatmodel.UsageStats) {
+	totalUsage := chatmodel.UsageStats{}
+
+	for turn := range u.agentLoopTurns {
+		usage, next, err := u.executeAgentTurn(
+			ctx, thread, config, toolChoice, turn, yield,
+		)
+
+		totalUsage = u.accumulateUsage(totalUsage, usage)
+
+		if err != nil || !next {
+			break
+		}
+	}
+
+	return totalUsage
+}
+
+func (u *Usecase) executeAgentTurn(
 	ctx context.Context,
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 	turn uint8,
 	yield func(messages.Message, error) bool,
-) (chatmodel.UsageStats, bool) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("set.turn", trace.WithAttributes(attribute.Int("turn", int(turn))))
+) (chatmodel.UsageStats, bool, error) {
+	ctx, span := u.obs.agentLoopTurn(ctx, int(turn))
+	defer span.end()
 
-	toolRequests, usage, shouldContinue := u.askModel(ctx, thread, config, toolChoice, yield)
+	var settle func(context.Context, int) error
 
-	u.obs.recordUsage(ctx, config.Model(),
-		usage.InputTokens, usage.OutputTokens, usage.Duration,
-	)
+	preflight := u.newPreflight(thread, &settle)
 
-	if !shouldContinue || len(toolRequests) == 0 {
-		return usage, false
+	toolRequests, usage, cont := u.askModel(ctx, thread, config, toolChoice, preflight, yield)
+
+	u.obs.recordUsage(ctx, config.Model(), usage.InputTokens, usage.OutputTokens, usage.Duration)
+
+	if err := u.settleTurn(ctx, settle, usage.OutputTokens, yield); err != nil {
+		span.recordError(err)
+
+		return usage, false, err
 	}
 
-	if !u.handleToolRequests(ctx, thread, turn, toolRequests, yield) {
-		return usage, false
+	next := cont && len(toolRequests) > 0 &&
+		u.handleToolRequests(ctx, thread, turn, toolRequests, yield)
+
+	return usage, next, nil
+}
+
+func (u *Usecase) newPreflight(
+	thread *chat.Chat, turnSettlement *func(context.Context, int) error,
+) chatmodel.PreflightFunc {
+	return func(ctx context.Context, modelName string, inputTokens int) error {
+		// Currently we charge for the full context in each turn, as most providers
+		// charge for the entire prompt. However, if prompt caching is enabled,
+		// the actual cost may be lower. This logic should eventually be
+		// delegated to the model adapter or handled via a more sophisticated
+		// quota management system.
+		report, err := u.limiter.ConsumeChatRequests(
+			ctx, thread.ThreadID().User(), modelName, inputTokens,
+		)
+		if err != nil {
+			return fmt.Errorf("requesting chat quota: %w", err)
+		}
+
+		*turnSettlement = report
+
+		return nil
+	}
+}
+
+func (u *Usecase) settleTurn(
+	ctx context.Context,
+	report func(context.Context, int) error,
+	outputTokens uint32,
+	yield func(messages.Message, error) bool,
+) error {
+	if report == nil {
+		return nil
 	}
 
-	return usage, true
+	if err := report(ctx, int(outputTokens)); err != nil {
+		var rlErr *ratelimiter.RateLimitExceededError
+		if errors.Is(err, chatmodel.ErrHardQuotaExhausted) || errors.As(err, &rlErr) {
+			_ = yield(nil, err)
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (u *Usecase) accumulateUsage(total, current chatmodel.UsageStats) chatmodel.UsageStats {
+	return chatmodel.UsageStats{
+		InputTokens:  current.InputTokens + total.InputTokens,
+		OutputTokens: current.OutputTokens + total.OutputTokens,
+		Duration:     current.Duration + total.Duration,
+	}
 }
 
 func (u *Usecase) handleToolRequests(
@@ -259,9 +317,10 @@ func (u *Usecase) askModel(
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
+	preflight chatmodel.PreflightFunc,
 	yield func(messages.Message, error) bool,
 ) ([]messages.MessageToolRequest, chatmodel.UsageStats, bool) {
-	stream, err := u.callModel(ctx, thread, config, toolChoice)
+	stream, err := u.callModel(ctx, thread, config, toolChoice, preflight)
 	if err != nil {
 		u.handleModelError(ctx, thread, err, yield)
 		return nil, chatmodel.UsageStats{}, false
@@ -275,8 +334,12 @@ func (u *Usecase) callModel(
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
+	preflight chatmodel.PreflightFunc,
 ) (chatmodel.Iter, error) {
-	var opts []chatmodel.StreamOption
+	opts := []chatmodel.StreamOption{
+		chatmodel.WithPreflightCheck(preflight),
+	}
+
 	if toolChoice != tools.ToolChoiceForbidden {
 		opts = append(opts, chatmodel.WithStreamToolbox(thread.RelevantTools()))
 	}
@@ -286,7 +349,9 @@ func (u *Usecase) callModel(
 		maxContext = u.defaultChatLimit
 	}
 
-	resp, err := u.model.StreamWithStats(ctx, thread.Messages(maxContext), config, opts...)
+	resp, err := u.model.StreamWithStats(
+		ctx, thread.Messages(maxContext), config, opts...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("calling model stream: %w", err)
 	}
@@ -322,26 +387,23 @@ func (u *Usecase) handleModelError(
 func (u *Usecase) streamModelMessages(
 	ctx context.Context,
 	thread *chat.Chat,
-	it chatmodel.Iter,
+	iterator chatmodel.Iter,
 	yield func(messages.Message, error) bool,
-) ([]messages.MessageToolRequest, chatmodel.UsageStats, bool) {
-	var toolRequests []messages.MessageToolRequest
+) (toolRequests []messages.MessageToolRequest, usage chatmodel.UsageStats, ok bool) {
+	var err error
+
+	defer func() {
+		// Ensure iterator is closed and usage stats are captured even on early exit.
+		// We ignore the error here because we are already in the process of returning,
+		// but the usage stats are preserved in the named return variable.
+		usage, err = iterator.Close()
+		if err != nil {
+			yield(nil, fmt.Errorf("closing iterator: %w", err))
+		}
+	}()
 
 	// We wrap our pull iterator to a Seq2 to use our existing streaming merge logic.
-	stream := func(yield func(messages.Message, error) bool) {
-		for {
-			msg, ok := it.Next()
-			if !ok {
-				return
-			}
-
-			if !yield(msg, nil) {
-				return
-			}
-		}
-	}
-
-	for msg, err := range messages.MergeMessagesStreaming(stream) {
+	for msg, err := range messages.MergeMessagesStreaming(u.iteratorToSeq2(iterator)) {
 		if err != nil {
 			yield(nil, fmt.Errorf("streaming messages: %w", err))
 			return nil, chatmodel.UsageStats{}, false
@@ -352,13 +414,22 @@ func (u *Usecase) streamModelMessages(
 		}
 	}
 
-	usage, err := it.Close()
-	if err != nil {
-		yield(nil, fmt.Errorf("closing stream: %w", err))
-		return nil, usage, false
-	}
-
 	return toolRequests, usage, true
+}
+
+func (u *Usecase) iteratorToSeq2(iterator chatmodel.Iter) iter.Seq2[messages.Message, error] {
+	return func(yield func(messages.Message, error) bool) {
+		for {
+			msg, ok := iterator.Next()
+			if !ok {
+				return
+			}
+
+			if !yield(msg, nil) {
+				return
+			}
+		}
+	}
 }
 
 func (u *Usecase) saveAndYieldMessage(
@@ -390,12 +461,12 @@ func (u *Usecase) saveAndYieldMessage(
 
 func (u *Usecase) executeTools(
 	ctx context.Context,
-	c *chat.Chat,
+	chatObj *chat.Chat,
 	toolRequests []messages.MessageToolRequest,
 	yield func(messages.Message, error) bool,
 ) bool {
 	for _, req := range toolRequests {
-		if !u.executeTool(ctx, c, req, yield) {
+		if !u.executeTool(ctx, chatObj, req, yield) {
 			return false
 		}
 	}
@@ -463,19 +534,4 @@ func yieldToolError(
 	}
 
 	return yield(toolErr, nil)
-}
-
-func (u *Usecase) yieldRateLimitError(err error) (iter.Seq2[messages.Message, error], error) {
-	return func(yield func(messages.Message, error) bool) {
-		errorMsg, msgErr := messages.NewMessageAssistant(
-			"I apologize, but you have reached your message rate limit. " +
-				"Please wait a moment before sending another message.",
-		)
-		if msgErr != nil {
-			yield(nil, fmt.Errorf("creating rate limit error message: %w", msgErr))
-			return
-		}
-
-		yield(errorMsg, nil)
-	}, nil
 }

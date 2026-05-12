@@ -14,13 +14,21 @@ const (
 	expectedParts = 2
 )
 
+// NewPolicy creates a new rate limit policy.
+func NewPolicy(limit int, period time.Duration) Policy {
+	return Policy{
+		limit:  limit,
+		period: period,
+	}
+}
+
 // Policy defines a rate limit policy with a limit and burst.
 // It implements encoding.TextUnmarshaler to allow parsing from strings like "20/1h".
 //
 //nolint:recvcheck // it's necessary to use value receiver to prevent modifying envs
 type Policy struct {
 	period time.Duration
-	burst  int
+	limit  int
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
@@ -36,7 +44,7 @@ func (p *Policy) UnmarshalText(text []byte) error {
 		return ErrInvalidFormat
 	}
 
-	burst, err := strconv.Atoi(parts[0])
+	limit, err := strconv.Atoi(parts[0])
 	if err != nil {
 		return fmt.Errorf("invalid burst %q: %w", parts[0], err)
 	}
@@ -46,11 +54,11 @@ func (p *Policy) UnmarshalText(text []byte) error {
 		return fmt.Errorf("invalid period %q: %w", parts[1], err)
 	}
 
-	if burst <= 0 {
-		return ErrInvalidBurst
+	if limit <= 0 {
+		return ErrInvalidLimit
 	}
 
-	p.burst = burst
+	p.limit = limit
 	p.period = period
 
 	return nil
@@ -61,14 +69,14 @@ func (p Policy) String() string {
 		return ""
 	}
 
-	return fmt.Sprintf("%d/%v", p.burst, p.period)
+	return fmt.Sprintf("%d/%v", p.limit, p.period)
 }
 
-// Burst returns the burst capacity of the policy.
-func (p Policy) Burst() int { return p.burst }
+// Limit returns the burst capacity of the policy.
+func (p Policy) Limit() int { return p.limit }
 
 // Period returns the duration period of the policy.
 func (p Policy) Period() time.Duration { return p.period }
 
-// Limit returns the rate.Limit calculated from the policy.
-func (p Policy) Limit() rate.Limit { return rate.Every(p.period / time.Duration(p.burst)) }
+// Rate returns the [rate.Limit] calculated from the policy.
+func (p Policy) Rate() rate.Limit { return rate.Every(p.period / time.Duration(p.limit)) }

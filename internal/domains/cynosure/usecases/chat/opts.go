@@ -5,6 +5,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -56,7 +57,7 @@ type newRequiredParams struct {
 	storage     ports.ThreadStorage
 	model       chatmodel.Port
 	tool        toolclient.Port
-	indexer     ports.ToolSemanticIndex
+	indexer     embedding.Port
 	toolStorage ports.ToolStorage
 	server      ports.ServerStorage
 	account     ports.AccountStorage
@@ -74,7 +75,7 @@ func buildNewParams(
 	storage ports.ThreadStorage,
 	model chatmodel.Port,
 	tool toolclient.Port,
-	indexer ports.ToolSemanticIndex,
+	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
 	account ports.AccountStorage,
@@ -83,16 +84,11 @@ func buildNewParams(
 	opts ...NewOption,
 ) (newParams, error) {
 	params := defaultNewParams(newRequiredParams{
-		storage:     storage,
-		model:       model,
-		tool:        tool,
-		indexer:     indexer,
-		toolStorage: toolStorage,
-		server:      server,
-		account:     account,
-		agents:      agents,
-		limiter:     limiter,
+		storage: storage, model: model, tool: tool, indexer: indexer,
+		toolStorage: toolStorage, server: server, account: account,
+		agents: agents, limiter: limiter,
 	})
+
 	for _, opt := range opts {
 		opt.applyNew(&params)
 	}

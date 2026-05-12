@@ -6,21 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 
-	"github.com/quenbyako/cynosure/internal/adapters/inmemory"
-	"github.com/quenbyako/cynosure/internal/adapters/mcp"
-	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/accounts"
-)
-
-const (
-	DefaultSoftLimit = 20
-	DefaultHardCap   = 50
 )
 
 type SecretGetter interface {
@@ -42,8 +36,18 @@ type (
 		ory                oryParams
 		constructionErrors []error
 		chat               chatParams
-		rateLimit          ratelimit.Policy
 		adminMCPID         ids.ServerID
+		rate               rateParams
+	}
+
+	rateParams struct {
+		chatInput       ratelimit.Policy
+		chatOutput      ratelimit.Policy
+		embedding       ratelimit.Policy
+		chatInputGlobal ratelimit.Policy
+		embeddingGlobal ratelimit.Policy
+		maxWait         time.Duration
+		defaultPlanID   uuid.UUID
 	}
 
 	oryParams struct {
@@ -75,11 +79,10 @@ type (
 	}
 
 	redisParams struct {
-		url *url.URL
+		client redis.UniversalClient
 	}
 	chatParams struct {
-		softLimit uint
-		hardCap   uint
+		historyLimit uint
 	}
 )
 
@@ -94,7 +97,7 @@ func (p *appParams) validate(ctx context.Context) error {
 		p.validateGemini(),
 		p.validateStorage(),
 		p.validateInfra(),
-		p.validateRateLimit(),
+		p.rate.validate(),
 		p.validateMCPClient(ctx),
 	)
 }
@@ -165,9 +168,34 @@ func (p *appParams) validateInfra() error {
 	return nil
 }
 
-func (p *appParams) validateRateLimit() error {
-	if p.rateLimit.Period() <= 0 || p.rateLimit.Burst() <= 0 {
-		return MissingParamError("rate limit")
+func checkPolicy(q ratelimit.Policy, name string) error {
+	if q.Period() <= 0 || q.Limit() < 0 {
+		return MissingParamError(name)
+	}
+
+	return nil
+}
+
+func (p *rateParams) validate() error {
+	items := []struct {
+		name string
+		q    ratelimit.Policy
+	}{
+		{"chat input rate limit", p.chatInput},
+		{"chat output rate limit", p.chatOutput},
+		{"embedding rate limit", p.embedding},
+		{"chat input global rate limit", p.chatInputGlobal},
+		{"embedding global rate limit", p.embeddingGlobal},
+	}
+
+	for _, item := range items {
+		if err := checkPolicy(item.q, item.name); err != nil {
+			return err
+		}
+	}
+
+	if p.maxWait <= 0 {
+		return MissingParamError("max wait time limit")
 	}
 
 	return nil
@@ -227,19 +255,36 @@ func WithDatabaseURL(addr *url.URL) AppOpts {
 	return func(p *appParams) { p.storage.databaseURL = addr }
 }
 
-func WithRedis(addr *url.URL) AppOpts {
-	return func(p *appParams) { p.redis.url = addr }
+func WithChatInputRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.chatInput = limit }
 }
 
-func WithRateLimit(limit ratelimit.Policy) AppOpts {
-	return func(p *appParams) { p.rateLimit = limit }
+func WithChatOutputRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.chatOutput = limit }
 }
 
-func WithChatLimits(softLimit, hardCap uint) AppOpts {
-	return func(p *appParams) {
-		p.chat.softLimit = softLimit
-		p.chat.hardCap = hardCap
-	}
+func WithEmbeddingRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.embedding = limit }
+}
+
+func WithGlobalChatInputRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.chatInputGlobal = limit }
+}
+
+func WithGlobalEmbeddingRateLimit(limit ratelimit.Policy) AppOpts {
+	return func(p *appParams) { p.rate.embeddingGlobal = limit }
+}
+
+func WithMaxWaitTimeLimit(limit time.Duration) AppOpts {
+	return func(p *appParams) { p.rate.maxWait = limit }
+}
+
+func WithDefaultPlanID(id uuid.UUID) AppOpts {
+	return func(p *appParams) { p.rate.defaultPlanID = id }
+}
+
+func WithChatLimits(historyLimit uint) AppOpts {
+	return func(p *appParams) { p.chat.historyLimit = historyLimit }
 }
 
 func WithOry(endpoint *url.URL, adminKey SecretGetter) AppOpts {
@@ -320,13 +365,13 @@ func defaultParams() appParams {
 		storage:            defaultStorageParams(),
 		redis:              defaultRedisParams(),
 		chat:               defaultChatParams(),
+		rate:               defaultRateParams(),
 		observability:      core.NoopMetrics(),
 		grpcAddr:           nil,
 		httpAddr:           nil,
 		mcpAddr:            nil,
 		constructionErrors: nil,
 		adminMCPID:         ids.ServerID{},
-		rateLimit:          ratelimit.Policy{},
 		internalMcpClient:  nil,
 		externalMcpClient:  nil,
 	}
@@ -356,14 +401,25 @@ func defaultStorageParams() storageParams {
 
 func defaultRedisParams() redisParams {
 	return redisParams{
-		url: nil,
+		client: nil,
 	}
 }
 
 func defaultChatParams() chatParams {
 	return chatParams{
-		softLimit: DefaultSoftLimit,
-		hardCap:   DefaultHardCap,
+		historyLimit: DefaultHistoryLimit,
+	}
+}
+
+func defaultRateParams() rateParams {
+	return rateParams{
+		chatInput:       ratelimit.Policy{},
+		chatOutput:      ratelimit.Policy{},
+		embedding:       ratelimit.Policy{},
+		chatInputGlobal: ratelimit.Policy{},
+		embeddingGlobal: ratelimit.Policy{},
+		maxWait:         0,
+		defaultPlanID:   uuid.Nil,
 	}
 }
 
@@ -378,26 +434,21 @@ func Build(ctx context.Context, opts ...AppOpts) (*App, error) {
 		return nil, fmt.Errorf("validating params: %w", err)
 	}
 
-	return buildApp(ctx, &params)
+	app, err := buildApp(ctx, &params)
+
+	return app, err
 }
 
 //nolint:unparam // wire needs these parameters to be present to correctly bind dependencies
 func connectDependencies(
 	params *appParams,
-	ratelimiter *inmemory.RateLimiter,
-	refreshConstructor *refreshtoken.RefreshConstructor,
-	accountsUsecase *accounts.Usecase,
+	lifecycle *lifecycle,
 	_ adminControllerWireBind,
 	_ oauthControllerWireBind,
-	telegramController telegramControllerWireBind,
+	_ telegramControllerWireBind,
 	_ mcpControllerWireBind,
-	mcpHandler *mcp.Handler,
 ) (*App, error) {
 	return &App{
-		telegramTaskRunner: telegramController.runFunc,
-		accountsTaskRunner: accountsUsecase.Run,
-		tokenRefresherRun:  refreshConstructor.Run,
-		ratelimiterCleanup: ratelimiter.Cleanup,
-		mcpAdapterClose:    mcpHandler.Close,
+		lifecycle: lifecycle,
 	}, nil
 }

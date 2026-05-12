@@ -115,7 +115,7 @@ func (o *observable) recordUsage(
 
 // trace callbacks
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) generateResponse(ctx context.Context) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.usecases.generate_response",
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -136,7 +136,7 @@ type agentLoopSpan struct {
 	inputTokens, outputTokens int
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // isolated in a wrapper
 func (o *observable) agentLoop(ctx context.Context) (context.Context, agentLoopCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.usecases.agent_loop",
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -147,6 +147,16 @@ func (o *observable) agentLoop(ctx context.Context) (context.Context, agentLoopC
 		inputTokens:  0,
 		outputTokens: 0,
 	}
+}
+
+//nolint:spancheck // isolated in a wrapper
+func (o *observable) agentLoopTurn(ctx context.Context, turn int) (context.Context, span) {
+	ctx, span := o.t.Start(ctx, "cynosure.usecases.agent_loop_turn",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(attribute.Int("turn", turn)),
+	)
+
+	return ctx, &spanCallback{span: span}
 }
 
 func (s *agentLoopSpan) recordTotalUsage(inputTokens, outputTokens uint32) {

@@ -61,7 +61,6 @@ func (t *toolClientWrapped) DiscoverTools(
 	return res, err
 }
 
-//nolint:ireturn // returns interface for polimorphism
 func (t *toolClientWrapped) ExecuteTool(
 	ctx context.Context,
 	tool entities.ToolReadOnly,

@@ -29,7 +29,7 @@ func newObservable(stack ports.ObserveStack) *observable {
 
 // trace callbacks
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // span is isolated in a wrapper
 func (o *observable) registerClient(
 	ctx context.Context, resourceURL, clientName string,
 ) (context.Context, span) {
@@ -44,7 +44,7 @@ func (o *observable) registerClient(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // span is isolated in a wrapper
 func (o *observable) refreshToken(
 	ctx context.Context, clientID, authURL string,
 ) (context.Context, span) {
@@ -59,7 +59,7 @@ func (o *observable) refreshToken(
 	return ctx, &spanCallback{span: span}
 }
 
-//nolint:spancheck,ireturn // intentional polymorphism: returns internal span interface
+//nolint:spancheck // span is isolated in a wrapper
 func (o *observable) exchange(
 	ctx context.Context, clientID, authURL string,
 ) (context.Context, span) {

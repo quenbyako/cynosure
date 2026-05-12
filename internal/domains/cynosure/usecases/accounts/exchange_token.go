@@ -7,6 +7,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
@@ -165,12 +166,18 @@ func (s *Usecase) indexAndSaveTool(
 	ctx context.Context,
 	tool *entities.Tool,
 ) error {
-	embedding, err := s.index.IndexTool(ctx, tool)
+	userID := tool.ID().Account().User()
+
+	preflight := func(ctx context.Context, modelName string, tokens int) error {
+		return s.limiter.ConsumeEmbeddingRequests(ctx, userID, modelName, tokens)
+	}
+
+	vector, err := s.index.IndexTool(ctx, tool, embedding.WithPreflightCheck(preflight))
 	if err != nil {
 		return fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
 	}
 
-	tool.SetEmbedding(embedding)
+	tool.SetEmbedding(vector)
 
 	if err := s.tools.SaveTool(ctx, tool); err != nil {
 		return fmt.Errorf("saving tool %q: %w", tool.Name(), err)

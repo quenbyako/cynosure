@@ -328,6 +328,7 @@ func getHostPortWithDefaults(hostRaw, defaultHost string, defaultPort uint16) (h
 	host, portRaw, err := net.SplitHostPort(hostRaw)
 	switch e := new(net.AddrError); {
 	case errors.As(err, &e) && e.Err == netErrMissingPort: // case 1
+		host = hostRaw
 		portRaw = strconv.Itoa(int(defaultPort))
 
 	case err == nil && host == "" && portRaw == "", // case 2

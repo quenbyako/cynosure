@@ -19,10 +19,6 @@ type AgentStorageFactory interface {
 	AgentStorage() AgentStorage
 }
 
-func NewAgentStorage(factory AgentStorageFactory) AgentStorage {
-	return factory.AgentStorage()
-}
-
 type AgentStorageRead interface {
 	// ListAgents returns all agent configurations owned by the user. Empty
 	// slice if none exist. Includes full agent details (not just IDs).

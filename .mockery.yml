@@ -17,9 +17,6 @@ packages:
       ThreadStorage:
         config:
           filename: "thread_storage.go"
-      ToolSemanticIndex:
-        config:
-          filename: "tool_semantic_index.go"
       ToolStorage:
         config:
           filename: "tool_storage.go"
@@ -50,3 +47,21 @@ packages:
         config:
           filename: "tool_client.go"
           structname: "ToolClient"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "rate_limiter.go"
+          structname: "RateLimiter"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "embedding.go"
+          structname: "Embedding"

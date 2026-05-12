@@ -14,8 +14,6 @@ import (
 )
 
 // ExecuteTool implements ports.ToolClient.
-//
-//nolint:ireturn // Implementing a Port interface that returns an interface.
 func (h *Handler) ExecuteTool(
 	ctx context.Context, tool entities.ToolReadOnly,
 	args map[string]json.RawMessage, toolCallID string,
@@ -42,7 +40,6 @@ func (h *Handler) ExecuteTool(
 	return h.createToolMessage(tool, content, toolCallID)
 }
 
-//nolint:ireturn // Helper that returns an interface for polymorphism.
 func (h *Handler) createToolMessage(
 	tool entities.ToolReadOnly,
 	content json.RawMessage,

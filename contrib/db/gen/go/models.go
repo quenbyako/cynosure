@@ -110,9 +110,48 @@ type AgentsOauthToken struct {
 	Expiry       pgtype.Timestamptz
 }
 
+type AgentsPlan struct {
+	ID               uuid.UUID
+	ChatInputPeriod  pgtype.Interval
+	ChatInputLimit   int32
+	ChatOutputPeriod pgtype.Interval
+	ChatOutputLimit  int32
+	EmbeddingPeriod  pgtype.Interval
+	EmbeddingLimit   int32
+	MaxAwaitPeriod   pgtype.Interval
+	AgentsLimit      int32
+	McpAccountsLimit int32
+}
+
+type AgentsRateLimitBucket struct {
+	UserID       uuid.UUID
+	ResourceType string
+	Level        float64
+	LastLeakAt   pgtype.Timestamptz
+}
+
 type AgentsThread struct {
 	ID             string
 	UserID         uuid.UUID
 	CreatedAt      pgtype.Timestamptz
 	LastMessagePos int64
+}
+
+type AgentsUserPlan struct {
+	UserID uuid.UUID
+	PlanID uuid.UUID
+}
+
+type AgentsUserQuota struct {
+	UserID           uuid.UUID
+	PlanID           uuid.UUID
+	ChatInputPeriod  pgtype.Interval
+	ChatInputLimit   int32
+	ChatOutputPeriod pgtype.Interval
+	ChatOutputLimit  int32
+	EmbeddingPeriod  pgtype.Interval
+	EmbeddingLimit   int32
+	MaxAwaitPeriod   pgtype.Interval
+	AgentsLimit      int32
+	McpAccountsLimit int32
 }

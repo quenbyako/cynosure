@@ -28,7 +28,6 @@ type Message interface {
 	_Message()
 }
 
-//nolint:exhaustruct // interface check
 var (
 	_ Message = MessageToolRequest{}
 	_ Message = MessageToolResponse{}
@@ -52,7 +51,6 @@ type MessageTool interface {
 	_MessageTool()
 }
 
-//nolint:exhaustruct // interface check
 var (
 	_ MessageTool = MessageToolResponse{}
 	_ MessageTool = MessageToolError{}
@@ -71,17 +69,16 @@ func validateExtra(extra map[string]json.RawMessage) bool {
 func MergeMessagesStreaming(messages iter.Seq2[Message, error]) iter.Seq2[Message, error] {
 	return func(yield func(Message, error) bool) {
 		var current Message
+		var stopped bool
 
 		for next, err := range messages {
-			var stop bool
-
-			current, stop = handleNextMessage(current, next, err, yield)
-			if stop {
+			current, stopped = handleNextMessage(current, next, err, yield)
+			if stopped {
 				return
 			}
 		}
 
-		if current != nil {
+		if current != nil && !stopped {
 			yield(current, nil)
 		}
 	}

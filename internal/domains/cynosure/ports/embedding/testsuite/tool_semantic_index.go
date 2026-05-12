@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
@@ -19,7 +19,7 @@ const (
 )
 
 type ToolSemanticIndexTestSuite struct {
-	adapter ports.ToolSemanticIndex
+	adapter embedding.Port
 }
 
 type ToolSemanticIndexTestSuiteOpts func(*ToolSemanticIndexTestSuite)
@@ -32,7 +32,7 @@ type ToolSemanticIndexTestSuiteOpts func(*ToolSemanticIndexTestSuite)
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
 func RunToolSemanticIndexTests(
-	a ports.ToolSemanticIndex, opts ...ToolSemanticIndexTestSuiteOpts,
+	a embedding.Port, opts ...ToolSemanticIndexTestSuiteOpts,
 ) func(t *testing.T) {
 	suite := &ToolSemanticIndexTestSuite{
 		adapter: a,
@@ -79,21 +79,21 @@ func (s *ToolSemanticIndexTestSuite) TestIndexTool(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tool := tt.buildTool(t)
 
-			embedding, err := s.adapter.IndexTool(t.Context(), tool)
+			vector, err := s.adapter.IndexTool(t.Context(), tool)
 			require.NoError(t, err, "IndexTool should not fail")
 
-			s.assertValidEmbedding(t, embedding)
+			s.assertValidEmbedding(t, vector)
 		})
 	}
 }
 
 // TestBuildToolEmbedding verifies that BuildToolEmbedding handles various message combinations.
 func (s *ToolSemanticIndexTestSuite) TestBuildToolEmbedding(t *testing.T) {
-	for _, tt := range toolEmbeddingTestCases() {
+	for _, tt := range toolEmbeddingTestCases(t) {
 		t.Run(tt.name, func(t *testing.T) {
-			embedding, err := s.adapter.BuildToolEmbedding(t.Context(), tt.messages)
+			vector, err := s.adapter.BuildToolEmbedding(t.Context(), tt.messages)
 			require.NoError(t, err, "BuildToolEmbedding should not fail")
-			s.assertValidEmbedding(t, embedding)
+			s.assertValidEmbedding(t, vector)
 		})
 	}
 }
@@ -103,45 +103,51 @@ type toolEmbeddingTestCase struct {
 	messages []messages.Message
 }
 
-func toolEmbeddingTestCases() []toolEmbeddingTestCase {
-	tests := baseTestCases()
-	tests = append(tests, toolInteractionTestCases()...)
-	tests = append(tests, errorTestCases()...)
-	tests = append(tests, multiToolTestCases()...)
+func toolEmbeddingTestCases(t *testing.T) []toolEmbeddingTestCase {
+	t.Helper()
+
+	tests := baseTestCases(t)
+	tests = append(tests, toolInteractionTestCases(t)...)
+	tests = append(tests, errorTestCases(t)...)
+	tests = append(tests, multiToolTestCases(t)...)
 
 	return tests
 }
 
-func baseTestCases() []toolEmbeddingTestCase {
+func baseTestCases(t *testing.T) []toolEmbeddingTestCase {
+	t.Helper()
+
 	return []toolEmbeddingTestCase{{
 		name:     "empty_messages",
 		messages: []messages.Message{},
 	}, {
 		name: "user_only",
 		messages: []messages.Message{
-			must(messages.NewMessageUser("Hello")),
-			must(messages.NewMessageUser("What can you do?")),
+			must[messages.Message](t)(messages.NewMessageUser("Hello")),
+			must[messages.Message](t)(messages.NewMessageUser("What can you do?")),
 		},
 	}, {
 		name: "user_and_assistant",
 		messages: []messages.Message{
-			must(messages.NewMessageUser("What's the weather?")),
-			must(messages.NewMessageAssistant("Let me check that for you.")),
+			must[messages.Message](t)(messages.NewMessageUser("What's the weather?")),
+			must[messages.Message](t)(messages.NewMessageAssistant("Let me check that for you.")),
 		},
 	}}
 }
 
-func toolInteractionTestCases() []toolEmbeddingTestCase {
+func toolInteractionTestCases(t *testing.T) []toolEmbeddingTestCase {
+	t.Helper()
+
 	return []toolEmbeddingTestCase{{
 		name: "full_tool_interaction",
 		messages: []messages.Message{
-			must(messages.NewMessageUser("What's the weather in New York?")),
-			must(messages.NewMessageAssistant("Let me check that for you.")),
-			must(messages.NewMessageToolRequest(
+			must[messages.Message](t)(messages.NewMessageUser("What's the weather in New York?")),
+			must[messages.Message](t)(messages.NewMessageAssistant("Let me check that for you.")),
+			must[messages.Message](t)(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"location": json.RawMessage(`"New York"`)},
 				"get_weather", "call_123",
 			)),
-			must(messages.NewMessageToolResponse(
+			must[messages.Message](t)(messages.NewMessageToolResponse(
 				json.RawMessage(`{"temperature": 72, "condition": "sunny"}`),
 				"get_weather", "call_123",
 			)),
@@ -149,16 +155,18 @@ func toolInteractionTestCases() []toolEmbeddingTestCase {
 	}}
 }
 
-func errorTestCases() []toolEmbeddingTestCase {
+func errorTestCases(t *testing.T) []toolEmbeddingTestCase {
+	t.Helper()
+
 	return []toolEmbeddingTestCase{{
 		name: "tool_error_handling",
 		messages: []messages.Message{
-			must(messages.NewMessageUser("Get weather")),
-			must(messages.NewMessageToolRequest(
+			must[messages.Message](t)(messages.NewMessageUser("Get weather")),
+			must[messages.Message](t)(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"location": json.RawMessage(`"Invalid"`)},
 				"get_weather", "call_456",
 			)),
-			must(messages.NewMessageToolError(
+			must[messages.Message](t)(messages.NewMessageToolError(
 				json.RawMessage(`{"error": "Invalid location"}`),
 				"get_weather", "call_456",
 			)),
@@ -166,23 +174,25 @@ func errorTestCases() []toolEmbeddingTestCase {
 	}}
 }
 
-func multiToolTestCases() []toolEmbeddingTestCase {
+func multiToolTestCases(t *testing.T) []toolEmbeddingTestCase {
+	t.Helper()
+
 	return []toolEmbeddingTestCase{{
 		name: "multiple_tool_calls",
 		messages: []messages.Message{
-			must(messages.NewMessageUser("Get weather and time")),
-			must(messages.NewMessageToolRequest(
+			must[messages.Message](t)(messages.NewMessageUser("Get weather and time")),
+			must[messages.Message](t)(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"location": json.RawMessage(`"NYC"`)},
 				"get_weather", "call_1",
 			)),
-			must(messages.NewMessageToolRequest(
+			must[messages.Message](t)(messages.NewMessageToolRequest(
 				map[string]json.RawMessage{"timezone": json.RawMessage(`"EST"`)},
 				"get_time", "call_2",
 			)),
-			must(messages.NewMessageToolResponse(
+			must[messages.Message](t)(messages.NewMessageToolResponse(
 				json.RawMessage(`{"temperature": 70}`), "get_weather", "call_1",
 			)),
-			must(messages.NewMessageToolResponse(
+			must[messages.Message](t)(messages.NewMessageToolResponse(
 				json.RawMessage(`{"time": "14:30"}`), "get_time", "call_2",
 			)),
 		},
@@ -329,10 +339,10 @@ func (s *ToolSemanticIndexTestSuite) buildTool(
 ) entities.ToolReadOnly {
 	t.Helper()
 
-	account := must(ids.RandomAccountID(ids.RandomUserID(), ids.RandomServerID()))
+	account := must[ids.AccountID](t)(ids.RandomAccountID(ids.RandomUserID(), ids.RandomServerID()))
 
 	tool, err := entities.NewTool(
-		must(ids.RandomToolID(account)),
+		must[ids.ToolID](t)(ids.RandomToolID(account)),
 		"test-account",
 		name,
 		description,
@@ -343,4 +353,16 @@ func (s *ToolSemanticIndexTestSuite) buildTool(
 	require.NoError(t, err, "failed to create tool: %q", name)
 
 	return tool
+}
+
+func must[T any](t *testing.T) func(T, error) T {
+	t.Helper()
+
+	return func(value T, err error) T {
+		t.Helper()
+
+		require.NoError(t, err)
+
+		return value
+	}
 }

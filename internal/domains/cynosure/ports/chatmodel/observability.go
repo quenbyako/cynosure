@@ -45,7 +45,6 @@ type streamSpan struct {
 	collected []genai.ChatMessage
 }
 
-//nolint:ireturn // it's a factory function
 func (o *observable) stream(
 	ctx context.Context,
 	input []messages.Message,

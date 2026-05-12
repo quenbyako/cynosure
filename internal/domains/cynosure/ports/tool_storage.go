@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	embeddingSize = 1536
+	EmbeddingSize = 1536
 )
 
 // ToolStorage manages persistence of MCP tools with their semantic embeddings.
@@ -53,7 +53,7 @@ type ToolStorageRead interface {
 	LookupTools(
 		ctx context.Context,
 		user ids.UserID,
-		embedding [embeddingSize]float32,
+		embedding [EmbeddingSize]float32,
 		limit int,
 	) ([]*entities.Tool, error)
 }
@@ -80,8 +80,4 @@ type ToolStorageWrite interface {
 
 type ToolStorageFactory interface {
 	ToolStorage() ToolStorage
-}
-
-func NewToolStorage(f ToolStorageFactory) ToolStorage {
-	return f.ToolStorage()
 }

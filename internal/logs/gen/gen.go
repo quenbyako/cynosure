@@ -66,7 +66,6 @@ func main() {
 			default:
 				return varname
 			}
-
 		},
 	}).ParseFS(templates, "*.tmpl"))
 

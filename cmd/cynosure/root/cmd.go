@@ -35,8 +35,14 @@ func Cmd(ctx context.Context, appCtx core.AppContext[Config]) core.ExitCode {
 		cynosure.WithMCP(cfg.MCPPort.Register),
 		cynosure.WithMCPTransports(cfg.InternalMCPClient, cfg.ExternalMCPClient),
 		cynosure.WithAdminMCPID(cfg.AdminMCPServerID),
-		cynosure.WithRateLimit(cfg.RateLimit),
-		cynosure.WithChatLimits(cfg.ChatSoftLimit, cfg.ChatHardCap),
+		cynosure.WithChatInputRateLimit(cfg.ChatInputRate),
+		cynosure.WithChatOutputRateLimit(cfg.ChatOutputRate),
+		cynosure.WithEmbeddingRateLimit(cfg.EmbeddingRate),
+		cynosure.WithGlobalChatInputRateLimit(cfg.GlobChatInputRate),
+		cynosure.WithGlobalEmbeddingRateLimit(cfg.GlobEmbeddingRate),
+		cynosure.WithChatLimits(cfg.ChatHistoryLimit),
+		cynosure.WithMaxWaitTimeLimit(cfg.MaxWaitTimeLimit),
+		cynosure.WithDefaultPlanID(cfg.DefaultPlanID),
 	}
 
 	if cfg.DatabaseURL != nil && cfg.DatabaseURL.Scheme != "" {

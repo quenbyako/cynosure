@@ -43,10 +43,11 @@ type chatFixture struct {
 	user                ids.UserID
 	server              ids.ServerID
 	threadID            ids.ThreadID
-	indexer             *mocks.MockToolSemanticIndex
+	indexer             *mocks.Embedding
 	toolStorage         *mocks.MockToolStorage
 	accountStorage      *mocks.MockAccountStorage
 	threadStorage       *mocks.MockThreadStorage
+	limiter             *mocks.RateLimiter
 	toolboxContextLimit uint
 
 	_chat *chat.Chat
@@ -64,10 +65,11 @@ func newChatFixture(t *testing.T) *chatFixture {
 		user:                user,
 		server:              ids.RandomServerID(),
 		threadID:            tid,
-		indexer:             new(mocks.MockToolSemanticIndex),
+		indexer:             new(mocks.Embedding),
 		toolStorage:         new(mocks.MockToolStorage),
 		accountStorage:      new(mocks.MockAccountStorage),
 		threadStorage:       new(mocks.MockThreadStorage),
+		limiter:             new(mocks.RateLimiter),
 		toolboxContextLimit: 10,
 	}
 }
@@ -93,8 +95,15 @@ func (f *chatFixture) expectRAG(tools map[string][]*entities.Tool) {
 	}
 
 	emb := [1536]float32{0.1}
-	f.indexer.EXPECT().BuildToolEmbedding(mock.Anything, mock.Anything).Return(emb, nil).Twice()
-	f.toolStorage.EXPECT().LookupTools(mock.Anything, f.user, emb, 10).Return(allTools, nil).Twice()
+	f.indexer.EXPECT().
+		BuildToolEmbedding(mock.Anything, mock.Anything, mock.Anything).
+		Return(emb, nil).Twice()
+	f.limiter.EXPECT().
+		ConsumeEmbeddingRequests(mock.Anything, f.user, mock.Anything, mock.Anything).
+		Return(nil).Twice()
+	f.toolStorage.EXPECT().
+		LookupTools(mock.Anything, f.user, emb, 10).
+		Return(allTools, nil).Twice()
 
 	var accounts []*entities.Account
 
@@ -129,7 +138,7 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 
 	chatAggregate, err := chat.New(
 		ctx, f.threadStorage, f.indexer, f.toolStorage,
-		f.accountStorage, f.threadID, f.toolboxContextLimit,
+		f.accountStorage, f.limiter, f.threadID, f.toolboxContextLimit,
 	)
 	require.NoError(f.t, err)
 	f._chat = chatAggregate

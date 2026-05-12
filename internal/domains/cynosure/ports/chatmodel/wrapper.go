@@ -2,6 +2,7 @@ package chatmodel
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -35,38 +36,6 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 	}
 
 	return &t
-}
-
-func (i *portWrapped) Stream(
-	ctx context.Context,
-	input []messages.Message,
-	settings entities.AgentReadOnly,
-	opts ...StreamOption,
-) (StreamIter, error) {
-	ctx, span := i.t.stream(ctx, input, settings)
-	// not closing span to prevent premature closing.
-
-	res, err := i.w.Stream(ctx, input, settings, opts...)
-	if err != nil {
-		span.recordError(err)
-		span.end()
-		//nolint:wrapcheck // should never wrap error
-		return nil, err
-	}
-
-	return func(yield func(messages.Message, error) bool) {
-		defer span.end()
-
-		res(func(msg messages.Message, err error) bool {
-			if err != nil {
-				span.recordError(err)
-			} else {
-				span.addOutputMessage(msg)
-			}
-
-			return yield(msg, err)
-		})
-	}, nil
 }
 
 func (i *portWrapped) StreamWithStats(
@@ -114,5 +83,9 @@ func (w *iterWrapped) Close() (UsageStats, error) {
 	w.span.setUsage(usage)
 	w.span.end()
 
-	return usage, err
+	if err != nil {
+		return usage, fmt.Errorf("closing iterator: %w", err)
+	}
+
+	return usage, nil
 }

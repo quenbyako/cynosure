@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -240,15 +241,31 @@ func (u *Usecase) newToolWithEmbedding(
 		return nil, fmt.Errorf("creating tool entity for %q: %w", rawTool.Name(), err)
 	}
 
-	embedding, err := u.index.IndexTool(ctx, tool)
+	vector, err := u.indexTool(ctx, tool, toolID.Account().User())
 	if err != nil {
-		return nil, fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
+		return nil, err
 	}
 
-	tool.SetEmbedding(embedding)
+	tool.SetEmbedding(vector)
 
 	// cleaning events, cause it's newly created tool
 	tool.ClearEvents()
 
 	return tool, nil
+}
+
+func (u *Usecase) indexTool(
+	ctx context.Context, tool *entities.Tool, userID ids.UserID,
+) ([embedding.EmbeddingSize]float32, error) {
+	preflight := func(ctx context.Context, modelName string, tokens int) error {
+		return u.limiter.ConsumeEmbeddingRequests(ctx, userID, modelName, tokens)
+	}
+
+	vector, err := u.index.IndexTool(ctx, tool, embedding.WithPreflightCheck(preflight))
+	if err != nil {
+		return [embedding.EmbeddingSize]float32{},
+			fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
+	}
+
+	return vector, nil
 }

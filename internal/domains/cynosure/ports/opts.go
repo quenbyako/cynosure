@@ -19,9 +19,6 @@ type (
 	traceWrapper struct{ trace trace.Tracer }
 )
 
-//nolint:exhaustruct // interface check
-var (
-	_ WrapThreadStorageOption = traceWrapper{}
-)
+var _ WrapThreadStorageOption = traceWrapper{}
 
 func (t traceWrapper) applyWrapThreadStorage(p *threadStorageWrapped) { p.trace = t.trace }
