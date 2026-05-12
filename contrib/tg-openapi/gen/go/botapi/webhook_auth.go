@@ -8,6 +8,8 @@ import (
 const (
 	//nolint:gosec // false positive
 	TokenHeader = "X-Telegram-Bot-Api-Secret-Token"
+
+	typeString = "string"
 )
 
 // AuthenticateWebhook returns a MiddlewareFunc that verifies the telegram

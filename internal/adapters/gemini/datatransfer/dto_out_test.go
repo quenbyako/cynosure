@@ -11,6 +11,13 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
+const (
+	testLoc        = "loc"
+	testGetWeather = "get_weather"
+	testCall1      = "call_1"
+	testCall2      = "call_2"
+)
+
 func TestMessagesToGenAIContent(t *testing.T) {
 	for _, tt := range []struct {
 		name string
@@ -35,12 +42,12 @@ func TestMessagesToGenAIContent(t *testing.T) {
 			must(messages.NewMessageUser("What is the weather?")),
 			must(messages.NewMessageAssistant("Checking...")),
 			must(messages.NewMessageToolRequest(
-				map[string]json.RawMessage{"loc": []byte(`"London"`)},
-				"get_weather", "call_1",
+				map[string]json.RawMessage{testLoc: []byte(`"London"`)},
+				testGetWeather, testCall1,
 			)),
 			must(messages.NewMessageToolResponse(
 				[]byte(`{"temp": 20}`),
-				"get_weather", "call_1",
+				testGetWeather, testCall1,
 			)),
 		},
 		want: []*genai.Content{{
@@ -52,9 +59,9 @@ func TestMessagesToGenAIContent(t *testing.T) {
 				{Text: "Checking..."},
 				{
 					FunctionCall: &genai.FunctionCall{
-						Name: "get_weather",
-						Args: map[string]any{"loc": json.RawMessage(`"London"`)},
-						ID:   "call_1",
+						Name: testGetWeather,
+						Args: map[string]any{testLoc: json.RawMessage(`"London"`)},
+						ID:   testCall1,
 					},
 				},
 			},
@@ -62,11 +69,11 @@ func TestMessagesToGenAIContent(t *testing.T) {
 			Role: genai.RoleUser,
 			Parts: []*genai.Part{{
 				FunctionResponse: &genai.FunctionResponse{
-					Name: "get_weather",
+					Name: testGetWeather,
 					Response: map[string]any{
 						"output": json.RawMessage(`{"temp": 20}`),
 					},
-					ID: "call_1",
+					ID: testCall1,
 				},
 			}},
 		}},
@@ -75,12 +82,12 @@ func TestMessagesToGenAIContent(t *testing.T) {
 		msgs: []messages.Message{
 			must(messages.NewMessageUser("Get weather in London and Paris")),
 			must(messages.NewMessageToolRequest(
-				map[string]json.RawMessage{"loc": []byte(`"London"`)},
-				"get_weather", "call_1",
+				map[string]json.RawMessage{testLoc: []byte(`"London"`)},
+				testGetWeather, testCall1,
 			)),
 			must(messages.NewMessageToolRequest(
-				map[string]json.RawMessage{"loc": []byte(`"Paris"`)},
-				"get_weather", "call_2",
+				map[string]json.RawMessage{testLoc: []byte(`"Paris"`)},
+				testGetWeather, testCall2,
 			)),
 		},
 		want: []*genai.Content{{
@@ -90,15 +97,15 @@ func TestMessagesToGenAIContent(t *testing.T) {
 			Role: genai.RoleModel,
 			Parts: []*genai.Part{{
 				FunctionCall: &genai.FunctionCall{
-					Name: "get_weather",
-					Args: map[string]any{"loc": json.RawMessage(`"London"`)},
-					ID:   "call_1",
+					Name: testGetWeather,
+					Args: map[string]any{testLoc: json.RawMessage(`"London"`)},
+					ID:   testCall1,
 				},
 			}, {
 				FunctionCall: &genai.FunctionCall{
-					Name: "get_weather",
-					Args: map[string]any{"loc": json.RawMessage(`"Paris"`)},
-					ID:   "call_2",
+					Name: testGetWeather,
+					Args: map[string]any{testLoc: json.RawMessage(`"Paris"`)},
+					ID:   testCall2,
 				},
 			}},
 		}},

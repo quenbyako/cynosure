@@ -66,7 +66,7 @@ func (siw *WebhookInterfaceWrapper) parseSendUpdateParams(
 	headers := r.Header
 
 	// ------------- Optional header parameter "X-Telegram-Bot-Api-Secret-Token" -------------
-	secretTokenKey := http.CanonicalHeaderKey("X-Telegram-Bot-Api-Secret-Token")
+	secretTokenKey := http.CanonicalHeaderKey(TokenHeader)
 	valueList, found := headers[secretTokenKey]
 
 	if !found {
@@ -75,7 +75,7 @@ func (siw *WebhookInterfaceWrapper) parseSendUpdateParams(
 
 	if len(valueList) != 1 {
 		siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{
-			ParamName: "X-Telegram-Bot-Api-Secret-Token", Count: len(valueList),
+			ParamName: TokenHeader, Count: len(valueList),
 		})
 
 		return params, false
@@ -97,18 +97,18 @@ func (siw *WebhookInterfaceWrapper) bindSecretToken(
 	var token string
 
 	err := runtime.BindStyledParameterWithOptions(
-		"simple", "X-Telegram-Bot-Api-Secret-Token", value,
+		"simple", TokenHeader, value,
 		&token, runtime.BindStyledParameterOptions{
 			ParamLocation: runtime.ParamLocationHeader,
 			Explode:       false,
 			Required:      false,
-			Type:          "string",
+			Type:          typeString,
 			Format:        "",
 			AllowReserved: false,
 		})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{
-			ParamName: "X-Telegram-Bot-Api-Secret-Token", Err: err,
+			ParamName: TokenHeader, Err: err,
 		})
 
 		return "", false

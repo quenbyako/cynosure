@@ -11,6 +11,10 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
+const (
+	typeText = "text"
+)
+
 func marshalMessagesToGenai(systemMessage string, msgs []messages.Message) attribute.KeyValue {
 	converted, err := otelConcatMsgsGenAI(systemMessage, msgs)
 	if err != nil {
@@ -45,7 +49,7 @@ func otelConcatMsgsGenAI(systemMsg string, msgs []messages.Message) ([]genai.Cha
 			Role: genai.RoleSystem,
 			Name: nil,
 			Parts: []genai.MessagePart{genai.TextPart{
-				Type:    "text",
+				Type:    typeText,
 				Content: systemMsg,
 			}},
 			FinishReason: "",
@@ -93,7 +97,7 @@ func concatenateMessageAssistant(
 ) (*genai.ChatMessage, error) {
 	current = ensureRole(res, current, genai.RoleAssistant)
 	current.Parts = append(current.Parts, genai.TextPart{
-		Type:    "text",
+		Type:    typeText,
 		Content: msg.Content(),
 	})
 
@@ -137,7 +141,7 @@ func concatenateMessageUser(
 ) (*genai.ChatMessage, error) {
 	current = ensureRole(res, current, genai.RoleUser)
 	current.Parts = append(current.Parts, genai.TextPart{
-		Type:    "text",
+		Type:    typeText,
 		Content: msg.Content(),
 	})
 

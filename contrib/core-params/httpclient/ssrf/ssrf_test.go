@@ -12,6 +12,15 @@ import (
 	. "github.com/quenbyako/cynosure/contrib/core-params/httpclient/ssrf"
 )
 
+const (
+	networkTCP4 = "tcp4"
+	networkTCP6 = "tcp6"
+	networkUDP6 = "udp6"
+
+	addr80  = "8.8.8.8:80"
+	addr443 = "8.8.8.8:443"
+)
+
 func TestOptions(t *testing.T) {
 	t.Parallel()
 
@@ -23,7 +32,7 @@ func TestOptions(t *testing.T) {
 		Name:    "default",
 		Options: nil,
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -31,7 +40,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with port 53",
 		Options: []Option{WithPorts(53)},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{53},
+			[]string{networkTCP4, networkTCP6}, []uint16{53},
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -39,7 +48,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with multiple port calls",
 		Options: []Option{WithPorts(52), WithPorts(53)},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{53},
+			[]string{networkTCP4, networkTCP6}, []uint16{53},
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -47,7 +56,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with port without argument",
 		Options: []Option{WithPorts()},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, nil,
+			[]string{networkTCP4, networkTCP6}, nil,
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -55,23 +64,23 @@ func TestOptions(t *testing.T) {
 		Name:    "with any port",
 		Options: []Option{WithAnyPort()},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, nil,
+			[]string{networkTCP4, networkTCP6}, nil,
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
 	}, {
 		Name:    "with network udp6",
-		Options: []Option{WithNetworks("udp6")},
+		Options: []Option{WithNetworks(networkUDP6)},
 		Result: BuildGuardian(
-			[]string{"udp6"}, []uint16{80, 443},
+			[]string{networkUDP6}, []uint16{80, 443},
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
 	}, {
 		Name:    "with multiple network calls",
-		Options: []Option{WithNetworks("tcp6"), WithNetworks("udp6")},
+		Options: []Option{WithNetworks(networkTCP6), WithNetworks(networkUDP6)},
 		Result: BuildGuardian(
-			[]string{"udp6"}, []uint16{80, 443},
+			[]string{networkUDP6}, []uint16{80, 443},
 			nil, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -95,7 +104,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with allowed v4 prefix",
 		Options: []Option{WithAllowedV4Prefixes(netip.MustParsePrefix("8.8.8.0/24"))},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			[]netip.Prefix{netip.MustParsePrefix("8.8.8.0/24")}, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -106,7 +115,7 @@ func TestOptions(t *testing.T) {
 			WithAllowedV4Prefixes(netip.MustParsePrefix("8.8.8.0/24")),
 		},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			[]netip.Prefix{netip.MustParsePrefix("8.8.8.0/24")}, nil,
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -114,7 +123,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with allowed v6 prefix",
 		Options: []Option{WithAllowedV6Prefixes(netip.MustParsePrefix("2002::/8"))},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, []netip.Prefix{netip.MustParsePrefix("2002::/8")},
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -122,7 +131,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with allowed NAT64 prefix",
 		Options: []Option{WithAllowedV6Prefixes(IPv6NAT64Prefix)},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, []netip.Prefix{IPv6NAT64Prefix},
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -133,7 +142,7 @@ func TestOptions(t *testing.T) {
 			WithAllowedV6Prefixes(netip.MustParsePrefix("2002::/8")),
 		},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, []netip.Prefix{netip.MustParsePrefix("2002::/8")},
 			IPv4DeniedPrefixes, IPv6DeniedPrefixes,
 		),
@@ -141,7 +150,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with denied v4 prefix",
 		Options: []Option{WithDeniedV4Prefixes(netip.MustParsePrefix("8.8.8.0/24"))},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, nil,
 			append([]netip.Prefix{netip.MustParsePrefix("8.8.8.0/24")}, IPv4DeniedPrefixes...),
 			IPv6DeniedPrefixes,
@@ -153,7 +162,7 @@ func TestOptions(t *testing.T) {
 			WithDeniedV4Prefixes(netip.MustParsePrefix("8.8.8.0/24")),
 		},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, nil,
 			append([]netip.Prefix{netip.MustParsePrefix("8.8.8.0/24")}, IPv4DeniedPrefixes...),
 			IPv6DeniedPrefixes,
@@ -162,7 +171,7 @@ func TestOptions(t *testing.T) {
 		Name:    "with denied v6 prefix",
 		Options: []Option{WithDeniedV6Prefixes(netip.MustParsePrefix("2002::/8"))},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, nil,
 			IPv4DeniedPrefixes,
 			append([]netip.Prefix{netip.MustParsePrefix("2002::/8")}, IPv6DeniedPrefixes...),
@@ -174,7 +183,7 @@ func TestOptions(t *testing.T) {
 			WithDeniedV6Prefixes(netip.MustParsePrefix("2002::/8")),
 		},
 		Result: BuildGuardian(
-			[]string{"tcp4", "tcp6"}, []uint16{80, 443},
+			[]string{networkTCP4, networkTCP6}, []uint16{80, 443},
 			nil, nil,
 			IPv4DeniedPrefixes,
 			append([]netip.Prefix{netip.MustParsePrefix("2002::/8")}, IPv6DeniedPrefixes...),
@@ -221,18 +230,18 @@ func TestDefaultGuardian(t *testing.T) {
 		Network string
 		Err     error
 	}{
-		{Addr: "8.8.8.8:80", Network: "tcp4"},
-		{Addr: "8.8.8.8:443", Network: "tcp4"},
-		{Addr: "[2001:4860:4860::8888]:80", Network: "tcp6"},
-		{Addr: "[2001:4860:4860::8888]:443", Network: "tcp6"},
-		{Addr: "127.0.0.1:53", Network: "tcp4", Err: ErrProhibitedPort},
-		{Addr: "127.0.0.1:80", Network: "tcp4", Err: ErrProhibitedIP},
-		{Addr: "[::1]:53", Network: "tcp6", Err: ErrProhibitedPort},
-		{Addr: "[::1]:80", Network: "tcp6", Err: ErrProhibitedIP},
-		{Addr: "invalid network", Network: "udp6", Err: ErrProhibitedNetwork},
-		{Addr: "invalid address", Network: "tcp4", Err: ErrInvalidHostPort},
-		{Addr: "[::ffff:129.144.52.38]:80", Network: "tcp6", Err: ErrProhibitedIP},
-		{Addr: "[64:ff9b::7f00:1]:80", Network: "tcp6", Err: ErrProhibitedIP},
+		{Addr: addr80, Network: networkTCP4},
+		{Addr: addr443, Network: networkTCP4},
+		{Addr: "[2001:4860:4860::8888]:80", Network: networkTCP6},
+		{Addr: "[2001:4860:4860::8888]:443", Network: networkTCP6},
+		{Addr: "127.0.0.1:53", Network: networkTCP4, Err: ErrProhibitedPort},
+		{Addr: "127.0.0.1:80", Network: networkTCP4, Err: ErrProhibitedIP},
+		{Addr: "[::1]:53", Network: networkTCP6, Err: ErrProhibitedPort},
+		{Addr: "[::1]:80", Network: networkTCP6, Err: ErrProhibitedIP},
+		{Addr: "invalid network", Network: networkUDP6, Err: ErrProhibitedNetwork},
+		{Addr: "invalid address", Network: networkTCP4, Err: ErrInvalidHostPort},
+		{Addr: "[::ffff:129.144.52.38]:80", Network: networkTCP6, Err: ErrProhibitedIP},
+		{Addr: "[64:ff9b::7f00:1]:80", Network: networkTCP6, Err: ErrProhibitedIP},
 	}
 
 	filter := New()
@@ -273,48 +282,48 @@ func TestCustomGuardian(t *testing.T) {
 		Name:     "custom port",
 		Guardian: New(WithPorts(8080)),
 		Addr:     "8.8.8.8:8080",
-		Network:  "tcp4",
+		Network:  networkTCP4,
 	}, {
 		Name:     "any port",
 		Guardian: New(WithAnyPort()),
 		Addr:     "8.8.8.8:22",
-		Network:  "tcp4",
+		Network:  networkTCP4,
 	}, {
 		Name:     "custom network",
 		Guardian: New(WithNetworks("udp4")),
-		Addr:     "8.8.8.8:80",
+		Addr:     addr80,
 		Network:  "udp4",
 	}, {
 		Name:     "any network",
 		Guardian: New(WithAnyNetwork()),
-		Addr:     "8.8.8.8:80",
+		Addr:     addr80,
 		Network:  "ipsec",
 	}, {
 		Name:     "allow prefix from IP4SpecialPurpose",
 		Guardian: New(WithAllowedV4Prefixes(netip.MustParsePrefix("127.0.0.0/8"))),
 		Addr:     "127.0.1.1:80",
-		Network:  "tcp4",
+		Network:  networkTCP4,
 	}, {
 		Name:     "allow prefix from IP6SpecialPurpose",
 		Guardian: New(WithAllowedV6Prefixes(netip.MustParsePrefix("2001::/23"))),
 		Addr:     "[2001::1]:80",
-		Network:  "tcp6",
+		Network:  networkTCP6,
 	}, {
 		Name:     "allow IPv6 NAT64 prefix",
 		Guardian: New(WithAllowedV6Prefixes(IPv6NAT64Prefix)),
 		Addr:     "[64:ff9b::7f00:1]:80",
-		Network:  "tcp6",
+		Network:  networkTCP6,
 	}, {
 		Name:     "deny IPv4 prefix",
 		Guardian: New(WithDeniedV4Prefixes(netip.MustParsePrefix("8.8.8.0/24"))),
-		Addr:     "8.8.8.8:443",
-		Network:  "tcp4",
+		Addr:     addr443,
+		Network:  networkTCP4,
 		Err:      ErrProhibitedIP,
 	}, {
 		Name:     "deny IPv6 prefix",
 		Guardian: New(WithDeniedV6Prefixes(netip.MustParsePrefix("2001:4800::/24"))),
 		Addr:     "[2001:4860:4860::8888]:443",
-		Network:  "tcp6",
+		Network:  networkTCP6,
 		Err:      ErrProhibitedIP,
 	}}
 
@@ -374,7 +383,7 @@ func TestIPv6FastPath(t *testing.T) {
 		t.Run(tc.Addr, func(t *testing.T) {
 			t.Parallel()
 
-			err := guardian.Safe("tcp6", tc.Addr, nil)
+			err := guardian.Safe(networkTCP6, tc.Addr, nil)
 			if err == nil {
 				t.Fatalf("Expected prefix: %s to be blocked", tc.Addr)
 			}

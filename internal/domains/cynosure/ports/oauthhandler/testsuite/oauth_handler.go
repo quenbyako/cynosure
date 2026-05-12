@@ -20,6 +20,12 @@ const (
 	wellKnownOAuthProtectedResourcePath   = "/.well-known/oauth-protected-resource"
 	wellKnownOAuthAuthorizationServerPath = "/.well-known/oauth-authorization-server"
 	registerPath                          = "/register"
+
+	clientIDKey     = "client_id"
+	clientSecretKey = "client_secret"
+
+	fieldAuthorizationServers = "authorization_servers"
+	fieldRegistrationEndpoint = "registration_endpoint"
 )
 
 // RunOAuthHandlerTests runs tests for the given adapter. These tests are predefined
@@ -111,14 +117,14 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					case wellKnownOAuthProtectedResourcePath:
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"authorization_servers": []string{"http://" + r.Host},
+							fieldAuthorizationServers: []string{"http://" + r.Host},
 						})
 					case wellKnownOAuthAuthorizationServerPath:
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"authorization_endpoint": "http://" + r.Host + "/auth",
-							"token_endpoint":         "http://" + r.Host + "/token",
-							"registration_endpoint":  "http://" + r.Host + "/register",
+							"authorization_endpoint":  "http://" + r.Host + "/auth",
+							"token_endpoint":          "http://" + r.Host + "/token",
+							fieldRegistrationEndpoint: "http://" + r.Host + "/register",
 						})
 					case registerPath:
 						// using assert cause http handler
@@ -130,8 +136,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"client_id":     "client-123",
-							"client_secret": "secret-123",
+							clientIDKey:     "client-123",
+							clientSecretKey: "secret-123",
 						})
 					default:
 						w.WriteHeader(http.StatusNotFound)
@@ -175,13 +181,13 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					case wellKnownOAuthAuthorizationServerPath:
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"registration_endpoint": "http://" + r.Host + "/register",
+							fieldRegistrationEndpoint: "http://" + r.Host + "/register",
 						})
 					case registerPath:
 						w.WriteHeader(http.StatusCreated)
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"client_id": "fallback-client",
+							clientIDKey: "fallback-client",
 						}) // no client_secret
 					default:
 						w.WriteHeader(http.StatusNotFound)
@@ -218,18 +224,18 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					case "/custom-protected-resource":
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"authorization_servers": []string{"http://" + r.Host},
+							fieldAuthorizationServers: []string{"http://" + r.Host},
 						})
 					case wellKnownOAuthAuthorizationServerPath:
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"registration_endpoint": "http://" + r.Host + "/register",
+							fieldRegistrationEndpoint: "http://" + r.Host + "/register",
 						})
 					case "/register":
 						w.WriteHeader(http.StatusCreated)
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"client_id": "suggested-client",
+							clientIDKey: "suggested-client",
 						})
 					default:
 						w.WriteHeader(http.StatusNotFound)
@@ -275,8 +281,8 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					case wellKnownOAuthProtectedResourcePath:
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"resource_documentation": "https://developer.example.com",
-							"authorization_servers":  []string{"http://" + r.Host},
+							"resource_documentation":  "https://developer.example.com",
+							fieldAuthorizationServers: []string{"http://" + r.Host},
 						})
 					case wellKnownOAuthAuthorizationServerPath:
 						//nolint:errcheck,gosec // makes no sense to check error here
@@ -400,7 +406,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					case "/.well-known/oauth-authorization-server":
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"registration_endpoint": "http://" + r.Host + "/register",
+							fieldRegistrationEndpoint: "http://" + r.Host + "/register",
 						})
 					case "/register":
 						w.WriteHeader(http.StatusForbidden)
@@ -441,7 +447,7 @@ func (s *OAuthHandlerTestSuite) TestRegisterClient(t *testing.T) {
 					case "/.well-known/oauth-authorization-server":
 						//nolint:errcheck,gosec // makes no sense to check error here
 						json.NewEncoder(w).Encode(map[string]any{
-							"registration_endpoint": "http://%%invalid_registration",
+							fieldRegistrationEndpoint: "http://%%invalid_registration",
 						})
 					default:
 						w.WriteHeader(http.StatusNotFound)

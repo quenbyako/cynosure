@@ -18,6 +18,11 @@ import (
 	. "github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 )
 
+const (
+	tokenTypeBearer  = "Bearer"
+	testRefreshToken = "refresh-token"
+)
+
 // TestTokenRefresh_RequestCancelled verifies that token refresh completes
 // even when request context is cancelled
 func TestTokenRefresh_RequestCancelled(t *testing.T) {
@@ -39,15 +44,15 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 
 	oldToken := &oauth2.Token{
 		AccessToken:  "old-access",
-		TokenType:    "Bearer",
-		RefreshToken: "refresh-token",
+		TokenType:    tokenTypeBearer,
+		RefreshToken: testRefreshToken,
 		Expiry:       time.Now().Add(-1 * time.Hour),
 		ExpiresIn:    0,
 	}
 	newToken := &oauth2.Token{
 		AccessToken:  "new-access",
-		TokenType:    "Bearer",
-		RefreshToken: "refresh-token",
+		TokenType:    tokenTypeBearer,
+		RefreshToken: testRefreshToken,
 		Expiry:       time.Now().Add(1 * time.Hour),
 	}
 
@@ -138,8 +143,8 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 
 	oldToken := &oauth2.Token{
 		AccessToken:  "old-access",
-		TokenType:    "Bearer",
-		RefreshToken: "refresh-token",
+		TokenType:    tokenTypeBearer,
+		RefreshToken: testRefreshToken,
 		Expiry:       time.Now().Add(-1 * time.Hour),
 	}
 
