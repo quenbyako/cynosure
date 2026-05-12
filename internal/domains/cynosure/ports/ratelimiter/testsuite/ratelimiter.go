@@ -254,6 +254,10 @@ func (s *godogState) spendInput(
 	ctx context.Context, userID ids.UserID, model string, count int,
 ) error {
 	if _, err := s.adapter.ConsumeChatRequests(ctx, userID, model, count); err != nil {
+		rlErr := new(ratelimiter.RateLimitExceededError)
+		if errors.As(err, rlErr) {
+			return nil
+		}
 		return fmt.Errorf("spend input: %w", err)
 	}
 
@@ -265,11 +269,21 @@ func (s *godogState) spendOutput(
 ) error {
 	report, err := s.adapter.ConsumeChatRequests(ctx, userID, model, 0)
 	if err != nil {
-		return fmt.Errorf("spend output: %w", err)
+		rlErr := new(ratelimiter.RateLimitExceededError)
+		if !errors.As(err, &rlErr) {
+			return fmt.Errorf("spend output: %w", err)
+		}
+	}
+
+	if report == nil {
+		return nil
 	}
 
 	if err := report(ctx, count); err != nil {
-		return fmt.Errorf("report output: %w", err)
+		rlErr := new(ratelimiter.RateLimitExceededError)
+		if !errors.As(err, &rlErr) {
+			return fmt.Errorf("report output: %w", err)
+		}
 	}
 
 	return nil

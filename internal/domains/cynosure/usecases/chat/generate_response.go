@@ -11,6 +11,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -178,13 +179,9 @@ func (u *Usecase) agentLoop(
 		loopCtx, span := u.obs.agentLoop(ctx)
 		defer span.end()
 
-		usage, reportOutput := u.executeAgentLoop(loopCtx, thread, config, toolChoice, yield)
+		usage := u.executeAgentLoop(loopCtx, thread, config, toolChoice, yield)
 
 		span.recordTotalUsage(usage.InputTokens, usage.OutputTokens)
-
-		if err := reportOutput(loopCtx, int(usage.OutputTokens)); err != nil {
-			span.recordError(err)
-		}
 	}
 }
 
@@ -194,7 +191,7 @@ func (u *Usecase) executeAgentLoop(
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 	yield func(messages.Message, error) bool,
-) (usage chatmodel.UsageStats, report func(context.Context, int) error) {
+) (usage chatmodel.UsageStats) {
 	totalUsage := chatmodel.UsageStats{}
 
 	for turn := range u.agentLoopTurns {
@@ -209,7 +206,7 @@ func (u *Usecase) executeAgentLoop(
 		}
 	}
 
-	return totalUsage, func(context.Context, int) error { return nil }
+	return totalUsage
 }
 
 func (u *Usecase) executeAgentTurn(
@@ -247,6 +244,11 @@ func (u *Usecase) newPreflight(
 	thread *chat.Chat, turnSettlement *func(context.Context, int) error,
 ) chatmodel.PreflightFunc {
 	return func(ctx context.Context, modelName string, inputTokens int) error {
+		// Currently we charge for the full context in each turn, as most providers
+		// charge for the entire prompt. However, if prompt caching is enabled,
+		// the actual cost may be lower. This logic should eventually be
+		// delegated to the model adapter or handled via a more sophisticated
+		// quota management system.
 		report, err := u.limiter.ConsumeChatRequests(
 			ctx, thread.ThreadID().User(), modelName, inputTokens,
 		)
@@ -271,11 +273,12 @@ func (u *Usecase) settleTurn(
 	}
 
 	if err := report(ctx, int(outputTokens)); err != nil {
-		if errors.Is(err, chatmodel.ErrHardQuotaExhausted) {
+		var rlErr *ratelimiter.RateLimitExceededError
+		if errors.Is(err, chatmodel.ErrHardQuotaExhausted) || errors.As(err, &rlErr) {
 			_ = yield(nil, err)
-
-			return err
 		}
+
+		return err
 	}
 
 	return nil
@@ -386,8 +389,18 @@ func (u *Usecase) streamModelMessages(
 	thread *chat.Chat,
 	iterator chatmodel.Iter,
 	yield func(messages.Message, error) bool,
-) ([]messages.MessageToolRequest, chatmodel.UsageStats, bool) {
-	var toolRequests []messages.MessageToolRequest
+) (toolRequests []messages.MessageToolRequest, usage chatmodel.UsageStats, ok bool) {
+	var err error
+
+	defer func() {
+		// Ensure iterator is closed and usage stats are captured even on early exit.
+		// We ignore the error here because we are already in the process of returning,
+		// but the usage stats are preserved in the named return variable.
+		usage, err = iterator.Close()
+		if err != nil {
+			yield(nil, fmt.Errorf("closing iterator: %w", err))
+		}
+	}()
 
 	// We wrap our pull iterator to a Seq2 to use our existing streaming merge logic.
 	for msg, err := range messages.MergeMessagesStreaming(u.iteratorToSeq2(iterator)) {
@@ -399,12 +412,6 @@ func (u *Usecase) streamModelMessages(
 		if !u.saveAndYieldMessage(ctx, thread, msg, &toolRequests, yield) {
 			return nil, chatmodel.UsageStats{}, false
 		}
-	}
-
-	usage, err := iterator.Close()
-	if err != nil {
-		yield(nil, fmt.Errorf("closing stream: %w", err))
-		return nil, usage, false
 	}
 
 	return toolRequests, usage, true

@@ -90,8 +90,9 @@ func (q Quotas) atomicConsume(
 	defer func() { _ = transaction.Rollback(ctx) }() //nolint:errcheck
 
 	queries := q.q.WithTx(transaction)
-	types := []string{"output", "input"}
-	amounts := []int{0, input}
+	// Sort types to avoid deadlocks. Alphabetical order is used.
+	types := []string{"input", "output"}
+	amounts := []int{input, 0}
 
 	for i, typ := range types {
 		// We use the provided strictness for the atomic operation.
@@ -278,7 +279,7 @@ func calculateLeakyBucket(
 	}
 
 	newLevel, err := checkRateLimit(level, amount, limit, leakRate, checkWait, now, force)
-	if err != nil {
+	if err != nil && !force {
 		return bucketCalculation{newLevel: level, err: err}
 	}
 
