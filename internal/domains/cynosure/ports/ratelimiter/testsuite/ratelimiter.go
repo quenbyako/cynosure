@@ -255,7 +255,7 @@ func (s *godogState) spendInput(
 ) error {
 	if _, err := s.adapter.ConsumeChatRequests(ctx, userID, model, count); err != nil {
 		rlErr := new(ratelimiter.RateLimitExceededError)
-		if errors.As(err, rlErr) {
+		if errors.As(err, &rlErr) {
 			return nil
 		}
 		return fmt.Errorf("spend input: %w", err)

@@ -19,7 +19,7 @@ jobs:
       - id: set-modules
         run: |
           # Find modules excluding adk-go and redisconn
-          MODULES=$(find . -name go.mod -not -path '*/.*' -not -path './adk-go/*' -not -path './contrib/redisconn/*' -exec dirname {} \; | sort | jq -R . | jq -s -c .)
+          MODULES=$(find . -name go.mod -not -path '*/.*' -not -path './adk-go/*' -exec dirname {} \; | sort | jq -R . | jq -s -c .)
           echo "modules=$MODULES" >> $GITHUB_OUTPUT
 
   lint:
@@ -50,6 +50,13 @@ jobs:
         with:
           go-version: stable
           cache: true
+      # TODO: remove this after dealing with test fixes
+      - name: Create dummy secrets for CI
+        run: |
+          mkdir -p internal/adapters/ory
+          touch internal/adapters/ory/ory.secret
+          mkdir -p internal/adapters/gemini
+          touch internal/adapters/gemini/.gemini.secret
       - name: Generate
         run: go generate ./...
         working-directory: ${{ matrix.module }}

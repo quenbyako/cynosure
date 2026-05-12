@@ -52,6 +52,12 @@ jobs:
           token: ${{ github.token }}
           cache: true
           cache-dependency-path: 'go.sum'
+      - name: Create dummy secrets for CI
+        run: |
+          mkdir -p internal/adapters/ory
+          touch internal/adapters/ory/ory.secret
+          mkdir -p internal/adapters/gemini
+          touch internal/adapters/gemini/.gemini.secret
       - name: Generate
         run: go generate ./...
         working-directory: ${{ matrix.module }}
