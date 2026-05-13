@@ -12,7 +12,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
 )
 
@@ -23,7 +22,6 @@ type BaseLogger struct {
 }
 
 var (
-	_ gemini.LogCallbacks   = (*BaseLogger)(nil)
 	_ telegram.LogCallbacks = (*BaseLogger)(nil)
 	_ runtime.LogCallbacks  = (*BaseLogger)(nil)
 )

@@ -149,3 +149,11 @@ func TestIterCloser_Close(t *testing.T) {
 		require.Equal(t, 3, state) // ensuring that all data was drained
 	})
 }
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}

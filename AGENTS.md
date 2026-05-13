@@ -49,3 +49,45 @@ Each directory MAY be templated like `{resource_name}`. In that case, multiple v
 ### Directory organising anti-patterns
 
 - **[STRICT] No `pkg` or `utils` directories:** Using `pkg` or `utils` as package names is strictly forbidden. These names are considered junkyard and lead to unorganized code.
+
+## Testing Strategy for Paid APIs
+
+This project uses **API request replay** pattern for integration tests to ensure they are:
+
+- **Deterministic**: Always return the same response for the same input.
+- **Offline-capable**: Do not require an internet connection or real API keys in CI/CD.
+- **Cost-effective**: Avoid hitting paid API endpoints during routine development.
+
+### Running Tests
+
+By default, tests run in **ReplayOnly** mode using recorded cassettes in the `testdata/` directory.
+
+```bash
+go test ./...
+```
+
+### Recording/Updating Cassettes
+
+To record new interactions or update expired ones, you **MUST** use the `vcr_record` build tag and provide a real API key:
+
+```bash
+go test -v -tags=vcr_record ./...
+```
+
+**Note**: The `vcr_record` tag is the ONLY place where `os.Getenv` is permitted in the test suite.
+
+Each package tests will require specific environment variables, e.g. `CYNOSURE_GEMINI_API_KEY`.
+
+> **IMPORTANT:**
+>
+> By updating ANY of recorded test suite, as an AI agent, you MUST update registry below, to prevent overheaded consumption on token usage for the context.
+
+List of all recorded test suites and env vars that control them:
+
+| directory                   | env vars                  |
+| --------------------------- | ------------------------- |
+| ./internal/adapters/gemini/ | `CYNOSURE_GEMINI_API_KEY` |
+
+### Cassette Expiration
+
+General policy Cassettes have a TTL of **30 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.

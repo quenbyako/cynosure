@@ -78,22 +78,3 @@ func (l *BaseLogger) MetricsStopped(ctx context.Context, addr net.Addr) {
 		).
 		Msg("Metrics server stopped")
 }
-
-func (l *BaseLogger) GeminiStreamStarted(ctx context.Context, model string, toolCount int) {
-	l.event(ctx, slog.LevelInfo, eventGeminiStreamStarted).
-		Context(
-			attribute.Key("model").String(model),
-			attribute.Key("tool_count").Int(toolCount),
-		).
-		Msg("Passing tools to Gemini")
-}
-
-func (l *BaseLogger) TokenCountMismatch(ctx context.Context, model string, expected, got uint32) {
-	l.event(ctx, slog.LevelWarn, "gemini.token_count_mismatch").
-		Context(
-			attribute.Key("model").String(model),
-			attribute.Key("expected").Int(int(expected)),
-			attribute.Key("got").Int(int(got)),
-		).
-		Msg("Token count mismatch")
-}
