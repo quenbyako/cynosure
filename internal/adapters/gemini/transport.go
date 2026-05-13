@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,8 +13,13 @@ import (
 )
 
 const (
-	apiKeyHeader = "X-Goog-Api-Key"
+	// G101: Potential hardcoded credentials. False positive: it's a header name.
+	apiKeyHeader = "X-Goog-Api-Key" // #nosec G101
+
+	defaultMaxElapsedTime = 30 * time.Second
 )
+
+var ErrRetryableStatus = errors.New("retryable status code")
 
 type retryTransport struct {
 	base                 http.RoundTripper
@@ -21,7 +27,11 @@ type retryTransport struct {
 	retriableStatusCodes []int // must be sorted
 }
 
-func newRetryTransport(base http.RoundTripper, apiKey SecretGetter, retriableStatusCodes []int) http.RoundTripper {
+func newRetryTransport(
+	base http.RoundTripper,
+	apiKey SecretGetter,
+	retriableStatusCodes []int,
+) http.RoundTripper {
 	// must be sorted
 	slices.Sort(retriableStatusCodes)
 
@@ -46,52 +56,61 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// replacing body to copy reader, since for retry we might get it once more.
 	// TODO: tee reader? bufio? idk
-	var body []byte
-	if req.Body != nil && req.GetBody == nil {
-		if body, err = io.ReadAll(req.Body); err != nil {
-			return nil, fmt.Errorf("reading body: %w", err)
-		}
-		req.Body.Close()
-		req.Body = io.NopCloser(bytes.NewReader(body))
-		req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil }
+	if errCopy := t.copyRequestBody(req); errCopy != nil {
+		return nil, errCopy
 	}
 
-	return backoff.Retry(ctx, t.performRequest(req), t.backoffOpts()...)
+	res, err := backoff.Retry(ctx, t.performRequest(req), t.backoffOpts()...)
+	if err != nil {
+		return nil, fmt.Errorf("retry request: %w", err)
+	}
+
+	return res, nil
 }
 
 func (t *retryTransport) performRequest(req *http.Request) backoff.Operation[*http.Response] {
 	var attempt int
+
 	return func() (*http.Response, error) {
 		attempt++
 
-		// If it's not the first attempt, we need to refresh the body
-		if attempt > 1 && req.GetBody != nil {
-			newBody, err := req.GetBody()
-			if err != nil {
-				return nil, backoff.Permanent(
-					fmt.Errorf("failed to refresh request body for retry: %w", err),
-				)
-			}
-			req.Body = newBody
+		if err := t.refreshBody(req, attempt); err != nil {
+			return nil, fmt.Errorf("refresh body: %w", err)
 		}
 
 		resp, err := t.base.RoundTrip(req)
 		if err != nil {
-			// Network error, worth retrying
-			return nil, err
+			return nil, fmt.Errorf("round trip: %w", err)
 		}
 
-		// Check for retryable status codes
-		if slices.Contains(t.retriableStatusCodes, resp.StatusCode) {
-			// Close the body of the failing response to avoid leak
-			resp.Body.Close()
-
-			// Return error to trigger retry
-			return nil, fmt.Errorf("retryable status code: %d", resp.StatusCode)
-		}
-
-		return resp, nil
+		return t.handleResponse(resp)
 	}
+}
+
+func (t *retryTransport) refreshBody(req *http.Request, attempt int) error {
+	if attempt > 1 && req.GetBody != nil {
+		newBody, err := req.GetBody()
+		if err != nil {
+			return fmt.Errorf("refreshing body: %w", backoff.Permanent(
+				fmt.Errorf("failed to refresh request body for retry: %w", err),
+			))
+		}
+
+		req.Body = newBody
+	}
+
+	return nil
+}
+
+func (t *retryTransport) handleResponse(resp *http.Response) (*http.Response, error) {
+	if slices.Contains(t.retriableStatusCodes, resp.StatusCode) {
+		//nolint:errcheck // closing failing response body is best-effort
+		_ = resp.Body.Close()
+
+		return nil, fmt.Errorf("%w: %d", ErrRetryableStatus, resp.StatusCode)
+	}
+
+	return resp, nil
 }
 
 func (t *retryTransport) backoffOpts() []backoff.RetryOption {
@@ -100,6 +119,28 @@ func (t *retryTransport) backoffOpts() []backoff.RetryOption {
 
 	return []backoff.RetryOption{
 		backoff.WithBackOff(b),
-		backoff.WithMaxElapsedTime(30 * time.Second),
+		backoff.WithMaxElapsedTime(defaultMaxElapsedTime),
 	}
+}
+
+func (t *retryTransport) copyRequestBody(req *http.Request) error {
+	if req.Body == nil || req.GetBody != nil {
+		return nil
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return fmt.Errorf("reading body: %w", err)
+	}
+
+	if err := req.Body.Close(); err != nil {
+		return fmt.Errorf("closing body: %w", err)
+	}
+
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(body)), nil
+	}
+
+	return nil
 }

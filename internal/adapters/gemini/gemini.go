@@ -43,10 +43,10 @@ func (g *GeminiModel) ChatModel() chatmodel.PortWrapped { return chatmodel.Wrap(
 
 type newParams struct {
 	traceProvider  core.Metrics
-	maxMsgsPerReq  uint
+	transport      http.RoundTripper
 	embeddingLimit ratelimit.Policy
 	chatInputLimit ratelimit.Policy
-	transport      http.RoundTripper
+	maxMsgsPerReq  uint
 }
 
 // NewOption defines functional option for New.

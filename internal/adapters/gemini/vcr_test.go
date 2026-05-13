@@ -12,15 +12,13 @@ import (
 	"github.com/quenbyako/cynosure/internal/vcrtest"
 )
 
-var (
-	//go:embed testdata/*
-	testdata embed.FS
-)
+//go:embed testdata/*
+var testdata embed.FS
 
-func vcrModel(t *testing.T, cassetteName string) (*gemini.GeminiModel, func() error) {
+func vcrModel(t *testing.T, cassetteName string) (model *gemini.GeminiModel, stop func() error) {
 	t.Helper()
 
-	r := vcrtest.New(t, testdata, cassetteName,
+	rec := vcrtest.New(t, testdata, cassetteName,
 		recorder.WithHook(func(i *cassette.Interaction) error {
 			i.Request.Headers.Set("X-Goog-Api-Key", "REDACTED")
 			i.Request.Headers.Set("Authorization", "REDACTED")
@@ -32,8 +30,8 @@ func vcrModel(t *testing.T, cassetteName string) (*gemini.GeminiModel, func() er
 	key := vcrtest.GeminiKey(t)
 
 	gem, err := gemini.New(t.Context(), staticSecretGetter(key),
-		append(geminiMaxTokenConsumptionPerTest, gemini.WithTransport(r))...)
+		append(geminiMaxTokenConsumptionPerTest, gemini.WithTransport(rec))...)
 	require.NoError(t, err, "Failed to create GenAI client")
 
-	return gem, r.Stop
+	return gem, rec.Stop
 }

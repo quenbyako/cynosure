@@ -18,13 +18,11 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
-var (
-	// Setting maximum token usage for tests
-	geminiMaxTokenConsumptionPerTest = []gemini.NewOption{
-		gemini.WithEmbeddingLimit(ratelimit.NewPolicy(10000, maxDuration)),
-		gemini.WithChatInputLimit(ratelimit.NewPolicy(10000, maxDuration)),
-	}
-)
+// Setting maximum token usage for tests
+var geminiMaxTokenConsumptionPerTest = []gemini.NewOption{
+	gemini.WithEmbeddingLimit(ratelimit.NewPolicy(10000, maxDuration)),
+	gemini.WithChatInputLimit(ratelimit.NewPolicy(10000, maxDuration)),
+}
 
 type staticSecretGetter []byte
 
