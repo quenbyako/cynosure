@@ -46,7 +46,7 @@ func (g *GeminiModel) executeStream(
 	genConfig *genai.GenerateContentConfig,
 	params streamParamsProxy,
 ) (chatmodel.Iter, error) {
-	g.log.GeminiStreamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
+	g.obs.streamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
 
 	converted, err := datatransfer.MessagesToGenAIContent(params.Input())
 	if err != nil {
@@ -183,7 +183,7 @@ func (s *geminiStreamSession) Collect(
 			usage.OutputTokens = uint32(max(0, msg.UsageMetadata.CandidatesTokenCount))
 
 			if usage.InputTokens != wantInputTokens {
-				s.g.log.TokenCountMismatch(ctx, model, wantInputTokens, usage.InputTokens)
+				s.g.obs.tokenCountMismatch(ctx, model, wantInputTokens, usage.InputTokens)
 			}
 		}
 

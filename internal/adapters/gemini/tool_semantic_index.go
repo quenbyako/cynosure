@@ -184,7 +184,7 @@ func (g *GeminiModel) getEmbeddingResponse(
 	if res.Statistics != nil {
 		tokenCount := uint32(max(0, res.Statistics.TokenCount))
 		if tokenCount != expectedTokens {
-			g.log.TokenCountMismatch(ctx, model, expectedTokens, tokenCount)
+			g.obs.tokenCountMismatch(ctx, model, expectedTokens, tokenCount)
 		}
 	}
 

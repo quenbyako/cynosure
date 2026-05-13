@@ -19,6 +19,7 @@ replace github.com/quenbyako/cynosure/contrib/rate => ./contrib/rate
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1
 	github.com/alitto/pond/v2 v2.7.1
+	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/cucumber/godog v0.15.1
 	github.com/exaring/otelpgx v0.10.0
 	github.com/getkin/kin-openapi v0.138.0
@@ -63,6 +64,7 @@ require (
 	google.golang.org/genai v1.56.0
 	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+	gopkg.in/dnaeon/go-vcr.v4 v4.0.6
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -82,7 +84,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/buger/goterm v1.0.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/compose-spec/compose-go/v2 v2.10.2 // indirect

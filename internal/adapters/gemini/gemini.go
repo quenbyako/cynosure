@@ -3,11 +3,11 @@ package gemini
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/quenbyako/core"
 	"github.com/quenbyako/cynosure/contrib/core-params/ratelimit"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/time/rate"
 	"google.golang.org/genai"
 
@@ -25,9 +25,7 @@ const (
 
 // GeminiModel implements Gemini adapter.
 type GeminiModel struct {
-	log              LogCallbacks
-	trace            trace.Tracer
-	tracer           ports.ObserveStack
+	obs              observable
 	client           *genai.Client
 	thinkingConfig   *genai.ThinkingConfig
 	embeddingLimiter *rate.Limiter
@@ -40,15 +38,15 @@ var (
 	_ embedding.PortFactory = (*GeminiModel)(nil)
 )
 
-func (g *GeminiModel) Embedding() embedding.PortWrapped { return embedding.Wrap(g, g.tracer) }
-func (g *GeminiModel) ChatModel() chatmodel.PortWrapped { return chatmodel.Wrap(g, g.tracer) }
+func (g *GeminiModel) Embedding() embedding.PortWrapped { return embedding.Wrap(g, g.obs.stack) }
+func (g *GeminiModel) ChatModel() chatmodel.PortWrapped { return chatmodel.Wrap(g, g.obs.stack) }
 
 type newParams struct {
-	log            LogCallbacks
 	traceProvider  core.Metrics
 	maxMsgsPerReq  uint
 	embeddingLimit ratelimit.Policy
 	chatInputLimit ratelimit.Policy
+	transport      http.RoundTripper
 }
 
 // NewOption defines functional option for New.
@@ -56,11 +54,11 @@ type NewOption func(*newParams)
 
 func buildNewParams(opts ...NewOption) newParams {
 	params := newParams{
-		log:            NoOpLogCallbacks{},
 		traceProvider:  core.NoopMetrics(),
 		maxMsgsPerReq:  defaultHardCap, // default fallback
 		embeddingLimit: ratelimit.Policy{},
 		chatInputLimit: ratelimit.Policy{},
+		transport:      http.DefaultTransport,
 	}
 
 	for _, opt := range opts {
@@ -68,11 +66,6 @@ func buildNewParams(opts ...NewOption) newParams {
 	}
 
 	return params
-}
-
-// WithLogCallbacks sets LogCallbacks for Gemini model.
-func WithLogCallbacks(log LogCallbacks) NewOption {
-	return func(params *newParams) { params.log = log }
 }
 
 // WithTrace sets trace.TracerProvider for Gemini model.
@@ -95,9 +88,16 @@ func WithChatInputLimit(limit ratelimit.Policy) NewOption {
 	return func(params *newParams) { params.chatInputLimit = limit }
 }
 
+func WithTransport(transport http.RoundTripper) NewOption {
+	return func(params *newParams) { params.transport = transport }
+}
+
 // New creates a new Gemini adapter.
-func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*GeminiModel, error) {
+func New(ctx context.Context, apiKey SecretGetter, opts ...NewOption) (*GeminiModel, error) {
 	params := buildNewParams(opts...)
+
+	obs := newObservable(ports.StackFromCore(params.traceProvider, pkgName))
+	cfg := newGeminiConfig(apiKey, params.transport)
 
 	client, err := genai.NewClient(ctx, cfg)
 	if err != nil {
@@ -105,11 +105,9 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 	}
 
 	model := &GeminiModel{
+		obs:              obs,
 		client:           client,
 		thinkingConfig:   defaultThinkingConfig(),
-		log:              params.log,
-		trace:            params.traceProvider.Tracer(pkgName),
-		tracer:           ports.StackFromCore(params.traceProvider, pkgName),
 		maxMsgsPerReq:    params.maxMsgsPerReq,
 		embeddingLimiter: newRateLimiter(params.embeddingLimit),
 		chatInputLimiter: newRateLimiter(params.chatInputLimit),
@@ -124,6 +122,44 @@ func New(ctx context.Context, cfg *genai.ClientConfig, opts ...NewOption) (*Gemi
 	}
 
 	return model, nil
+}
+
+type SecretGetter interface {
+	Get(ctx context.Context) ([]byte, error)
+}
+
+func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientConfig {
+	return &genai.ClientConfig{
+		APIKey:      "ROTATED", // genai requires non-empty key, but we override it in transport
+		Backend:     0,
+		Project:     "",
+		Location:    "",
+		Credentials: nil,
+		HTTPClient: &http.Client{
+			Transport: &retryTransport{
+				base:   client,
+				apiKey: key,
+				retriableStatusCodes: []int{
+					http.StatusTooManyRequests,
+					http.StatusInternalServerError,
+					http.StatusServiceUnavailable,
+					http.StatusGatewayTimeout,
+				},
+			},
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       time.Minute,
+		},
+		HTTPOptions: genai.HTTPOptions{
+			BaseURL:               "",
+			BaseURLResourceScope:  "",
+			APIVersion:            "",
+			Headers:               nil,
+			Timeout:               nil,
+			ExtraBody:             nil,
+			ExtrasRequestProvider: nil,
+		},
+	}
 }
 
 func defaultThinkingConfig() *genai.ThinkingConfig {
@@ -151,18 +187,6 @@ func (g *GeminiModel) ping(ctx context.Context) error {
 func (g *GeminiModel) validate() error {
 	if g.client == nil {
 		return ErrInternalValidation("client is nil")
-	}
-
-	if g.thinkingConfig == nil {
-		return ErrInternalValidation("thinkingConfig is nil")
-	}
-
-	if g.log == nil {
-		return ErrInternalValidation("log is nil")
-	}
-
-	if g.trace == nil {
-		return ErrInternalValidation("trace is nil")
 	}
 
 	return nil

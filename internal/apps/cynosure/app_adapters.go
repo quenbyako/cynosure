@@ -3,11 +3,8 @@ package cynosure
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/genai"
 
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
@@ -96,14 +93,10 @@ func newMCPHandler(
 	return handler, nil
 }
 
-func newGeminiModel(
-	ctx context.Context, params *appParams, log gemini.LogCallbacks,
-) (
-	*gemini.GeminiModel, error,
-) {
+func newGeminiModel(ctx context.Context, params *appParams) (*gemini.GeminiModel, error) {
 	model, err := gemini.New(ctx,
-		newGeminiConfig(params.gemini.key, params.gemini.apiClient),
-		gemini.WithLogCallbacks(log),
+		params.gemini.key,
+		gemini.WithTransport(params.gemini.apiClient),
 		gemini.WithTrace(params.observability),
 		gemini.WithMaxMessagesPerRequest(params.chat.historyLimit),
 		gemini.WithChatInputLimit(params.rate.chatInputGlobal),
@@ -114,51 +107,6 @@ func newGeminiModel(
 	}
 
 	return model, nil
-}
-
-func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientConfig {
-	return &genai.ClientConfig{
-		APIKey:      "ROTATED", // genai requires non-empty key, but we override it in transport
-		Backend:     0,
-		Project:     "",
-		Location:    "",
-		Credentials: nil,
-		HTTPClient: &http.Client{
-			Transport: &rotatedKeyTransport{
-				base:   client,
-				getter: key,
-			},
-			CheckRedirect: nil,
-			Jar:           nil,
-			Timeout:       time.Minute,
-		},
-		HTTPOptions: genai.HTTPOptions{
-			BaseURL:               "",
-			BaseURLResourceScope:  "",
-			APIVersion:            "",
-			Headers:               nil,
-			Timeout:               nil,
-			ExtraBody:             nil,
-			ExtrasRequestProvider: nil,
-		},
-	}
-}
-
-type rotatedKeyTransport struct {
-	base   http.RoundTripper
-	getter SecretGetter
-}
-
-func (t *rotatedKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	key, err := t.getter.Get(req.Context())
-	if err != nil {
-		return nil, fmt.Errorf("getting api key: %w", err)
-	}
-
-	req.Header.Set("X-Goog-Api-Key", string(key))
-
-	//nolint:wrapcheck // implementing RoundTripper
-	return t.base.RoundTrip(req)
 }
 
 func newOAuthHandler(params *appParams) *oauth.Handler {
