@@ -25,8 +25,7 @@ func buildApp(contextContext context.Context, cynosureAppParams *appParams) (*Ap
 	portWrapped := oauthhandler.New(handler)
 	constructor3 := newAccountStorage(cynosureConstructor)
 	constructor4 := newToolStorage(cynosureConstructor)
-	baseLogger := newLogger(cynosureAppParams)
-	geminiModel, err := newGeminiModel(contextContext, cynosureAppParams, baseLogger)
+	geminiModel, err := newGeminiModel(contextContext, cynosureAppParams)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +51,7 @@ func buildApp(contextContext context.Context, cynosureAppParams *appParams) (*Ap
 	}
 	cynosureAdminControllerWireBind := bindAdminController(cynosureAppParams, usecase)
 	cynosureOauthControllerWireBind := bindOAuthController(cynosureAppParams, usecase)
+	baseLogger := newLogger(cynosureAppParams)
 	constructor6 := newThreadStorage(cynosureConstructor)
 	chatmodelPortWrapped := chatmodel.New(geminiModel)
 	constructor7 := newAgentStorage(cynosureConstructor)

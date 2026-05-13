@@ -31,7 +31,6 @@ func buildApp(context.Context, *appParams) (*App, error) {
 
 		wire.NewSet(
 			newLogger,
-			wire.Bind(new(gemini.LogCallbacks), new(*logs.BaseLogger)),
 			wire.Bind(new(telegram.LogCallbacks), new(*logs.BaseLogger)),
 			wire.Bind(new(runtime.LogCallbacks), new(*logs.BaseLogger)),
 		),
