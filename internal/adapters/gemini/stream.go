@@ -109,7 +109,7 @@ func (g *GeminiModel) countAndCheckTokens(
 	}
 
 	if err := params.PreflightCheck()(ctx, model, int(tokens.TotalTokens)); err != nil {
-		return 0, err
+		return 0, chatmodel.ErrPreflightFailed(err)
 	}
 
 	return tokens.TotalTokens, g.waitInputLimit(ctx, int(tokens.TotalTokens))

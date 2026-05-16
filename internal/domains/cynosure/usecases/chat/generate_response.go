@@ -36,6 +36,12 @@ func (p generateResponseParams) validate() error {
 	}
 }
 
+// GenerateResponse creates or loads a chat session and generates a response
+// from the model.
+//
+// Throws:
+//
+//   - [RateLimitExceededError]
 func (u *Usecase) GenerateResponse(
 	ctx context.Context,
 	threadID ids.ThreadID,
@@ -128,27 +134,40 @@ func (u *Usecase) loadOrCreateChat(
 	id ids.ThreadID,
 	msg messages.MessageUser,
 ) (*chat.Chat, error) {
-	agg, err := chat.New(ctx,
-		u.storage,
-		u.indexer,
-		u.toolStorage, u.accounts,
-		u.limiter,
-		id, u.defaultChatLimit,
-	)
-
+	agg, err := u.loadChat(ctx, id)
 	if errors.Is(err, ports.ErrNotFound) {
 		return u.createChat(ctx, id, msg)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("loading chat: %w", err)
+		return nil, err
 	}
 
-	if err = agg.AcceptUserMessage(ctx, msg); err != nil {
+	if err := agg.AcceptUserMessage(ctx, msg); err != nil {
+		if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+			return nil, ErrRateLimitExceeded(e.RetryAt())
+		}
+
 		return nil, fmt.Errorf("adding user message: %w", err)
 	}
 
 	return agg, nil
+}
+
+func (u *Usecase) loadChat(ctx context.Context, id ids.ThreadID) (*chat.Chat, error) {
+	agg, err := chat.New(ctx,
+		u.storage, u.indexer, u.toolStorage, u.accounts, u.limiter,
+		id, u.defaultChatLimit,
+	)
+	if err == nil {
+		return agg, nil
+	}
+
+	if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+		return nil, ErrRateLimitExceeded(e.RetryAt())
+	}
+
+	return nil, fmt.Errorf("loading chat: %w", err)
 }
 
 func (u *Usecase) createChat(
@@ -169,6 +188,8 @@ func (u *Usecase) createChat(
 	return agg, nil
 }
 
+// agentLoop executes the agent loop for a given chat and model configuration.
+// It returns a sequence of messages and errors.
 func (u *Usecase) agentLoop(
 	ctx context.Context,
 	thread *chat.Chat,
@@ -337,10 +358,7 @@ func (u *Usecase) callModel(
 	toolChoice tools.ToolChoice,
 	preflight chatmodel.PreflightFunc,
 ) (chatmodel.Iter, error) {
-	opts := []chatmodel.StreamOption{
-		chatmodel.WithPreflightCheck(preflight),
-	}
-
+	opts := []chatmodel.StreamOption{chatmodel.WithPreflightCheck(preflight)}
 	if toolChoice != tools.ToolChoiceForbidden {
 		opts = append(opts, chatmodel.WithStreamToolbox(thread.RelevantTools()))
 	}
@@ -350,14 +368,22 @@ func (u *Usecase) callModel(
 		maxContext = u.defaultChatLimit
 	}
 
-	resp, err := u.model.StreamWithStats(
-		ctx, thread.Messages(maxContext), config, opts...,
-	)
+	resp, err := u.model.StreamWithStats(ctx, thread.Messages(maxContext), config, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("calling model stream: %w", err)
+		return nil, u.handleCallError(err)
 	}
 
 	return resp, nil
+}
+
+func (u *Usecase) handleCallError(err error) error {
+	if e := new(chatmodel.PreflightFailedError); errors.As(err, &e) {
+		if limited := new(ratelimiter.RateLimitExceededError); errors.As(e.Unwrap(), &limited) {
+			return ErrRateLimitExceeded(limited.RetryAt())
+		}
+	}
+
+	return fmt.Errorf("calling model stream: %w", err)
 }
 
 func (u *Usecase) streamModelMessages(

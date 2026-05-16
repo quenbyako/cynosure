@@ -1,8 +1,6 @@
 package embedding
 
 import (
-	"context"
-
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
@@ -15,7 +13,7 @@ import (
 //   - [Port.BuildToolEmbedding]
 func WithPreflightCheck(check PreflightFunc) *preflightOption {
 	if check == nil {
-		check = func(context.Context, string, int) error { return nil }
+		check = noopPreflight
 	}
 
 	return &preflightOption{preflight: check}

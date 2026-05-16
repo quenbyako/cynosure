@@ -39,14 +39,23 @@ type Port interface {
 	//  - [TestToolEmbeddingGeneration] — embedding generation for various tool
 	//     types
 	//
+	// Throws:
+	//
+	//  - [ErrHardQuotaExhausted] if hard quota is exhausted. See
+	//    documentation for [Port] to get more about quotas and
+	//    rate limiting.
+	//  - [PreflightFailedError] if preflight check fails. Note, that this error
+	//    interprets as a business logic error, and if preflight failed due to
+	//    infrastructure issues, callback is responsible to handle observability
+	//    features.
 	IndexTool(
 		ctx context.Context,
 		tool entities.ToolReadOnly,
 		opts ...IndexToolOption,
 	) ([EmbeddingSize]float32, error)
 
-	// BuildToolEmbedding generates query embedding from conversation context.
-	// Used to find semantically relevant tools matching user's intent.
+	// BuildToolEmbedding generates query embedding from conversation context. Used to find
+	// semantically relevant tools matching user's intent.
 	//
 	// See next test suites to find how it works:
 	//
@@ -58,6 +67,10 @@ type Port interface {
 	//  - [ErrHardQuotaExhausted] if hard quota is exhausted. See
 	//    documentation for [Port] to get more about quotas and
 	//    rate limiting.
+	//  - [PreflightFailedError] if preflight check fails. Note, that this error
+	//    interprets as a business logic error, and if preflight failed due to
+	//    infrastructure issues, callback is responsible to handle observability
+	//    features.
 	BuildToolEmbedding(
 		ctx context.Context,
 		msgs []messages.Message,
@@ -68,7 +81,7 @@ type Port interface {
 func defaultIndexToolParams(required indexToolRequiredParams) indexToolParams {
 	return indexToolParams{
 		indexToolRequiredParams: required,
-		preflight:               func(context.Context, string, int) error { return nil },
+		preflight:               noopPreflight,
 	}
 }
 
@@ -81,7 +94,7 @@ func defaultBuildToolEmbeddingParams(
 ) buildToolEmbeddingParams {
 	return buildToolEmbeddingParams{
 		buildToolEmbeddingRequiredParams: required,
-		preflight:                        func(context.Context, string, int) error { return nil },
+		preflight:                        noopPreflight,
 	}
 }
 

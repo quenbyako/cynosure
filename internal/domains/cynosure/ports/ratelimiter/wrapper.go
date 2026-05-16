@@ -46,19 +46,38 @@ func Wrap(client Port, observable ports.ObserveStack) (PortWrapped, error) {
 // ConsumeChat consumes rate limit of messages for the given user.
 func (t *portWrapped) ConsumeChatRequests(
 	ctx context.Context, user ids.UserID, model string, inputTokens int,
-) (callback ConsumedTokensFunc, err error) {
+) (ConsumedTokensFunc, error) {
 	ctx, span := t.t.consumeChatRequests(ctx, user, inputTokens)
 	defer span.end()
 
-	callback, err = t.w.ConsumeChatRequests(ctx, user, model, inputTokens)
-	if e := new(RateLimitExceededError); errors.As(err, &e) {
-		t.t.recordRateLimit(ctx, model, e.RetryAt())
+	callback, err := t.w.ConsumeChatRequests(ctx, user, model, inputTokens)
+	if err == nil {
+		return t.wrapCallback(user, callback), nil
 	}
 
-	span.recordError(err)
+	if e := new(RateLimitExceededError); errors.As(err, &e) {
+		t.t.recordRateLimit(ctx, model, e.RetryAt())
+		span.limitReached(e.RetryAt())
+	} else {
+		span.recordError(err)
+	}
 
 	//nolint:wrapcheck // should not wrap adapter errors
-	return callback, err
+	return nil, err
+}
+
+func (t *portWrapped) wrapCallback(
+	user ids.UserID, callback ConsumedTokensFunc,
+) ConsumedTokensFunc {
+	return func(ctx context.Context, outputTokens int) error {
+		ctx, span := t.t.consumeChatResponse(ctx, user, outputTokens)
+		defer span.end()
+
+		err := callback(ctx, outputTokens)
+		span.recordError(err)
+
+		return err
+	}
 }
 
 func (t *portWrapped) ConsumeEmbeddingRequests(
@@ -70,9 +89,9 @@ func (t *portWrapped) ConsumeEmbeddingRequests(
 	err = t.w.ConsumeEmbeddingRequests(ctx, user, model, inputTokens)
 	if e := new(RateLimitExceededError); errors.As(err, &e) {
 		t.t.recordRateLimit(ctx, model, e.RetryAt())
+	} else if err != nil {
+		span.recordError(err)
 	}
-
-	span.recordError(err)
 
 	//nolint:wrapcheck // should not wrap adapter errors
 	return err

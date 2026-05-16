@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/oauth2"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -91,6 +92,7 @@ func (s *Usecase) runDiscoveryTask(ctx context.Context, task discoveryTask) {
 
 	if err := s.saveAccountAndTools(ctx, task.server, task.account, task.token); err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 	}
 }
 

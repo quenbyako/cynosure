@@ -28,3 +28,5 @@ type (
 		Close() (UsageStats, error)
 	}
 )
+
+func noopPreflight(context.Context, string, int) error { return nil }

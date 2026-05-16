@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -144,6 +145,8 @@ func (f *connFactory) GetPartiallyAuthorized(
 
 	if err := validatePartiallyParams(targetURL, token, protocol); err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return nil, err
 	}
 
@@ -185,6 +188,8 @@ func (f *connFactory) GetAuthorized(
 
 	if err := validateAuthorizedParams(id, server, token); err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+
 		return nil, err
 	}
 

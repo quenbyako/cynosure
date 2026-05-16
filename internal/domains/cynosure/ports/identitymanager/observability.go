@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 
@@ -109,5 +110,6 @@ func (c *spanCallback) end() {
 func (c *spanCallback) recordError(err error) {
 	if err != nil && c.span != nil {
 		c.span.RecordError(err)
+		c.span.SetStatus(codes.Error, err.Error())
 	}
 }

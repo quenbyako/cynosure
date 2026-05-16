@@ -1,8 +1,6 @@
 package chatmodel
 
 import (
-	"context"
-
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -33,7 +31,7 @@ func WithStreamToolChoice(choice tools.ToolChoice) StreamOption {
 //   - [Port.StreamWithStats]
 func WithPreflightCheck(check PreflightFunc) StreamOption {
 	if check == nil {
-		check = func(context.Context, string, int) error { return nil }
+		check = noopPreflight
 	}
 
 	return streamFunc(func(p *streamParams) { p.preflight = check })

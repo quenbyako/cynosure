@@ -4,6 +4,7 @@ package a2a
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"iter"
 	"strings"
@@ -97,11 +98,11 @@ func (h *Handler) SendMessage(
 		return nil, err
 	}
 
-	response, err := h.srv.GenerateResponse(
+	response, err := h.callGenerateResponse(
 		ctx, threadID, msg, chat.WithToolChoice(tools.ToolChoiceForbidden),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("generating response: %w", err)
+		return nil, err
 	}
 
 	parts, err := h.collectResponseParts(response)
@@ -109,11 +110,9 @@ func (h *Handler) SendMessage(
 		return nil, err
 	}
 
-	respMsg := h.makeSendMessageResponse(parts)
-
 	return &a2a.SendMessageResponse{
 		Payload: &a2a.SendMessageResponse_Msg{
-			Msg: respMsg,
+			Msg: h.makeSendMessageResponse(parts),
 		},
 	}, nil
 }
@@ -140,15 +139,15 @@ func (h *Handler) SendStreamingMessage(
 		return err
 	}
 
-	response, err := h.srv.GenerateResponse(
+	response, err := h.callGenerateResponse(
 		srv.Context(), threadID, msg, chat.WithToolChoice(tools.ToolChoiceAllowed),
 	)
 	if err != nil {
-		return fmt.Errorf("generating response: %w", err)
+		return err
 	}
 
 	for msg, contentErr := range response {
-		if err != nil {
+		if contentErr != nil {
 			return contentErr
 		}
 
@@ -158,6 +157,26 @@ func (h *Handler) SendStreamingMessage(
 	}
 
 	return nil
+}
+
+func (h *Handler) callGenerateResponse(
+	ctx context.Context,
+	threadID ids.ThreadID,
+	msg messages.MessageUser,
+	opts ...chat.GenerateResponseOption,
+) (iter.Seq2[messages.Message, error], error) {
+	response, err := h.srv.GenerateResponse(ctx, threadID, msg, opts...)
+	if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+		return nil, status.Errorf(
+			codes.ResourceExhausted, "rate limit exceeded: retry at %v", e.RetryAt(),
+		)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("generating response: %w", err)
+	}
+
+	return response, nil
 }
 
 func (h *Handler) prepareMessageRequest(
