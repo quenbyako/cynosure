@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.opentelemetry.io/otel/trace"
@@ -15,8 +16,9 @@ import (
 )
 
 const (
-	cynosureUserID            attribute.Key = "cynosure.user_id"
-	cynosureRatelimiterAmount attribute.Key = "cynosure.ratelimiter.amount"
+	cynosureUserID             attribute.Key = "cynosure.user_id"
+	cynosureRatelimiterAmount  attribute.Key = "cynosure.ratelimiter.amount"
+	cynosureRatelimiterRetryAt attribute.Key = "cynosure.ratelimiter.retry_at"
 
 	limitExceededKey     = "cynosure.ports.ratelimiter.limit_exceeded"
 	retryAfterSecondsKey = "cynosure.ports.ratelimiter.retry_after_seconds"
@@ -78,15 +80,48 @@ func (o *observable) recordRateLimit(ctx context.Context, model string, retryAt 
 
 // trace callbacks
 
+type consumeChatRequestsCallback interface {
+	span
+
+	limitReached(retryAt time.Time)
+}
+
+type consumeChatRequestsSpan struct {
+	spanCallback
+}
+
 //nolint:spancheck // isolated in a wrapper
 func (o *observable) consumeChatRequests(
-	ctx context.Context, user ids.UserID, amount int,
-) (context.Context, span) {
+	ctx context.Context, user ids.UserID, tokens int,
+) (context.Context, consumeChatRequestsCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_chat_requests",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
 			cynosureUserID.String(user.ID().String()),
-			cynosureRatelimiterAmount.Int(amount),
+			semconv.GenAIUsageInputTokens(tokens),
+		),
+	)
+
+	return ctx, &consumeChatRequestsSpan{spanCallback: spanCallback{span: span}}
+}
+
+func (c *consumeChatRequestsSpan) limitReached(retryAt time.Time) {
+	if c != nil {
+		c.span.SetAttributes(
+			cynosureRatelimiterRetryAt.String(retryAt.Format(time.RFC3339)),
+		)
+	}
+}
+
+//nolint:spancheck // isolated in a wrapper
+func (o *observable) consumeEmbeddingRequests(
+	ctx context.Context, user ids.UserID, tokens int,
+) (context.Context, span) {
+	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_embedding_requests",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(
+			cynosureUserID.String(user.ID().String()),
+			cynosureRatelimiterAmount.Int(tokens),
 		),
 	)
 
@@ -94,14 +129,14 @@ func (o *observable) consumeChatRequests(
 }
 
 //nolint:spancheck // isolated in a wrapper
-func (o *observable) consumeEmbeddingRequests(
-	ctx context.Context, user ids.UserID, amount int,
+func (o *observable) consumeChatResponse(
+	ctx context.Context, user ids.UserID, tokens int,
 ) (context.Context, span) {
-	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_embedding_requests",
+	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_chat_response",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
 			cynosureUserID.String(user.ID().String()),
-			cynosureRatelimiterAmount.Int(amount),
+			semconv.GenAIUsageOutputTokens(tokens),
 		),
 	)
 
@@ -128,5 +163,6 @@ func (c *spanCallback) end() {
 func (c *spanCallback) recordError(err error) {
 	if err != nil && c.span != nil {
 		c.span.RecordError(err)
+		c.span.SetStatus(codes.Error, err.Error())
 	}
 }

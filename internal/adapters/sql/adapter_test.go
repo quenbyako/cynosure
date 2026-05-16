@@ -56,12 +56,12 @@ func TestAdapter(t *testing.T) {
 		// Insert plan
 		_, err := pool.Exec(ctx, `
 			INSERT INTO agents.plans (
-				id, chat_input_period, chat_input_limit,
+				id, plan_key, chat_input_period, chat_input_limit,
 				chat_output_period, chat_output_limit,
 				embedding_period, embedding_limit,
 				max_await_period, agents_limit, mcp_accounts_limit
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, 100, 100
+				$1, 'test-plan', $2, $3, $4, $5, $6, $7, $8, 100, 100
 			)
 		`,
 			planID,

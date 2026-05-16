@@ -2,6 +2,7 @@ package embedding
 
 import (
 	"context"
+	"errors"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -43,16 +44,19 @@ func (i *portWrapped) IndexTool(
 	opts ...IndexToolOption,
 ) ([EmbeddingSize]float32, error) {
 	ctx, span := i.t.indexTool(ctx)
+	defer span.end()
 
 	res, err := i.w.IndexTool(ctx, tool, opts...)
-	if err != nil {
-		span.recordError(err)
-		span.end()
-		//nolint:wrapcheck // should never wrap error
-		return [EmbeddingSize]float32{}, err
+	if err == nil {
+		return res, nil
 	}
 
-	return res, nil
+	if e := new(PreflightFailedError); !errors.As(err, &e) {
+		span.recordError(err)
+	}
+
+	//nolint:wrapcheck // should not wrap errors from adapters
+	return res, err
 }
 
 func (i *portWrapped) BuildToolEmbedding(
@@ -61,14 +65,17 @@ func (i *portWrapped) BuildToolEmbedding(
 	opts ...BuildToolEmbeddingOption,
 ) ([EmbeddingSize]float32, error) {
 	ctx, span := i.t.buildToolEmbedding(ctx)
+	defer span.end()
 
 	res, err := i.w.BuildToolEmbedding(ctx, msgs, opts...)
-	if err != nil {
-		span.recordError(err)
-		span.end()
-		//nolint:wrapcheck // should never wrap error
-		return [EmbeddingSize]float32{}, err
+	if err == nil {
+		return res, nil
 	}
 
-	return res, nil
+	if e := new(PreflightFailedError); !errors.As(err, &e) {
+		span.recordError(err)
+	}
+
+	//nolint:wrapcheck // should not wrap errors from adapters
+	return res, err
 }

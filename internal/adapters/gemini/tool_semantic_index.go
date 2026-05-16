@@ -140,7 +140,7 @@ func (g *GeminiModel) countAndCheckEmbeddingTokens(
 	}
 
 	if err = preflightCheck(ctx, embeddingModel, int(tokens.TotalTokens)); err != nil {
-		return 0, fmt.Errorf("preflight check failed: %w", err)
+		return 0, embedding.ErrPreflightFailed(err)
 	}
 
 	if err = g.waitEmbeddingLimit(ctx, int(tokens.TotalTokens)); err != nil {

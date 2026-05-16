@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/log"
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.opentelemetry.io/otel/semconv/v1.40.0/genaiconv"
@@ -178,6 +179,7 @@ func (s *agentLoopSpan) end() {
 func (s *agentLoopSpan) recordError(err error) {
 	if err != nil && s != nil && s.span != nil {
 		s.span.RecordError(err)
+		s.span.SetStatus(codes.Error, err.Error())
 	}
 }
 
@@ -201,6 +203,7 @@ func (c *spanCallback) end() {
 func (c *spanCallback) recordError(err error) {
 	if err != nil && c != nil && c.span != nil {
 		c.span.RecordError(err)
+		c.span.SetStatus(codes.Error, err.Error())
 	}
 }
 

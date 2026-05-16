@@ -167,6 +167,7 @@ CREATE TABLE agents.messages_tool_result (
 
 CREATE TABLE agents.plans (
 	id					UUID     PRIMARY KEY,
+	plan_key            TEXT     NOT NULL UNIQUE CHECK (length(plan_key) > 0),
 	chat_input_period   INTERVAL NOT NULL CHECK (chat_input_period > '0s'::INTERVAL),
 	chat_input_limit    INT      NOT NULL CHECK (chat_input_limit >= 0),
 	chat_output_period  INTERVAL NOT NULL CHECK (chat_output_period > '0s'::INTERVAL),
@@ -224,6 +225,9 @@ CREATE INDEX idx_tool_result_request ON agents.messages_tool_result(thread_id, r
 
 -- =============================================================================
 -- FOREIGN KEYS
+-- =============================================================================
+-- Note: foreign keys must be separated from table definition to avoid unsorted
+-- dependencies in tables.
 -- =============================================================================
 
 ALTER TABLE agents.mcp_accounts ADD CONSTRAINT fk_account_server

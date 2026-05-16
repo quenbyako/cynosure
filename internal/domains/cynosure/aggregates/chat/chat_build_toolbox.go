@@ -2,12 +2,14 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
@@ -57,6 +59,11 @@ func (c *Chat) buildToolbox(ctx context.Context, contextLimit uint) (tools.Toolb
 	return toolbox, nil
 }
 
+// lookupRelevantTools finds semantically relevant tools using vector similarity search.
+//
+// Throws:
+//
+//   - [RateLimitExceededError] if the rate limit is exceeded.
 func (c *Chat) lookupRelevantTools(ctx context.Context, msgLimit uint) ([]*entities.Tool, error) {
 	preflight := func(ctx context.Context, modelName string, tokens int) error {
 		return c.limiter.ConsumeEmbeddingRequests(ctx, c.thread.ID().User(), modelName, tokens)
@@ -65,6 +72,12 @@ func (c *Chat) lookupRelevantTools(ctx context.Context, msgLimit uint) ([]*entit
 	vector, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages(msgLimit),
 		embedding.WithPreflightCheck(preflight),
 	)
+	if e := new(embedding.PreflightFailedError); errors.As(err, &e) {
+		if limited := new(ratelimiter.RateLimitExceededError); errors.As(e.Unwrap(), &limited) {
+			return nil, ErrRateLimitExceeded(limited.RetryAt())
+		}
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("building embedding: %w", err)
 	}

@@ -2,6 +2,7 @@ package chatmodel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
@@ -47,17 +48,20 @@ func (i *portWrapped) StreamWithStats(
 	ctx, span := i.t.stream(ctx, input, settings)
 
 	res, err := i.w.StreamWithStats(ctx, input, settings, opts...)
-	if err != nil {
-		span.recordError(err)
-		span.end()
-		//nolint:wrapcheck // should never wrap error
-		return nil, err
+	if err == nil {
+		return &iterWrapped{
+			it:   res,
+			span: span,
+		}, nil
 	}
 
-	return &iterWrapped{
-		it:   res,
-		span: span,
-	}, nil
+	if e := new(PreflightFailedError); !errors.As(err, &e) {
+		span.recordError(err)
+	}
+
+	span.end()
+	//nolint:wrapcheck // should never wrap error
+	return nil, err
 }
 
 type iterWrapped struct {

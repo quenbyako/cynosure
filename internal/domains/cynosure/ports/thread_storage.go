@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -90,6 +91,7 @@ func (t *threadStorageWrapped) CreateThread(
 	err := t.w.CreateThread(ctx, thread)
 	if err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 	}
 
 	//nolint:wrapcheck // should not wrap adapter errors
@@ -106,6 +108,7 @@ func (t *threadStorageWrapped) GetThread(
 	res, err := t.w.GetThread(ctx, threadID)
 	if err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 	}
 
 	//nolint:wrapcheck // should not wrap adapter errors
@@ -122,6 +125,7 @@ func (t *threadStorageWrapped) UpdateThread(
 	err := t.w.UpdateThread(ctx, thread)
 	if err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 	}
 
 	//nolint:wrapcheck // should not wrap adapter errors

@@ -4,6 +4,7 @@ package ory
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -61,5 +62,6 @@ func (w *spanWrapper) End() {
 func (w *spanWrapper) RecordError(err error) {
 	if w != nil && err != nil && w.s != nil {
 		w.s.RecordError(err)
+		w.s.SetStatus(codes.Error, err.Error())
 	}
 }

@@ -10,6 +10,7 @@ import (
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"golang.org/x/time/rate"
 
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -105,6 +106,11 @@ func (h *Handler) asyncProcess(ctx context.Context, req asyncProcessRequest) {
 	startTime := time.Now()
 
 	response, err := h.srv.GenerateResponse(ctx, req.threadID, req.userMessage)
+	if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+		h.sendRateLimitedMessage(ctx, req.chatID, &req.tgThreadID, e)
+		return
+	}
+
 	if err != nil {
 		h.log.ProcessMessageIssue(ctx, req.chatID, fmt.Errorf("processing new message: %w", err))
 

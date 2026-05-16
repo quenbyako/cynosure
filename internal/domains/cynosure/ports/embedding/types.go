@@ -8,3 +8,5 @@ import (
 // used to check for rate limits, token limits, etc. If the check fails, the
 // request will be aborted.
 type PreflightFunc func(ctx context.Context, modelName string, inputTokens int) error
+
+func noopPreflight(context.Context, string, int) error { return nil }

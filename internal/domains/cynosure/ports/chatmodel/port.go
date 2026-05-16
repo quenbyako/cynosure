@@ -41,6 +41,10 @@ type Port interface {
 	//  - [ErrHistoryTooLong] if history is too long.
 	//  - [ErrHardQuotaExhausted] if hard quota is exhausted. See
 	//    documentation for [Port] to get more about quotas and rate limiting.
+	//  - [PreflightFailedError] if preflight check fails. Note, that this error
+	//    interprets as a business logic error, and if preflight failed due to
+	//    infrastructure issues, callback is responsible to handle observability
+	//    features.
 	StreamWithStats(
 		ctx context.Context,
 		input []messages.Message,
@@ -54,7 +58,7 @@ func defaultStreamParams(required streamRequiredParams) streamParams {
 		streamRequiredParams: required,
 		tools:                tools.Toolbox{},
 		toolChoice:           tools.ToolChoiceAllowed,
-		preflight:            func(context.Context, string, int) error { return nil },
+		preflight:            noopPreflight,
 	}
 }
 
