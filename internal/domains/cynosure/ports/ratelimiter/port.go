@@ -7,6 +7,12 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+// ConsumedTokensFunc is a callback to record token usage after the chat
+// completes.
+//
+// ConsumedTokensFunc MUST NOT throw [RateLimitExceededError], since it rate
+// limits MUST be checked in [Port.ConsumeChatRequests] before returning a
+// valid [ConsumedTokensFunc].
 type ConsumedTokensFunc func(ctx context.Context, outputTokens int) error
 
 type PortFactory interface {

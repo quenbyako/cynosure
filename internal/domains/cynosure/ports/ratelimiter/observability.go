@@ -116,7 +116,7 @@ func (c *consumeChatRequestsSpan) limitReached(retryAt time.Time) {
 //nolint:spancheck // isolated in a wrapper
 func (o *observable) consumeEmbeddingRequests(
 	ctx context.Context, user ids.UserID, tokens int,
-) (context.Context, span) {
+) (context.Context, consumeChatRequestsCallback) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.ratelimiter.consume_embedding_requests",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -125,7 +125,7 @@ func (o *observable) consumeEmbeddingRequests(
 		),
 	)
 
-	return ctx, &spanCallback{span: span}
+	return ctx, &consumeChatRequestsSpan{spanCallback: spanCallback{span: span}}
 }
 
 //nolint:spancheck // isolated in a wrapper

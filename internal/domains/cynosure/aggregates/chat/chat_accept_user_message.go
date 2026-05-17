@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
 // AcceptUserMessage incorporates a user's input into the conversation.
@@ -13,28 +14,21 @@ import (
 // When a user speaks, the semantic context of the conversation changes
 // significantly. Therefore, this is the ONLY point in the cycle where we
 // perform expensive RAG operations.
-func (c *Chat) AcceptUserMessage(ctx context.Context, message messages.MessageUser) error {
+func (c *Chat) AcceptUserMessage(ctx context.Context, message messages.MessageUser) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err := c.thread.AddMessage(message); err != nil {
+	if err = c.thread.AddMessage(message); err != nil {
 		return fmt.Errorf("adding user message to thread: %w", err)
 	}
 
-	toolbox, err := c.buildToolbox(ctx, c.toolboxContextLimit)
-	if err != nil {
-		c.thread.Reset() // Rollback: remove the message we just added
-		return fmt.Errorf("updating context after user message: %w", err)
-	}
-
-	c.toolbox = toolbox
-
-	if err := c.storage.UpdateThread(ctx, c.thread); err != nil {
+	if err = c.storage.UpdateThread(ctx, c.thread); err != nil {
 		// Rollback: remove message (tools map stays in memory but is harmless/stale)
 		c.thread.Reset()
 		return fmt.Errorf("saving thread after user message: %w", err)
 	}
 
+	c.toolbox = tools.Toolbox{}
 	c.thread.ClearEvents()
 
 	return nil

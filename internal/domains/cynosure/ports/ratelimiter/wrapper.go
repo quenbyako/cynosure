@@ -89,6 +89,7 @@ func (t *portWrapped) ConsumeEmbeddingRequests(
 	err = t.w.ConsumeEmbeddingRequests(ctx, user, model, inputTokens)
 	if e := new(RateLimitExceededError); errors.As(err, &e) {
 		t.t.recordRateLimit(ctx, model, e.RetryAt())
+		span.limitReached(e.RetryAt())
 	} else if err != nil {
 		span.recordError(err)
 	}

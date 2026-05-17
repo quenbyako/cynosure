@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -11,8 +10,8 @@ import (
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
 func (h *Handler) identifyUser(ctx context.Context, msg *botapi.Message) (ids.UserID, error) {
@@ -37,7 +36,7 @@ func (h *Handler) identifyUser(ctx context.Context, msg *botapi.Message) (ids.Us
 }
 
 func (h *Handler) sendRateLimitedMessage(
-	ctx context.Context, chatID int, threadID *int, err error,
+	ctx context.Context, chatID int, threadID *int, err *chat.RateLimitExceededError,
 ) {
 	text := h.buildRateLimitedMessage(ctx, err)
 
@@ -55,15 +54,10 @@ func (h *Handler) sendRateLimitedMessage(
 	}
 }
 
-func (h *Handler) buildRateLimitedMessage(ctx context.Context, err error) string {
-	var (
-		retryAfter   string
-		rateLimitErr *ratelimiter.RateLimitExceededError
-	)
-
-	if errors.As(err, &rateLimitErr) {
-		retryAfter = formatRetryAfter(rateLimitErr.RetryAt())
-	}
+func (h *Handler) buildRateLimitedMessage(
+	ctx context.Context, err *chat.RateLimitExceededError,
+) string {
+	retryAfter := formatRetryAfter(err.RetryAt())
 
 	text := "Sorry, you've reached the message rate limit." + retryAfter +
 		"\n\nYou can increase your limit, by getting /premium"

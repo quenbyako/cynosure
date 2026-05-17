@@ -20,12 +20,36 @@ type Toolbox struct {
 	_valid bool
 }
 
+// EmptyToolbox returns an empty toolbox.
+func EmptyToolbox() Toolbox {
+	return Toolbox{tools: make(map[string]RawTool), _valid: true}
+}
+
 // NewToolbox constructs a new Toolbox.
-func NewToolbox() Toolbox {
-	return Toolbox{
-		tools:  make(map[string]RawTool),
-		_valid: true,
+func NewToolbox(tools ...RawTool) (Toolbox, error) {
+	result := make(map[string]RawTool, len(tools))
+
+	for _, tool := range tools {
+		if err := tool.Validate(); err != nil {
+			return Toolbox{}, fmt.Errorf("invalid tool: %w", err)
+		}
+
+		existing, exists := result[tool.Name()]
+		if !exists {
+			result[tool.Name()] = tool
+
+			continue
+		}
+
+		merged, err := MergeTools(existing, tool)
+		if err != nil {
+			return Toolbox{}, fmt.Errorf("cannot merge tool %q: %w", tool.Name(), err)
+		}
+
+		result[tool.Name()] = merged
 	}
+
+	return Toolbox{tools: result, _valid: true}, nil
 }
 
 // Valid reports whether the toolbox is properly constructed.
@@ -53,34 +77,6 @@ func (t Toolbox) Tools() map[string]RawTool {
 // List returns all tools in the toolbox as a slice.
 func (t Toolbox) List() []RawTool {
 	return slices.Collect(maps.Values(t.tools))
-}
-
-// Merge combines this toolbox with a set of tools. If a tool already exists
-// with the same name, they are merged. Returns a copy of the toolbox.
-func (t Toolbox) Merge(tools ...RawTool) (Toolbox, error) {
-	cloned := maps.Clone(t.tools)
-
-	for _, tool := range tools {
-		if err := tool.Validate(); err != nil {
-			return Toolbox{}, fmt.Errorf("invalid tool: %w", err)
-		}
-
-		existing, exists := cloned[tool.Name()]
-		if !exists {
-			cloned[tool.Name()] = tool
-
-			continue
-		}
-
-		merged, err := MergeTools(existing, tool)
-		if err != nil {
-			return Toolbox{}, fmt.Errorf("cannot merge tool %q: %w", tool.Name(), err)
-		}
-
-		cloned[tool.Name()] = merged
-	}
-
-	return Toolbox{tools: cloned, _valid: true}, nil
 }
 
 // ConvertRequest delegates request conversion to appropriate tool.

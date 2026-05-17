@@ -136,9 +136,15 @@ func (f *chatFixture) instance(ctx context.Context) *chat.Chat {
 	f.threadStorage.EXPECT().GetThread(mock.Anything, f.threadID).Return(thread, nil)
 	f.threadStorage.EXPECT().UpdateThread(mock.Anything, mock.Anything).Return(nil)
 
+	provider := func(
+		ctx context.Context, user ids.UserID, msgs []messages.Message,
+	) ([1536]float32, error) {
+		return f.indexer.BuildToolEmbedding(ctx, msgs)
+	}
+
 	chatAggregate, err := chat.New(
-		ctx, f.threadStorage, f.indexer, f.toolStorage,
-		f.accountStorage, f.limiter, f.threadID, f.toolboxContextLimit,
+		ctx, f.threadStorage, provider, f.toolStorage,
+		f.accountStorage, f.threadID, f.toolboxContextLimit,
 	)
 	require.NoError(f.t, err)
 	f._chat = chatAggregate
@@ -154,7 +160,8 @@ func (f *chatFixture) msg(content string) messages.MessageUser {
 }
 
 func (f *chatFixture) assertToolbox(expected ...*entities.Tool) {
-	toolbox := f._chat.RelevantTools()
+	toolbox, err := f._chat.RelevantTools(context.Background())
+	require.NoError(f.t, err)
 	require.Len(f.t, toolbox.Tools(), len(expected))
 
 	for _, exp := range expected {

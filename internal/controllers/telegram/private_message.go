@@ -10,11 +10,9 @@ import (
 	botapi "github.com/quenbyako/cynosure/contrib/tg-openapi/gen/go/botapi"
 	"golang.org/x/time/rate"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/aggregates/chat"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/usecases/chat"
 )
 
 func (h *Handler) processMessage(ctx context.Context, msg *botapi.Message) {
@@ -83,8 +81,8 @@ func (h *Handler) dispatchProcessing(
 func (h *Handler) handleUserIdentificationError(
 	ctx context.Context, msg *botapi.Message, err error,
 ) {
-	if errors.Is(err, identitymanager.ErrRateLimited) {
-		h.sendRateLimitedMessage(ctx, msg.Chat.Id, msg.MessageThreadId, err)
+	if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+		h.sendRateLimitedMessage(ctx, msg.Chat.Id, msg.MessageThreadId, e)
 		return
 	}
 
@@ -148,7 +146,7 @@ func (h *Handler) processStream(
 ) (state streamState) {
 	for res, err := range response {
 		if err != nil {
-			if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+			if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
 				h.sendRateLimitedMessage(ctx, chatID, &threadID, e)
 				break
 			}
