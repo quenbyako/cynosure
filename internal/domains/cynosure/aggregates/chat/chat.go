@@ -9,11 +9,18 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
+
+// EmbeddingProvider is a callback that lazy-evaluates tool embeddings for the
+// given context.
+type EmbeddingProvider func(
+	ctx context.Context,
+	user ids.UserID,
+	messages []messages.Message,
+) ([embedding.EmbeddingSize]float32, error)
 
 // Chat is the Aggregate Root for a conversation session.
 //
@@ -42,18 +49,21 @@ import (
 // Service manually juggles history updates and RAG calls, increasing the risk
 // of inconsistent state (e.g., history updated but tools not refreshed).
 type Chat struct {
-	storage     ports.ThreadStorage
-	indexer     embedding.Port
-	toolStorage ports.ToolStorage
-	accounts    ports.AccountStorage
-	limiter     ratelimiter.Port
-	thread      *entities.Thread
+	storage           ports.ThreadStorage
+	embeddingProvider EmbeddingProvider
+	toolStorage       ports.ToolStorage
+	accounts          ports.AccountStorage
+	thread            *entities.Thread
 	// tools caches the actual entities.Tool objects for execution after model
 	// picks them
 	tools map[ids.ToolID]*entities.Tool
 	// list of active tool calls that didn't get response yet.
-	activeCalls         map[string]struct{}
-	toolbox             tools.Toolbox // Immutable collection of relevant tools
+	activeCalls map[string]struct{}
+
+	// Immutable collection of relevant tools
+	//
+	// If toolbox is invalid, it indicates that should be recreated.
+	toolbox             tools.Toolbox
 	toolboxContextLimit uint
 	mu                  sync.RWMutex
 }
@@ -61,10 +71,9 @@ type Chat struct {
 func New(
 	ctx context.Context,
 	storage ports.ThreadStorage,
-	indexer embedding.Port,
+	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	limiter ratelimiter.Port,
 	threadID ids.ThreadID,
 	toolboxContextLimit uint,
 ) (*Chat, error) {
@@ -74,17 +83,16 @@ func New(
 	}
 
 	return newChatAggregate(
-		ctx, thread, storage, indexer, toolStorage, accounts, limiter, toolboxContextLimit,
+		thread, storage, embeddingProvider, toolStorage, accounts, toolboxContextLimit,
 	)
 }
 
 func CreateChatAggregate(
 	ctx context.Context,
 	storage ports.ThreadStorage,
-	indexer embedding.Port,
+	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	limiter ratelimiter.Port,
 	threadID ids.ThreadID,
 	history []messages.Message,
 	toolboxContextLimit uint,
@@ -100,63 +108,53 @@ func CreateChatAggregate(
 	}
 
 	return newChatAggregate(
-		ctx, thread, storage, indexer, toolStorage, accounts, limiter, toolboxContextLimit,
+		thread, storage, embeddingProvider, toolStorage, accounts, toolboxContextLimit,
 	)
 }
 
 func newChatAggregate(
-	ctx context.Context,
 	thread *entities.Thread,
 	storage ports.ThreadStorage,
-	indexer embedding.Port,
+	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	limiter ratelimiter.Port,
 	toolboxContextLimit uint,
 ) (*Chat, error) {
 	chat := initChat(
 		thread,
 		storage,
-		indexer,
+		embeddingProvider,
 		toolStorage,
 		accounts,
-		limiter,
 		toolboxContextLimit,
 	)
 	if err := chat.validate(); err != nil {
 		return nil, err
 	}
 
-	var err error
-
-	chat.toolbox, err = chat.buildToolbox(ctx, chat.toolboxContextLimit)
-	if err != nil {
-		return nil, fmt.Errorf("building toolbox: %w", err)
-	}
-
+	// We no longer build the toolbox on initialization.
+	// It is built lazily on the first call to RelevantTools().
 	return chat, nil
 }
 
 func initChat(
 	thread *entities.Thread,
 	storage ports.ThreadStorage,
-	indexer embedding.Port,
+	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
 	accounts ports.AccountStorage,
-	limiter ratelimiter.Port,
 	toolboxContextLimit uint,
 ) *Chat {
 	return &Chat{
 		thread:      thread,
-		toolbox:     tools.NewToolbox(),
+		toolbox:     tools.Toolbox{}, // setting invalid toolbox forces recreation on first call
 		tools:       make(map[ids.ToolID]*entities.Tool),
 		activeCalls: make(map[string]struct{}),
 
 		storage:             storage,
-		indexer:             indexer,
+		embeddingProvider:   embeddingProvider,
 		toolStorage:         toolStorage,
 		accounts:            accounts,
-		limiter:             limiter,
 		toolboxContextLimit: toolboxContextLimit,
 
 		mu: sync.RWMutex{},
@@ -168,8 +166,8 @@ func (c *Chat) validate() error {
 		return errInternalValidation("storage is nil")
 	}
 
-	if c.indexer == nil {
-		return errInternalValidation("indexer is nil")
+	if c.embeddingProvider == nil {
+		return errInternalValidation("embeddingProvider is nil")
 	}
 
 	if c.toolStorage == nil {
@@ -178,10 +176,6 @@ func (c *Chat) validate() error {
 
 	if c.accounts == nil {
 		return errInternalValidation("accounts is nil")
-	}
-
-	if c.limiter == nil {
-		return errInternalValidation("limiter is nil")
 	}
 
 	if !c.thread.Valid() {
@@ -194,11 +188,19 @@ func (c *Chat) validate() error {
 // RelevantTools returns the current toolbox containing all relevant tools for
 // this conversation. The toolbox is rebuilt after each user message based on
 // semantic search.
-func (c *Chat) RelevantTools() tools.Toolbox {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (c *Chat) RelevantTools(ctx context.Context) (toolbox tools.Toolbox, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	return c.toolbox
+	if c.toolbox.Valid() {
+		return c.toolbox, nil
+	}
+
+	if c.toolbox, err = c.buildToolbox(ctx, c.toolboxContextLimit); err != nil {
+		return tools.Toolbox{}, err
+	}
+
+	return c.toolbox, nil
 }
 
 func (c *Chat) ThreadID() ids.ThreadID {
@@ -250,6 +252,7 @@ func (c *Chat) SetToolboxContext(limit uint) {
 	defer c.mu.Unlock()
 
 	c.toolboxContextLimit = limit
+	c.toolbox = tools.Toolbox{}
 }
 
 func (c *Chat) ToolboxContext() uint {

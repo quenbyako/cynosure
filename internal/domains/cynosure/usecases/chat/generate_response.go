@@ -11,11 +11,14 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
+
+var errSettleFuncNotSet = errors.New("settle func wasn't set")
 
 func defaultGenerateResponseParams(required generateResponseRequiredParams) generateResponseParams {
 	return generateResponseParams{
@@ -49,19 +52,28 @@ func (u *Usecase) GenerateResponse(
 	opts ...GenerateResponseOption,
 ) (iter.Seq2[messages.Message, error], error) {
 	ctx, span := u.obs.generateResponse(ctx)
-	defer span.end()
 
 	params, err := buildGenerateResponseParams(threadID, msg, opts...)
 	if err != nil {
+		span.recordError(err)
+		span.end()
+
 		return nil, err
 	}
 
 	chatAgg, modelConfig, err := u.getAgentWithChat(ctx, threadID, params.model, msg)
 	if err != nil {
-		return nil, fmt.Errorf("getting model: %w", err)
+		if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+			err = ErrRateLimitExceeded(e.RetryAt())
+		}
+
+		span.recordError(err)
+		span.end()
+
+		return nil, err
 	}
 
-	return u.agentLoop(ctx, chatAgg, modelConfig, params.toolChoice), nil
+	return u.agentLoop(ctx, span, chatAgg, modelConfig, params.toolChoice), nil
 }
 
 func (u *Usecase) getAgentWithChat(
@@ -144,7 +156,7 @@ func (u *Usecase) loadOrCreateChat(
 	}
 
 	if err := agg.AcceptUserMessage(ctx, msg); err != nil {
-		if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+		if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
 			return nil, ErrRateLimitExceeded(e.RetryAt())
 		}
 
@@ -156,14 +168,14 @@ func (u *Usecase) loadOrCreateChat(
 
 func (u *Usecase) loadChat(ctx context.Context, id ids.ThreadID) (*chat.Chat, error) {
 	agg, err := chat.New(ctx,
-		u.storage, u.indexer, u.toolStorage, u.accounts, u.limiter,
+		u.storage, u.provideEmbeddings, u.toolStorage, u.accounts,
 		id, u.defaultChatLimit,
 	)
 	if err == nil {
 		return agg, nil
 	}
 
-	if e := new(chat.RateLimitExceededError); errors.As(err, &e) {
+	if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
 		return nil, ErrRateLimitExceeded(e.RetryAt())
 	}
 
@@ -175,10 +187,11 @@ func (u *Usecase) createChat(
 ) (*chat.Chat, error) {
 	agg, err := chat.CreateChatAggregate(
 		ctx, u.storage,
-		u.indexer,
-		u.toolStorage, u.accounts,
-		u.limiter,
-		id, []messages.Message{msg},
+		u.provideEmbeddings,
+		u.toolStorage,
+		u.accounts,
+		id,
+		[]messages.Message{msg},
 		u.defaultChatLimit,
 	)
 	if err != nil {
@@ -192,15 +205,15 @@ func (u *Usecase) createChat(
 // It returns a sequence of messages and errors.
 func (u *Usecase) agentLoop(
 	ctx context.Context,
+	span generateResponseCallback,
 	thread *chat.Chat,
 	config entities.AgentReadOnly,
 	toolChoice tools.ToolChoice,
 ) iter.Seq2[messages.Message, error] {
 	return func(yield func(messages.Message, error) bool) {
-		loopCtx, span := u.obs.agentLoop(ctx)
 		defer span.end()
 
-		usage := u.executeAgentLoop(loopCtx, thread, config, toolChoice, yield)
+		usage := u.executeAgentLoop(ctx, thread, config, toolChoice, yield)
 
 		span.recordTotalUsage(usage.InputTokens, usage.OutputTokens)
 	}
@@ -216,13 +229,13 @@ func (u *Usecase) executeAgentLoop(
 	totalUsage := chatmodel.UsageStats{}
 
 	for turn := range u.agentLoopTurns {
-		usage, next, err := u.executeAgentTurn(
+		usage, next := u.executeAgentTurn(
 			ctx, thread, config, toolChoice, turn, yield,
 		)
 
 		totalUsage = u.accumulateUsage(totalUsage, usage)
 
-		if err != nil || !next {
+		if !next {
 			break
 		}
 	}
@@ -237,11 +250,11 @@ func (u *Usecase) executeAgentTurn(
 	toolChoice tools.ToolChoice,
 	turn uint8,
 	yield func(messages.Message, error) bool,
-) (chatmodel.UsageStats, bool, error) {
+) (chatmodel.UsageStats, bool) {
 	ctx, span := u.obs.agentLoopTurn(ctx, int(turn))
 	defer span.end()
 
-	var settle func(context.Context, int) error
+	settle := func(context.Context, int) error { return errSettleFuncNotSet }
 
 	preflight := u.newPreflight(thread, &settle)
 
@@ -249,16 +262,17 @@ func (u *Usecase) executeAgentTurn(
 
 	u.obs.recordUsage(ctx, config.Model(), usage.InputTokens, usage.OutputTokens, usage.Duration)
 
-	if err := u.settleTurn(ctx, settle, usage.OutputTokens, yield); err != nil {
+	if err := settle(ctx, int(usage.OutputTokens)); err != nil {
 		span.recordError(err)
+		yield(nil, err)
 
-		return usage, false, err
+		return usage, false
 	}
 
 	next := cont && len(toolRequests) > 0 &&
 		u.handleToolRequests(ctx, thread, turn, toolRequests, yield)
 
-	return usage, next, nil
+	return usage, next
 }
 
 func (u *Usecase) newPreflight(
@@ -281,28 +295,6 @@ func (u *Usecase) newPreflight(
 
 		return nil
 	}
-}
-
-func (u *Usecase) settleTurn(
-	ctx context.Context,
-	report func(context.Context, int) error,
-	outputTokens uint32,
-	yield func(messages.Message, error) bool,
-) error {
-	if report == nil {
-		return nil
-	}
-
-	if err := report(ctx, int(outputTokens)); err != nil {
-		var rlErr *ratelimiter.RateLimitExceededError
-		if errors.Is(err, chatmodel.ErrHardQuotaExhausted) || errors.As(err, &rlErr) {
-			_ = yield(nil, err)
-		}
-
-		return err
-	}
-
-	return nil
 }
 
 func (u *Usecase) accumulateUsage(total, current chatmodel.UsageStats) chatmodel.UsageStats {
@@ -359,8 +351,18 @@ func (u *Usecase) callModel(
 	preflight chatmodel.PreflightFunc,
 ) (chatmodel.Iter, error) {
 	opts := []chatmodel.StreamOption{chatmodel.WithPreflightCheck(preflight)}
+
 	if toolChoice != tools.ToolChoiceForbidden {
-		opts = append(opts, chatmodel.WithStreamToolbox(thread.RelevantTools()))
+		toolbox, err := thread.RelevantTools(ctx)
+		if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+			return nil, ErrRateLimitExceeded(e.RetryAt())
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("getting relevant tools: %w", err)
+		}
+
+		opts = append(opts, chatmodel.WithStreamToolbox(toolbox))
 	}
 
 	maxContext, ok := config.MaxContext()
@@ -369,21 +371,15 @@ func (u *Usecase) callModel(
 	}
 
 	resp, err := u.model.StreamWithStats(ctx, thread.Messages(maxContext), config, opts...)
-	if err != nil {
-		return nil, u.handleCallError(err)
+	if err == nil {
+		return resp, nil
 	}
 
-	return resp, nil
-}
-
-func (u *Usecase) handleCallError(err error) error {
-	if e := new(chatmodel.PreflightFailedError); errors.As(err, &e) {
-		if limited := new(ratelimiter.RateLimitExceededError); errors.As(e.Unwrap(), &limited) {
-			return ErrRateLimitExceeded(limited.RetryAt())
-		}
+	if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+		return nil, ErrRateLimitExceeded(e.RetryAt())
 	}
 
-	return fmt.Errorf("calling model stream: %w", err)
+	return nil, fmt.Errorf("calling model stream: %w", err)
 }
 
 func (u *Usecase) streamModelMessages(
@@ -482,7 +478,14 @@ func (u *Usecase) executeTool(
 	req messages.MessageToolRequest,
 	yield func(messages.Message, error) bool,
 ) bool {
-	toolID, cleanArgs, err := thread.RelevantTools().ConvertRequest(req.ToolName(), req.Arguments())
+	toolbox, err := thread.RelevantTools(ctx)
+	if err != nil {
+		return yieldToolError(
+			ctx, thread, req, fmt.Sprintf("Failed to load tools: %v", err), yield,
+		)
+	}
+
+	toolID, cleanArgs, err := toolbox.ConvertRequest(req.ToolName(), req.Arguments())
 	if err != nil {
 		return yieldToolError(
 			ctx, thread, req, fmt.Sprintf("Failed to resolve tool: %v", err), yield,
@@ -536,4 +539,19 @@ func yieldToolError(
 	}
 
 	return yield(toolErr, nil)
+}
+
+func (u *Usecase) provideEmbeddings(
+	ctx context.Context, user ids.UserID, msgs []messages.Message,
+) ([1536]float32, error) {
+	preflight := func(ctx context.Context, modelName string, tokens int) error {
+		return u.limiter.ConsumeEmbeddingRequests(ctx, user, modelName, tokens)
+	}
+
+	vector, err := u.indexer.BuildToolEmbedding(ctx, msgs, embedding.WithPreflightCheck(preflight))
+	if err != nil {
+		return [1536]float32{}, fmt.Errorf("building embedding: %w", err)
+	}
+
+	return vector, nil
 }

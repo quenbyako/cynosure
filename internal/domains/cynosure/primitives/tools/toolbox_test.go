@@ -54,7 +54,7 @@ func (c *toolboxMergeYAMLCase) Run(t *testing.T, userID ids.UserID, serverID ids
 		initial := c.setupInitial(t, userID, serverID)
 		added := c.setupAdded(t, userID, serverID)
 
-		merged, err := initial.Merge(added...)
+		merged, err := NewToolbox(append(initial, added...)...)
 		if c.ExpectErr {
 			require.Error(t, err)
 
@@ -69,17 +69,16 @@ func (c *toolboxMergeYAMLCase) Run(t *testing.T, userID ids.UserID, serverID ids
 
 func (c *toolboxMergeYAMLCase) setupInitial(
 	t *testing.T, userID ids.UserID, serverID ids.ServerID,
-) Toolbox {
+) []RawTool {
 	t.Helper()
 
-	toolbox := NewToolbox()
+	tools := make([]RawTool, len(c.InitialTools))
 
-	for _, desc := range c.InitialTools {
-		tool := must[RawTool](t)(createToolFromDesc(t, userID, serverID, desc))
-		toolbox = must[Toolbox](t)(toolbox.Merge(tool))
+	for i, desc := range c.InitialTools {
+		tools[i] = must[RawTool](t)(createToolFromDesc(t, userID, serverID, desc))
 	}
 
-	return toolbox
+	return tools
 }
 
 func (c *toolboxMergeYAMLCase) setupAdded(
@@ -188,14 +187,13 @@ func (c *toolboxConvertYAMLCase) setupToolbox(
 ) Toolbox {
 	t.Helper()
 
-	toolbox := NewToolbox()
+	tools := make([]RawTool, len(c.ToolboxTools))
 
-	for _, desc := range c.ToolboxTools {
-		tool := must[RawTool](t)(createToolFromDesc(t, userID, serverID, desc))
-		toolbox = must[Toolbox](t)(toolbox.Merge(tool))
+	for i, desc := range c.ToolboxTools {
+		tools[i] = must[RawTool](t)(createToolFromDesc(t, userID, serverID, desc))
 	}
 
-	return toolbox
+	return must[Toolbox](t)(NewToolbox(tools...))
 }
 
 func (c *toolboxConvertYAMLCase) setupRequest(t *testing.T) map[string]json.RawMessage {
@@ -238,7 +236,7 @@ func TestToolbox_Immutability(t *testing.T) {
 		tID, "bot", "Bot")
 	require.NoError(t, err)
 
-	toolbox, err := NewToolbox().Merge(tool)
+	toolbox, err := NewToolbox(tool)
 	require.NoError(t, err)
 
 	t.Run("Tools returns cloned map", func(t *testing.T) {

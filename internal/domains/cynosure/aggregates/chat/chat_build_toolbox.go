@@ -2,14 +2,11 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
@@ -34,7 +31,7 @@ func (c *Chat) buildToolbox(ctx context.Context, contextLimit uint) (tools.Toolb
 	}
 
 	if len(relevantTools) == 0 {
-		return tools.NewToolbox(), nil
+		return tools.EmptyToolbox(), nil
 	}
 
 	// TODO: could be a great idea to cache this, since we ONLY need a
@@ -49,7 +46,7 @@ func (c *Chat) buildToolbox(ctx context.Context, contextLimit uint) (tools.Toolb
 		return tools.Toolbox{}, err
 	}
 
-	toolbox, err := tools.NewToolbox().Merge(rawTools...)
+	toolbox, err := tools.NewToolbox(rawTools...)
 	if err != nil {
 		return tools.Toolbox{}, fmt.Errorf("merging tools into toolbox: %w", err)
 	}
@@ -65,19 +62,7 @@ func (c *Chat) buildToolbox(ctx context.Context, contextLimit uint) (tools.Toolb
 //
 //   - [RateLimitExceededError] if the rate limit is exceeded.
 func (c *Chat) lookupRelevantTools(ctx context.Context, msgLimit uint) ([]*entities.Tool, error) {
-	preflight := func(ctx context.Context, modelName string, tokens int) error {
-		return c.limiter.ConsumeEmbeddingRequests(ctx, c.thread.ID().User(), modelName, tokens)
-	}
-
-	vector, err := c.indexer.BuildToolEmbedding(ctx, c.thread.Messages(msgLimit),
-		embedding.WithPreflightCheck(preflight),
-	)
-	if e := new(embedding.PreflightFailedError); errors.As(err, &e) {
-		if limited := new(ratelimiter.RateLimitExceededError); errors.As(e.Unwrap(), &limited) {
-			return nil, ErrRateLimitExceeded(limited.RetryAt())
-		}
-	}
-
+	vector, err := c.embeddingProvider(ctx, c.thread.ID().User(), c.thread.Messages(msgLimit))
 	if err != nil {
 		return nil, fmt.Errorf("building embedding: %w", err)
 	}

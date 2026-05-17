@@ -116,37 +116,53 @@ func (o *observable) recordUsage(
 
 // trace callbacks
 
-//nolint:spancheck // isolated in a wrapper
-func (o *observable) generateResponse(ctx context.Context) (context.Context, span) {
-	ctx, span := o.t.Start(ctx, "cynosure.usecases.generate_response",
-		trace.WithSpanKind(trace.SpanKindInternal),
-	)
-
-	return ctx, &spanCallback{span: span}
-}
-
-type agentLoopCallback interface {
+type generateResponseCallback interface {
 	span
 
 	recordTotalUsage(inputTokens, outputTokens uint32)
 }
 
-type agentLoopSpan struct {
+type generateResponseSpan struct {
 	span trace.Span
 
 	inputTokens, outputTokens int
 }
 
 //nolint:spancheck // isolated in a wrapper
-func (o *observable) agentLoop(ctx context.Context) (context.Context, agentLoopCallback) {
-	ctx, span := o.t.Start(ctx, "cynosure.usecases.agent_loop",
+func (o *observable) generateResponse(
+	ctx context.Context,
+) (context.Context, generateResponseCallback) {
+	ctx, span := o.t.Start(ctx, "cynosure.usecases.generate_response",
 		trace.WithSpanKind(trace.SpanKindInternal),
 	)
 
-	return ctx, &agentLoopSpan{
+	return ctx, &generateResponseSpan{
 		span:         span,
 		inputTokens:  0,
 		outputTokens: 0,
+	}
+}
+
+func (s *generateResponseSpan) recordTotalUsage(inputTokens, outputTokens uint32) {
+	s.inputTokens += int(inputTokens)
+	s.outputTokens += int(outputTokens)
+}
+
+func (s *generateResponseSpan) end() {
+	if s != nil && s.span != nil {
+		s.span.SetAttributes(
+			semconv.GenAIUsageInputTokens(s.inputTokens),
+			semconv.GenAIUsageOutputTokens(s.outputTokens),
+		)
+
+		s.span.End()
+	}
+}
+
+func (s *generateResponseSpan) recordError(err error) {
+	if err != nil && s != nil && s.span != nil {
+		s.span.RecordError(err)
+		s.span.SetStatus(codes.Error, err.Error())
 	}
 }
 
@@ -158,29 +174,6 @@ func (o *observable) agentLoopTurn(ctx context.Context, turn int) (context.Conte
 	)
 
 	return ctx, &spanCallback{span: span}
-}
-
-func (s *agentLoopSpan) recordTotalUsage(inputTokens, outputTokens uint32) {
-	s.inputTokens += int(inputTokens)
-	s.outputTokens += int(outputTokens)
-}
-
-func (s *agentLoopSpan) end() {
-	if s != nil && s.span != nil {
-		s.span.SetAttributes(
-			semconv.GenAIUsageInputTokens(s.inputTokens),
-			semconv.GenAIUsageOutputTokens(s.outputTokens),
-		)
-
-		s.span.End()
-	}
-}
-
-func (s *agentLoopSpan) recordError(err error) {
-	if err != nil && s != nil && s.span != nil {
-		s.span.RecordError(err)
-		s.span.SetStatus(codes.Error, err.Error())
-	}
 }
 
 // generic span

@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
@@ -263,6 +265,10 @@ func (u *Usecase) indexTool(
 
 	vector, err := u.index.IndexTool(ctx, tool, embedding.WithPreflightCheck(preflight))
 	if err != nil {
+		if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+			return [embedding.EmbeddingSize]float32{}, ErrRateLimitExceeded(e.RetryAt())
+		}
+
 		return [embedding.EmbeddingSize]float32{},
 			fmt.Errorf("indexing tool %q: %w", tool.Name(), err)
 	}
