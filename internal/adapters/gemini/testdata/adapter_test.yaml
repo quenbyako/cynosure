@@ -1,5 +1,5 @@
 ---
-recorded_at: 2026-05-13T19:12:39.635628Z
+recorded_at: 2026-05-19T14:06:19.914442Z
 version: 2
 interactions:
     - id: 0
@@ -15,9 +15,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -854,11 +854,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:28 GMT
+                - Tue, 19 May 2026 14:06:10 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=51
+                - gfet4t7; dur=74
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -873,7 +873,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 262.807708ms
+        duration: 202.327208ms
     - id: 1
       request:
         proto: HTTP/1.1
@@ -889,9 +889,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -920,11 +920,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:28 GMT
+                - Tue, 19 May 2026 14:06:10 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=53
+                - gfet4t7; dur=67
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -939,7 +939,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 94.229459ms
+        duration: 95.369542ms
     - id: 2
       request:
         proto: HTTP/1.1
@@ -958,9 +958,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -972,7 +972,7 @@ interactions:
         proto_major: 2
         proto_minor: 0
         content_length: -1
-        body: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \" ты\"}],\"role\": \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 94,\"candidatesTokenCount\": 1,\"totalTokenCount\": 95,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 94}],\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"HM0EasiAPKq7vdIPgLn2iAM\"}\r\n\r\ndata: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \" называешь меня шелупонью не очень-то располагает к ве\"}],\"role\": \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 94,\"candidatesTokenCount\": 18,\"totalTokenCount\": 112,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 94}],\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"HM0EasiAPKq7vdIPgLn2iAM\"}\r\n\r\ndata: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"жливому ответу.\\n\\nТем не менее, погода в Нью-Йорке сейчас 57 градусов.\"}],\"role\": \"model\"},\"finishReason\": \"STOP\",\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 94,\"candidatesTokenCount\": 42,\"totalTokenCount\": 136,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 94}],\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"HM0EasiAPKq7vdIPgLn2iAM\"}\r\n\r\n"
+        body: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \" я И\"}],\"role\": \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 94,\"candidatesTokenCount\": 2,\"totalTokenCount\": 96,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 94}],\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"Um4MaoWaNYb1kdUPjsfniAU\"}\r\n\r\ndata: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"И, тебе моё предназначение не даёт права на грубость.\"}],\"role\": \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 94,\"candidatesTokenCount\": 18,\"totalTokenCount\": 112,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 94}],\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"Um4MaoWaNYb1kdUPjsfniAU\"}\r\n\r\ndata: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"\\n\\nВ Нью-Йорке сейчас 57 градусов по Фаренгейту.\"}],\"role\": \"model\"},\"finishReason\": \"STOP\",\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 94,\"candidatesTokenCount\": 36,\"totalTokenCount\": 130,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\": 94}],\"serviceTier\": \"standard\"},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"Um4MaoWaNYb1kdUPjsfniAU\"}\r\n\r\n"
         headers:
             Alt-Svc:
                 - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -981,11 +981,11 @@ interactions:
             Content-Type:
                 - text/event-stream
             Date:
-                - Wed, 13 May 2026 19:12:29 GMT
+                - Tue, 19 May 2026 14:06:11 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=363
+                - gfet4t7; dur=486
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -1000,7 +1000,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 426.048708ms
+        duration: 501.087042ms
     - id: 3
       request:
         proto: HTTP/1.1
@@ -1016,9 +1016,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -1047,11 +1047,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:30 GMT
+                - Tue, 19 May 2026 14:06:12 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=54
+                - gfet4t7; dur=87
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -1066,7 +1066,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 90.002917ms
+        duration: 97.905833ms
     - id: 4
       request:
         proto: HTTP/1.1
@@ -1082,9 +1082,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -2648,11 +2648,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:30 GMT
+                - Tue, 19 May 2026 14:06:12 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=335
+                - gfet4t7; dur=299
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -2667,7 +2667,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 376.35125ms
+        duration: 316.446542ms
     - id: 5
       request:
         proto: HTTP/1.1
@@ -2683,9 +2683,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -2714,11 +2714,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:31 GMT
+                - Tue, 19 May 2026 14:06:12 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=42
+                - gfet4t7; dur=52
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -2733,7 +2733,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 78.455709ms
+        duration: 62.387959ms
     - id: 6
       request:
         proto: HTTP/1.1
@@ -2749,9 +2749,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -4315,11 +4315,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:31 GMT
+                - Tue, 19 May 2026 14:06:13 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=270
+                - gfet4t7; dur=244
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -4334,7 +4334,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 337.146416ms
+        duration: 295.611583ms
     - id: 7
       request:
         proto: HTTP/1.1
@@ -4350,9 +4350,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -4381,11 +4381,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:31 GMT
+                - Tue, 19 May 2026 14:06:13 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=40
+                - gfet4t7; dur=63
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -4400,7 +4400,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 109.280125ms
+        duration: 79.793958ms
     - id: 8
       request:
         proto: HTTP/1.1
@@ -4416,9 +4416,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -5982,11 +5982,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:32 GMT
+                - Tue, 19 May 2026 14:06:13 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=251
+                - gfet4t7; dur=292
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -6001,7 +6001,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 292.542833ms
+        duration: 448.654041ms
     - id: 9
       request:
         proto: HTTP/1.1
@@ -6017,9 +6017,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -6048,11 +6048,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:32 GMT
+                - Tue, 19 May 2026 14:06:14 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=45
+                - gfet4t7; dur=62
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -6067,7 +6067,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 103.215958ms
+        duration: 73.684ms
     - id: 10
       request:
         proto: HTTP/1.1
@@ -6083,9 +6083,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -7649,11 +7649,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:33 GMT
+                - Tue, 19 May 2026 14:06:15 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=268
+                - gfet4t7; dur=291
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -7668,7 +7668,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 317.235417ms
+        duration: 304.615042ms
     - id: 11
       request:
         proto: HTTP/1.1
@@ -7684,9 +7684,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -7715,11 +7715,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:33 GMT
+                - Tue, 19 May 2026 14:06:15 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=37
+                - gfet4t7; dur=69
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -7734,7 +7734,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 84.762583ms
+        duration: 114.109584ms
     - id: 12
       request:
         proto: HTTP/1.1
@@ -7750,9 +7750,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -9316,11 +9316,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:34 GMT
+                - Tue, 19 May 2026 14:06:15 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=328
+                - gfet4t7; dur=261
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -9335,7 +9335,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 383.543ms
+        duration: 273.540916ms
     - id: 13
       request:
         proto: HTTP/1.1
@@ -9351,9 +9351,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -9382,11 +9382,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:34 GMT
+                - Tue, 19 May 2026 14:06:16 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=43
+                - gfet4t7; dur=65
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -9401,7 +9401,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 90.446042ms
+        duration: 78.880917ms
     - id: 14
       request:
         proto: HTTP/1.1
@@ -9417,9 +9417,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -10983,11 +10983,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:35 GMT
+                - Tue, 19 May 2026 14:06:16 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=259
+                - gfet4t7; dur=263
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -11002,7 +11002,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 360.248208ms
+        duration: 328.312292ms
     - id: 15
       request:
         proto: HTTP/1.1
@@ -11018,9 +11018,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -11049,11 +11049,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:35 GMT
+                - Tue, 19 May 2026 14:06:17 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=44
+                - gfet4t7; dur=59
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -11068,7 +11068,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 173.113334ms
+        duration: 73.502083ms
     - id: 16
       request:
         proto: HTTP/1.1
@@ -11084,9 +11084,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -12650,11 +12650,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:36 GMT
+                - Tue, 19 May 2026 14:06:17 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=274
+                - gfet4t7; dur=237
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -12669,7 +12669,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 339.369417ms
+        duration: 290.103667ms
     - id: 17
       request:
         proto: HTTP/1.1
@@ -12685,9 +12685,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -12716,11 +12716,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:36 GMT
+                - Tue, 19 May 2026 14:06:17 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=41
+                - gfet4t7; dur=58
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -12735,7 +12735,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 125.010417ms
+        duration: 69.872458ms
     - id: 18
       request:
         proto: HTTP/1.1
@@ -12751,9 +12751,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -14317,11 +14317,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:37 GMT
+                - Tue, 19 May 2026 14:06:18 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=267
+                - gfet4t7; dur=260
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -14336,7 +14336,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 317.928208ms
+        duration: 300.148083ms
     - id: 19
       request:
         proto: HTTP/1.1
@@ -14352,9 +14352,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -14383,11 +14383,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:37 GMT
+                - Tue, 19 May 2026 14:06:18 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=55
+                - gfet4t7; dur=49
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -14402,7 +14402,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 103.031833ms
+        duration: 64.3655ms
     - id: 20
       request:
         proto: HTTP/1.1
@@ -14418,9 +14418,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -15984,11 +15984,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:38 GMT
+                - Tue, 19 May 2026 14:06:18 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=299
+                - gfet4t7; dur=276
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -16003,7 +16003,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 501.364667ms
+        duration: 287.616625ms
     - id: 21
       request:
         proto: HTTP/1.1
@@ -16019,9 +16019,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -16050,11 +16050,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:38 GMT
+                - Tue, 19 May 2026 14:06:19 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=38
+                - gfet4t7; dur=70
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -16069,7 +16069,7 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 73.4415ms
+        duration: 95.23ms
     - id: 22
       request:
         proto: HTTP/1.1
@@ -16085,9 +16085,9 @@ interactions:
             Content-Type:
                 - application/json
             User-Agent:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Client:
-                - google-genai-sdk/1.56.0 gl-go/go1.26.3
+                - google-genai-sdk/1.57.0 gl-go/go1.26.3
             X-Goog-Api-Key:
                 - REDACTED
             X-Server-Timeout:
@@ -17651,11 +17651,11 @@ interactions:
             Content-Type:
                 - application/json; charset=UTF-8
             Date:
-                - Wed, 13 May 2026 19:12:39 GMT
+                - Tue, 19 May 2026 14:06:19 GMT
             Server:
                 - scaffolding on HTTPServer2
             Server-Timing:
-                - gfet4t7; dur=235
+                - gfet4t7; dur=256
             Set-Cookie:
                 - REDACTED
             Vary:
@@ -17670,4 +17670,4 @@ interactions:
                 - "0"
         status: 200 OK
         code: 200
-        duration: 291.379708ms
+        duration: 268.8485ms

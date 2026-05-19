@@ -13,3 +13,6 @@ func Mode(*testing.T) recorder.Mode { return recorder.ModeReplayOnly }
 
 // GeminiKey returns a dummy key for replay mode.
 func GeminiKey(*testing.T) string { return "dummy-key" }
+
+// OpenRouterKey returns a dummy OpenRouter key for replay mode.
+func OpenRouterKey(*testing.T) string { return "dummy-key" }

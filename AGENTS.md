@@ -84,9 +84,10 @@ Each package tests will require specific environment variables, e.g. `CYNOSURE_G
 
 List of all recorded test suites and env vars that control them:
 
-| directory                   | env vars                  |
-| --------------------------- | ------------------------- |
-| ./internal/adapters/gemini/ | `CYNOSURE_GEMINI_API_KEY` |
+| directory                      | env vars                           |
+| ------------------------------ | ---------------------------------- |
+| ./internal/adapters/gemini/    | `CYNOSURE_TEST_GEMINI_API_KEY`     |
+| ./internal/adapters/openrouter/| `CYNOSURE_TEST_OPENROUTER_API_KEY` |
 
 ### Cassette Expiration
 

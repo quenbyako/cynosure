@@ -5,6 +5,8 @@ import (
 	"iter"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
@@ -18,9 +20,10 @@ type (
 	PreflightFunc func(ctx context.Context, modelName string, inputTokens int) error
 
 	UsageStats struct {
+		CostUSD      decimal.Decimal
+		Duration     time.Duration
 		InputTokens  uint32
 		OutputTokens uint32
-		Duration     time.Duration
 	}
 
 	Iter interface {

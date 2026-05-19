@@ -28,3 +28,12 @@ func GeminiKey(t *testing.T) string {
 	}
 	return k
 }
+
+// OpenRouterKey returns the real OpenRouter API key from the environment.
+func OpenRouterKey(t *testing.T) string {
+	k := strings.TrimSpace(os.Getenv("CYNOSURE_TEST_OPENROUTER_API_KEY"))
+	if k == "" {
+		t.Fatalf("VCR recording requested via -tags=vcr_record, but CYNOSURE_TEST_OPENROUTER_API_KEY is empty")
+	}
+	return k
+}

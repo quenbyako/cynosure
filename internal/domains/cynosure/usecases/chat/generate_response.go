@@ -302,6 +302,7 @@ func (u *Usecase) accumulateUsage(total, current chatmodel.UsageStats) chatmodel
 		InputTokens:  current.InputTokens + total.InputTokens,
 		OutputTokens: current.OutputTokens + total.OutputTokens,
 		Duration:     current.Duration + total.Duration,
+		CostUSD:      current.CostUSD.Add(total.CostUSD),
 	}
 }
 
