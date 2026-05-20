@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -250,6 +251,7 @@ type streamSession struct {
 	scanner         *bufio.Scanner
 	err             error
 	toolCalls       map[int64]*toolCallAccumulator
+	pendingMessages []messages.Message
 	model           string
 	mu              sync.Mutex
 	wantInputTokens uint32
@@ -269,6 +271,13 @@ func (s *streamSession) Next() (messages.Message, bool) {
 
 	if s.finished || s.err != nil {
 		return nil, false
+	}
+
+	if len(s.pendingMessages) > 0 {
+		msg := s.pendingMessages[0]
+		s.pendingMessages = s.pendingMessages[1:]
+
+		return msg, true
 	}
 
 	if s.yieldedTools {
@@ -376,28 +385,51 @@ func (s *streamSession) processStreamChunk(chunk openRouterChatChunk) (messages.
 	return msg, true
 }
 
+func (s *streamSession) makeToolRequestMessage(acc *toolCallAccumulator) (messages.Message, error) {
+	argsRaw := make(map[string]json.RawMessage)
+	if acc.arguments.Len() > 0 {
+		_ = json.Unmarshal([]byte(acc.arguments.String()), &argsRaw)
+	}
+
+	callID := acc.id
+	if callID == "" {
+		callID = uuid.NewString()
+	}
+
+	msg, err := messages.NewMessageToolRequest(
+		argsRaw, acc.name, callID,
+		messages.WithMessageToolRequestMergeTag(0),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating message tool request: %w", err)
+	}
+
+	return msg, nil
+}
+
 func (s *streamSession) yieldToolCalls() (messages.Message, bool) {
 	if !s.yieldedTools && len(s.toolCalls) > 0 {
 		s.yieldedTools = true
-		for _, acc := range s.toolCalls {
-			argsRaw := make(map[string]json.RawMessage)
-			if acc.arguments.Len() > 0 {
-				_ = json.Unmarshal([]byte(acc.arguments.String()), &argsRaw)
-			}
 
-			callID := acc.id
-			if callID == "" {
-				callID = uuid.NewString()
-			}
+		keys := make([]int64, 0, len(s.toolCalls))
+		for k := range s.toolCalls {
+			keys = append(keys, k)
+		}
 
-			msg, err := messages.NewMessageToolRequest(
-				argsRaw, acc.name, callID,
-				messages.WithMessageToolRequestMergeTag(0),
-			)
-			if err == nil {
-				return msg, true
+		slices.Sort(keys)
+
+		for _, k := range keys {
+			if msg, err := s.makeToolRequestMessage(s.toolCalls[k]); err == nil {
+				s.pendingMessages = append(s.pendingMessages, msg)
 			}
 		}
+	}
+
+	if len(s.pendingMessages) > 0 {
+		msg := s.pendingMessages[0]
+		s.pendingMessages = s.pendingMessages[1:]
+
+		return msg, true
 	}
 
 	s.finished = true
