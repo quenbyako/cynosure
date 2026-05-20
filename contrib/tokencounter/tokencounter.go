@@ -176,13 +176,12 @@ func (tc *TokenCounter) EstimateConservativeFallback(msgs []Message) int {
 	return (chars / fallbackDivisor) + fallbackOffset
 }
 
-func (tc *TokenCounter) CountEmbeddingTokens(ctx context.Context, modelID string, text string) (int, error) {
-	if strings.HasPrefix(modelID, "openai/") {
+func (tc *TokenCounter) CountEmbeddingTokens(ctx context.Context, model, text string) (int, error) {
+	switch {
+	case strings.HasPrefix(model, "openai/"):
 		return len(tc.cl100kEnc.Encode(text, nil, nil)), nil
-	}
-
-	if strings.HasPrefix(modelID, "google/") {
-		localTok, release, err := tc.geminiCache.Get(ctx, modelID)
+	case strings.HasPrefix(model, "google/"):
+		localTok, release, err := tc.geminiCache.Get(ctx, model)
 		if err != nil {
 			return 0, fmt.Errorf("resolve gemini local: %w", err)
 		}
@@ -198,15 +197,15 @@ func (tc *TokenCounter) CountEmbeddingTokens(ctx context.Context, modelID string
 		}
 
 		return int(res.TotalTokens), nil
-	}
-
-	bpe, release, err := tc.bpeCache.Get(ctx, modelID)
-	if err == nil {
+	default:
+		bpe, release, err := tc.bpeCache.Get(ctx, model)
+		if err != nil {
+			return 0, fmt.Errorf("counting for %q: %w", model, err)
+		}
 		defer release()
+
 		return len(bpe.Encode(text)), nil
 	}
-
-	return 0, fmt.Errorf("%w: %q", ErrModelNotFound, modelID)
 }
 
 func loadGemini(

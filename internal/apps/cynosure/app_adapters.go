@@ -58,6 +58,7 @@ func newGemini(params *appParams) constructor[*gemini.GeminiModel] {
 		if err != nil {
 			return nil, fmt.Errorf("initializing gemini model: %w", err)
 		}
+
 		return model, nil
 	})
 }
@@ -69,10 +70,12 @@ func newOpenRouter(params *appParams) constructor[*openrouter.Adapter] {
 
 	return construct(func(ctx context.Context) (*openrouter.Adapter, error) {
 		opts := buildOpenRouterOpts(params)
+
 		model, err := openrouter.New(ctx, params.openrouter.key, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("initializing openrouter model: %w", err)
 		}
+
 		return model, nil
 	})
 }
@@ -89,6 +92,7 @@ func buildOpenRouterOpts(params *appParams) []openrouter.NewOption {
 	if params.openrouter.cacheDir != nil && params.openrouter.cacheDir.Scheme == "file" {
 		opts = append(opts, openrouter.WithCacheDir(params.openrouter.cacheDir.Path))
 	}
+
 	return opts
 }
 

@@ -71,10 +71,12 @@ func buildChatModelPorts(
 ) (ratelimiter.PortWrapped, chatmodel.PortWrapped, embedding.PortWrapped, error) {
 	lim, err1 := limiter.Build(ctx)
 	m, err2 := model.Build(ctx)
+
 	idx, err3 := indexer.Build(ctx)
 	if err := firstErr(err1, err2, err3); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to build model ports: %w", err)
 	}
+
 	return lim, m, idx, nil
 }
 
@@ -170,6 +172,7 @@ func buildAccountsModelPorts(
 	if err = firstErr(err1, err2); err != nil {
 		return nil, nil, fmt.Errorf("failed to build model ports: %w", err)
 	}
+
 	return lim, idx, nil
 }
 
@@ -254,6 +257,7 @@ func buildUsersModelPorts(
 	if err = firstErr(err1, err2); err != nil {
 		return nil, nil, fmt.Errorf("failed to build model ports: %w", err)
 	}
+
 	return lim, idx, nil
 }
 

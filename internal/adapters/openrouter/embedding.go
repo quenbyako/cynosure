@@ -159,15 +159,18 @@ func parseEmbeddingUsage(resp *operations.CreateEmbeddingsResponse) (int, decima
 	}
 
 	actualTokens := int(resp.CreateEmbeddingsResponseBody.Usage.PromptTokens)
+
 	var cost decimal.Decimal
 	if resp.CreateEmbeddingsResponseBody.Usage.Cost != nil {
 		cost = decimal.NewFromFloat(*resp.CreateEmbeddingsResponseBody.Usage.Cost)
 	}
+
 	return actualTokens, cost
 }
 
 func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (vector, int, decimal.Decimal, error) {
 	dimensions := int64(ports.EmbeddingSize)
+
 	resp, err := o.sdkClient.Embeddings.Generate(ctx, operations.CreateEmbeddingsRequest{
 		Model:      embeddingModel,
 		Input:      operations.CreateInputUnionStr(content),
@@ -183,6 +186,7 @@ func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (vector,
 	}
 
 	tokens, cost := parseEmbeddingUsage(resp)
+
 	return vec, tokens, cost, nil
 }
 

@@ -153,13 +153,14 @@ func (p *appParams) validateTelegram() error {
 
 func (p *appParams) validateModels() error {
 	if p.gemini.key == nil && p.openrouter.key == nil {
-		return fmt.Errorf("at least one of Gemini or OpenRouter keys must be provided")
+		return errors.New("at least one of Gemini or OpenRouter keys must be provided")
 	}
 
 	if p.openrouter.key != nil {
 		if p.openrouter.cacheDir == nil {
 			return MissingParamError("openrouterCacheDir")
 		}
+
 		if p.openrouter.cacheDir.Scheme != "file" {
 			return fmt.Errorf("openrouter cache dir scheme must be 'file', got: %s", p.openrouter.cacheDir.Scheme)
 		}
