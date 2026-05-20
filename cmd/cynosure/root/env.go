@@ -32,9 +32,9 @@ type Config struct {
 	TelegramPort       http.Server       `env:"CYNOSURE_TELEGRAM_ADDR" default:"http://0.0.0.0:5003"`
 	MCPPort            http.Server       `env:"CYNOSURE_MCP_ADDR"      default:"http://0.0.0.0:5004"`
 	DatabaseURL        *url.URL          `env:"CYNOSURE_DATABASE_URL"`
-	GeminiKey          secrets.Secret    `env:"CYNOSURE_GEMINI_KEY"`
-	GeminiClient       httpclient.Client `env:"CYNOSURE_GEMINI_API"     default:"https://generativelanguage.googleapis.com#timeout=30s"`
-	OpenRouterKey      secrets.Secret    `env:"CYNOSURE_OPENROUTER_KEY"`
+	GeminiKey          secrets.Secret    `env:"CYNOSURE_GEMINI_KEY"      default:""`
+	GeminiClient       httpclient.Client `env:"CYNOSURE_GEMINI_API"      default:"https://generativelanguage.googleapis.com#timeout=30s"`
+	OpenRouterKey      secrets.Secret    `env:"CYNOSURE_OPENROUTER_KEY"  default:""`
 	OpenRouterClient   httpclient.Client `env:"CYNOSURE_OPENROUTER_API"  default:"https://openrouter.ai/api/v1#timeout=30s"`
 	TokenizerCache     *url.URL          `env:"CYNOSURE_TOKENIZER_CACHE" default:"file:///tmp/tokenizers"`
 	TelegramKey        secrets.Secret    `env:"CYNOSURE_TELEGRAM_KEY"`
