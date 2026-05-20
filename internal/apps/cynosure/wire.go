@@ -8,13 +8,10 @@ import (
 	"github.com/goforj/wire"
 	"github.com/quenbyako/core/contrib/runtime"
 
-	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
 	"github.com/quenbyako/cynosure/internal/controllers/telegram"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
@@ -23,8 +20,6 @@ import (
 
 func buildApp(context.Context, *appParams) (*App, error) {
 	panic(wire.Build(
-		chatmodel.New,
-		embedding.New,
 		identitymanager.New,
 		oauthhandler.New,
 		toolclient.New,
@@ -36,10 +31,6 @@ func buildApp(context.Context, *appParams) (*App, error) {
 		),
 		newLifecycle,
 
-		wire.NewSet(newGeminiModel,
-			wire.Bind(new(chatmodel.PortFactory), new(*gemini.GeminiModel)),
-			wire.Bind(new(embedding.PortFactory), new(*gemini.GeminiModel)),
-		),
 		wire.NewSet(newMCPHandler,
 			wire.Bind(new(toolclient.PortFactory), new(*mcp.Handler)),
 		),
@@ -50,6 +41,8 @@ func buildApp(context.Context, *appParams) (*App, error) {
 		wire.NewSet(newOryClient,
 			wire.Bind(new(identitymanager.PortFactory), new(*ory.Adapter)),
 		),
+		newGemini,
+		newOpenRouter,
 		newPostgres,
 
 		newRateLimiter,
@@ -58,6 +51,8 @@ func buildApp(context.Context, *appParams) (*App, error) {
 		newServerStorage,
 		newThreadStorage,
 		newToolStorage,
+		newChatModel,
+		newEmbedding,
 
 		newChatUsecase,
 		newAccountsUsecase,

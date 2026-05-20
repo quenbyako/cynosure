@@ -9,6 +9,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/gemini"
 	"github.com/quenbyako/cynosure/internal/adapters/mcp"
 	"github.com/quenbyako/cynosure/internal/adapters/oauth"
+	"github.com/quenbyako/cynosure/internal/adapters/openrouter"
 	"github.com/quenbyako/cynosure/internal/adapters/ory"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
@@ -38,6 +39,61 @@ func newPostgres(params *appParams, lifecycle *lifecycle) constructor[*sql.Adapt
 
 		return adapter, nil
 	})
+}
+
+func newGemini(params *appParams) constructor[*gemini.GeminiModel] {
+	if params.gemini.key == nil {
+		return &noopConstructor[*gemini.GeminiModel]{}
+	}
+
+	return construct(func(ctx context.Context) (*gemini.GeminiModel, error) {
+		model, err := gemini.New(ctx,
+			params.gemini.key,
+			gemini.WithTransport(params.gemini.apiClient),
+			gemini.WithTrace(params.observability),
+			gemini.WithMaxMessagesPerRequest(params.chat.historyLimit),
+			gemini.WithChatInputLimit(params.rate.chatInputGlobal),
+			gemini.WithEmbeddingLimit(params.rate.embeddingGlobal),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initializing gemini model: %w", err)
+		}
+
+		return model, nil
+	})
+}
+
+func newOpenRouter(params *appParams) constructor[*openrouter.Adapter] {
+	if params.openrouter.key == nil {
+		return &noopConstructor[*openrouter.Adapter]{}
+	}
+
+	return construct(func(ctx context.Context) (*openrouter.Adapter, error) {
+		opts := buildOpenRouterOpts(params)
+
+		model, err := openrouter.New(ctx, params.openrouter.key, opts...)
+		if err != nil {
+			return nil, fmt.Errorf("initializing openrouter model: %w", err)
+		}
+
+		return model, nil
+	})
+}
+
+func buildOpenRouterOpts(params *appParams) []openrouter.NewOption {
+	opts := []openrouter.NewOption{
+		openrouter.WithTransport(params.openrouter.apiClient),
+		openrouter.WithTrace(params.observability),
+		openrouter.WithMaxMessagesPerRequest(params.chat.historyLimit),
+		openrouter.WithChatInputLimit(params.rate.chatInputGlobal),
+		openrouter.WithEmbeddingLimit(params.rate.embeddingGlobal),
+	}
+
+	if params.openrouter.cacheDir != nil && params.openrouter.cacheDir.Scheme == "file" {
+		opts = append(opts, openrouter.WithCacheDir(params.openrouter.cacheDir.Path))
+	}
+
+	return opts
 }
 
 func newOauthRefresher(
@@ -91,22 +147,6 @@ func newMCPHandler(
 	})
 
 	return handler, nil
-}
-
-func newGeminiModel(ctx context.Context, params *appParams) (*gemini.GeminiModel, error) {
-	model, err := gemini.New(ctx,
-		params.gemini.key,
-		gemini.WithTransport(params.gemini.apiClient),
-		gemini.WithTrace(params.observability),
-		gemini.WithMaxMessagesPerRequest(params.chat.historyLimit),
-		gemini.WithChatInputLimit(params.rate.chatInputGlobal),
-		gemini.WithEmbeddingLimit(params.rate.embeddingGlobal),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("initializing gemini model: %w", err)
-	}
-
-	return model, nil
 }
 
 func newOAuthHandler(params *appParams) *oauth.Handler {

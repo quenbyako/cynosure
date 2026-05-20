@@ -73,6 +73,7 @@ https://mcp.simplescraper.io/mcp
 https://waystation.ai/mcp # instead of resource_metadata_url sends just resource
 https://www.zine.ai/mcp
 https://mcp.close.com/mcp
+https://webzum.com/api/mcp
 
 
 

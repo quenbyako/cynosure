@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	cache "github.com/quenbyako/cynosure/contrib/sf-cache"
+	"github.com/quenbyako/ext/container/lru"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -43,7 +43,7 @@ var clientImpl = &mcp.Implementation{
 }
 
 type Handler struct {
-	clients *cache.Cache[ids.AccountID, *asyncClient]
+	clients *lru.Cache[ids.AccountID, *asyncClient]
 	tracer  ports.ObserveStack
 
 	// factory and accountToken for probing, bypass cache
@@ -76,10 +76,11 @@ func New(
 	}
 
 	return &Handler{
-		clients: cache.New(
+		clients: lru.New(
 			cacheConstructor(connFactory, accountToken),
+			nil,
 			cacheDestructor(),
-			params.maxConnSize,
+			int(params.maxConnSize),
 			cacheTTL,
 		),
 		tracer: tracer,
@@ -123,9 +124,7 @@ func validateNewParams(accountToken AccountTokenFunc, refreshToken TokenSourceCo
 
 // Close closes the handler and all active MCP sessions.
 func (h *Handler) Close() error {
-	if err := h.clients.Close(); err != nil {
-		return fmt.Errorf("close clients: %w", err)
-	}
+	h.clients.Close()
 
 	return nil
 }
@@ -133,7 +132,7 @@ func (h *Handler) Close() error {
 func cacheConstructor(
 	factory *connFactory,
 	accountToken AccountTokenFunc,
-) cache.ConstructorFunc[ids.AccountID, *asyncClient] {
+) lru.ConstructorFunc[ids.AccountID, *asyncClient] {
 	return func(ctx context.Context, account ids.AccountID) (*asyncClient, error) {
 		server, token, err := accountToken(ctx, account)
 		if err != nil {
@@ -177,7 +176,7 @@ func getAnonymous(
 	return client, nil
 }
 
-func cacheDestructor() cache.DestructorFunc[ids.AccountID, *asyncClient] {
+func cacheDestructor() lru.EvictCallback[ids.AccountID, *asyncClient] {
 	return func(_ ids.AccountID, client *asyncClient) {
 		//nolint:errcheck,gosec // safe to ignore error here
 		client.Close()

@@ -50,6 +50,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # 3. Финальный образ
 FROM gcr.io/distroless/static-debian12:nonroot
 
+ENV CYNOSURE_TOKENIZER_CACHE=file:///home/nonroot/.cache/tokenizers
+
 COPY --from=build /bin/app /bin/app
 
 ENTRYPOINT ["/bin/app"]

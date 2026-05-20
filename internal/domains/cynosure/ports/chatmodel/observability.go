@@ -103,11 +103,16 @@ func (s *streamSpan) addOutputMessage(msg messages.Message) {
 	}
 }
 
-func (s *streamSpan) setUsage(u UsageStats) {
+func (s *streamSpan) setUsage(stats UsageStats) {
 	s.span.SetAttributes(
-		attribute.Int64("gen_ai.usage.input_tokens", int64(u.InputTokens)),
-		attribute.Int64("gen_ai.usage.output_tokens", int64(u.OutputTokens)),
+		semconv.GenAIUsageInputTokens(int(stats.InputTokens)),
+		semconv.GenAIUsageOutputTokens(int(stats.OutputTokens)),
 	)
+
+	if stats.CostUSD.IsPositive() {
+		val, _ := stats.CostUSD.Float64()
+		s.span.SetAttributes(attribute.Float64("gen_ai.usage.cost_usd", val))
+	}
 }
 
 func (s *streamSpan) end() {

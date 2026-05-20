@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
 )
 
@@ -18,18 +19,15 @@ func (h *Handler) ExecuteTool(
 	ctx context.Context, tool entities.ToolReadOnly,
 	args map[string]json.RawMessage, toolCallID string,
 ) (messages.MessageTool, error) {
-	client, err := h.clients.Get(ctx, tool.ID().Account())
+	client, release, err := h.clients.Get(ctx, tool.ID().Account())
 	if err != nil {
 		return nil, MapError(err)
 	}
+	defer release()
 
-	resp, err := client.session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      tool.Name(),
-		Arguments: args,
-		Meta:      nil,
-	})
+	resp, err := h.callTool(ctx, client, tool, args)
 	if err != nil {
-		return nil, MapError(err)
+		return nil, err
 	}
 
 	content, err := extractContent(resp)
@@ -38,6 +36,27 @@ func (h *Handler) ExecuteTool(
 	}
 
 	return h.createToolMessage(tool, content, toolCallID)
+}
+
+func (h *Handler) callTool(
+	ctx context.Context, client *asyncClient,
+	tool entities.ToolReadOnly, args map[string]json.RawMessage,
+) (*mcp.CallToolResult, error) {
+	resp, err := client.session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      tool.Name(),
+		Arguments: args,
+		Meta:      nil,
+	})
+	if err == nil {
+		return resp, nil
+	}
+
+	mappedErr := MapError(err)
+	if errors.Is(mappedErr, toolclient.ErrServerUnreachable) {
+		h.clients.Remove(tool.ID().Account())
+	}
+
+	return nil, mappedErr
 }
 
 func (h *Handler) createToolMessage(
