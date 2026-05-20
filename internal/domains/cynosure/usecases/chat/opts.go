@@ -4,6 +4,7 @@ import (
 	"github.com/quenbyako/core"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
@@ -60,7 +61,7 @@ type newRequiredParams struct {
 	indexer     embedding.Port
 	toolStorage ports.ToolStorage
 	server      ports.ServerStorage
-	account     ports.AccountStorage
+	account     accounts.Port
 	agents      ports.AgentStorage
 	limiter     ratelimiter.Port
 }
@@ -78,7 +79,7 @@ func buildNewParams(
 	indexer embedding.Port,
 	toolStorage ports.ToolStorage,
 	server ports.ServerStorage,
-	account ports.AccountStorage,
+	account accounts.Port,
 	agents ports.AgentStorage,
 	limiter ratelimiter.Port,
 	opts ...NewOption,

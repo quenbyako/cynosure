@@ -8,20 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
-// RunAccountStorageTests runs tests for the given adapter. These tests are predefined
-// and REQUIRED to be used for ANY adapter implementation.
+// Run runs tests for the given adapter. These tests are predefined and REQUIRED
+// to be used for ANY adapter implementation.
 //
 // After constructing test function, just run it through `run(t)` call,
 // everything else will be handled for you. Calling this function through
 // `t.Run("general", run)` is not very recommended, cause test logs will be too
 // hard to read cause of big nesting.
-func RunAccountStorageTests(
-	a ports.AccountStorage, opts ...AccountStorageTestSuiteOption,
-) func(t *testing.T) {
+func Run(a accounts.Port, opts ...AccountStorageTestSuiteOption) func(t *testing.T) {
 	suite := &AccountStorageTestSuite{
 		adapter:            a,
 		saveAccountFixture: nil,
@@ -39,9 +37,9 @@ func RunAccountStorageTests(
 }
 
 type AccountStorageTestSuite struct {
-	adapter ports.AccountStorage
+	adapter accounts.Port
 
-	saveAccountFixture AccountFixtureBuilder
+	saveAccountFixture FixtureBuilder
 	cleanup            func(context.Context) error
 }
 
@@ -49,9 +47,9 @@ var _ afterTest = (*AccountStorageTestSuite)(nil)
 
 type AccountStorageTestSuiteOption func(*AccountStorageTestSuite)
 
-type AccountFixtureBuilder = func(context.Context, SaveAccountFixture) error
+type FixtureBuilder = func(context.Context, SaveAccountFixture) error
 
-func WithSaveAccountSeeder(f AccountFixtureBuilder) AccountStorageTestSuiteOption {
+func WithSaveAccountSeeder(f FixtureBuilder) AccountStorageTestSuiteOption {
 	return func(s *AccountStorageTestSuite) { s.saveAccountFixture = f }
 }
 
@@ -115,7 +113,7 @@ func (s *AccountStorageTestSuite) setupSaveAccountTest(
 ) (SaveAccountFixture, *entities.Account) {
 	t.Helper()
 
-	fixture := s.buildSaveAccountSeed()
+	fixture := s.buildSaveAccountSeed(t)
 
 	if s.saveAccountFixture != nil {
 		if err := s.saveAccountFixture(t.Context(), fixture); err != nil {
@@ -123,28 +121,24 @@ func (s *AccountStorageTestSuite) setupSaveAccountTest(
 		}
 	}
 
-	account := must(entities.NewAccount(fixture.AccountID, fixture.Name, fixture.Description))
+	account, err := entities.NewAccount(fixture.AccountID, fixture.Name, fixture.Description)
+	require.NoError(t, err)
 
 	return fixture, account
 }
 
-func (s *AccountStorageTestSuite) buildSaveAccountSeed() SaveAccountFixture {
+func (s *AccountStorageTestSuite) buildSaveAccountSeed(t *testing.T) SaveAccountFixture {
+	t.Helper()
+
 	serverID := ids.RandomServerID()
 	userID := ids.RandomUserID()
 
-	account := must(ids.RandomAccountID(userID, serverID))
+	account, err := ids.RandomAccountID(userID, serverID)
+	require.NoError(t, err)
 
 	return SaveAccountFixture{
 		AccountID:   account,
 		Name:        "Test Account",
 		Description: "Some description",
 	}
-}
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err) //nolint:forbidigo
-	}
-
-	return v
 }

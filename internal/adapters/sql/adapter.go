@@ -20,11 +20,11 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql/threads"
 	"github.com/quenbyako/cynosure/internal/adapters/sql/tools"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	accountsPort "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 )
 
 type Adapter struct {
-	accounts.Accounts
 	agents.Agents
 	servers.Servers
 	threads.Threads
@@ -35,13 +35,13 @@ type Adapter struct {
 }
 
 var (
-	_ ports.AccountStorageFactory = (*Adapter)(nil)
-	_ ports.AgentStorageFactory   = (*Adapter)(nil)
-	_ ports.ServerStorageFactory  = (*Adapter)(nil)
-	_ ports.ThreadStorageFactory  = (*Adapter)(nil)
-	_ ports.ToolStorageFactory    = (*Adapter)(nil)
-	_ ratelimiter.PortFactory     = (*Adapter)(nil)
-	_ io.Closer                   = (*Adapter)(nil)
+	_ accountsPort.PortFactory   = (*Adapter)(nil)
+	_ ports.AgentStorageFactory  = (*Adapter)(nil)
+	_ ports.ServerStorageFactory = (*Adapter)(nil)
+	_ ports.ThreadStorageFactory = (*Adapter)(nil)
+	_ ports.ToolStorageFactory   = (*Adapter)(nil)
+	_ ratelimiter.PortFactory    = (*Adapter)(nil)
+	_ io.Closer                  = (*Adapter)(nil)
 )
 
 type newParams struct {
@@ -75,7 +75,6 @@ func New(ctx context.Context, connString *url.URL, opts ...NewOption) (*Adapter,
 	}
 
 	adapter := Adapter{
-		Accounts:      accounts.New(pool),
 		Agents:        agents.New(pool),
 		Servers:       servers.New(pool),
 		Threads:       threads.New(pool),
@@ -141,7 +140,9 @@ func (a *Adapter) WithClock(now func() time.Time) *Adapter {
 
 // Factory methods
 
-func (a *Adapter) AccountStorage() ports.AccountStorage { return a }
+func (a *Adapter) Accounts() accountsPort.PortWrapped {
+	return accountsPort.Wrap(accounts.New(a.pool), a.observability)
+}
 
 func (a *Adapter) AgentStorage() ports.AgentStorage { return a }
 

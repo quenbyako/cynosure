@@ -34,7 +34,7 @@ func TestTokenRefresh_RequestCancelled(t *testing.T) {
 
 	// Setup mocks
 	mockAuth := mocks.NewOAuthHandler(t)
-	mockAccounts := mocks.NewMockAccountStorage(t)
+	mockAccounts := mocks.NewAccounts(t)
 	mockServers := mocks.NewMockServerStorage(t)
 
 	userID := ids.RandomUserID()
@@ -133,7 +133,7 @@ func TestTokenRefresh_TimeoutReached(t *testing.T) {
 
 	// Setup mocks
 	mockAuth := mocks.NewOAuthHandler(t)
-	mockAccounts := mocks.NewMockAccountStorage(t)
+	mockAccounts := mocks.NewAccounts(t)
 	mockServers := mocks.NewMockServerStorage(t)
 
 	userID := ids.RandomUserID()
@@ -219,7 +219,7 @@ func TestTokenRefresh_NoRefreshToken(t *testing.T) {
 	t.Parallel()
 
 	mockAuth := mocks.NewOAuthHandler(t)
-	mockAccounts := mocks.NewMockAccountStorage(t)
+	mockAccounts := mocks.NewAccounts(t)
 	mockServers := mocks.NewMockServerStorage(t)
 
 	userID := ids.RandomUserID()

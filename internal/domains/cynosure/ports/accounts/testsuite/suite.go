@@ -95,11 +95,3 @@ func getTestMethods(typ reflect.Type) []int {
 
 	return res
 }
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err) //nolint:forbidigo
-	}
-
-	return v
-}

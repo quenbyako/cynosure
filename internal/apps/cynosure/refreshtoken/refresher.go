@@ -12,13 +12,14 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 type RefreshConstructor struct {
 	oauthPort       oauthhandler.Port
-	accounts        ports.AccountStorage
+	accounts        accounts.Port
 	servers         ports.ServerStorage
 	pool            pond.ResultPool[*oauth2.Token]
 	maxTaskDuration time.Duration
@@ -32,7 +33,7 @@ const (
 
 func NewConstructor(
 	oauthPort oauthhandler.Port,
-	accounts ports.AccountStorage,
+	accounts accounts.Port,
 	servers ports.ServerStorage,
 	workersCount int,
 ) *RefreshConstructor {

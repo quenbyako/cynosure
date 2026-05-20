@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	accountsPort "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
@@ -25,7 +26,7 @@ func newChatUsecase(
 	indexer constructor[embedding.PortWrapped],
 	toolStorage constructor[ports.ToolStorage],
 	server constructor[ports.ServerStorage],
-	account constructor[ports.AccountStorage],
+	account constructor[accountsPort.PortWrapped],
 	models constructor[ports.AgentStorage],
 	limiter constructor[ratelimiter.PortWrapped],
 ) (*chat.Usecase, error) {
@@ -81,7 +82,7 @@ func buildChatModelPorts(
 }
 
 type chatPorts struct {
-	account ports.AccountStorage
+	account accountsPort.PortWrapped
 	server  ports.ServerStorage
 	agents  ports.AgentStorage
 	tools   ports.ToolStorage
@@ -90,7 +91,7 @@ type chatPorts struct {
 
 func buildChatPorts(
 	ctx context.Context,
-	account constructor[ports.AccountStorage],
+	account constructor[accountsPort.PortWrapped],
 	server constructor[ports.ServerStorage],
 	models constructor[ports.AgentStorage],
 	toolStorage constructor[ports.ToolStorage],
@@ -115,7 +116,7 @@ func newAccountsUsecase(
 	lifecycle *lifecycle,
 	servers constructor[ports.ServerStorage],
 	oauth oauthhandler.PortWrapped,
-	accountsStorage constructor[ports.AccountStorage],
+	accountsStorage constructor[accountsPort.PortWrapped],
 	tools constructor[ports.ToolStorage],
 	index constructor[embedding.PortWrapped],
 	toolClient toolclient.PortWrapped,
@@ -178,14 +179,14 @@ func buildAccountsModelPorts(
 
 type accountsPorts struct {
 	server  ports.ServerStorage
-	account ports.AccountStorage
+	account accountsPort.PortWrapped
 	tools   ports.ToolStorage
 }
 
 func buildAccountsPorts(
 	ctx context.Context,
 	servers constructor[ports.ServerStorage],
-	accountsStorage constructor[ports.AccountStorage],
+	accountsStorage constructor[accountsPort.PortWrapped],
 	tools constructor[ports.ToolStorage],
 ) (accountsPorts, error) {
 	srvs, err1 := servers.Build(ctx)
@@ -204,7 +205,7 @@ func newUsersUsecase(
 	params *appParams,
 	identities identitymanager.PortWrapped,
 	agents constructor[ports.AgentStorage],
-	accStorage constructor[ports.AccountStorage],
+	accStorage constructor[accountsPort.PortWrapped],
 	servers constructor[ports.ServerStorage],
 	tools constructor[ports.ToolStorage],
 	toolClient toolclient.PortWrapped,
@@ -263,7 +264,7 @@ func buildUsersModelPorts(
 
 type usersPorts struct {
 	agents  ports.AgentStorage
-	account ports.AccountStorage
+	account accountsPort.PortWrapped
 	server  ports.ServerStorage
 	tools   ports.ToolStorage
 }
@@ -271,7 +272,7 @@ type usersPorts struct {
 func buildUsersPorts(
 	ctx context.Context,
 	agents constructor[ports.AgentStorage],
-	accStorage constructor[ports.AccountStorage],
+	accStorage constructor[accountsPort.PortWrapped],
 	servers constructor[ports.ServerStorage],
 	tools constructor[ports.ToolStorage],
 ) (usersPorts, error) {

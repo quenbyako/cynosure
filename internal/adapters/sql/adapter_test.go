@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
+	accountsTests "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts/testsuite"
 	rlport "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 	ratelimiter "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter/testsuite"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/testsuite"
@@ -37,9 +38,9 @@ func TestAdapter(t *testing.T) {
 		}
 	})
 
-	t.Run("Accounts", testsuite.RunAccountStorageTests(adapter,
-		testsuite.WithSaveAccountSeeder(seeder(pool)),
-		testsuite.WithAccountStorageCleanup(cleaner(pool)),
+	t.Run("Accounts", accountsTests.Run(adapter.Accounts(),
+		accountsTests.WithSaveAccountSeeder(seeder(pool)),
+		accountsTests.WithAccountStorageCleanup(cleaner(pool)),
 	))
 
 	t.Run("ModelSettings", testsuite.RunModelSettingsStorageTests(adapter,
@@ -131,8 +132,8 @@ func (t *testRateLimiter) ensurePlan(ctx context.Context, user ids.UserID) error
 	return nil
 }
 
-func seeder(pool *pgxpool.Pool) testsuite.AccountFixtureBuilder {
-	return func(ctx context.Context, fixture testsuite.SaveAccountFixture) error {
+func seeder(pool *pgxpool.Pool) accountsTests.FixtureBuilder {
+	return func(ctx context.Context, fixture accountsTests.SaveAccountFixture) error {
 		_, err := pool.Exec(ctx, `
 				INSERT INTO agents.mcp_servers (id, url)
 				VALUES ($1, $2)

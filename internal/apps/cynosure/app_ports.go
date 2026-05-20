@@ -8,6 +8,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/openrouter"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
@@ -50,14 +51,14 @@ func agentStorage[T ports.AgentStorageFactory](t T) (ports.AgentStorage, error) 
 
 func newAccountStorage(
 	sqlImpl constructor[*sql.Adapter],
-) constructor[ports.AccountStorage] {
-	return construct(func(ctx context.Context) (ports.AccountStorage, error) {
+) constructor[accounts.PortWrapped] {
+	return construct(func(ctx context.Context) (accounts.PortWrapped, error) {
 		return selectPort(ctx, configuredAdapter(sqlImpl, false, accountStorage))
 	})
 }
 
-func accountStorage[T ports.AccountStorageFactory](t T) (ports.AccountStorage, error) {
-	return t.AccountStorage(), nil
+func accountStorage[T accounts.PortFactory](t T) (accounts.PortWrapped, error) {
+	return t.Accounts(), nil
 }
 
 func newServerStorage(

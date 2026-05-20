@@ -112,6 +112,7 @@ type AgentsOauthToken struct {
 
 type AgentsPlan struct {
 	ID               uuid.UUID
+	PlanKey          string
 	ChatInputPeriod  pgtype.Interval
 	ChatInputLimit   int32
 	ChatOutputPeriod pgtype.Interval

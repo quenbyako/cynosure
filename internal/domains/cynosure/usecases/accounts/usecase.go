@@ -17,6 +17,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
@@ -34,7 +35,7 @@ var (
 type Usecase struct {
 	oauth            oauthhandler.Port
 	trace            trace.Tracer
-	accounts         ports.AccountStorage
+	accounts         accounts.Port
 	tools            ports.ToolStorage
 	index            embedding.Port
 	limiter          ratelimiter.Port
@@ -94,7 +95,7 @@ const (
 func New(
 	servers ports.ServerStorage,
 	authHandler oauthhandler.Port,
-	accounts ports.AccountStorage,
+	accounts accounts.Port,
 	tools ports.ToolStorage,
 	index embedding.Port,
 	toolClient toolclient.Port,
@@ -124,7 +125,7 @@ func New(
 }
 
 func newUsecase(
-	servers ports.ServerStorage, authHandler oauthhandler.Port, accounts ports.AccountStorage,
+	servers ports.ServerStorage, authHandler oauthhandler.Port, accounts accounts.Port,
 	tools ports.ToolStorage, index embedding.Port, toolClient toolclient.Port,
 	users identitymanager.Port, limiter ratelimiter.Port, params *newParams,
 ) *Usecase {

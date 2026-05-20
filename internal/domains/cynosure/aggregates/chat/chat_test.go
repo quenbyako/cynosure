@@ -45,7 +45,7 @@ type chatFixture struct {
 	threadID            ids.ThreadID
 	indexer             *mocks.Embedding
 	toolStorage         *mocks.MockToolStorage
-	accountStorage      *mocks.MockAccountStorage
+	accountStorage      *mocks.Accounts
 	threadStorage       *mocks.MockThreadStorage
 	limiter             *mocks.RateLimiter
 	toolboxContextLimit uint
@@ -67,7 +67,7 @@ func newChatFixture(t *testing.T) *chatFixture {
 		threadID:            tid,
 		indexer:             new(mocks.Embedding),
 		toolStorage:         new(mocks.MockToolStorage),
-		accountStorage:      new(mocks.MockAccountStorage),
+		accountStorage:      new(mocks.Accounts),
 		threadStorage:       new(mocks.MockThreadStorage),
 		limiter:             new(mocks.RateLimiter),
 		toolboxContextLimit: 10,

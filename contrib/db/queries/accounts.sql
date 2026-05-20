@@ -18,6 +18,23 @@ FROM agents.mcp_accounts a
 LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
 WHERE a.id = sqlc.arg('account_id') AND a.deleted_at IS NULL;
 
+-- name: GetDeletedAccount :one
+SELECT
+	a.id,
+    a.user_id,
+    a.server_id,
+    a.name,
+    a.description,
+    a.deleted_at,
+    a.embedding,
+	ot.type,
+    ot.access_token,
+    ot.refresh_token,
+    ot.expiry
+FROM agents.mcp_accounts AS a
+LEFT JOIN agents.oauth_tokens AS ot ON a.id = ot.account_id
+WHERE a.id = sqlc.arg('account_id')::UUID;
+
 -- GetAccountsBatch retrieves multiple accounts by ID in a single query.
 -- Efficiently handles N+1 loading for users with multiple accounts.
 --
@@ -162,3 +179,14 @@ WHERE t.id = sqlc.arg('tool_id') AND t.account_id = sqlc.arg('account_id') AND t
 UPDATE agents.mcp_tools
 SET deleted_at = NOW()
 WHERE id = sqlc.arg('tool_id');
+
+-- name: ReactivateAccount :exec
+UPDATE agents.mcp_accounts
+SET deleted_at = NULL
+WHERE id = sqlc.arg('account_id')::UUID;
+
+-- name: ReactivateAccountTools :exec
+UPDATE agents.mcp_tools
+SET deleted_at = NULL
+WHERE account_id = sqlc.arg('account_id')::UUID;
+
