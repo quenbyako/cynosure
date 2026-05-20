@@ -214,6 +214,11 @@ func loadGemini(
 	modelID string,
 ) (*tokenizer.LocalTokenizer, error) {
 	resolvedModel := strings.TrimPrefix(modelID, "google/")
+	// issue with embedding models: for some reason genai does not provide local
+	// tokenizers for embedding models.
+	if strings.Contains(resolvedModel, "gemini-embedding") {
+		resolvedModel = "gemini-1.5-flash"
+	}
 
 	tok, err := tokenizer.NewLocalTokenizer(resolvedModel)
 	if err != nil {

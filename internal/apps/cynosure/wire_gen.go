@@ -8,8 +8,6 @@ package cynosure
 
 import (
 	"context"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
@@ -25,11 +23,9 @@ func buildApp(contextContext context.Context, cynosureAppParams *appParams) (*Ap
 	portWrapped := oauthhandler.New(handler)
 	constructor3 := newAccountStorage(cynosureConstructor)
 	constructor4 := newToolStorage(cynosureConstructor)
-	geminiModel, err := newGeminiModel(contextContext, cynosureAppParams)
-	if err != nil {
-		return nil, err
-	}
-	embeddingPortWrapped := embedding.New(geminiModel)
+	constructor5 := newGemini(cynosureAppParams)
+	constructor6 := newOpenRouter(cynosureAppParams)
+	constructor7 := newEmbedding(constructor5, constructor6)
 	refreshConstructor, err := newOauthRefresher(contextContext, cynosureLifecycle, constructor3, constructor2, portWrapped)
 	if err != nil {
 		return nil, err
@@ -44,22 +40,22 @@ func buildApp(contextContext context.Context, cynosureAppParams *appParams) (*Ap
 		return nil, err
 	}
 	identitymanagerPortWrapped := identitymanager.New(oryAdapter)
-	constructor5 := newRateLimiter(cynosureConstructor)
-	usecase, err := newAccountsUsecase(contextContext, cynosureAppParams, cynosureLifecycle, constructor2, portWrapped, constructor3, constructor4, embeddingPortWrapped, toolclientPortWrapped, identitymanagerPortWrapped, constructor5)
+	constructor8 := newRateLimiter(cynosureConstructor)
+	usecase, err := newAccountsUsecase(contextContext, cynosureAppParams, cynosureLifecycle, constructor2, portWrapped, constructor3, constructor4, constructor7, toolclientPortWrapped, identitymanagerPortWrapped, constructor8)
 	if err != nil {
 		return nil, err
 	}
 	cynosureAdminControllerWireBind := bindAdminController(cynosureAppParams, usecase)
 	cynosureOauthControllerWireBind := bindOAuthController(cynosureAppParams, usecase)
 	baseLogger := newLogger(cynosureAppParams)
-	constructor6 := newThreadStorage(cynosureConstructor)
-	chatmodelPortWrapped := chatmodel.New(geminiModel)
-	constructor7 := newAgentStorage(cynosureConstructor)
-	chatUsecase, err := newChatUsecase(contextContext, cynosureAppParams, constructor6, chatmodelPortWrapped, toolclientPortWrapped, embeddingPortWrapped, constructor4, constructor2, constructor3, constructor7, constructor5)
+	constructor9 := newThreadStorage(cynosureConstructor)
+	constructor10 := newChatModel(constructor5, constructor6)
+	constructor11 := newAgentStorage(cynosureConstructor)
+	chatUsecase, err := newChatUsecase(contextContext, cynosureAppParams, constructor9, constructor10, toolclientPortWrapped, constructor7, constructor4, constructor2, constructor3, constructor11, constructor8)
 	if err != nil {
 		return nil, err
 	}
-	usersUsecase, err := newUsersUsecase(contextContext, cynosureAppParams, identitymanagerPortWrapped, constructor7, constructor3, constructor2, constructor4, toolclientPortWrapped, embeddingPortWrapped, constructor5)
+	usersUsecase, err := newUsersUsecase(contextContext, cynosureAppParams, identitymanagerPortWrapped, constructor11, constructor3, constructor2, constructor4, toolclientPortWrapped, constructor7, constructor8)
 	if err != nil {
 		return nil, err
 	}

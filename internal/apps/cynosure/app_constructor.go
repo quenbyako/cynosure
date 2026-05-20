@@ -25,6 +25,7 @@ type (
 	appParams struct {
 		telegram           telegramParams
 		gemini             geminiParams
+		openrouter         openrouterParams
 		internalMcpClient  http.RoundTripper
 		externalMcpClient  http.RoundTripper
 		observability      core.Metrics
@@ -48,6 +49,12 @@ type (
 		embeddingGlobal ratelimit.Policy
 		maxWait         time.Duration
 		defaultPlanID   uuid.UUID
+	}
+
+	openrouterParams struct {
+		key       SecretGetter
+		apiClient http.RoundTripper
+		cacheDir  *url.URL
 	}
 
 	oryParams struct {
@@ -94,7 +101,7 @@ func (p *appParams) validate(ctx context.Context) error {
 	return errors.Join(
 		p.validateOry(),
 		p.validateTelegram(),
-		p.validateGemini(),
+		p.validateModels(),
 		p.validateStorage(),
 		p.validateInfra(),
 		p.rate.validate(),
@@ -144,9 +151,18 @@ func (p *appParams) validateTelegram() error {
 	return errors.Join(errs...)
 }
 
-func (p *appParams) validateGemini() error {
-	if p.gemini.key == nil {
-		return MissingParamError("geminiKey")
+func (p *appParams) validateModels() error {
+	if p.gemini.key == nil && p.openrouter.key == nil {
+		return fmt.Errorf("at least one of Gemini or OpenRouter keys must be provided")
+	}
+
+	if p.openrouter.key != nil {
+		if p.openrouter.cacheDir == nil {
+			return MissingParamError("openrouterCacheDir")
+		}
+		if p.openrouter.cacheDir.Scheme != "file" {
+			return fmt.Errorf("openrouter cache dir scheme must be 'file', got: %s", p.openrouter.cacheDir.Scheme)
+		}
 	}
 
 	return nil
@@ -245,6 +261,18 @@ func WithGeminiKey(key SecretGetter) AppOpts {
 
 func WithGeminiClient(client http.RoundTripper) AppOpts {
 	return func(p *appParams) { p.gemini.apiClient = client }
+}
+
+func WithOpenRouterKey(key SecretGetter) AppOpts {
+	return func(p *appParams) { p.openrouter.key = key }
+}
+
+func WithOpenRouterClient(client http.RoundTripper) AppOpts {
+	return func(p *appParams) { p.openrouter.apiClient = client }
+}
+
+func WithOpenRouterCacheDir(cacheDir *url.URL) AppOpts {
+	return func(p *appParams) { p.openrouter.cacheDir = cacheDir }
 }
 
 func WithObservability(metrics core.Metrics) AppOpts {
@@ -362,6 +390,7 @@ func defaultParams() appParams {
 		ory:                defaultOryParams(),
 		telegram:           defaultTelegramParams(),
 		gemini:             defaultGeminiParams(),
+		openrouter:         defaultOpenRouterParams(),
 		storage:            defaultStorageParams(),
 		redis:              defaultRedisParams(),
 		chat:               defaultChatParams(),
@@ -390,6 +419,19 @@ func defaultGeminiParams() geminiParams {
 	return geminiParams{
 		key:       nil,
 		apiClient: http.DefaultTransport,
+	}
+}
+
+func defaultOpenRouterParams() openrouterParams {
+	cacheURL, err := url.Parse("file:///tmp/tokenizers")
+	if err != nil {
+		panic("invalid default openrouter cache dir url") //nolint:forbidigo
+	}
+
+	return openrouterParams{
+		key:       nil,
+		apiClient: http.DefaultTransport,
+		cacheDir:  cacheURL,
 	}
 }
 

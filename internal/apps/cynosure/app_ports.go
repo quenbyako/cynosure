@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/quenbyako/cynosure/internal/adapters/gemini"
+	"github.com/quenbyako/cynosure/internal/adapters/openrouter"
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
 )
 
@@ -96,4 +100,36 @@ func newToolStorage(
 
 func toolStorage[T ports.ToolStorageFactory](t T) (ports.ToolStorage, error) {
 	return t.ToolStorage(), nil
+}
+
+func newChatModel(
+	geminiImpl constructor[*gemini.GeminiModel],
+	openrouterImpl constructor[*openrouter.Adapter],
+) constructor[chatmodel.PortWrapped] {
+	return construct(func(ctx context.Context) (chatmodel.PortWrapped, error) {
+		return selectPort(ctx,
+			configuredAdapter(geminiImpl, false, chatModel),
+			configuredAdapter(openrouterImpl, false, chatModel),
+		)
+	})
+}
+
+func chatModel[T chatmodel.PortFactory](t T) (chatmodel.PortWrapped, error) {
+	return t.ChatModel(), nil
+}
+
+func newEmbedding(
+	geminiImpl constructor[*gemini.GeminiModel],
+	openrouterImpl constructor[*openrouter.Adapter],
+) constructor[embedding.PortWrapped] {
+	return construct(func(ctx context.Context) (embedding.PortWrapped, error) {
+		return selectPort(ctx,
+			configuredAdapter(geminiImpl, false, embeddingModel),
+			configuredAdapter(openrouterImpl, false, embeddingModel),
+		)
+	})
+}
+
+func embeddingModel[T embedding.PortFactory](t T) (embedding.PortWrapped, error) {
+	return t.Embedding(), nil
 }

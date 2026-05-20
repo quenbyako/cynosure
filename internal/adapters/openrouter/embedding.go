@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	embeddingModel = "openai/text-embedding-3-small"
+	embeddingModel = "google/gemini-embedding-001"
 )
 
 type vector = [embedding.EmbeddingSize]float32
@@ -135,22 +135,14 @@ func (o *Adapter) embed(
 	return vec, nil
 }
 
-func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (vector, int, decimal.Decimal, error) {
-	resp, err := o.sdkClient.Embeddings.Generate(ctx, operations.CreateEmbeddingsRequest{
-		Model: embeddingModel,
-		Input: operations.CreateInputUnionStr(content),
-	})
-	if err != nil {
-		return vector{}, 0, decimal.Zero, fmt.Errorf("embedding API call failed: %w", err)
-	}
-
+func parseEmbeddingResponse(resp *operations.CreateEmbeddingsResponse) (vector, error) {
 	if len(resp.CreateEmbeddingsResponseBody.Data) == 0 {
-		return vector{}, 0, decimal.Zero, errors.New("empty data in embedding response")
+		return vector{}, errors.New("empty data in embedding response")
 	}
 
 	values := resp.CreateEmbeddingsResponseBody.Data[0].Embedding.ArrayOfNumber
 	if len(values) != ports.EmbeddingSize {
-		return vector{}, 0, decimal.Zero, fmt.Errorf("embedding dimension mismatch: got %d, expected %d", len(values), ports.EmbeddingSize)
+		return vector{}, fmt.Errorf("embedding dimension mismatch: got %d, expected %d", len(values), ports.EmbeddingSize)
 	}
 
 	var result vector
@@ -158,19 +150,40 @@ func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (vector,
 		result[i] = float32(v)
 	}
 
-	var (
-		actualTokens int
-		cost         decimal.Decimal
-	)
+	return result, nil
+}
 
-	if resp.CreateEmbeddingsResponseBody.Usage != nil {
-		actualTokens = int(resp.CreateEmbeddingsResponseBody.Usage.PromptTokens)
-		if resp.CreateEmbeddingsResponseBody.Usage.Cost != nil {
-			cost = decimal.NewFromFloat(*resp.CreateEmbeddingsResponseBody.Usage.Cost)
-		}
+func parseEmbeddingUsage(resp *operations.CreateEmbeddingsResponse) (int, decimal.Decimal) {
+	if resp.CreateEmbeddingsResponseBody.Usage == nil {
+		return 0, decimal.Zero
 	}
 
-	return result, actualTokens, cost, nil
+	actualTokens := int(resp.CreateEmbeddingsResponseBody.Usage.PromptTokens)
+	var cost decimal.Decimal
+	if resp.CreateEmbeddingsResponseBody.Usage.Cost != nil {
+		cost = decimal.NewFromFloat(*resp.CreateEmbeddingsResponseBody.Usage.Cost)
+	}
+	return actualTokens, cost
+}
+
+func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (vector, int, decimal.Decimal, error) {
+	dimensions := int64(ports.EmbeddingSize)
+	resp, err := o.sdkClient.Embeddings.Generate(ctx, operations.CreateEmbeddingsRequest{
+		Model:      embeddingModel,
+		Input:      operations.CreateInputUnionStr(content),
+		Dimensions: &dimensions,
+	})
+	if err != nil {
+		return vector{}, 0, decimal.Zero, fmt.Errorf("embedding API call failed: %w", err)
+	}
+
+	vec, err := parseEmbeddingResponse(resp)
+	if err != nil {
+		return vector{}, 0, decimal.Zero, err
+	}
+
+	tokens, cost := parseEmbeddingUsage(resp)
+	return vec, tokens, cost, nil
 }
 
 func (o *Adapter) waitEmbeddingLimit(ctx context.Context, numTokens int) error {
