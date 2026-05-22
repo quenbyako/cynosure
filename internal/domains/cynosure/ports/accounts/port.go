@@ -2,7 +2,6 @@ package accounts
 
 import (
 	"context"
-	"errors"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -37,15 +36,20 @@ type PortRead interface {
 	// Throws:
 	//
 	//  - [ErrNotFound] if account doesn't exist.
-	GetAccount(ctx context.Context, account ids.AccountID, opts ...GetAccountOption) (*entities.Account, error)
+	GetAccount(
+		ctx context.Context,
+		account ids.AccountID,
+		opts ...GetAccountOption,
+	) (*entities.Account, error)
 
 	// GetAccountsBatch fetches multiple accounts in one operation. Silently
 	// skips non-existent accounts, returning partial results in arbitrary
 	// order.
 	GetAccountsBatch(ctx context.Context, accounts []ids.AccountID) ([]*entities.Account, error)
 
-	// FindAccountsByName retrieves all accounts (active and deleted) matching the name for the user.
-	FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error)
+	// FindAccountsByName retrieves all accounts (active and deleted) matching
+	// the name for the user.
+	FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]SearchResult, error)
 }
 
 type PortWrite interface {
@@ -73,8 +77,37 @@ func defaultGetAccountParams(required getAccountRequiredParams) getAccountParams
 
 func (s *getAccountParams) validate() error {
 	if !s.account.Valid() {
-		return errors.New("invalid user id")
+		return ErrInvalidAccountID
 	}
 
 	return nil
 }
+
+// SearchResult represents a unified search result for an account.
+//
+// Implemented by these types:
+//
+//   - [SearchResultActive]
+//   - [SearchResultDeleted]
+type SearchResult interface {
+	ID() ids.AccountID
+	_SearchResult()
+}
+
+// SearchResultActive wraps a live, active account.
+type SearchResultActive struct {
+	Account *entities.Account
+}
+
+func (SearchResultActive) _SearchResult() {}
+
+func (r SearchResultActive) ID() ids.AccountID { return r.Account.ID() }
+
+// SearchResultDeleted wraps a soft-deleted account identity.
+type SearchResultDeleted struct {
+	AccountID ids.AccountID
+}
+
+func (SearchResultDeleted) _SearchResult() {}
+
+func (r SearchResultDeleted) ID() ids.AccountID { return r.AccountID }

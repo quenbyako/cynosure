@@ -98,23 +98,23 @@ func (_c *Accounts_DeleteAccount_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // FindAccountsByName provides a mock function for the type Accounts
-func (_mock *Accounts) FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error) {
+func (_mock *Accounts) FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]accounts.SearchResult, error) {
 	ret := _mock.Called(ctx, user, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindAccountsByName")
 	}
 
-	var r0 []*entities.Account
+	var r0 []accounts.SearchResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.UserID, string) ([]*entities.Account, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.UserID, string) ([]accounts.SearchResult, error)); ok {
 		return returnFunc(ctx, user, name)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.UserID, string) []*entities.Account); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.UserID, string) []accounts.SearchResult); ok {
 		r0 = returnFunc(ctx, user, name)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entities.Account)
+			r0 = ret.Get(0).([]accounts.SearchResult)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, ids.UserID, string) error); ok {
@@ -161,12 +161,12 @@ func (_c *Accounts_FindAccountsByName_Call) Run(run func(ctx context.Context, us
 	return _c
 }
 
-func (_c *Accounts_FindAccountsByName_Call) Return(accounts []*entities.Account, err error) *Accounts_FindAccountsByName_Call {
-	_c.Call.Return(accounts, err)
+func (_c *Accounts_FindAccountsByName_Call) Return(searchResults []accounts.SearchResult, err error) *Accounts_FindAccountsByName_Call {
+	_c.Call.Return(searchResults, err)
 	return _c
 }
 
-func (_c *Accounts_FindAccountsByName_Call) RunAndReturn(run func(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error)) *Accounts_FindAccountsByName_Call {
+func (_c *Accounts_FindAccountsByName_Call) RunAndReturn(run func(ctx context.Context, user ids.UserID, name string) ([]accounts.SearchResult, error)) *Accounts_FindAccountsByName_Call {
 	_c.Call.Return(run)
 	return _c
 }

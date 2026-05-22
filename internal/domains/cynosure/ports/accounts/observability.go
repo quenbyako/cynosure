@@ -115,7 +115,7 @@ func (o *observable) saveAccount(
 
 //nolint:spancheck // isolated in a wrapper
 func (o *observable) findAccountsByName(
-	ctx context.Context, userID string, name string,
+	ctx context.Context, userID, name string,
 ) (context.Context, span) {
 	ctx, span := o.t.Start(ctx, "cynosure.ports.accounts.find_accounts_by_name",
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -127,7 +127,6 @@ func (o *observable) findAccountsByName(
 
 	return ctx, &spanCallback{span: span}
 }
-
 
 // log callbacks
 

@@ -46,12 +46,17 @@ func (a *Accounts) getAccount(
 	includeDeleted bool,
 ) (db.GetAccountRow, error) {
 	if !includeDeleted {
-		return a.q.GetAccount(ctx, id.ID())
+		row, err := a.q.GetAccount(ctx, id.ID())
+		if err != nil {
+			return db.GetAccountRow{}, fmt.Errorf("get account: %w", err)
+		}
+
+		return row, nil
 	}
 
 	res, err := a.q.GetDeletedAccount(ctx, id.ID())
 	if err != nil {
-		return db.GetAccountRow{}, err
+		return db.GetAccountRow{}, fmt.Errorf("get account: %w", err)
 	}
 
 	return db.GetAccountRow(res), nil

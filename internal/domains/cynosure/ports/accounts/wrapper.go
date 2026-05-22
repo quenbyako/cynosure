@@ -29,7 +29,7 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 
 	obs := newObservable(observable)
 
-	t := portWrapped{
+	wrapped := portWrapped{
 		portReadWrapped: portReadWrapped{
 			w: client,
 			t: obs,
@@ -40,7 +40,7 @@ func Wrap(client Port, observable ports.ObserveStack) PortWrapped {
 		},
 	}
 
-	return &t
+	return &wrapped
 }
 
 type PortReadWrapped interface {
@@ -62,15 +62,19 @@ func WrapRead(client PortRead, observable ports.ObserveStack) PortReadWrapped {
 		observable = ports.NoOpObserveStack()
 	}
 
-	t := portReadWrapped{
+	wrapped := portReadWrapped{
 		w: client,
 		t: newObservable(observable),
 	}
 
-	return &t
+	return &wrapped
 }
 
-func (i *portReadWrapped) GetAccount(ctx context.Context, account ids.AccountID, opts ...GetAccountOption) (*entities.Account, error) {
+func (i *portReadWrapped) GetAccount(
+	ctx context.Context,
+	account ids.AccountID,
+	opts ...GetAccountOption,
+) (*entities.Account, error) {
 	ctx, span := i.t.getAccount(ctx, account.String())
 	defer span.end()
 
@@ -81,7 +85,10 @@ func (i *portReadWrapped) GetAccount(ctx context.Context, account ids.AccountID,
 	return res, err
 }
 
-func (i *portReadWrapped) GetAccountsBatch(ctx context.Context, accounts []ids.AccountID) ([]*entities.Account, error) {
+func (i *portReadWrapped) GetAccountsBatch(
+	ctx context.Context,
+	accounts []ids.AccountID,
+) ([]*entities.Account, error) {
 	stringed := make([]string, len(accounts))
 	for i, account := range accounts {
 		stringed[i] = account.String()
@@ -97,7 +104,10 @@ func (i *portReadWrapped) GetAccountsBatch(ctx context.Context, accounts []ids.A
 	return res, err
 }
 
-func (i *portReadWrapped) ListAccounts(ctx context.Context, user ids.UserID) ([]ids.AccountID, error) {
+func (i *portReadWrapped) ListAccounts(
+	ctx context.Context,
+	user ids.UserID,
+) ([]ids.AccountID, error) {
 	ctx, span := i.t.listAccounts(ctx, user.ID().String())
 	defer span.end()
 
@@ -108,7 +118,11 @@ func (i *portReadWrapped) ListAccounts(ctx context.Context, user ids.UserID) ([]
 	return res, err
 }
 
-func (i *portReadWrapped) FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error) {
+func (i *portReadWrapped) FindAccountsByName(
+	ctx context.Context,
+	user ids.UserID,
+	name string,
+) ([]SearchResult, error) {
 	ctx, span := i.t.findAccountsByName(ctx, user.ID().String(), name)
 	defer span.end()
 

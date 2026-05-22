@@ -33,13 +33,13 @@ const (
 
 func NewConstructor(
 	oauthPort oauthhandler.Port,
-	accounts accounts.Port,
+	accountsPort accounts.Port,
 	servers ports.ServerStorage,
 	workersCount int,
 ) *RefreshConstructor {
 	return &RefreshConstructor{
 		oauthPort:       oauthPort,
-		accounts:        accounts,
+		accounts:        accountsPort,
 		servers:         servers,
 		maxTaskDuration: defaultMaxTaskDuration,
 		pool:            nil,
