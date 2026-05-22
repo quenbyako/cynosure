@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
+
 	"github.com/quenbyako/cynosure/internal/adapters/sql/datatransfer"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
@@ -18,7 +18,7 @@ import (
 func (a *Accounts) GetAccount(
 	ctx context.Context, account ids.AccountID, opts ...accounts.GetAccountOption,
 ) (*entities.Account, error) {
-	params, err := accounts.GetAccountParams(account)
+	params, err := accounts.GetAccountParams(account, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("getting account: %w", err)
 	}

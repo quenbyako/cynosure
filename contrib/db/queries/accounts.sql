@@ -190,3 +190,12 @@ UPDATE agents.mcp_tools
 SET deleted_at = NULL
 WHERE account_id = sqlc.arg('account_id')::UUID;
 
+-- name: FindAccountsByName :many
+SELECT
+	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,
+	ot.type, ot.access_token, ot.refresh_token, ot.expiry
+FROM agents.mcp_accounts a
+LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
+WHERE a.user_id = sqlc.arg('user_id')::UUID AND a.name = sqlc.arg('name')::TEXT;
+
+

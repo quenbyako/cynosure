@@ -87,11 +87,6 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-const (
-	stateExpiration      = 5 * time.Minute
-	discoveryPoolWorkers = 10
-)
-
 func New(
 	servers ports.ServerStorage,
 	authHandler oauthhandler.Port,

@@ -74,6 +74,66 @@ func (q *Queries) DeleteTool(ctx context.Context, toolID uuid.UUID) error {
 	return err
 }
 
+const findAccountsByName = `-- name: FindAccountsByName :many
+SELECT
+	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,
+	ot.type, ot.access_token, ot.refresh_token, ot.expiry
+FROM agents.mcp_accounts a
+LEFT JOIN agents.oauth_tokens ot ON a.id = ot.account_id
+WHERE a.user_id = $1::UUID AND a.name = $2::TEXT
+`
+
+type FindAccountsByNameParams struct {
+	UserID uuid.UUID
+	Name   string
+}
+
+type FindAccountsByNameRow struct {
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	ServerID     uuid.UUID
+	Name         string
+	Description  string
+	DeletedAt    pgtype.Timestamptz
+	Embedding    *pgvector.Vector
+	Type         *string
+	AccessToken  *string
+	RefreshToken *string
+	Expiry       pgtype.Timestamptz
+}
+
+func (q *Queries) FindAccountsByName(ctx context.Context, arg FindAccountsByNameParams) ([]FindAccountsByNameRow, error) {
+	rows, err := q.db.Query(ctx, findAccountsByName, arg.UserID, arg.Name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FindAccountsByNameRow
+	for rows.Next() {
+		var i FindAccountsByNameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ServerID,
+			&i.Name,
+			&i.Description,
+			&i.DeletedAt,
+			&i.Embedding,
+			&i.Type,
+			&i.AccessToken,
+			&i.RefreshToken,
+			&i.Expiry,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAccount = `-- name: GetAccount :one
 SELECT
 	a.id, a.user_id, a.server_id, a.name, a.description, a.deleted_at, a.embedding,

@@ -40,6 +40,7 @@ func AccountFromGetAccountRow(row *db.GetAccountRow) (*entities.Account, error) 
 		row.Expiry,
 	)
 }
+
 // AccountFromGetDeletedAccountRow converts a GetDeletedAccount row
 // (with embedded token fields from LEFT JOIN) to a domain Account entity.
 func AccountFromGetDeletedAccountRow(row *db.GetDeletedAccountRow) (*entities.Account, error) {
@@ -68,7 +69,6 @@ func AccountFromGetDeletedAccountRow(row *db.GetDeletedAccountRow) (*entities.Ac
 		row.Expiry,
 	)
 }
-
 
 // AccountFromGetAccountsBatchRow converts a GetAccountsBatch row
 // (with embedded token fields from LEFT JOIN) to a domain Account entity.
@@ -130,3 +130,31 @@ func buildAccount(
 
 	return acc, nil
 }
+
+func AccountFromFindAccountsByNameRow(row *db.FindAccountsByNameRow) (*entities.Account, error) {
+	usrID, err := ids.NewUserID(row.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id: %w", err)
+	}
+
+	srvID, err := ids.NewServerID(row.ServerID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid server id: %w", err)
+	}
+
+	accountID, err := ids.NewAccountID(usrID, srvID, row.ID)
+	if err != nil {
+		return nil, fmt.Errorf("reconstructing account ID: %w", err)
+	}
+
+	return buildAccount(
+		accountID,
+		row.Name,
+		row.Description,
+		row.AccessToken,
+		row.Type,
+		row.RefreshToken,
+		row.Expiry,
+	)
+}
+

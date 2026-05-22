@@ -221,6 +221,7 @@ CREATE INDEX idx_messages_thread_pos ON agents.messages(thread_id, position DESC
 CREATE INDEX idx_messages_type ON agents.messages(thread_id, msg_type);
 CREATE INDEX idx_tools_account ON agents.mcp_tools(account_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_accounts_user ON agents.mcp_accounts(user_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_accounts_user_name ON agents.mcp_accounts(user_id, name) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tool_result_request ON agents.messages_tool_result(thread_id, request_position);
 
 -- =============================================================================
