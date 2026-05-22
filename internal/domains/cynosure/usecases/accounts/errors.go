@@ -10,6 +10,7 @@ var (
 	ErrAccountIDAlreadySet   = errors.New("account ID is already set")
 	ErrStateRequired         = errors.New("state parameter is required")
 	ErrExchangeTokenRequired = errors.New("exchange token is required")
+	ErrAccessDenied          = errors.New("access denied")
 )
 
 type InternalValidationError string

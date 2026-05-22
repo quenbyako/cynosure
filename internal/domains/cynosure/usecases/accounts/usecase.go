@@ -36,6 +36,7 @@ type Usecase struct {
 	oauth            oauthhandler.Port
 	trace            trace.Tracer
 	accounts         accounts.Port
+	agents           ports.AgentStorage
 	tools            ports.ToolStorage
 	index            embedding.Port
 	limiter          ratelimiter.Port
@@ -90,26 +91,19 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 func New(
 	servers ports.ServerStorage,
 	authHandler oauthhandler.Port,
-	accounts accounts.Port,
+	accountsPort accounts.Port,
 	tools ports.ToolStorage,
 	index embedding.Port,
 	toolClient toolclient.Port,
 	users identitymanager.Port,
 	limiter ratelimiter.Port,
+	agents ports.AgentStorage,
 	opts ...NewOption,
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
-
 	usecase := newUsecase(
-		servers,
-		authHandler,
-		accounts,
-		tools,
-		index,
-		toolClient,
-		users,
-		limiter,
-		&params,
+		servers, authHandler, accountsPort, agents, tools,
+		index, toolClient, users, limiter, &params,
 	)
 
 	if err := usecase.validate(); err != nil {
@@ -120,14 +114,15 @@ func New(
 }
 
 func newUsecase(
-	servers ports.ServerStorage, authHandler oauthhandler.Port, accounts accounts.Port,
-	tools ports.ToolStorage, index embedding.Port, toolClient toolclient.Port,
-	users identitymanager.Port, limiter ratelimiter.Port, params *newParams,
+	servers ports.ServerStorage, authHandler oauthhandler.Port, accountsPort accounts.Port,
+	agents ports.AgentStorage, tools ports.ToolStorage, index embedding.Port,
+	toolClient toolclient.Port, users identitymanager.Port, limiter ratelimiter.Port,
+	params *newParams,
 ) *Usecase {
 	usecase := &Usecase{
 		toolClient: toolClient, oauth: authHandler, servers: servers,
-		accounts: accounts, tools: tools, index: index, limiter: limiter,
-		users: users, clock: time.Now, log: NoOpLogCallbacks{},
+		accounts: accountsPort, agents: agents, tools: tools, index: index,
+		limiter: limiter, users: users, clock: time.Now, log: NoOpLogCallbacks{},
 		oauthRedirectURL: params.oauthRedirectURL, oauthClientName: params.clientName,
 		key: params.fixedKey, stateExpiration: params.stateExpiration,
 		trace: params.tracer.Tracer(pkgName),
@@ -185,6 +180,8 @@ func (s *Usecase) validateStoragePorts() error {
 		return ErrInternalValidation("server storage is required")
 	case s.accounts == nil:
 		return ErrInternalValidation("account storage is required")
+	case s.agents == nil:
+		return ErrInternalValidation("agent storage is required")
 	case s.tools == nil:
 		return ErrInternalValidation("tool storage is required")
 	case s.users == nil:

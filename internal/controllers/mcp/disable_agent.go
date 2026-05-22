@@ -2,6 +2,9 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const (
@@ -15,13 +18,26 @@ type (
 	}
 )
 
-func (c *Controller) DisableAgent(ctx context.Context, in DisableAgentInput) (struct{}, error) {
+func (c *Controller) DisableAgent(
+	ctx context.Context,
+	input DisableAgentInput,
+) (
+	struct{},
+	error,
+) {
 	userID, ok := FromContext(ctx)
 	if !ok {
 		return struct{}{}, ErrUnauthorized
 	}
 
-	_ = userID
+	agentID, err := ids.NewAgentIDFromString(userID, input.AgentID)
+	if err != nil {
+		return struct{}{}, fmt.Errorf("parsing agent ID: %w", err)
+	}
 
-	return struct{}{}, ErrUnimplemented
+	if err := c.accounts.DeleteAgent(ctx, userID, agentID); err != nil {
+		return struct{}{}, fmt.Errorf("disabling agent: %w", err)
+	}
+
+	return struct{}{}, nil
 }

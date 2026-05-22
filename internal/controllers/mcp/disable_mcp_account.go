@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 )
 
 const (
@@ -11,13 +12,13 @@ const (
 
 type (
 	DisableMcpAccountInput struct {
-		AccountID string `json:"account_id" jsonschema:"ID of the MCP account"`
+		Name string `json:"name" jsonschema:"Name of the account to disable"`
 	}
 )
 
 func (c *Controller) DisableMcpAccount(
 	ctx context.Context,
-	in DisableMcpAccountInput,
+	input DisableMcpAccountInput,
 ) (
 	struct{},
 	error,
@@ -27,7 +28,9 @@ func (c *Controller) DisableMcpAccount(
 		return struct{}{}, ErrUnauthorized
 	}
 
-	_ = userID
+	if err := c.accounts.DisableAccountByName(ctx, userID, input.Name); err != nil {
+		return struct{}{}, fmt.Errorf("disabling mcp account: %w", err)
+	}
 
-	return struct{}{}, ErrUnimplemented
+	return struct{}{}, nil
 }

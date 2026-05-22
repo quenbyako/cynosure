@@ -41,21 +41,21 @@ func buildApp(contextContext context.Context, cynosureAppParams *appParams) (*Ap
 	}
 	identitymanagerPortWrapped := identitymanager.New(oryAdapter)
 	constructor8 := newRateLimiter(cynosureConstructor)
-	usecase, err := newAccountsUsecase(contextContext, cynosureAppParams, cynosureLifecycle, constructor2, portWrapped, constructor3, constructor4, constructor7, toolclientPortWrapped, identitymanagerPortWrapped, constructor8)
+	constructor9 := newAgentStorage(cynosureConstructor)
+	usecase, err := newAccountsUsecase(contextContext, cynosureAppParams, cynosureLifecycle, constructor2, portWrapped, constructor3, constructor4, constructor7, toolclientPortWrapped, identitymanagerPortWrapped, constructor8, constructor9)
 	if err != nil {
 		return nil, err
 	}
 	cynosureAdminControllerWireBind := bindAdminController(cynosureAppParams, usecase)
 	cynosureOauthControllerWireBind := bindOAuthController(cynosureAppParams, usecase)
 	baseLogger := newLogger(cynosureAppParams)
-	constructor9 := newThreadStorage(cynosureConstructor)
-	constructor10 := newChatModel(constructor5, constructor6)
-	constructor11 := newAgentStorage(cynosureConstructor)
-	chatUsecase, err := newChatUsecase(contextContext, cynosureAppParams, constructor9, constructor10, toolclientPortWrapped, constructor7, constructor4, constructor2, constructor3, constructor11, constructor8)
+	constructor10 := newThreadStorage(cynosureConstructor)
+	constructor11 := newChatModel(constructor5, constructor6)
+	chatUsecase, err := newChatUsecase(contextContext, cynosureAppParams, constructor10, constructor11, toolclientPortWrapped, constructor7, constructor4, constructor2, constructor3, constructor9, constructor8)
 	if err != nil {
 		return nil, err
 	}
-	usersUsecase, err := newUsersUsecase(contextContext, cynosureAppParams, identitymanagerPortWrapped, constructor11, constructor3, constructor2, constructor4, toolclientPortWrapped, constructor7, constructor8)
+	usersUsecase, err := newUsersUsecase(contextContext, cynosureAppParams, identitymanagerPortWrapped, constructor9, constructor3, constructor2, constructor4, toolclientPortWrapped, constructor7, constructor8)
 	if err != nil {
 		return nil, err
 	}
