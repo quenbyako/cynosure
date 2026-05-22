@@ -71,3 +71,12 @@ packages:
         config:
           filename: "embedding.go"
           structname: "Embedding"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "identity_manager.go"
+          structname: "IdentityManager"

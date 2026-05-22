@@ -2,7 +2,7 @@ package accounts
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
@@ -43,6 +43,9 @@ type PortRead interface {
 	// skips non-existent accounts, returning partial results in arbitrary
 	// order.
 	GetAccountsBatch(ctx context.Context, accounts []ids.AccountID) ([]*entities.Account, error)
+
+	// FindAccountsByName retrieves all accounts (active and deleted) matching the name for the user.
+	FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error)
 }
 
 type PortWrite interface {
@@ -70,7 +73,7 @@ func defaultGetAccountParams(required getAccountRequiredParams) getAccountParams
 
 func (s *getAccountParams) validate() error {
 	if !s.account.Valid() {
-		return fmt.Errorf("invalid user id")
+		return errors.New("invalid user id")
 	}
 
 	return nil

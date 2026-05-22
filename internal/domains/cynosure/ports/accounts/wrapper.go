@@ -108,6 +108,17 @@ func (i *portReadWrapped) ListAccounts(ctx context.Context, user ids.UserID) ([]
 	return res, err
 }
 
+func (i *portReadWrapped) FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error) {
+	ctx, span := i.t.findAccountsByName(ctx, user.ID().String(), name)
+	defer span.end()
+
+	res, err := i.w.FindAccountsByName(ctx, user, name)
+	span.recordError(err)
+
+	//nolint:wrapcheck // should not wrap errors from adapters
+	return res, err
+}
+
 type PortWriteWrapped interface {
 	PortWrite
 	_PortWrapped()

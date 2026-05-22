@@ -97,6 +97,80 @@ func (_c *Accounts_DeleteAccount_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// FindAccountsByName provides a mock function for the type Accounts
+func (_mock *Accounts) FindAccountsByName(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error) {
+	ret := _mock.Called(ctx, user, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindAccountsByName")
+	}
+
+	var r0 []*entities.Account
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.UserID, string) ([]*entities.Account, error)); ok {
+		return returnFunc(ctx, user, name)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ids.UserID, string) []*entities.Account); ok {
+		r0 = returnFunc(ctx, user, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entities.Account)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ids.UserID, string) error); ok {
+		r1 = returnFunc(ctx, user, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Accounts_FindAccountsByName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindAccountsByName'
+type Accounts_FindAccountsByName_Call struct {
+	*mock.Call
+}
+
+// FindAccountsByName is a helper method to define mock.On call
+//   - ctx context.Context
+//   - user ids.UserID
+//   - name string
+func (_e *Accounts_Expecter) FindAccountsByName(ctx interface{}, user interface{}, name interface{}) *Accounts_FindAccountsByName_Call {
+	return &Accounts_FindAccountsByName_Call{Call: _e.mock.On("FindAccountsByName", ctx, user, name)}
+}
+
+func (_c *Accounts_FindAccountsByName_Call) Run(run func(ctx context.Context, user ids.UserID, name string)) *Accounts_FindAccountsByName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 ids.UserID
+		if args[1] != nil {
+			arg1 = args[1].(ids.UserID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *Accounts_FindAccountsByName_Call) Return(accounts []*entities.Account, err error) *Accounts_FindAccountsByName_Call {
+	_c.Call.Return(accounts, err)
+	return _c
+}
+
+func (_c *Accounts_FindAccountsByName_Call) RunAndReturn(run func(ctx context.Context, user ids.UserID, name string) ([]*entities.Account, error)) *Accounts_FindAccountsByName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAccount provides a mock function for the type Accounts
 func (_mock *Accounts) GetAccount(ctx context.Context, account ids.AccountID, opts ...accounts.GetAccountOption) (*entities.Account, error) {
 	var tmpRet mock.Arguments

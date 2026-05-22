@@ -113,6 +113,22 @@ func (o *observable) saveAccount(
 	return ctx, &spanCallback{span: span}
 }
 
+//nolint:spancheck // isolated in a wrapper
+func (o *observable) findAccountsByName(
+	ctx context.Context, userID string, name string,
+) (context.Context, span) {
+	ctx, span := o.t.Start(ctx, "cynosure.ports.accounts.find_accounts_by_name",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(
+			attribute.Key("cynosure.accounts.user_id").String(userID),
+			attribute.Key("cynosure.accounts.name").String(name),
+		),
+	)
+
+	return ctx, &spanCallback{span: span}
+}
+
+
 // log callbacks
 
 // generic span

@@ -6,8 +6,10 @@ import (
 
 // WithIncludeDeleted sets the includeDeleted flag for the get account
 // parameters.
-func WithIncludeDeleted(p *getAccountParams) {
-	p.includeDeleted = true
+func WithIncludeDeleted() GetAccountOption {
+	return getAccountFunc(func(p *getAccountParams) {
+		p.includeDeleted = true
+	})
 }
 
 type (
