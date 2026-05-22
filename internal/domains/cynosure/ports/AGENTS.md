@@ -1,5 +1,13 @@
 # Working with ports
 
+## Step registration protocol
+
+1. **NEVER EVER** use `ctx.Step`. It is strictly forbidden for step registration in this project.
+2. **ALWAYS** map step definitions to their semantic Gherkin counterparts:
+   - `Given` -> `ctx.Given(...)`
+   - `When` -> `ctx.When(...)`
+   - `Then` -> `ctx.Then(...)`
+
 ## Common port structure
 
 Common structure of port package is:

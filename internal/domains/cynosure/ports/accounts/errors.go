@@ -3,9 +3,11 @@ package accounts
 
 import (
 	"errors"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
 var (
-	ErrNotFound         = errors.New("not found")
+	ErrNotFound         = ports.ErrNotFound
 	ErrInvalidAccountID = errors.New("invalid account ID")
 )

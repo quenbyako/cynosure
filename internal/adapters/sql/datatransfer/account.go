@@ -157,4 +157,3 @@ func AccountFromFindAccountsByNameRow(row *db.FindAccountsByNameRow) (*entities.
 		row.Expiry,
 	)
 }
-
