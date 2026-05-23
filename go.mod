@@ -47,7 +47,7 @@ require (
 	github.com/quenbyako/cynosure/contrib/db v0.0.0-20260517161906-372293ab8670
 	github.com/quenbyako/cynosure/contrib/redisconn v0.0.0-20260430134538-377500395aed
 	github.com/quenbyako/cynosure/contrib/tokencounter v0.0.0-00010101000000-000000000000
-	github.com/quenbyako/ext v0.0.0-20260519134725-bc8a745c88ce
+	github.com/quenbyako/ext v0.0.0-20260523135029-e7e609a54c35
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f
