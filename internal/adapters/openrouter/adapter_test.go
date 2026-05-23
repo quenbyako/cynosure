@@ -46,7 +46,7 @@ func vcrModel(t *testing.T, cassetteName string) (model *openrouter.Adapter, sto
 	key := vcrtest.OpenRouterKey(t)
 
 	// Create openrouter model with VCR transport
-	or, err := openrouter.New(t.Context(), staticSecretGetter(key),
+	adapter, err := openrouter.New(t.Context(), staticSecretGetter(key),
 		append(openrouterMaxTokenConsumptionPerTest,
 			openrouter.WithTransport(rec),
 			openrouter.WithCacheDir(t.TempDir()),
@@ -54,13 +54,13 @@ func vcrModel(t *testing.T, cassetteName string) (model *openrouter.Adapter, sto
 	)
 	require.NoError(t, err, "Failed to create OpenRouter client")
 
-	return or, rec.Stop
+	return adapter, rec.Stop
 }
 
 func TestAdapter(t *testing.T) {
-	or, stop := vcrModel(t, "testdata/adapter_test")
+	adapter, stop := vcrModel(t, "testdata/adapter_test")
 	t.Cleanup(func() { require.NoError(t, stop()) })
 
-	chatmodel.RunChatModelTests(or)(t)
-	embedding.RunToolSemanticIndexTests(or)(t)
+	chatmodel.RunChatModelTests(adapter)(t)
+	embedding.RunToolSemanticIndexTests(adapter)(t)
 }

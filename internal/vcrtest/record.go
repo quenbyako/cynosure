@@ -16,6 +16,7 @@ const (
 	oryAdminKeyEnv     = "CYNOSURE_TEST_ORY_ADMIN_KEY"
 	oryClientIDEnv     = "CYNOSURE_TEST_ORY_CLIENT_ID"
 	oryClientSecretEnv = "CYNOSURE_TEST_ORY_CLIENT_SECRET"
+	openrounterKeyEnv  = "CYNOSURE_TEST_OPENROUTER_API_KEY"
 )
 
 // Mode returns the VCR mode for recording.
@@ -28,16 +29,16 @@ func Mode(t *testing.T) recorder.Mode {
 func GeminiKey(t *testing.T) string {
 	k := strings.TrimSpace(os.Getenv(geminiAPIKeyEnv))
 	if k == "" {
-		t.Fatalf("VCR recording requested via -tags=vcr_record, but %s is empty", geminiAPIKeyEnv)
+		t.Fatalf("VCR recording requested via -tags=vcr_record, but %q is empty", geminiAPIKeyEnv)
 	}
 	return k
 }
 
 // OpenRouterKey returns the real OpenRouter API key from the environment.
 func OpenRouterKey(t *testing.T) string {
-	k := strings.TrimSpace(os.Getenv("CYNOSURE_TEST_OPENROUTER_API_KEY"))
+	k := strings.TrimSpace(os.Getenv(openrounterKeyEnv))
 	if k == "" {
-		t.Fatalf("VCR recording requested via -tags=vcr_record, but CYNOSURE_TEST_OPENROUTER_API_KEY is empty")
+		t.Fatalf("VCR recording requested via -tags=vcr_record, but %q is empty", openrounterKeyEnv)
 	}
 	return k
 }
@@ -46,7 +47,7 @@ func OpenRouterKey(t *testing.T) string {
 func OryEndpoint(t *testing.T) string {
 	k := strings.TrimSpace(os.Getenv(oryEndpoint))
 	if k == "" {
-		t.Fatalf("VCR recording requested via -tags=vcr_record, but %s is empty", oryEndpoint)
+		t.Fatalf("VCR recording requested via -tags=vcr_record, but %q is empty", oryEndpoint)
 	}
 	return k
 }
@@ -55,7 +56,7 @@ func OryEndpoint(t *testing.T) string {
 func OryAdminKey(t *testing.T) string {
 	k := strings.TrimSpace(os.Getenv(oryAdminKeyEnv))
 	if k == "" {
-		t.Fatalf("VCR recording requested via -tags=vcr_record, but %s is empty", oryAdminKeyEnv)
+		t.Fatalf("VCR recording requested via -tags=vcr_record, but %q is empty", oryAdminKeyEnv)
 	}
 	return k
 }
@@ -64,7 +65,7 @@ func OryAdminKey(t *testing.T) string {
 func OryClientID(t *testing.T) string {
 	k := strings.TrimSpace(os.Getenv(oryClientIDEnv))
 	if k == "" {
-		t.Fatalf("VCR recording requested via -tags=vcr_record, but %s is empty", oryClientIDEnv)
+		t.Fatalf("VCR recording requested via -tags=vcr_record, but %q is empty", oryClientIDEnv)
 	}
 	return k
 }
@@ -73,7 +74,10 @@ func OryClientID(t *testing.T) string {
 func OryClientSecret(t *testing.T) string {
 	k := strings.TrimSpace(os.Getenv(oryClientSecretEnv))
 	if k == "" {
-		t.Fatalf("VCR recording requested via -tags=vcr_record, but %s is empty", oryClientSecretEnv)
+		t.Fatalf(
+			"VCR recording requested via -tags=vcr_record, but %q is empty",
+			oryClientSecretEnv,
+		)
 	}
 	return k
 }

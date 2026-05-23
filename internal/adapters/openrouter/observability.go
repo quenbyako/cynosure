@@ -11,8 +11,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
 )
 
-const pkgName = "github.com/quenbyako/cynosure/internal/adapters/openrouter"
-
 type observable struct {
 	stack ports.ObserveStack
 	now   func() time.Time

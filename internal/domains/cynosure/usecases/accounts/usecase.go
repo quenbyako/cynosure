@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -25,11 +24,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/toolclient"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
-)
-
-//nolint:lll // makes no sense actually.
-var (
-	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
 )
 
 type Usecase struct {

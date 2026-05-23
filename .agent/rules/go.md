@@ -71,7 +71,8 @@ Dependency Management:
 Formatting and Linting:
 - Always run gofmt
 - Use go vet to catch common errors
-- Use golangci-lint for comprehensive linting
+- Use golangci-lint for comprehensive linting (run `golangci-lint run --fix` to automatically format files using golines, gofumpt, gci, etc.)
+- Optimize struct layouts using `go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest -fix ./...` to automatically fix struct field padding
 - Follow community style guides
 - Document exported names with comments
 

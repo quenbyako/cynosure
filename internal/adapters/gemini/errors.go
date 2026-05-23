@@ -11,6 +11,7 @@ var (
 	ErrTracerProviderNil   = errors.New("tracer provider is nil")
 	ErrInvalidModelMessage = errors.New("invalid model message")
 	ErrEmptyStreamResponse = errors.New("empty stream response")
+	ErrRetryableStatus     = errors.New("retryable status code")
 )
 
 type EmbeddingDimensionError struct {

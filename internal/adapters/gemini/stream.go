@@ -33,54 +33,82 @@ func (g *GeminiModel) StreamWithStats(
 		return nil, fmt.Errorf("failed to prepare stream params: %w", err)
 	}
 
-	genConfig, err := g.buildGenConfig(params.Settings(), &params)
+	genConfig, err := g.buildGenConfig(params.Settings(), params.Toolbox(), params.ToolChoice())
 	if err != nil {
 		return nil, fmt.Errorf("failed to build genAI config: %w", err)
 	}
 
-	return g.executeStream(ctx, genConfig, &params)
+	return g.executeStream(
+		ctx,
+		params.Settings(),
+		params.PreflightCheck(),
+		params.Toolbox(),
+		params.Input(),
+		genConfig,
+	)
+}
+
+func (g *GeminiModel) prepareGenAIStream(
+	ctx context.Context,
+	settings entities.AgentReadOnly,
+	preflight chatmodel.PreflightFunc,
+	toolbox tools.Toolbox,
+	input []messages.Message,
+	genConfig *genai.GenerateContentConfig,
+) ([]*genai.Content, int32, error) {
+	g.obs.streamStarted(ctx, settings.Model(), len(toolbox.List()))
+
+	converted, err := datatransfer.MessagesToGenAIContent(input)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to convert messages: %w", err)
+	}
+
+	totalTokens, err := g.countAndCheckTokens(
+		ctx, settings.Model(), converted, genConfig, preflight,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return converted, totalTokens, nil
 }
 
 func (g *GeminiModel) executeStream(
 	ctx context.Context,
+	settings entities.AgentReadOnly,
+	preflight chatmodel.PreflightFunc,
+	toolbox tools.Toolbox,
+	input []messages.Message,
 	genConfig *genai.GenerateContentConfig,
-	params streamParamsProxy,
 ) (chatmodel.Iter, error) {
-	g.obs.streamStarted(ctx, params.Settings().Model(), len(params.Toolbox().List()))
-
-	converted, err := datatransfer.MessagesToGenAIContent(params.Input())
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert messages: %w", err)
-	}
-
-	totalTokens, err := g.countAndCheckTokens(
-		ctx, params.Settings().Model(), converted, genConfig, params,
+	converted, totalTokens, err := g.prepareGenAIStream(
+		ctx, settings, preflight, toolbox, input, genConfig,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	stream := g.client.Models.GenerateContentStream(
-		ctx, params.Settings().Model(), converted, genConfig,
+		ctx, settings.Model(), converted, genConfig,
 	)
 
-	session := g.newStreamSession(params)
+	session := g.newStreamSession(settings.ID())
 
 	return NewIterCloser(
 		stream,
 		session.Map,
-		session.Collect(ctx, params.Settings().Model(), uint32(max(0, totalTokens))),
+		session.Collect(ctx, settings.Model(), uint32(max(0, totalTokens))),
 	), nil
 }
 
-func (g *GeminiModel) newStreamSession(params streamParamsProxy) *geminiStreamSession {
+func (g *GeminiModel) newStreamSession(agentID ids.AgentID) *geminiStreamSession {
 	return &geminiStreamSession{
 		g:         g,
 		startTime: time.Now(),
 		thought:   "",
 		metadata:  nil,
 		tag:       randomUint64(),
-		agentID:   params.Settings().ID(),
+		agentID:   agentID,
 	}
 }
 
@@ -89,7 +117,7 @@ func (g *GeminiModel) countAndCheckTokens(
 	model string,
 	input []*genai.Content,
 	genConfig *genai.GenerateContentConfig,
-	params streamParamsProxy,
+	preflight chatmodel.PreflightFunc,
 ) (int32, error) {
 	content := getCountTokensContent(genConfig.SystemInstruction, input)
 
@@ -108,7 +136,7 @@ func (g *GeminiModel) countAndCheckTokens(
 		return 0, fmt.Errorf("token counting failed: %w", err)
 	}
 
-	if err := params.PreflightCheck()(ctx, model, int(tokens.TotalTokens)); err != nil {
+	if err := preflight(ctx, model, int(tokens.TotalTokens)); err != nil {
 		return 0, chatmodel.ErrPreflightFailed(err)
 	}
 
@@ -195,7 +223,8 @@ func (s *geminiStreamSession) Collect(
 
 func (g *GeminiModel) buildGenConfig(
 	settings entities.AgentReadOnly,
-	params streamParamsProxy,
+	toolbox tools.Toolbox,
+	toolChoice tools.ToolChoice,
 ) (*genai.GenerateContentConfig, error) {
 	config := emptyConfig(g.thinkingConfig)
 
@@ -203,9 +232,9 @@ func (g *GeminiModel) buildGenConfig(
 		config.SystemInstruction = systemInstruction(msg)
 	}
 
-	toolList := params.Toolbox().List()
+	toolList := toolbox.List()
 	if len(toolList) > 0 {
-		mode, err := convertToolChoice(params.ToolChoice())
+		mode, err := convertToolChoice(toolChoice)
 		if err != nil {
 			return nil, err
 		}
@@ -254,14 +283,6 @@ func toolConfig(mode genai.FunctionCallingConfigMode) *genai.ToolConfig {
 		RetrievalConfig:                  nil,
 		IncludeServerSideToolInvocations: nil,
 	}
-}
-
-type streamParamsProxy interface {
-	Input() []messages.Message
-	Settings() entities.AgentReadOnly
-	Toolbox() tools.Toolbox
-	ToolChoice() tools.ToolChoice
-	PreflightCheck() chatmodel.PreflightFunc
 }
 
 func convertToolChoice(choice tools.ToolChoice) (genai.FunctionCallingConfigMode, error) {

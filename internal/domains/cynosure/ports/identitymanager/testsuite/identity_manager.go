@@ -20,6 +20,7 @@ func RunIdentityManagerTests(
 	suite := &IdentityManagerTestSuite{
 		adapter: a,
 		cleanup: nil,
+		id:      0,
 	}
 	for _, opt := range opts {
 		opt(suite)

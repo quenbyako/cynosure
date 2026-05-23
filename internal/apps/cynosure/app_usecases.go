@@ -47,13 +47,14 @@ func buildChat(
 	limiter constructor[ratelimiter.PortWrapped],
 	dps chatPorts,
 ) (*chat.Usecase, error) {
-	lim, chatModelPort, idx, err := buildChatModelPorts(ctx, limiter, model, indexer)
+	mPorts, err := buildChatModelPorts(ctx, limiter, model, indexer)
 	if err != nil {
 		return nil, err
 	}
 
 	usecase, err := chat.New(
-		dps.thread, chatModelPort, tool, idx, dps.tools, dps.server, dps.account, dps.agents, lim,
+		dps.thread, mPorts.chatModel, tool, mPorts.embedding,
+		dps.tools, dps.server, dps.account, dps.agents, mPorts.limiter,
 		chat.WithObservability(params.observability),
 		chat.WithChatLimit(params.chat.historyLimit),
 	)
@@ -64,21 +65,27 @@ func buildChat(
 	return usecase, nil
 }
 
+type chatModelPorts struct {
+	limiter   ratelimiter.PortWrapped
+	chatModel chatmodel.PortWrapped
+	embedding embedding.PortWrapped
+}
+
 func buildChatModelPorts(
 	ctx context.Context,
 	limiter constructor[ratelimiter.PortWrapped],
 	model constructor[chatmodel.PortWrapped],
 	indexer constructor[embedding.PortWrapped],
-) (ratelimiter.PortWrapped, chatmodel.PortWrapped, embedding.PortWrapped, error) {
+) (chatModelPorts, error) {
 	lim, err1 := limiter.Build(ctx)
 	chatModelPort, err2 := model.Build(ctx)
 
 	idx, err3 := indexer.Build(ctx)
 	if err := firstErr(err1, err2, err3); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to build model ports: %w", err)
+		return chatModelPorts{}, fmt.Errorf("failed to build model ports: %w", err)
 	}
 
-	return lim, chatModelPort, idx, nil
+	return chatModelPorts{limiter: lim, chatModel: chatModelPort, embedding: idx}, nil
 }
 
 type chatPorts struct {

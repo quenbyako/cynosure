@@ -205,7 +205,7 @@ func (s *Usecase) reactivateSearchResult(
 
 		return s.queueToolDiscovery(ctx, acc)
 	default:
-		return fmt.Errorf("unknown account search result type: %T", searchRes)
+		return fmt.Errorf("%w: %T", ErrUnknownSearchResultType, searchRes)
 	}
 }
 

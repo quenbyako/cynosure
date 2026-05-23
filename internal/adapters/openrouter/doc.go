@@ -7,6 +7,10 @@ import (
 )
 
 const (
+	pkgName = "github.com/quenbyako/cynosure/internal/adapters/openrouter"
+)
+
+const (
 	defaultHardCap        = 50
 	maxLimiterWait        = 2 * time.Second
 	httpClientTimeout     = 2 * time.Minute

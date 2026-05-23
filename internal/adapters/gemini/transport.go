@@ -2,7 +2,6 @@ package gemini
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,8 +17,6 @@ const (
 
 	defaultMaxElapsedTime = 30 * time.Second
 )
-
-var ErrRetryableStatus = errors.New("retryable status code")
 
 type retryTransport struct {
 	base                 http.RoundTripper

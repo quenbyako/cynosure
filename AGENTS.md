@@ -104,3 +104,21 @@ List of all recorded test suites and env vars that control them:
 ### Cassette Expiration
 
 General policy Cassettes have a TTL of **30 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.
+
+## Automated Code Formatting and Linting
+
+AI agents **MUST** automatically run the formatting and optimization tools before submitting changes or running tests to fix line lengths and struct alignment issues:
+
+1. **Auto-fix line lengths and general formatting (`golines`, `gofmt`, `gci`, `gofumpt`):**
+   Run the following command to automatically format all files:
+   ```bash
+   golangci-lint run --fix
+   ```
+   *Note: This automatically invokes the configured `golines` formatter, adjusting long lines to 100 characters.*
+
+2. **Auto-fix struct field alignment (`fieldalignment`):**
+   Optimize and align all structs in the codebase by running:
+   ```bash
+   go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest -fix ./...
+   ```
+   *Note: Always run this command when writing, editing, or refactoring Go structs to minimize memory footprint and struct padding.*

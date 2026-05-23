@@ -33,7 +33,7 @@ func TestTokenCounter(t *testing.T) {
 
 	for _, modelID := range slices.Sorted(maps.Keys(modelTokens)) {
 		t.Run(modelID, func(t *testing.T) {
-			count, err := tc.CountTokens(modelID, msgs)
+			count, err := tc.CountTokens(t.Context(), modelID, msgs)
 			require.NoError(t, err)
 			require.Equal(t, modelTokens[modelID], count)
 		})

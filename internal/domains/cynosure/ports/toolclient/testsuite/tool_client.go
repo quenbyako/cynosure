@@ -17,6 +17,8 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
+var ErrUnexpectedToolNameCollision = errors.New("unexpected tool name collision")
+
 // RunToolClientTests runs tests for the given adapter. These tests are
 // predefined and recommended to be used for ANY adapter implementation.
 func RunToolClientTests(a toolclient.Port, opts ...ToolClientTestSuiteOpts) func(t *testing.T) {
@@ -42,8 +44,6 @@ type ToolClientTestSuiteOpts func(*ToolClientTestSuite)
 func WithAfterServerSetup(f func(u *url.URL)) ToolClientTestSuiteOpts {
 	return func(s *ToolClientTestSuite) { s.afterServerSetup = f }
 }
-
-var ErrUnexpectedToolNameCollision = errors.New("unexpected tool name collision")
 
 func (s *ToolClientTestSuite) TestProbe(t *testing.T) {
 	srvAccountMaker := serverAccountsFactory(t)

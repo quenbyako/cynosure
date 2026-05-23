@@ -100,11 +100,11 @@ func buildOpenRouterOpts(params *appParams) []openrouter.NewOption {
 func newOauthRefresher(
 	ctx context.Context,
 	lifecycle *lifecycle,
-	accounts constructor[accounts.PortWrapped],
+	accountsPort constructor[accounts.PortWrapped],
 	servers constructor[ports.ServerStorage],
 	oauthPort oauthhandler.PortWrapped,
 ) (*refreshtoken.RefreshConstructor, error) {
-	accountsWrapper, err := accounts.Build(ctx)
+	accountsWrapper, err := accountsPort.Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("building accounts wrapper: %w", err)
 	}

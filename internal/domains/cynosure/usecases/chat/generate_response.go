@@ -18,8 +18,6 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/tools"
 )
 
-var errSettleFuncNotSet = errors.New("settle func wasn't set")
-
 func defaultGenerateResponseParams(required generateResponseRequiredParams) generateResponseParams {
 	return generateResponseParams{
 		generateResponseRequiredParams: required,
@@ -344,6 +342,27 @@ func (u *Usecase) askModel(
 	return u.streamModelMessages(ctx, thread, stream, yield)
 }
 
+func (u *Usecase) getToolboxOptions(
+	ctx context.Context,
+	thread *chat.Chat,
+	choice tools.ToolChoice,
+) ([]chatmodel.StreamOption, error) {
+	if choice == tools.ToolChoiceForbidden {
+		return nil, nil
+	}
+
+	toolbox, err := thread.RelevantTools(ctx)
+	if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+		return nil, ErrRateLimitExceeded(e.RetryAt())
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("getting relevant tools: %w", err)
+	}
+
+	return []chatmodel.StreamOption{chatmodel.WithStreamToolbox(toolbox)}, nil
+}
+
 func (u *Usecase) callModel(
 	ctx context.Context,
 	thread *chat.Chat,
@@ -351,20 +370,14 @@ func (u *Usecase) callModel(
 	toolChoice tools.ToolChoice,
 	preflight chatmodel.PreflightFunc,
 ) (chatmodel.Iter, error) {
-	opts := []chatmodel.StreamOption{chatmodel.WithPreflightCheck(preflight)}
-
-	if toolChoice != tools.ToolChoiceForbidden {
-		toolbox, err := thread.RelevantTools(ctx)
-		if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
-			return nil, ErrRateLimitExceeded(e.RetryAt())
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("getting relevant tools: %w", err)
-		}
-
-		opts = append(opts, chatmodel.WithStreamToolbox(toolbox))
+	opt, err := u.getToolboxOptions(ctx, thread, toolChoice)
+	if err != nil {
+		return nil, err
 	}
+
+	opts := make([]chatmodel.StreamOption, 0, 1+len(opt))
+	opts = append(opts, chatmodel.WithPreflightCheck(preflight))
+	opts = append(opts, opt...)
 
 	maxContext, ok := config.MaxContext()
 	if !ok {
@@ -372,15 +385,15 @@ func (u *Usecase) callModel(
 	}
 
 	resp, err := u.model.StreamWithStats(ctx, thread.Messages(maxContext), config, opts...)
-	if err == nil {
-		return resp, nil
+	if err != nil {
+		if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
+			return nil, ErrRateLimitExceeded(e.RetryAt())
+		}
+
+		return nil, fmt.Errorf("calling model stream: %w", err)
 	}
 
-	if e := new(ratelimiter.RateLimitExceededError); errors.As(err, &e) {
-		return nil, ErrRateLimitExceeded(e.RetryAt())
-	}
-
-	return nil, fmt.Errorf("calling model stream: %w", err)
+	return resp, nil
 }
 
 func (u *Usecase) streamModelMessages(
@@ -473,29 +486,38 @@ func (u *Usecase) executeTools(
 	return true
 }
 
+func (u *Usecase) loadAndResolveTool(
+	ctx context.Context,
+	thread *chat.Chat,
+	req messages.MessageToolRequest,
+) (entities.ToolReadOnly, map[string]json.RawMessage, error) {
+	toolbox, err := thread.RelevantTools(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load tools: %w", err)
+	}
+
+	toolID, cleanArgs, err := toolbox.ConvertRequest(req.ToolName(), req.Arguments())
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve tool: %w", err)
+	}
+
+	tool, err := u.toolStorage.GetTool(ctx, toolID.Account(), toolID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("tool not found: %w", err)
+	}
+
+	return tool, cleanArgs, nil
+}
+
 func (u *Usecase) executeTool(
 	ctx context.Context,
 	thread *chat.Chat,
 	req messages.MessageToolRequest,
 	yield func(messages.Message, error) bool,
 ) bool {
-	toolbox, err := thread.RelevantTools(ctx)
+	tool, cleanArgs, err := u.loadAndResolveTool(ctx, thread, req)
 	if err != nil {
-		return yieldToolError(
-			ctx, thread, req, fmt.Sprintf("Failed to load tools: %v", err), yield,
-		)
-	}
-
-	toolID, cleanArgs, err := toolbox.ConvertRequest(req.ToolName(), req.Arguments())
-	if err != nil {
-		return yieldToolError(
-			ctx, thread, req, fmt.Sprintf("Failed to resolve tool: %v", err), yield,
-		)
-	}
-
-	tool, err := u.toolStorage.GetTool(ctx, toolID.Account(), toolID)
-	if err != nil {
-		return yieldToolError(ctx, thread, req, fmt.Sprintf("Tool not found: %v", err), yield)
+		return yieldToolError(ctx, thread, req, err.Error(), yield)
 	}
 
 	result, err := u.tools.ExecuteTool(ctx, tool, cleanArgs, req.ToolCallID())
