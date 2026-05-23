@@ -58,6 +58,15 @@ This project uses **API request replay** pattern for integration tests to ensure
 - **Offline-capable**: Do not require an internet connection or real API keys in CI/CD.
 - **Cost-effective**: Avoid hitting paid API endpoints during routine development.
 
+### BDD Testing Best Practices
+
+1. **Strict Step Typing**: ALWAYS use `ctx.Given`, `ctx.When`, and `ctx.Then` for `godog` step registration. **NEVER** use `ctx.Step`.
+
+### Checklist for Gherkin Features (Test-related)
+
+- [ ] `go test` returns 0 failures, all tests passes
+- [ ] BDD Semantics: Verified all `godog` steps use ONLY `ctx.Given`, `ctx.When`, or `ctx.Then`. NO `ctx.Step` usage allowed.
+
 ### Running Tests
 
 By default, tests run in **ReplayOnly** mode using recorded cassettes in the `testdata/` directory.
@@ -88,6 +97,9 @@ List of all recorded test suites and env vars that control them:
 | ------------------------------ | ---------------------------------- |
 | ./internal/adapters/gemini/    | `CYNOSURE_TEST_GEMINI_API_KEY`     |
 | ./internal/adapters/openrouter/| `CYNOSURE_TEST_OPENROUTER_API_KEY` |
+| ./internal/adapters/ory/       | `CYNOSURE_TEST_ORY_ADMIN_KEY`      |
+| ./internal/adapters/ory/       | `CYNOSURE_TEST_ORY_CLIENT_ID`      |
+| ./internal/adapters/ory/       | `CYNOSURE_TEST_ORY_CLIENT_SECRET`  |
 
 ### Cassette Expiration
 

@@ -36,6 +36,7 @@ type IdentityManagerTestSuite struct {
 	adapter identitymanager.Port
 
 	cleanup func() error
+	id      int64
 }
 
 var _ afterTest = (*IdentityManagerTestSuite)(nil)
@@ -44,6 +45,10 @@ type IdentityManagerTestSuiteOption func(*IdentityManagerTestSuite)
 
 func WithIdentityManagerCleanup(f func() error) IdentityManagerTestSuiteOption {
 	return func(s *IdentityManagerTestSuite) { s.cleanup = f }
+}
+
+func WithIdentityManagerID(id int64) IdentityManagerTestSuiteOption {
+	return func(s *IdentityManagerTestSuite) { s.id = id }
 }
 
 func (s *IdentityManagerTestSuite) validate() error {
@@ -65,7 +70,10 @@ func (s *IdentityManagerTestSuite) afterTest(t *testing.T) {
 }
 
 func (s *IdentityManagerTestSuite) TestIdentityFlow(t *testing.T) {
-	id := time.Now().UnixNano() / int64(time.Microsecond)
+	id := s.id
+	if id == 0 {
+		id = time.Now().UnixNano() / int64(time.Microsecond)
+	}
 
 	externalID := strconv.FormatInt(id, 10)
 	nickname := fmt.Sprintf("go-test-user-%d", id)
