@@ -14,6 +14,7 @@ formatters:
   enable:
     - gci
     - gofumpt
+    - golines
   settings:
     gofumpt:
       extra-rules: true
@@ -25,6 +26,8 @@ formatters:
         - blank # separated by blank line
         - prefix(github.com/quenbyako/cynosure/internal) # all internal imports
         - dot # imports starting with "."
+    golines:
+      max-len: 100
 linters:
   # disabling all linters by default
   default: none

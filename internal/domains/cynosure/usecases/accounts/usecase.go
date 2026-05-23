@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
@@ -26,15 +26,11 @@ import (
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/oauth"
 )
 
-//nolint:lll // makes no sense actually.
-var (
-	ErrAuthUnsupported = errors.New("authorization for this server is not supported, allowed to connect anonymously")
-)
-
 type Usecase struct {
 	oauth            oauthhandler.Port
 	trace            trace.Tracer
-	accounts         ports.AccountStorage
+	accounts         accounts.Port
+	agents           ports.AgentStorage
 	tools            ports.ToolStorage
 	index            embedding.Port
 	limiter          ratelimiter.Port
@@ -86,34 +82,22 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 	return func(p *newParams) { p.tracer = tp }
 }
 
-const (
-	stateExpiration      = 5 * time.Minute
-	discoveryPoolWorkers = 10
-)
-
 func New(
 	servers ports.ServerStorage,
 	authHandler oauthhandler.Port,
-	accounts ports.AccountStorage,
+	accountsPort accounts.Port,
 	tools ports.ToolStorage,
 	index embedding.Port,
 	toolClient toolclient.Port,
 	users identitymanager.Port,
 	limiter ratelimiter.Port,
+	agents ports.AgentStorage,
 	opts ...NewOption,
 ) (*Usecase, error) {
 	params := buildNewParams(opts...)
-
 	usecase := newUsecase(
-		servers,
-		authHandler,
-		accounts,
-		tools,
-		index,
-		toolClient,
-		users,
-		limiter,
-		&params,
+		servers, authHandler, accountsPort, agents, tools,
+		index, toolClient, users, limiter, &params,
 	)
 
 	if err := usecase.validate(); err != nil {
@@ -124,14 +108,15 @@ func New(
 }
 
 func newUsecase(
-	servers ports.ServerStorage, authHandler oauthhandler.Port, accounts ports.AccountStorage,
-	tools ports.ToolStorage, index embedding.Port, toolClient toolclient.Port,
-	users identitymanager.Port, limiter ratelimiter.Port, params *newParams,
+	servers ports.ServerStorage, authHandler oauthhandler.Port, accountsPort accounts.Port,
+	agents ports.AgentStorage, tools ports.ToolStorage, index embedding.Port,
+	toolClient toolclient.Port, users identitymanager.Port, limiter ratelimiter.Port,
+	params *newParams,
 ) *Usecase {
 	usecase := &Usecase{
 		toolClient: toolClient, oauth: authHandler, servers: servers,
-		accounts: accounts, tools: tools, index: index, limiter: limiter,
-		users: users, clock: time.Now, log: NoOpLogCallbacks{},
+		accounts: accountsPort, agents: agents, tools: tools, index: index,
+		limiter: limiter, users: users, clock: time.Now, log: NoOpLogCallbacks{},
 		oauthRedirectURL: params.oauthRedirectURL, oauthClientName: params.clientName,
 		key: params.fixedKey, stateExpiration: params.stateExpiration,
 		trace: params.tracer.Tracer(pkgName),
@@ -189,6 +174,8 @@ func (s *Usecase) validateStoragePorts() error {
 		return ErrInternalValidation("server storage is required")
 	case s.accounts == nil:
 		return ErrInternalValidation("account storage is required")
+	case s.agents == nil:
+		return ErrInternalValidation("agent storage is required")
 	case s.tools == nil:
 		return ErrInternalValidation("tool storage is required")
 	case s.users == nil:

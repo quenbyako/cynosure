@@ -91,7 +91,7 @@ func (c *Chat) accountsDescriptions(
 ) (map[ids.AccountID]accountDesc, error) {
 	accountIDs := extractUniqueAccounts(toolList)
 
-	accounts, err := c.accounts.GetAccountsBatch(ctx, accountIDs)
+	accounts, err := c.accountsPort.GetAccountsBatch(ctx, accountIDs)
 	if err != nil {
 		return nil, fmt.Errorf("loading accounts: %w", err)
 	}

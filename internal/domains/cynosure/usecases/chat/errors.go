@@ -15,6 +15,8 @@ var (
 
 	// ErrEmptyReport is returned when a report is empty and cannot be written.
 	ErrEmptyReport = errors.New("empty report, can't write to ratelimiter")
+
+	errSettleFuncNotSet = errors.New("settle func wasn't set")
 )
 
 // InternalValidationError is returned when usecase configuration or parameters are invalid.

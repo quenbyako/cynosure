@@ -14,6 +14,7 @@ import (
 	"github.com/quenbyako/cynosure/internal/adapters/sql"
 	"github.com/quenbyako/cynosure/internal/apps/cynosure/refreshtoken"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/oauthhandler"
 )
 
@@ -99,11 +100,11 @@ func buildOpenRouterOpts(params *appParams) []openrouter.NewOption {
 func newOauthRefresher(
 	ctx context.Context,
 	lifecycle *lifecycle,
-	accounts constructor[ports.AccountStorage],
+	accountsPort constructor[accounts.PortWrapped],
 	servers constructor[ports.ServerStorage],
 	oauthPort oauthhandler.PortWrapped,
 ) (*refreshtoken.RefreshConstructor, error) {
-	accountsWrapper, err := accounts.Build(ctx)
+	accountsWrapper, err := accountsPort.Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("building accounts wrapper: %w", err)
 	}

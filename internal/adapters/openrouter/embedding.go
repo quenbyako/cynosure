@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/OpenRouterTeam/go-sdk/models/operations"
@@ -116,33 +117,45 @@ func (o *Adapter) embed(
 		return vector{}, err
 	}
 
-	vec, actualTokens, cost, err := o.callEmbeddingAPI(ctx, content)
+	res, err := o.callEmbeddingAPI(ctx, content)
 	if err != nil {
 		return vector{}, err
 	}
 
-	if actualTokens > 0 && actualTokens != totalTokens {
-		o.obs.tokenCountMismatch(ctx, embeddingModel, uint32(totalTokens), uint32(actualTokens))
-	}
+	o.reportMismatch(ctx, totalTokens, res.tokens)
+	o.recordMetrics(ctx, res.tokens, res.cost)
 
-	// todo: cut this shit, move to port layer
+	return res.vec, nil
+}
+
+func (o *Adapter) reportMismatch(ctx context.Context, expected, got int) {
+	if got > 0 && got != expected {
+		if expected >= 0 && expected <= math.MaxUint32 && got >= 0 && got <= math.MaxUint32 {
+			o.obs.tokenCountMismatch(ctx, embeddingModel, uint32(expected), uint32(got))
+		}
+	}
+}
+
+func (o *Adapter) recordMetrics(ctx context.Context, tokens int, cost decimal.Decimal) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(
-		attribute.Int("prompt_tokens", actualTokens),
+		attribute.Int("prompt_tokens", tokens),
 		attribute.String("cost_usd", cost.String()),
 	)
-
-	return vec, nil
 }
 
 func parseEmbeddingResponse(resp *operations.CreateEmbeddingsResponse) (vector, error) {
 	if len(resp.CreateEmbeddingsResponseBody.Data) == 0 {
-		return vector{}, errors.New("empty data in embedding response")
+		return vector{}, ErrEmptyEmbeddingData
 	}
 
 	values := resp.CreateEmbeddingsResponseBody.Data[0].Embedding.ArrayOfNumber
 	if len(values) != ports.EmbeddingSize {
-		return vector{}, fmt.Errorf("embedding dimension mismatch: got %d, expected %d", len(values), ports.EmbeddingSize)
+		return vector{}, fmt.Errorf("%w: got %d, expected %d",
+			ErrEmbeddingDimensionMismatch,
+			len(values),
+			ports.EmbeddingSize,
+		)
 	}
 
 	var result vector
@@ -168,26 +181,36 @@ func parseEmbeddingUsage(resp *operations.CreateEmbeddingsResponse) (int, decima
 	return actualTokens, cost
 }
 
-func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (vector, int, decimal.Decimal, error) {
+type embeddingResult struct {
+	cost   decimal.Decimal
+	tokens int
+	vec    vector
+}
+
+func (o *Adapter) callEmbeddingAPI(ctx context.Context, content string) (embeddingResult, error) {
 	dimensions := int64(ports.EmbeddingSize)
 
 	resp, err := o.sdkClient.Embeddings.Generate(ctx, operations.CreateEmbeddingsRequest{
-		Model:      embeddingModel,
-		Input:      operations.CreateInputUnionStr(content),
-		Dimensions: &dimensions,
+		EncodingFormat: nil,
+		InputType:      nil,
+		Model:          embeddingModel,
+		Provider:       nil,
+		User:           nil,
+		Input:          operations.CreateInputUnionStr(content),
+		Dimensions:     &dimensions,
 	})
 	if err != nil {
-		return vector{}, 0, decimal.Zero, fmt.Errorf("embedding API call failed: %w", err)
+		return embeddingResult{}, fmt.Errorf("embedding API call failed: %w", err)
 	}
 
 	vec, err := parseEmbeddingResponse(resp)
 	if err != nil {
-		return vector{}, 0, decimal.Zero, err
+		return embeddingResult{}, err
 	}
 
 	tokens, cost := parseEmbeddingUsage(resp)
 
-	return vec, tokens, cost, nil
+	return embeddingResult{vec: vec, tokens: tokens, cost: cost}, nil
 }
 
 func (o *Adapter) waitEmbeddingLimit(ctx context.Context, numTokens int) error {
@@ -198,7 +221,7 @@ func (o *Adapter) waitEmbeddingLimit(ctx context.Context, numTokens int) error {
 
 	if err := o.embeddingLimiter.WaitN(limCtx, numTokens); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(context.Cause(limCtx), context.Canceled) {
-			return err
+			return fmt.Errorf("embedding rate limit exceeded: %w", err)
 		}
 
 		return ports.ErrHardQuotaExhausted

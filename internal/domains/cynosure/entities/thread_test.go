@@ -17,8 +17,8 @@ func TestThread_TrimmedMessages(t *testing.T) {
 	tests := []struct {
 		name     string
 		messages []messages.Message
-		limit    uint
 		want     []messages.Message
+		limit    uint
 	}{{
 		name:     "Within limit",
 		messages: []messages.Message{user(t, "1"), asst(t, "2")},

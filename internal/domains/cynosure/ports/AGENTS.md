@@ -1,5 +1,13 @@
 # Working with ports
 
+## Step registration protocol
+
+1. **NEVER EVER** use `ctx.Step`. It is strictly forbidden for step registration in this project.
+2. **ALWAYS** map step definitions to their semantic Gherkin counterparts:
+   - `Given` -> `ctx.Given(...)`
+   - `When` -> `ctx.When(...)`
+   - `Then` -> `ctx.Then(...)`
+
 ## Common port structure
 
 Common structure of port package is:
@@ -80,3 +88,5 @@ type MessengerClientRead interface {
 
 - Implementation details **MUST NOT** be written in documentation. Even specific implementations **SHOULD NOT** be mentioned.
 - Port definition **MUST NOT** contain meta-methods, e.g. health check, ping, etc. These methods **MUST** be defined in constructor of adapter, and port definition DOES NOT responsible for health status of specific adapter implementation.
+- **Leaking Entity Fields instead of Returning Entities**: Storage read ports **MUST NOT** define methods that return tuples primitives (e.g. `UserID`, `Message`) to resolve some specific logic.
+  - Instead, define a method that retrieves the complete domain entity (e.g., `*entities.Account`) and query/access fields through the entity. This maintains domain encapsulation and prevents leaking database column representations.

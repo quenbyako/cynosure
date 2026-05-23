@@ -1,0 +1,632 @@
+---
+recorded_at: 2026-05-23T09:53:08.551421Z
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 271
+        host: dummy.internal
+        body: '{"schema_id":"5d0946b0f4e2e44a9bb8350f56493fd679fc88927e677b853514aec85046e9718fa956647bb0a035f9465d826591d7dcd330b68d64a655733f7617770083a95c","state":"active","traits":{"first_name":"Test","last_name":"User","telegram_id":987654321,"username":"go-test-user-987654321"}}'
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/json
+        url: https://dummy.internal/admin/identities
+        method: POST
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 927
+        body: '{"created_at":"2026-05-23T09:52:57.481416Z","credentials":{"password":{"created_at":"0001-01-01T00:00:00Z","identifiers":["987654321"],"type":"password","updated_at":"0001-01-01T00:00:00Z","version":0}},"id":"4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f","metadata_public":null,"organization_id":null,"region":"eu-central","schema_id":"5d0946b0f4e2e44a9bb8350f56493fd679fc88927e677b853514aec85046e9718fa956647bb0a035f9465d826591d7dcd330b68d64a655733f7617770083a95c","schema_url":"https://dummy.internal/schemas/NWQwOTQ2YjBmNGUyZTQ0YTliYjgzNTBmNTY0OTNmZDY3OWZjODg5MjdlNjc3Yjg1MzUxNGFlYzg1MDQ2ZTk3MThmYTk1NjY0N2JiMGEwMzVmOTQ2NWQ4MjY1OTFkN2RjZDMzMGI2OGQ2NGE2NTU3MzNmNzYxNzc3MDA4M2E5NWM","state":"active","state_changed_at":"2026-05-23T09:52:57.478337439Z","traits":{"first_name":"Test","last_name":"User","telegram_id":987654321,"username":"go-test-user-987654321"},"updated_at":"2026-05-23T09:52:57.481416Z"}'
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bb5db13c8e8-MRS
+            Content-Length:
+                - "927"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:52:58 GMT
+            Location:
+                - https://dummy.internal/identities/4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 201 Created
+        code: 201
+        duration: 1.07129675s
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: dummy.internal
+        headers:
+            Authorization:
+                - REDACTED
+        url: https://dummy.internal/admin/identities/4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"created_at":"2026-05-23T09:52:57.481416Z","credentials":{"password":{"created_at":"2026-05-23T09:52:57.486129Z","identifiers":["987654321"],"type":"password","updated_at":"2026-05-23T09:52:57.486129Z","version":1}},"id":"4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f","metadata_admin":null,"metadata_public":null,"organization_id":null,"region":"eu-central","schema_id":"5d0946b0f4e2e44a9bb8350f56493fd679fc88927e677b853514aec85046e9718fa956647bb0a035f9465d826591d7dcd330b68d64a655733f7617770083a95c","schema_url":"https://dummy.internal/schemas/NWQwOTQ2YjBmNGUyZTQ0YTliYjgzNTBmNTY0OTNmZDY3OWZjODg5MjdlNjc3Yjg1MzUxNGFlYzg1MDQ2ZTk3MThmYTk1NjY0N2JiMGEwMzVmOTQ2NWQ4MjY1OTFkN2RjZDMzMGI2OGQ2NGE2NTU3MzNmNzYxNzc3MDA4M2E5NWM","state":"active","state_changed_at":"2026-05-23T09:52:57.478337Z","traits":{"first_name":"Test","last_name":"User","telegram_id":987654321,"username":"go-test-user-987654321"},"updated_at":"2026-05-23T09:52:57.481416Z"}'
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - private, no-cache, no-store, must-revalidate
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bc1ae6cc8e8-MRS
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:52:59 GMT
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 200 OK
+        code: 200
+        duration: 218.279875ms
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: dummy.internal
+        headers:
+            Authorization:
+                - REDACTED
+        url: https://dummy.internal/admin/identities/4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"created_at":"2026-05-23T09:52:57.481416Z","credentials":{"password":{"created_at":"2026-05-23T09:52:57.486129Z","identifiers":["987654321"],"type":"password","updated_at":"2026-05-23T09:52:57.486129Z","version":1}},"id":"4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f","metadata_admin":null,"metadata_public":null,"organization_id":null,"region":"eu-central","schema_id":"5d0946b0f4e2e44a9bb8350f56493fd679fc88927e677b853514aec85046e9718fa956647bb0a035f9465d826591d7dcd330b68d64a655733f7617770083a95c","schema_url":"https://dummy.internal/schemas/NWQwOTQ2YjBmNGUyZTQ0YTliYjgzNTBmNTY0OTNmZDY3OWZjODg5MjdlNjc3Yjg1MzUxNGFlYzg1MDQ2ZTk3MThmYTk1NjY0N2JiMGEwMzVmOTQ2NWQ4MjY1OTFkN2RjZDMzMGI2OGQ2NGE2NTU3MzNmNzYxNzc3MDA4M2E5NWM","state":"active","state_changed_at":"2026-05-23T09:52:57.478337Z","traits":{"first_name":"Test","last_name":"User","telegram_id":987654321,"username":"go-test-user-987654321"},"updated_at":"2026-05-23T09:52:57.481416Z"}'
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - private, no-cache, no-store, must-revalidate
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bc47ad4c8e8-MRS
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:52:59 GMT
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 200 OK
+        code: 200
+        duration: 195.320791ms
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: dummy.internal
+        form:
+            client_id:
+                - dummy-ory-client-id
+            redirect_uri:
+                - http://localhost:5001
+            response_type:
+                - code
+            scope:
+                - mcp:read mcp:write offline_access
+            state:
+                - state-longer-than-eight-characters
+        url: https://dummy.internal/oauth2/auth?client_id=dummy-ory-client-id&redirect_uri=http%3A%2F%2Flocalhost%3A5001&response_type=code&scope=mcp%3Aread+mcp%3Awrite+offline_access&state=state-longer-than-eight-characters
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1259
+        body: |+
+            <a href="/ui/login?login_challenge=F-1s7KwKTViYGx9Jb2TJVShUe_4ZoMiHxfUYwAl7XkOTOWvMr_l195111U1qZheDEFExOaPeBHk46zlU-h-v4QCDj_iHOQUQvJ98bqr976RkjykIxBRGIKyo0w6UbAUiOhfYQE-tCsuQKiEgKKdAGyzRCozJm_sBOovT-zvTdM3evGs3Q34HJ2okRVp9mU4D1KychQE3AruTlZoVZVyzODWNmsOIhf3ajtPDRPiP-I7BEp6WU3-Hs4zB9aZSqZsgIxVqAeo0ITbShBw_W_fxXoR2bRou2zYpWTEQADJa4_57HjMR7fbshMTgRhJCJ4kdYC5M2lc8BX_sN0_fFuzlalywRU42n0N68R4Vyhveq_ZdpN9U2VxStpDCAB4ZkJyuGen1_tLDA4uGbccKXR9ZD52AtOeJVTwR4gt7johQWfcLJYlJyse1weaFYSAos1HnQjOhbAWRDx_l9w_Vk8ZOpMNWiVXKwouozCOXhVJyqKh45XOu-eknEId-DBIYWYMrhUByKUA99KOr8721SeLZbPNg6CTlOc66ddB8BT3nX2DloCyMYewGMRfNHxJG7V0rcMhRCWrFX0OLaD8S37vpFjCnuF4vxJ-lqQjhblctp3pe8DlJotl0a9L-FFggkloTz5gWvLOr76mpI2vUscHFoyDNphaIEB8bI09LItnjdgG8LfBfMJtSsB7x6HPbUtYQ27-iG13jFPMtV2lSoLElJTlVUEVr-vVLiSuytPYvV1nNeADk9Kfr49p7uR2D5_3SqMZcX1EEKF9LhWg4Uj6D5ohiDB1fiAZFe2nN8pZx65Dqa8CruPs6kRkSaP8yRDlHYg3wtGF2ImkdyXcvpv1TB50P_5Sn1MvPz7rwyJKu47zV0VFPUsMyRBjup-Z9-ZLyIF4-IeASHzFJMF0yUIAcwqGAPbLtaQ7sTD2Aa6VrzYau_IbJ_vlyF1DujjMrKD8fLIqPFzLW7dqcf2OV0X430mWBjrq8Xc8lei9P83w7C1pRFujCDDDMeoO77Fx2ciwykmYVrP43hP8gfE2LsQ0DDIYLtG76tggbpUokxXe0DDHYtPVCnCuGLzioV9JIu1DFx0s4HxiPIx6N7JK-FYmaU_7iy2OQJNR2eY-e4MOvcZlUatt_eW9-Kf6NxOi8vuuz9F8GcnzhRpV1qrleOT6zfoDC_y6BjwmqYZBfeHpgMpkZDunHL9ebndQ%3D">Found</a>.
+
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - private, no-cache, no-store, must-revalidate
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bc6dedec8e8-MRS
+            Content-Length:
+                - "1259"
+            Content-Type:
+                - text/html; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:53:00 GMT
+            Location:
+                - /ui/login?login_challenge=F-1s7KwKTViYGx9Jb2TJVShUe_4ZoMiHxfUYwAl7XkOTOWvMr_l195111U1qZheDEFExOaPeBHk46zlU-h-v4QCDj_iHOQUQvJ98bqr976RkjykIxBRGIKyo0w6UbAUiOhfYQE-tCsuQKiEgKKdAGyzRCozJm_sBOovT-zvTdM3evGs3Q34HJ2okRVp9mU4D1KychQE3AruTlZoVZVyzODWNmsOIhf3ajtPDRPiP-I7BEp6WU3-Hs4zB9aZSqZsgIxVqAeo0ITbShBw_W_fxXoR2bRou2zYpWTEQADJa4_57HjMR7fbshMTgRhJCJ4kdYC5M2lc8BX_sN0_fFuzlalywRU42n0N68R4Vyhveq_ZdpN9U2VxStpDCAB4ZkJyuGen1_tLDA4uGbccKXR9ZD52AtOeJVTwR4gt7johQWfcLJYlJyse1weaFYSAos1HnQjOhbAWRDx_l9w_Vk8ZOpMNWiVXKwouozCOXhVJyqKh45XOu-eknEId-DBIYWYMrhUByKUA99KOr8721SeLZbPNg6CTlOc66ddB8BT3nX2DloCyMYewGMRfNHxJG7V0rcMhRCWrFX0OLaD8S37vpFjCnuF4vxJ-lqQjhblctp3pe8DlJotl0a9L-FFggkloTz5gWvLOr76mpI2vUscHFoyDNphaIEB8bI09LItnjdgG8LfBfMJtSsB7x6HPbUtYQ27-iG13jFPMtV2lSoLElJTlVUEVr-vVLiSuytPYvV1nNeADk9Kfr49p7uR2D5_3SqMZcX1EEKF9LhWg4Uj6D5ohiDB1fiAZFe2nN8pZx65Dqa8CruPs6kRkSaP8yRDlHYg3wtGF2ImkdyXcvpv1TB50P_5Sn1MvPz7rwyJKu47zV0VFPUsMyRBjup-Z9-ZLyIF4-IeASHzFJMF0yUIAcwqGAPbLtaQ7sTD2Aa6VrzYau_IbJ_vlyF1DujjMrKD8fLIqPFzLW7dqcf2OV0X430mWBjrq8Xc8lei9P83w7C1pRFujCDDDMeoO77Fx2ciwykmYVrP43hP8gfE2LsQ0DDIYLtG76tggbpUokxXe0DDHYtPVCnCuGLzioV9JIu1DFx0s4HxiPIx6N7JK-FYmaU_7iy2OQJNR2eY-e4MOvcZlUatt_eW9-Kf6NxOi8vuuz9F8GcnzhRpV1qrleOT6zfoDC_y6BjwmqYZBfeHpgMpkZDunHL9ebndQ%3D
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 302 Found
+        code: 302
+        duration: 167.557625ms
+    - id: 4
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 50
+        host: dummy.internal
+        body: '{"subject":"4e8c0639-7a5e-45c4-a9bc-3ade1ed7e97f"}'
+        form:
+            login_challenge:
+                - F-1s7KwKTViYGx9Jb2TJVShUe_4ZoMiHxfUYwAl7XkOTOWvMr_l195111U1qZheDEFExOaPeBHk46zlU-h-v4QCDj_iHOQUQvJ98bqr976RkjykIxBRGIKyo0w6UbAUiOhfYQE-tCsuQKiEgKKdAGyzRCozJm_sBOovT-zvTdM3evGs3Q34HJ2okRVp9mU4D1KychQE3AruTlZoVZVyzODWNmsOIhf3ajtPDRPiP-I7BEp6WU3-Hs4zB9aZSqZsgIxVqAeo0ITbShBw_W_fxXoR2bRou2zYpWTEQADJa4_57HjMR7fbshMTgRhJCJ4kdYC5M2lc8BX_sN0_fFuzlalywRU42n0N68R4Vyhveq_ZdpN9U2VxStpDCAB4ZkJyuGen1_tLDA4uGbccKXR9ZD52AtOeJVTwR4gt7johQWfcLJYlJyse1weaFYSAos1HnQjOhbAWRDx_l9w_Vk8ZOpMNWiVXKwouozCOXhVJyqKh45XOu-eknEId-DBIYWYMrhUByKUA99KOr8721SeLZbPNg6CTlOc66ddB8BT3nX2DloCyMYewGMRfNHxJG7V0rcMhRCWrFX0OLaD8S37vpFjCnuF4vxJ-lqQjhblctp3pe8DlJotl0a9L-FFggkloTz5gWvLOr76mpI2vUscHFoyDNphaIEB8bI09LItnjdgG8LfBfMJtSsB7x6HPbUtYQ27-iG13jFPMtV2lSoLElJTlVUEVr-vVLiSuytPYvV1nNeADk9Kfr49p7uR2D5_3SqMZcX1EEKF9LhWg4Uj6D5ohiDB1fiAZFe2nN8pZx65Dqa8CruPs6kRkSaP8yRDlHYg3wtGF2ImkdyXcvpv1TB50P_5Sn1MvPz7rwyJKu47zV0VFPUsMyRBjup-Z9-ZLyIF4-IeASHzFJMF0yUIAcwqGAPbLtaQ7sTD2Aa6VrzYau_IbJ_vlyF1DujjMrKD8fLIqPFzLW7dqcf2OV0X430mWBjrq8Xc8lei9P83w7C1pRFujCDDDMeoO77Fx2ciwykmYVrP43hP8gfE2LsQ0DDIYLtG76tggbpUokxXe0DDHYtPVCnCuGLzioV9JIu1DFx0s4HxiPIx6N7JK-FYmaU_7iy2OQJNR2eY-e4MOvcZlUatt_eW9-Kf6NxOi8vuuz9F8GcnzhRpV1qrleOT6zfoDC_y6BjwmqYZBfeHpgMpkZDunHL9ebndQ=
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/json
+        url: https://dummy.internal/admin/oauth2/auth/requests/login/accept?login_challenge=F-1s7KwKTViYGx9Jb2TJVShUe_4ZoMiHxfUYwAl7XkOTOWvMr_l195111U1qZheDEFExOaPeBHk46zlU-h-v4QCDj_iHOQUQvJ98bqr976RkjykIxBRGIKyo0w6UbAUiOhfYQE-tCsuQKiEgKKdAGyzRCozJm_sBOovT-zvTdM3evGs3Q34HJ2okRVp9mU4D1KychQE3AruTlZoVZVyzODWNmsOIhf3ajtPDRPiP-I7BEp6WU3-Hs4zB9aZSqZsgIxVqAeo0ITbShBw_W_fxXoR2bRou2zYpWTEQADJa4_57HjMR7fbshMTgRhJCJ4kdYC5M2lc8BX_sN0_fFuzlalywRU42n0N68R4Vyhveq_ZdpN9U2VxStpDCAB4ZkJyuGen1_tLDA4uGbccKXR9ZD52AtOeJVTwR4gt7johQWfcLJYlJyse1weaFYSAos1HnQjOhbAWRDx_l9w_Vk8ZOpMNWiVXKwouozCOXhVJyqKh45XOu-eknEId-DBIYWYMrhUByKUA99KOr8721SeLZbPNg6CTlOc66ddB8BT3nX2DloCyMYewGMRfNHxJG7V0rcMhRCWrFX0OLaD8S37vpFjCnuF4vxJ-lqQjhblctp3pe8DlJotl0a9L-FFggkloTz5gWvLOr76mpI2vUscHFoyDNphaIEB8bI09LItnjdgG8LfBfMJtSsB7x6HPbUtYQ27-iG13jFPMtV2lSoLElJTlVUEVr-vVLiSuytPYvV1nNeADk9Kfr49p7uR2D5_3SqMZcX1EEKF9LhWg4Uj6D5ohiDB1fiAZFe2nN8pZx65Dqa8CruPs6kRkSaP8yRDlHYg3wtGF2ImkdyXcvpv1TB50P_5Sn1MvPz7rwyJKu47zV0VFPUsMyRBjup-Z9-ZLyIF4-IeASHzFJMF0yUIAcwqGAPbLtaQ7sTD2Aa6VrzYau_IbJ_vlyF1DujjMrKD8fLIqPFzLW7dqcf2OV0X430mWBjrq8Xc8lei9P83w7C1pRFujCDDDMeoO77Fx2ciwykmYVrP43hP8gfE2LsQ0DDIYLtG76tggbpUokxXe0DDHYtPVCnCuGLzioV9JIu1DFx0s4HxiPIx6N7JK-FYmaU_7iy2OQJNR2eY-e4MOvcZlUatt_eW9-Kf6NxOi8vuuz9F8GcnzhRpV1qrleOT6zfoDC_y6BjwmqYZBfeHpgMpkZDunHL9ebndQ%3D
+        method: PUT
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"redirect_to":"https://dummy.internal/oauth2/auth?client_id=dummy-ory-client-id\u0026login_verifier=FqbwXFmwm2oYoKcgIuyIYDM9zoD3ccK-pcY4Cw_55DM7jh5kTswkgP-WN58tBwxSEeUNATrKSeM19MdVRRPOqRKya-LhaR_cpXOcXzF1AYQ7cDjGXj1wLBHICEVUqt1Pm7gLagF1Hl6x1VW4sDUmVOtCnqHYwQ6rjVxCWO1WhxTC-KxV43wulXMQMf8viz1knxloal1497pgCwUOGoe8ZcY3CboDiJhgLYMAEqxjFHzDse2Uy1kJBjEgqO1zXZNK9TXRer7COCQowD7uRzal0JtTn_I6RUrzK4VP92GEf3NH3h8mcAC_VKAvrFMtZM9mJDJViI-egpkr4Cv55xFQp4anGfcoA2IIgoFgnACehLuhPQghEuId5buLYLpu0LxSDcGuVhuZ03Ai0-zL1VN4R2W9h1UHH-G4KHB9WLsTT0v8twB9BF6V5_KtXdqApdoVa_lIjzpySbQiQvCoqNFDO3jZNnQNyhFB7_pqp_t8P2B-9Aptc8B_8SbdYa0vlHuxIMVVaoVrTFsgMxnCecdAI2WqyLbxUXGX-3_CClwlTQ_M3xJbXForeJij4n0v9GsmvEpdOlvGvcENuWaL1tS3199TfdQYpl1K8TsX9-CpNjgm0mK15cX7xqUZzmOuERnuLMqSxnnaYyMRwDWIPGsjeespflP7mhYZudEuW6M4TLyVSu2gleHHlCG2VFIu_Vf3XoaobG_7bSQuRmkZM1pm8uV3F009yu7yCBFj-ZwhB3DnQxBibPxxXiyMYcQ9NTrxSYImlwVZXWE5jFVIxeVyKr04aZvEE2Hwq3S0wcDl1UUK9iBv0GgQjQtIEu8tXh6Ng3XvFVOi-FZZ66yuIAB8DNpSn294qO-oYXTB59xRYBPu6Nv8ByjbB8R4GaPowAfXLs5Dp0_kDj3ZmrkcVVdDctPjgMa_d5pO45DOe_lK7EZunpzzAhnAuq8A-fWefOklcnGaKnf1VU02idiq9RDsqVHCW-L2nKk1aTUBBNB8TCk_UJ__EVD3AtA4y8DSr_iKH3haFQJcltd7MbqC1nuZEM4g2RRQwDszr2yIOMf00A020x6XV6O0bIQTELxRhZ24UWCMk8lNTP1tGf6xYIo9meGidRlIwcdlSvKReKkaq21MV8vlH7sL_u2LY19C2XccfADks6BZrvw73ZcwKN6e02VAC4pA8jAqdtQ8cYQddRLUr7uEuIuZth2MgAuxNxgqBcF5UsEhFgaZNcmDxIWEM_jrfnIg\u0026redirect_uri=http%3A%2F%2Flocalhost%3A5001\u0026response_type=code\u0026scope=mcp%3Aread+mcp%3Awrite+offline_access\u0026state=state-longer-than-eight-characters"}'
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bc8ea52c8e8-MRS
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:53:00 GMT
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 200 OK
+        code: 200
+        duration: 185.39125ms
+    - id: 5
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: dummy.internal
+        form:
+            client_id:
+                - dummy-ory-client-id
+            login_verifier:
+                - FqbwXFmwm2oYoKcgIuyIYDM9zoD3ccK-pcY4Cw_55DM7jh5kTswkgP-WN58tBwxSEeUNATrKSeM19MdVRRPOqRKya-LhaR_cpXOcXzF1AYQ7cDjGXj1wLBHICEVUqt1Pm7gLagF1Hl6x1VW4sDUmVOtCnqHYwQ6rjVxCWO1WhxTC-KxV43wulXMQMf8viz1knxloal1497pgCwUOGoe8ZcY3CboDiJhgLYMAEqxjFHzDse2Uy1kJBjEgqO1zXZNK9TXRer7COCQowD7uRzal0JtTn_I6RUrzK4VP92GEf3NH3h8mcAC_VKAvrFMtZM9mJDJViI-egpkr4Cv55xFQp4anGfcoA2IIgoFgnACehLuhPQghEuId5buLYLpu0LxSDcGuVhuZ03Ai0-zL1VN4R2W9h1UHH-G4KHB9WLsTT0v8twB9BF6V5_KtXdqApdoVa_lIjzpySbQiQvCoqNFDO3jZNnQNyhFB7_pqp_t8P2B-9Aptc8B_8SbdYa0vlHuxIMVVaoVrTFsgMxnCecdAI2WqyLbxUXGX-3_CClwlTQ_M3xJbXForeJij4n0v9GsmvEpdOlvGvcENuWaL1tS3199TfdQYpl1K8TsX9-CpNjgm0mK15cX7xqUZzmOuERnuLMqSxnnaYyMRwDWIPGsjeespflP7mhYZudEuW6M4TLyVSu2gleHHlCG2VFIu_Vf3XoaobG_7bSQuRmkZM1pm8uV3F009yu7yCBFj-ZwhB3DnQxBibPxxXiyMYcQ9NTrxSYImlwVZXWE5jFVIxeVyKr04aZvEE2Hwq3S0wcDl1UUK9iBv0GgQjQtIEu8tXh6Ng3XvFVOi-FZZ66yuIAB8DNpSn294qO-oYXTB59xRYBPu6Nv8ByjbB8R4GaPowAfXLs5Dp0_kDj3ZmrkcVVdDctPjgMa_d5pO45DOe_lK7EZunpzzAhnAuq8A-fWefOklcnGaKnf1VU02idiq9RDsqVHCW-L2nKk1aTUBBNB8TCk_UJ__EVD3AtA4y8DSr_iKH3haFQJcltd7MbqC1nuZEM4g2RRQwDszr2yIOMf00A020x6XV6O0bIQTELxRhZ24UWCMk8lNTP1tGf6xYIo9meGidRlIwcdlSvKReKkaq21MV8vlH7sL_u2LY19C2XccfADks6BZrvw73ZcwKN6e02VAC4pA8jAqdtQ8cYQddRLUr7uEuIuZth2MgAuxNxgqBcF5UsEhFgaZNcmDxIWEM_jrfnIg
+            redirect_uri:
+                - http://localhost:5001
+            response_type:
+                - code
+            scope:
+                - mcp:read mcp:write offline_access
+            state:
+                - state-longer-than-eight-characters
+        headers:
+            Cookie:
+                - REDACTED
+        url: https://dummy.internal/oauth2/auth?client_id=dummy-ory-client-id&login_verifier=FqbwXFmwm2oYoKcgIuyIYDM9zoD3ccK-pcY4Cw_55DM7jh5kTswkgP-WN58tBwxSEeUNATrKSeM19MdVRRPOqRKya-LhaR_cpXOcXzF1AYQ7cDjGXj1wLBHICEVUqt1Pm7gLagF1Hl6x1VW4sDUmVOtCnqHYwQ6rjVxCWO1WhxTC-KxV43wulXMQMf8viz1knxloal1497pgCwUOGoe8ZcY3CboDiJhgLYMAEqxjFHzDse2Uy1kJBjEgqO1zXZNK9TXRer7COCQowD7uRzal0JtTn_I6RUrzK4VP92GEf3NH3h8mcAC_VKAvrFMtZM9mJDJViI-egpkr4Cv55xFQp4anGfcoA2IIgoFgnACehLuhPQghEuId5buLYLpu0LxSDcGuVhuZ03Ai0-zL1VN4R2W9h1UHH-G4KHB9WLsTT0v8twB9BF6V5_KtXdqApdoVa_lIjzpySbQiQvCoqNFDO3jZNnQNyhFB7_pqp_t8P2B-9Aptc8B_8SbdYa0vlHuxIMVVaoVrTFsgMxnCecdAI2WqyLbxUXGX-3_CClwlTQ_M3xJbXForeJij4n0v9GsmvEpdOlvGvcENuWaL1tS3199TfdQYpl1K8TsX9-CpNjgm0mK15cX7xqUZzmOuERnuLMqSxnnaYyMRwDWIPGsjeespflP7mhYZudEuW6M4TLyVSu2gleHHlCG2VFIu_Vf3XoaobG_7bSQuRmkZM1pm8uV3F009yu7yCBFj-ZwhB3DnQxBibPxxXiyMYcQ9NTrxSYImlwVZXWE5jFVIxeVyKr04aZvEE2Hwq3S0wcDl1UUK9iBv0GgQjQtIEu8tXh6Ng3XvFVOi-FZZ66yuIAB8DNpSn294qO-oYXTB59xRYBPu6Nv8ByjbB8R4GaPowAfXLs5Dp0_kDj3ZmrkcVVdDctPjgMa_d5pO45DOe_lK7EZunpzzAhnAuq8A-fWefOklcnGaKnf1VU02idiq9RDsqVHCW-L2nKk1aTUBBNB8TCk_UJ__EVD3AtA4y8DSr_iKH3haFQJcltd7MbqC1nuZEM4g2RRQwDszr2yIOMf00A020x6XV6O0bIQTELxRhZ24UWCMk8lNTP1tGf6xYIo9meGidRlIwcdlSvKReKkaq21MV8vlH7sL_u2LY19C2XccfADks6BZrvw73ZcwKN6e02VAC4pA8jAqdtQ8cYQddRLUr7uEuIuZth2MgAuxNxgqBcF5UsEhFgaZNcmDxIWEM_jrfnIg&redirect_uri=http%3A%2F%2Flocalhost%3A5001&response_type=code&scope=mcp%3Aread+mcp%3Awrite+offline_access&state=state-longer-than-eight-characters
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1368
+        body: |+
+            <a href="/consent?consent_challenge=hNelHa9lhLIaJUzi80k6ayIUYOYSF4fBWm6kgmNhH_Y8w8-66cXfMTY1InH7nitksP58hpQ5Lyr0vG2_gODUmDl0PS46FyTn0b8e05mCoX5v83AAiqRcJsiJEVglEU9sCTqKhHrkQR2IcK2Pv33QaM2yUdbxrbdyNBEr_HnFH_VWL2caqWzsMImjdAt0Dmgc6MxByH3gR2s4Z8h6VKXvd_P4Z-gXNO--nhWSAigI1ZRKCiNUb14sAgKWvzAtUPEeNRLEFRQFrTn3Fk73ZvxjRqh1ujgHTIzIOoCE4sau8pAeHfgtIqeCnx42cK2tUORT6kNIGZAe5PpY-6df613yiygq0PhYiftGVaLIO7RSRtNVDYZ-1oetTZJcbO4OEpC-MsIUqISgJYlGVdcbFaozNBirerPYsNe9EaELB5sJWbPLc2Qs5gzwr6BYZNSAPtJiU1GuB5YDWpi1HLOGDxn-AqagPaPk9-fU9kQi8flaIHukteNMRPwbIMZUw1fHZWfziaaucQbOJ0-sqVThaqSepFheKV4TL-wuaXM-Z58qP49h-rWA8so2WXtKMmYfJqH71zz9LoIfCqXJbc_-o9ORVz68q4EQfMyZHRiUBY-bc6guxiLF0_UUKDymovz6OArAuZIy2kBhlI9sxlko1BfgTB85-XBMxJ0Rh9ACOip2rHzqsqVX4Hf3SWIW2Erb2ForOWGt2tspXLh7R-x96YU9fYcC3D2V2ZY5OpYohIHh_q5-gkck2GOwBUn_2ywe2_vpJ6Knj0BGFnSujPsMUA3V-_5PaeDH5exkQoP510sH9flBG_7cXjNWJ4Hg1f0Elmu_sc1evUXx9UjfI0QfilWJn2gN5HEpYO_wRAHYDEYjMgqKuErX3JiDP0U6tS7TndD18lrTfzNaD9cV_nY3bejPudhzZobcQXd8N8ZXI3XOJLwD0L0n4odWpDGka0pkZmkU7v7UAybr82kHPtElGujqvs0hpTUlrvrXfDTm6cpGVTQmuqzXSSS17tYuwoqg5ra9mAjYOZzIDncPvbkaFvFy-70z23rKh3Km6iLLvOyw6Yj1ws5nOqsZnigufeG4ipGnZ_ga-YLTe9UUag72oYEytCFb23nFff6a0dQLu9VdfSD7oKTa1oj8MZmNARljiEOCdns0F5nCwqYJFyZI1PJKqDcGIjNozdl3EcpoF9cpPoV_Q4__FTjIHBloa83L-HVhHJr4sRNvsrGAJMJdlK_LlBUnVbSjQU9J4TgZpw8Ut1rF85yN8Ox8jJVQ_j5SgBmU9vh3ODOSfVd-vhjRACOqloSqOsygvJjWjHw%3D">Found</a>.
+
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - private, no-cache, no-store, must-revalidate
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bcb3f10c8e8-MRS
+            Content-Length:
+                - "1368"
+            Content-Type:
+                - text/html; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:53:01 GMT
+            Location:
+                - /consent?consent_challenge=hNelHa9lhLIaJUzi80k6ayIUYOYSF4fBWm6kgmNhH_Y8w8-66cXfMTY1InH7nitksP58hpQ5Lyr0vG2_gODUmDl0PS46FyTn0b8e05mCoX5v83AAiqRcJsiJEVglEU9sCTqKhHrkQR2IcK2Pv33QaM2yUdbxrbdyNBEr_HnFH_VWL2caqWzsMImjdAt0Dmgc6MxByH3gR2s4Z8h6VKXvd_P4Z-gXNO--nhWSAigI1ZRKCiNUb14sAgKWvzAtUPEeNRLEFRQFrTn3Fk73ZvxjRqh1ujgHTIzIOoCE4sau8pAeHfgtIqeCnx42cK2tUORT6kNIGZAe5PpY-6df613yiygq0PhYiftGVaLIO7RSRtNVDYZ-1oetTZJcbO4OEpC-MsIUqISgJYlGVdcbFaozNBirerPYsNe9EaELB5sJWbPLc2Qs5gzwr6BYZNSAPtJiU1GuB5YDWpi1HLOGDxn-AqagPaPk9-fU9kQi8flaIHukteNMRPwbIMZUw1fHZWfziaaucQbOJ0-sqVThaqSepFheKV4TL-wuaXM-Z58qP49h-rWA8so2WXtKMmYfJqH71zz9LoIfCqXJbc_-o9ORVz68q4EQfMyZHRiUBY-bc6guxiLF0_UUKDymovz6OArAuZIy2kBhlI9sxlko1BfgTB85-XBMxJ0Rh9ACOip2rHzqsqVX4Hf3SWIW2Erb2ForOWGt2tspXLh7R-x96YU9fYcC3D2V2ZY5OpYohIHh_q5-gkck2GOwBUn_2ywe2_vpJ6Knj0BGFnSujPsMUA3V-_5PaeDH5exkQoP510sH9flBG_7cXjNWJ4Hg1f0Elmu_sc1evUXx9UjfI0QfilWJn2gN5HEpYO_wRAHYDEYjMgqKuErX3JiDP0U6tS7TndD18lrTfzNaD9cV_nY3bejPudhzZobcQXd8N8ZXI3XOJLwD0L0n4odWpDGka0pkZmkU7v7UAybr82kHPtElGujqvs0hpTUlrvrXfDTm6cpGVTQmuqzXSSS17tYuwoqg5ra9mAjYOZzIDncPvbkaFvFy-70z23rKh3Km6iLLvOyw6Yj1ws5nOqsZnigufeG4ipGnZ_ga-YLTe9UUag72oYEytCFb23nFff6a0dQLu9VdfSD7oKTa1oj8MZmNARljiEOCdns0F5nCwqYJFyZI1PJKqDcGIjNozdl3EcpoF9cpPoV_Q4__FTjIHBloa83L-HVhHJr4sRNvsrGAJMJdlK_LlBUnVbSjQU9J4TgZpw8Ut1rF85yN8Ox8jJVQ_j5SgBmU9vh3ODOSfVd-vhjRACOqloSqOsygvJjWjHw%3D
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 302 Found
+        code: 302
+        duration: 1.1969725s
+    - id: 6
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 57
+        host: dummy.internal
+        body: '{"grant_scope":["mcp:read","mcp:write","offline_access"]}'
+        form:
+            consent_challenge:
+                - hNelHa9lhLIaJUzi80k6ayIUYOYSF4fBWm6kgmNhH_Y8w8-66cXfMTY1InH7nitksP58hpQ5Lyr0vG2_gODUmDl0PS46FyTn0b8e05mCoX5v83AAiqRcJsiJEVglEU9sCTqKhHrkQR2IcK2Pv33QaM2yUdbxrbdyNBEr_HnFH_VWL2caqWzsMImjdAt0Dmgc6MxByH3gR2s4Z8h6VKXvd_P4Z-gXNO--nhWSAigI1ZRKCiNUb14sAgKWvzAtUPEeNRLEFRQFrTn3Fk73ZvxjRqh1ujgHTIzIOoCE4sau8pAeHfgtIqeCnx42cK2tUORT6kNIGZAe5PpY-6df613yiygq0PhYiftGVaLIO7RSRtNVDYZ-1oetTZJcbO4OEpC-MsIUqISgJYlGVdcbFaozNBirerPYsNe9EaELB5sJWbPLc2Qs5gzwr6BYZNSAPtJiU1GuB5YDWpi1HLOGDxn-AqagPaPk9-fU9kQi8flaIHukteNMRPwbIMZUw1fHZWfziaaucQbOJ0-sqVThaqSepFheKV4TL-wuaXM-Z58qP49h-rWA8so2WXtKMmYfJqH71zz9LoIfCqXJbc_-o9ORVz68q4EQfMyZHRiUBY-bc6guxiLF0_UUKDymovz6OArAuZIy2kBhlI9sxlko1BfgTB85-XBMxJ0Rh9ACOip2rHzqsqVX4Hf3SWIW2Erb2ForOWGt2tspXLh7R-x96YU9fYcC3D2V2ZY5OpYohIHh_q5-gkck2GOwBUn_2ywe2_vpJ6Knj0BGFnSujPsMUA3V-_5PaeDH5exkQoP510sH9flBG_7cXjNWJ4Hg1f0Elmu_sc1evUXx9UjfI0QfilWJn2gN5HEpYO_wRAHYDEYjMgqKuErX3JiDP0U6tS7TndD18lrTfzNaD9cV_nY3bejPudhzZobcQXd8N8ZXI3XOJLwD0L0n4odWpDGka0pkZmkU7v7UAybr82kHPtElGujqvs0hpTUlrvrXfDTm6cpGVTQmuqzXSSS17tYuwoqg5ra9mAjYOZzIDncPvbkaFvFy-70z23rKh3Km6iLLvOyw6Yj1ws5nOqsZnigufeG4ipGnZ_ga-YLTe9UUag72oYEytCFb23nFff6a0dQLu9VdfSD7oKTa1oj8MZmNARljiEOCdns0F5nCwqYJFyZI1PJKqDcGIjNozdl3EcpoF9cpPoV_Q4__FTjIHBloa83L-HVhHJr4sRNvsrGAJMJdlK_LlBUnVbSjQU9J4TgZpw8Ut1rF85yN8Ox8jJVQ_j5SgBmU9vh3ODOSfVd-vhjRACOqloSqOsygvJjWjHw=
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/json
+        url: https://dummy.internal/admin/oauth2/auth/requests/consent/accept?consent_challenge=hNelHa9lhLIaJUzi80k6ayIUYOYSF4fBWm6kgmNhH_Y8w8-66cXfMTY1InH7nitksP58hpQ5Lyr0vG2_gODUmDl0PS46FyTn0b8e05mCoX5v83AAiqRcJsiJEVglEU9sCTqKhHrkQR2IcK2Pv33QaM2yUdbxrbdyNBEr_HnFH_VWL2caqWzsMImjdAt0Dmgc6MxByH3gR2s4Z8h6VKXvd_P4Z-gXNO--nhWSAigI1ZRKCiNUb14sAgKWvzAtUPEeNRLEFRQFrTn3Fk73ZvxjRqh1ujgHTIzIOoCE4sau8pAeHfgtIqeCnx42cK2tUORT6kNIGZAe5PpY-6df613yiygq0PhYiftGVaLIO7RSRtNVDYZ-1oetTZJcbO4OEpC-MsIUqISgJYlGVdcbFaozNBirerPYsNe9EaELB5sJWbPLc2Qs5gzwr6BYZNSAPtJiU1GuB5YDWpi1HLOGDxn-AqagPaPk9-fU9kQi8flaIHukteNMRPwbIMZUw1fHZWfziaaucQbOJ0-sqVThaqSepFheKV4TL-wuaXM-Z58qP49h-rWA8so2WXtKMmYfJqH71zz9LoIfCqXJbc_-o9ORVz68q4EQfMyZHRiUBY-bc6guxiLF0_UUKDymovz6OArAuZIy2kBhlI9sxlko1BfgTB85-XBMxJ0Rh9ACOip2rHzqsqVX4Hf3SWIW2Erb2ForOWGt2tspXLh7R-x96YU9fYcC3D2V2ZY5OpYohIHh_q5-gkck2GOwBUn_2ywe2_vpJ6Knj0BGFnSujPsMUA3V-_5PaeDH5exkQoP510sH9flBG_7cXjNWJ4Hg1f0Elmu_sc1evUXx9UjfI0QfilWJn2gN5HEpYO_wRAHYDEYjMgqKuErX3JiDP0U6tS7TndD18lrTfzNaD9cV_nY3bejPudhzZobcQXd8N8ZXI3XOJLwD0L0n4odWpDGka0pkZmkU7v7UAybr82kHPtElGujqvs0hpTUlrvrXfDTm6cpGVTQmuqzXSSS17tYuwoqg5ra9mAjYOZzIDncPvbkaFvFy-70z23rKh3Km6iLLvOyw6Yj1ws5nOqsZnigufeG4ipGnZ_ga-YLTe9UUag72oYEytCFb23nFff6a0dQLu9VdfSD7oKTa1oj8MZmNARljiEOCdns0F5nCwqYJFyZI1PJKqDcGIjNozdl3EcpoF9cpPoV_Q4__FTjIHBloa83L-HVhHJr4sRNvsrGAJMJdlK_LlBUnVbSjQU9J4TgZpw8Ut1rF85yN8Ox8jJVQ_j5SgBmU9vh3ODOSfVd-vhjRACOqloSqOsygvJjWjHw%3D
+        method: PUT
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"redirect_to":"https://dummy.internal/oauth2/auth?client_id=dummy-ory-client-id\u0026consent_verifier=3TxFUoQXppVfp3LPPQKqSfaIkt3WhaBnsvsW-YiFqAkeGupDGsigez1WvafjbyyikACLSm_GyTfdrtjQ_0RSMdC5ydTjxO5nzPHCgDeW4I1_uc0IDFI3p6bgydf9q9wOPc77LZIwhmlzzJEW6SGlAbktkw1xJBgoXNn4JyzqirbypJ2v43GczgX79XwmdjFeSLmhaCL6W3xoKfNcJ6UyxKboTvRJxh5aKlv0RCnkUDB-jpj85No_xpZDhYTIqITTKRH6WVBH-HIcqWYlh9fOLmQE2M9vlw6F7y48RigWiDjNugRTYpE1sbRrplgZYx3yGKlYLdu_RyZD9sS5vqdr9m3VFUTjL2pOfLPtrFdd_AbQbLq_g-snTzIytOM5SWg59StAT6kL460ptcxbl0sTYNQ1ELIIkWclKlNrH1rf1eq2G78rrTWoCM4Qa0nRbeOLnra-zEcIrhVHEhbLkcnG8S6SBvIs-euDvC7hZcZkj_GmtZVtUtPU-fd9mpuGtoh7sViEWhHPKQbBaHMPn5cxOjDKBUK4-nW7INLqY7TEUsdF4u0SHPvac4gPGC9aq1dxvvsUeU3ACXxQ-xMTLxzy2zWJWssJ7Yj7EZ_fIbm8eqU5_EHqrjJfMyieXgS-C3TpV6GjUxwCSQNHKALuj33MUkRiK_eLVJWj96gbuOYGvRDjus8aFJy6jCl_pQUMoviLcz38QkpC9MTn3tiVXkekx8_3jsRcze_Ll43jamxJEKIwRNoQFHaPQgn3fv1lrHN45iDgwUuL3wZ1aaYvYUhb1TNnRRPTMri9Pu0K-qQCuIEC5cdiPfU1g-7WogG-0Qr9H71pDlHORoz4OF3UJqeCoJqaVEEyOzVwbEr9IKEMUHSGPqHsAXmMm-CXpe7y6mIHz_56roZVa3R4-uL99KrV4B-iPs6Z37rICcE1tmrUM3Fu13zW9C44_QN-tAPYkQwcaxVygX-d_KhL6iZTqQSM_yURDcb3GgECbulKSJ1KOLFkn5I9Jcg5dZTE1N15ym7wpgiY_nKMaPGJGOCH0uu9ylCiFZj2mpQ_4TD8p0A1x0mqsgQ7rQnnR_NcDwnYOE6wZ_SuzVfTmyw_jTkE1B0_P8qjXXjdMB8Q3ddZsupv-CRU_E2ir8yVY6fi6BeL-yx7zY5A7I130MhU7MhlvqGbYaBqJ8317B0nR2YsVura_KbznscIiUue0fNAipy8s1R_NXiLPNVbGABidhSUh6kk_rIREHjLQDys2zCqbfulCkM04-lUckPYPSnZWexEObSf9qu_jRW_nCOV2tSgm8zkO9412C7VjgJhT8T5p0vrcDC610UaAzndd3xYPw4I\u0026redirect_uri=http%3A%2F%2Flocalhost%3A5001\u0026response_type=code\u0026scope=mcp%3Aread+mcp%3Awrite+offline_access\u0026state=state-longer-than-eight-characters"}'
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bda4946c8e8-MRS
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:53:03 GMT
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 200 OK
+        code: 200
+        duration: 179.456542ms
+    - id: 7
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: dummy.internal
+        form:
+            client_id:
+                - dummy-ory-client-id
+            consent_verifier:
+                - 3TxFUoQXppVfp3LPPQKqSfaIkt3WhaBnsvsW-YiFqAkeGupDGsigez1WvafjbyyikACLSm_GyTfdrtjQ_0RSMdC5ydTjxO5nzPHCgDeW4I1_uc0IDFI3p6bgydf9q9wOPc77LZIwhmlzzJEW6SGlAbktkw1xJBgoXNn4JyzqirbypJ2v43GczgX79XwmdjFeSLmhaCL6W3xoKfNcJ6UyxKboTvRJxh5aKlv0RCnkUDB-jpj85No_xpZDhYTIqITTKRH6WVBH-HIcqWYlh9fOLmQE2M9vlw6F7y48RigWiDjNugRTYpE1sbRrplgZYx3yGKlYLdu_RyZD9sS5vqdr9m3VFUTjL2pOfLPtrFdd_AbQbLq_g-snTzIytOM5SWg59StAT6kL460ptcxbl0sTYNQ1ELIIkWclKlNrH1rf1eq2G78rrTWoCM4Qa0nRbeOLnra-zEcIrhVHEhbLkcnG8S6SBvIs-euDvC7hZcZkj_GmtZVtUtPU-fd9mpuGtoh7sViEWhHPKQbBaHMPn5cxOjDKBUK4-nW7INLqY7TEUsdF4u0SHPvac4gPGC9aq1dxvvsUeU3ACXxQ-xMTLxzy2zWJWssJ7Yj7EZ_fIbm8eqU5_EHqrjJfMyieXgS-C3TpV6GjUxwCSQNHKALuj33MUkRiK_eLVJWj96gbuOYGvRDjus8aFJy6jCl_pQUMoviLcz38QkpC9MTn3tiVXkekx8_3jsRcze_Ll43jamxJEKIwRNoQFHaPQgn3fv1lrHN45iDgwUuL3wZ1aaYvYUhb1TNnRRPTMri9Pu0K-qQCuIEC5cdiPfU1g-7WogG-0Qr9H71pDlHORoz4OF3UJqeCoJqaVEEyOzVwbEr9IKEMUHSGPqHsAXmMm-CXpe7y6mIHz_56roZVa3R4-uL99KrV4B-iPs6Z37rICcE1tmrUM3Fu13zW9C44_QN-tAPYkQwcaxVygX-d_KhL6iZTqQSM_yURDcb3GgECbulKSJ1KOLFkn5I9Jcg5dZTE1N15ym7wpgiY_nKMaPGJGOCH0uu9ylCiFZj2mpQ_4TD8p0A1x0mqsgQ7rQnnR_NcDwnYOE6wZ_SuzVfTmyw_jTkE1B0_P8qjXXjdMB8Q3ddZsupv-CRU_E2ir8yVY6fi6BeL-yx7zY5A7I130MhU7MhlvqGbYaBqJ8317B0nR2YsVura_KbznscIiUue0fNAipy8s1R_NXiLPNVbGABidhSUh6kk_rIREHjLQDys2zCqbfulCkM04-lUckPYPSnZWexEObSf9qu_jRW_nCOV2tSgm8zkO9412C7VjgJhT8T5p0vrcDC610UaAzndd3xYPw4I
+            redirect_uri:
+                - http://localhost:5001
+            response_type:
+                - code
+            scope:
+                - mcp:read mcp:write offline_access
+            state:
+                - state-longer-than-eight-characters
+        headers:
+            Cookie:
+                - REDACTED
+        url: https://dummy.internal/oauth2/auth?client_id=dummy-ory-client-id&consent_verifier=3TxFUoQXppVfp3LPPQKqSfaIkt3WhaBnsvsW-YiFqAkeGupDGsigez1WvafjbyyikACLSm_GyTfdrtjQ_0RSMdC5ydTjxO5nzPHCgDeW4I1_uc0IDFI3p6bgydf9q9wOPc77LZIwhmlzzJEW6SGlAbktkw1xJBgoXNn4JyzqirbypJ2v43GczgX79XwmdjFeSLmhaCL6W3xoKfNcJ6UyxKboTvRJxh5aKlv0RCnkUDB-jpj85No_xpZDhYTIqITTKRH6WVBH-HIcqWYlh9fOLmQE2M9vlw6F7y48RigWiDjNugRTYpE1sbRrplgZYx3yGKlYLdu_RyZD9sS5vqdr9m3VFUTjL2pOfLPtrFdd_AbQbLq_g-snTzIytOM5SWg59StAT6kL460ptcxbl0sTYNQ1ELIIkWclKlNrH1rf1eq2G78rrTWoCM4Qa0nRbeOLnra-zEcIrhVHEhbLkcnG8S6SBvIs-euDvC7hZcZkj_GmtZVtUtPU-fd9mpuGtoh7sViEWhHPKQbBaHMPn5cxOjDKBUK4-nW7INLqY7TEUsdF4u0SHPvac4gPGC9aq1dxvvsUeU3ACXxQ-xMTLxzy2zWJWssJ7Yj7EZ_fIbm8eqU5_EHqrjJfMyieXgS-C3TpV6GjUxwCSQNHKALuj33MUkRiK_eLVJWj96gbuOYGvRDjus8aFJy6jCl_pQUMoviLcz38QkpC9MTn3tiVXkekx8_3jsRcze_Ll43jamxJEKIwRNoQFHaPQgn3fv1lrHN45iDgwUuL3wZ1aaYvYUhb1TNnRRPTMri9Pu0K-qQCuIEC5cdiPfU1g-7WogG-0Qr9H71pDlHORoz4OF3UJqeCoJqaVEEyOzVwbEr9IKEMUHSGPqHsAXmMm-CXpe7y6mIHz_56roZVa3R4-uL99KrV4B-iPs6Z37rICcE1tmrUM3Fu13zW9C44_QN-tAPYkQwcaxVygX-d_KhL6iZTqQSM_yURDcb3GgECbulKSJ1KOLFkn5I9Jcg5dZTE1N15ym7wpgiY_nKMaPGJGOCH0uu9ylCiFZj2mpQ_4TD8p0A1x0mqsgQ7rQnnR_NcDwnYOE6wZ_SuzVfTmyw_jTkE1B0_P8qjXXjdMB8Q3ddZsupv-CRU_E2ir8yVY6fi6BeL-yx7zY5A7I130MhU7MhlvqGbYaBqJ8317B0nR2YsVura_KbznscIiUue0fNAipy8s1R_NXiLPNVbGABidhSUh6kk_rIREHjLQDys2zCqbfulCkM04-lUckPYPSnZWexEObSf9qu_jRW_nCOV2tSgm8zkO9412C7VjgJhT8T5p0vrcDC610UaAzndd3xYPw4I&redirect_uri=http%3A%2F%2Flocalhost%3A5001&response_type=code&scope=mcp%3Aread+mcp%3Awrite+offline_access&state=state-longer-than-eight-characters
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 0
+        body: ""
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - no-store
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bdc7d56c8e8-MRS
+            Content-Length:
+                - "0"
+            Date:
+                - Sat, 23 May 2026 09:53:04 GMT
+            Location:
+                - http://localhost:5001?code=ory_ac_hgSXnYVAGHVkc2Op6hI-9mMvJ3q40ajPwEnudGlpTmk.gTQ-p3YGmfzHUJwAcCCqmaEHMSIsVCQx-j_-okgE8Mc&scope=mcp%3Aread+mcp%3Awrite+offline_access&state=state-longer-than-eight-characters
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Pragma:
+                - no-cache
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 303 See Other
+        code: 303
+        duration: 972.094875ms
+    - id: 8
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 172
+        host: dummy.internal
+        body: code=ory_ac_hgSXnYVAGHVkc2Op6hI-9mMvJ3q40ajPwEnudGlpTmk.gTQ-p3YGmfzHUJwAcCCqmaEHMSIsVCQx-j_-okgE8Mc&grant_type=authorization_code&redirect_uri=http%3A%2F%2Flocalhost%3A5001
+        form:
+            code:
+                - ory_ac_hgSXnYVAGHVkc2Op6hI-9mMvJ3q40ajPwEnudGlpTmk.gTQ-p3YGmfzHUJwAcCCqmaEHMSIsVCQx-j_-okgE8Mc
+            grant_type:
+                - authorization_code
+            redirect_uri:
+                - http://localhost:5001
+        headers:
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+        url: https://dummy.internal/oauth2/token
+        method: POST
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"access_token":"dummy-access-token","expires_in":3599,"refresh_token":"dummy-refresh-token","scope":"mcp:read mcp:write offline_access","token_type":"bearer"}'
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - no-store
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032be8a8b4c8e8-MRS
+            Content-Type:
+                - application/json;charset=UTF-8
+            Date:
+                - Sat, 23 May 2026 09:53:06 GMT
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Pragma:
+                - no-cache
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 200 OK
+        code: 200
+        duration: 1.089400833s
+    - id: 9
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: dummy.internal
+        form:
+            credentials_identifier:
+                - nonexistent
+        headers:
+            Authorization:
+                - REDACTED
+        url: https://dummy.internal/admin/identities?credentials_identifier=nonexistent
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 3
+        body: |
+            []
+        headers:
+            Alt-Svc:
+                - h3=":443"; ma=86400
+            Cache-Control:
+                - private, no-cache, no-store, must-revalidate
+            Cf-Cache-Status:
+                - DYNAMIC
+            Cf-Ray:
+                - a0032bf6485cc8e8-MRS
+            Content-Length:
+                - "3"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 23 May 2026 09:53:07 GMT
+            Link:
+                - </admin/identities?credentials_identifier=nonexistent&page_size=250&page_token=00000000-0000-0000-0000-000000000000>; rel="first"
+            Ory-Network-Ingress:
+                - T
+            Ory-Network-Region:
+                - euw
+            Permissions-Policy:
+                - accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), usb=()
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Vary:
+                - Origin
+            Via:
+                - 1.1 google
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - DENY
+        status: 200 OK
+        code: 200
+        duration: 526.55125ms

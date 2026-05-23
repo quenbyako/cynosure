@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 )
 
 const (
@@ -27,7 +28,7 @@ type (
 
 func (c *Controller) SearchMcpTools(
 	ctx context.Context,
-	in SearchMcpToolsInput,
+	input SearchMcpToolsInput,
 ) (
 	SearchMcpToolsOutput,
 	error,
@@ -37,9 +38,18 @@ func (c *Controller) SearchMcpTools(
 		return SearchMcpToolsOutput{}, ErrUnauthorized
 	}
 
-	_ = userID
+	matched, err := c.accounts.SearchMcpTools(ctx, userID, input.Query, input.Limit)
+	if err != nil {
+		return SearchMcpToolsOutput{}, fmt.Errorf("searching mcp tools: %w", err)
+	}
 
-	return SearchMcpToolsOutput{
-		Tools: []SearchMCPTool{},
-	}, nil
+	res := make([]SearchMCPTool, len(matched))
+	for i, t := range matched {
+		res[i] = SearchMCPTool{
+			Name:        t.Name(),
+			Description: t.Desc(),
+		}
+	}
+
+	return SearchMcpToolsOutput{Tools: res}, nil
 }

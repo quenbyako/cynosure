@@ -8,6 +8,7 @@ import (
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/entities"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/messages"
@@ -52,7 +53,7 @@ type Chat struct {
 	storage           ports.ThreadStorage
 	embeddingProvider EmbeddingProvider
 	toolStorage       ports.ToolStorage
-	accounts          ports.AccountStorage
+	accountsPort      accounts.Port
 	thread            *entities.Thread
 	// tools caches the actual entities.Tool objects for execution after model
 	// picks them
@@ -73,7 +74,7 @@ func New(
 	storage ports.ThreadStorage,
 	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
-	accounts ports.AccountStorage,
+	accountsPort accounts.Port,
 	threadID ids.ThreadID,
 	toolboxContextLimit uint,
 ) (*Chat, error) {
@@ -83,7 +84,7 @@ func New(
 	}
 
 	return newChatAggregate(
-		thread, storage, embeddingProvider, toolStorage, accounts, toolboxContextLimit,
+		thread, storage, embeddingProvider, toolStorage, accountsPort, toolboxContextLimit,
 	)
 }
 
@@ -92,7 +93,7 @@ func CreateChatAggregate(
 	storage ports.ThreadStorage,
 	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
-	accounts ports.AccountStorage,
+	accountsPort accounts.Port,
 	threadID ids.ThreadID,
 	history []messages.Message,
 	toolboxContextLimit uint,
@@ -108,7 +109,7 @@ func CreateChatAggregate(
 	}
 
 	return newChatAggregate(
-		thread, storage, embeddingProvider, toolStorage, accounts, toolboxContextLimit,
+		thread, storage, embeddingProvider, toolStorage, accountsPort, toolboxContextLimit,
 	)
 }
 
@@ -117,7 +118,7 @@ func newChatAggregate(
 	storage ports.ThreadStorage,
 	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
-	accounts ports.AccountStorage,
+	accountsPort accounts.Port,
 	toolboxContextLimit uint,
 ) (*Chat, error) {
 	chat := initChat(
@@ -125,7 +126,7 @@ func newChatAggregate(
 		storage,
 		embeddingProvider,
 		toolStorage,
-		accounts,
+		accountsPort,
 		toolboxContextLimit,
 	)
 	if err := chat.validate(); err != nil {
@@ -142,7 +143,7 @@ func initChat(
 	storage ports.ThreadStorage,
 	embeddingProvider EmbeddingProvider,
 	toolStorage ports.ToolStorage,
-	accounts ports.AccountStorage,
+	accountsPort accounts.Port,
 	toolboxContextLimit uint,
 ) *Chat {
 	return &Chat{
@@ -154,7 +155,7 @@ func initChat(
 		storage:             storage,
 		embeddingProvider:   embeddingProvider,
 		toolStorage:         toolStorage,
-		accounts:            accounts,
+		accountsPort:        accountsPort,
 		toolboxContextLimit: toolboxContextLimit,
 
 		mu: sync.RWMutex{},
@@ -174,8 +175,8 @@ func (c *Chat) validate() error {
 		return errInternalValidation("toolStorage is nil")
 	}
 
-	if c.accounts == nil {
-		return errInternalValidation("accounts is nil")
+	if c.accountsPort == nil {
+		return errInternalValidation("accountsPort is nil")
 	}
 
 	if !c.thread.Valid() {

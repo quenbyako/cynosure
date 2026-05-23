@@ -69,26 +69,30 @@ func (p *TaskPool[T]) Running() bool {
 // internal context to ensure that values like Trace ID or User ID are
 // propagated to the handler.
 func (p *TaskPool[T]) Submit(ctx ContextValues, task T) bool {
-	if p.pool == nil {
+	p.poolMu.Lock()
+	pool := p.pool
+	p.poolMu.Unlock()
+
+	if pool == nil {
 		return false
 	}
 
 	// Merge context values from the caller with the pool's lifecycle context
 	mergedCtx := &mergedContext{
-		Context: p.pool.Context(),
+		Context: pool.Context(),
 
 		// see [mergedContext] for explanation of nil safety
 		values: ctx,
 	}
 
-	p.pool.Submit(func() {
+	pool.Submit(func() {
 		p.handler(mergedCtx, task)
 	})
 
 	// NOTE: that's too tricky and unsafe way to check if the pool is running,
 	// but that's the only way with pond. It's a really great idea to contribude
 	// to lib to add in Task interface Submitted() method or sorta.
-	return !p.pool.Stopped()
+	return !pool.Stopped()
 }
 
 // ContextValues is an interface that allows extracting values from a context.

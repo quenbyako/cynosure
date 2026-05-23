@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	db "github.com/quenbyako/cynosure/contrib/db/gen/go"
 
-	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 )
 
 type conn interface {
@@ -20,10 +20,10 @@ type Accounts struct {
 	q  *db.Queries
 }
 
-var _ ports.AccountStorage = (*Accounts)(nil)
+var _ accounts.Port = (*Accounts)(nil)
 
-func New(conn conn) Accounts {
-	return Accounts{
+func New(conn conn) *Accounts {
+	return &Accounts{
 		tx: conn,
 		q:  db.New(conn),
 	}

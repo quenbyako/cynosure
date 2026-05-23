@@ -16,11 +16,17 @@ import (
 func ConvertToolChoice(choice tools.ToolChoice) (components.ChatToolChoice, error) {
 	switch choice {
 	case tools.ToolChoiceAllowed:
-		return components.CreateChatToolChoiceChatToolChoiceAuto(components.ChatToolChoiceAutoAuto), nil
+		return components.CreateChatToolChoiceChatToolChoiceAuto(
+			components.ChatToolChoiceAutoAuto,
+		), nil
 	case tools.ToolChoiceForced:
-		return components.CreateChatToolChoiceChatToolChoiceRequired(components.ChatToolChoiceRequiredRequired), nil
+		return components.CreateChatToolChoiceChatToolChoiceRequired(
+			components.ChatToolChoiceRequiredRequired,
+		), nil
 	case tools.ToolChoiceForbidden:
-		return components.CreateChatToolChoiceChatToolChoiceNone(components.ChatToolChoiceNoneNone), nil
+		return components.CreateChatToolChoiceChatToolChoiceNone(
+			components.ChatToolChoiceNoneNone,
+		), nil
 	default:
 		return components.ChatToolChoice{}, fmt.Errorf("%w: %v", ErrUnknownToolChoice, choice)
 	}
@@ -29,11 +35,14 @@ func ConvertToolChoice(choice tools.ToolChoice) (components.ChatToolChoice, erro
 // ConvertMessages maps domain Messages to a slice of components.ChatMessages.
 func ConvertMessages(systemMsg string, input []messages.Message) []components.ChatMessages {
 	var openAIMsgs []components.ChatMessages
+
 	if systemMsg != "" {
-		openAIMsgs = append(openAIMsgs, components.CreateChatMessagesSystem(components.ChatSystemMessage{
+		msg := components.CreateChatMessagesSystem(components.ChatSystemMessage{
 			Role:    components.ChatSystemMessageRoleSystem,
 			Content: components.CreateChatSystemMessageContentStr(systemMsg),
-		}))
+			Name:    nil,
+		})
+		openAIMsgs = append(openAIMsgs, msg)
 	}
 
 	for _, m := range input {
@@ -53,14 +62,10 @@ func AppendConvertedMessage(
 		return append(msgs, components.CreateChatMessagesUser(components.ChatUserMessage{
 			Role:    components.ChatUserMessageRoleUser,
 			Content: components.CreateChatUserMessageContentStr(msg.Content()),
+			Name:    nil,
 		}))
 	case messages.MessageAssistant:
-		assistantContent := components.CreateChatAssistantMessageContentStr(msg.Content())
-
-		return append(msgs, components.CreateChatMessagesAssistant(components.ChatAssistantMessage{
-			Role:    components.ChatAssistantMessageRoleAssistant,
-			Content: optionalnullable.From(&assistantContent),
-		}))
+		return appendAssistantMessage(msgs, msg)
 	case messages.MessageToolRequest:
 		return AppendToolRequest(msgs, msg)
 	case messages.MessageToolResponse:
@@ -80,6 +85,39 @@ func AppendConvertedMessage(
 	return msgs
 }
 
+func appendAssistantMessage(
+	msgs []components.ChatMessages,
+	msg messages.MessageAssistant,
+) []components.ChatMessages {
+	content := components.CreateChatAssistantMessageContentStr(msg.Content())
+
+	return append(msgs, components.CreateChatMessagesAssistant(components.ChatAssistantMessage{
+		Role:             components.ChatAssistantMessageRoleAssistant,
+		Content:          optionalnullable.From(&content),
+		Audio:            nil,
+		Images:           nil,
+		Name:             nil,
+		Reasoning:        nil,
+		ReasoningDetails: nil,
+		Refusal:          nil,
+		ToolCalls:        nil,
+	}))
+}
+
+func marshalToolArguments(args map[string]json.RawMessage) string {
+	argsMap := make(map[string]any)
+	for k, v := range args {
+		argsMap[k] = v
+	}
+
+	argsData, err := json.Marshal(argsMap)
+	if err != nil {
+		panic(err) //nolint:forbidigo // unreachable
+	}
+
+	return string(argsData)
+}
+
 // AppendToolRequest appends a message containing tool requests to components.ChatMessages slice.
 func AppendToolRequest(
 	msgs []components.ChatMessages,
@@ -90,14 +128,7 @@ func AppendToolRequest(
 	tc.ID = msg.ToolCallID()
 	tc.Type = components.ChatToolCallTypeFunction
 	tc.Function.Name = msg.ToolName()
-
-	argsMap := make(map[string]any)
-	for k, v := range msg.Arguments() {
-		argsMap[k] = v
-	}
-
-	argsData, _ := json.Marshal(argsMap)
-	tc.Function.Arguments = string(argsData)
+	tc.Function.Arguments = marshalToolArguments(msg.Arguments())
 
 	lastIdx := len(msgs) - 1
 	if lastIdx >= 0 && msgs[lastIdx].Type == components.ChatMessagesTypeAssistant {
@@ -109,13 +140,24 @@ func AppendToolRequest(
 	}
 
 	return append(msgs, components.CreateChatMessagesAssistant(components.ChatAssistantMessage{
-		Role:      components.ChatAssistantMessageRoleAssistant,
-		ToolCalls: []components.ChatToolCall{tc},
+		Role:             components.ChatAssistantMessageRoleAssistant,
+		Content:          nil,
+		Audio:            nil,
+		Images:           nil,
+		Name:             nil,
+		Reasoning:        nil,
+		ReasoningDetails: nil,
+		Refusal:          nil,
+		ToolCalls:        []components.ChatToolCall{tc},
 	}))
 }
 
-// ConvertMessagesForTokenCounting converts messages to the tokencounter.Message format.
-func ConvertMessagesForTokenCounting(systemMessage string, msgs []messages.Message) []tokencounter.Message {
+// ConvertMessagesForTokenCounting converts messages to the tokencounter.Message
+// format.
+func ConvertMessagesForTokenCounting(
+	systemMessage string,
+	msgs []messages.Message,
+) []tokencounter.Message {
 	var result []tokencounter.Message
 	if systemMessage != "" {
 		result = append(result, tokencounter.Message{
@@ -131,6 +173,20 @@ func ConvertMessagesForTokenCounting(systemMessage string, msgs []messages.Messa
 	return result
 }
 
+func formatToolRequestTokenContent(msg messages.MessageToolRequest) string {
+	argsMap := make(map[string]any)
+	for k, v := range msg.Arguments() {
+		argsMap[k] = v
+	}
+
+	argsData, err := json.Marshal(argsMap)
+	if err != nil {
+		panic(err) //nolint:forbidigo // unreachable
+	}
+
+	return msg.ToolName() + " " + string(argsData)
+}
+
 func appendTokenMessage(result []tokencounter.Message, m messages.Message) []tokencounter.Message {
 	switch msg := m.(type) {
 	case messages.MessageUser:
@@ -144,16 +200,9 @@ func appendTokenMessage(result []tokencounter.Message, m messages.Message) []tok
 			Content: msg.Content(),
 		})
 	case messages.MessageToolRequest:
-		argsMap := make(map[string]any)
-		for k, v := range msg.Arguments() {
-			argsMap[k] = v
-		}
-
-		argsData, _ := json.Marshal(argsMap)
-
 		return append(result, tokencounter.Message{
 			Role:    "assistant",
-			Content: msg.ToolName() + " " + string(argsData),
+			Content: formatToolRequestTokenContent(msg),
 		})
 	case messages.MessageToolResponse:
 		return append(result, tokencounter.Message{

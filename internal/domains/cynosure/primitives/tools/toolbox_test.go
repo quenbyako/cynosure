@@ -140,11 +140,11 @@ func TestToolbox_ConvertRequest(t *testing.T) {
 }
 
 type toolboxConvertYAMLCase struct {
-	Name           string                  `yaml:"name"`
-	ToolboxTools   []mergeTestCaseToolDesc `yaml:"toolboxTools"`
-	ToolName       string                  `yaml:"toolName"`
 	Request        map[string]any          `yaml:"request"`
 	ExpectedParams map[string]any          `yaml:"expectedParams"`
+	Name           string                  `yaml:"name"`
+	ToolName       string                  `yaml:"toolName"`
+	ToolboxTools   []mergeTestCaseToolDesc `yaml:"toolboxTools"`
 	ExpectErr      bool                    `yaml:"expectErr"`
 }
 

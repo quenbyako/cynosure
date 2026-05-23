@@ -58,6 +58,15 @@ This project uses **API request replay** pattern for integration tests to ensure
 - **Offline-capable**: Do not require an internet connection or real API keys in CI/CD.
 - **Cost-effective**: Avoid hitting paid API endpoints during routine development.
 
+### BDD Testing Best Practices
+
+1. **Strict Step Typing**: ALWAYS use `ctx.Given`, `ctx.When`, and `ctx.Then` for `godog` step registration. **NEVER** use `ctx.Step`.
+
+### Checklist for Gherkin Features (Test-related)
+
+- [ ] `go test` returns 0 failures, all tests passes
+- [ ] BDD Semantics: Verified all `godog` steps use ONLY `ctx.Given`, `ctx.When`, or `ctx.Then`. NO `ctx.Step` usage allowed.
+
 ### Running Tests
 
 By default, tests run in **ReplayOnly** mode using recorded cassettes in the `testdata/` directory.
@@ -88,7 +97,28 @@ List of all recorded test suites and env vars that control them:
 | ------------------------------ | ---------------------------------- |
 | ./internal/adapters/gemini/    | `CYNOSURE_TEST_GEMINI_API_KEY`     |
 | ./internal/adapters/openrouter/| `CYNOSURE_TEST_OPENROUTER_API_KEY` |
+| ./internal/adapters/ory/       | `CYNOSURE_TEST_ORY_ADMIN_KEY`      |
+| ./internal/adapters/ory/       | `CYNOSURE_TEST_ORY_CLIENT_ID`      |
+| ./internal/adapters/ory/       | `CYNOSURE_TEST_ORY_CLIENT_SECRET`  |
 
 ### Cassette Expiration
 
 General policy Cassettes have a TTL of **30 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.
+
+## Automated Code Formatting and Linting
+
+AI agents **MUST** automatically run the formatting and optimization tools before submitting changes or running tests to fix line lengths and struct alignment issues:
+
+1. **Auto-fix line lengths and general formatting (`golines`, `gofmt`, `gci`, `gofumpt`):**
+   Run the following command to automatically format all files:
+   ```bash
+   golangci-lint run --fix
+   ```
+   *Note: This automatically invokes the configured `golines` formatter, adjusting long lines to 100 characters.*
+
+2. **Auto-fix struct field alignment (`fieldalignment`):**
+   Optimize and align all structs in the codebase by running:
+   ```bash
+   go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest -fix ./...
+   ```
+   *Note: Always run this command when writing, editing, or refactoring Go structs to minimize memory footprint and struct padding.*

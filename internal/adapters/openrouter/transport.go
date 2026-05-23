@@ -2,7 +2,6 @@ package openrouter
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,9 +10,6 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 )
-
-// ErrRetryableStatus is returned when the server responds with a retryable HTTP status code.
-var ErrRetryableStatus = errors.New("retryable status code")
 
 type retryTransport struct {
 	base                 http.RoundTripper

@@ -5,9 +5,6 @@ packages:
       pkgname: "mocks"
       dir: ./internal/adapters/mocks
     interfaces:
-      AccountStorage:
-        config:
-          filename: "account_storage.go"
       AgentStorage:
         config:
           filename: "agent_storage.go"
@@ -20,6 +17,15 @@ packages:
       ToolStorage:
         config:
           filename: "tool_storage.go"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "accounts.go"
+          structname: "Accounts"
   github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel:
     config:
       pkgname: "mocks"
@@ -65,3 +71,12 @@ packages:
         config:
           filename: "embedding.go"
           structname: "Embedding"
+  github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager:
+    config:
+      pkgname: "mocks"
+      dir: ./internal/adapters/mocks
+    interfaces:
+      Port:
+        config:
+          filename: "identity_manager.go"
+          structname: "IdentityManager"

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 )
 
 const (
@@ -22,7 +23,7 @@ type (
 
 func (c *Controller) CreateAgent(
 	ctx context.Context,
-	in CreateAgentInput,
+	input CreateAgentInput,
 ) (
 	CreateAgentOutput,
 	error,
@@ -32,7 +33,12 @@ func (c *Controller) CreateAgent(
 		return CreateAgentOutput{}, ErrUnauthorized
 	}
 
-	_ = userID
+	agentID, err := c.accounts.CreateAgent(ctx, userID, input.ModelName, input.SystemPrompt)
+	if err != nil {
+		return CreateAgentOutput{}, fmt.Errorf("creating agent: %w", err)
+	}
 
-	return CreateAgentOutput{}, ErrUnimplemented
+	return CreateAgentOutput{
+		AgentID: agentID.ID().String(),
+	}, nil
 }

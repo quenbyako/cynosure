@@ -6,6 +6,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/ratelimiter"
@@ -20,7 +21,7 @@ const (
 type Usecase struct {
 	users      identitymanager.Port
 	agents     ports.AgentStorage
-	accounts   ports.AccountStorage
+	accounts   accounts.Port
 	servers    ports.ServerStorage
 	tools      ports.ToolStorage
 	toolClient toolclient.Port
@@ -53,7 +54,7 @@ func WithTracerProvider(tp trace.TracerProvider) NewOption {
 }
 
 func New(
-	users identitymanager.Port, agents ports.AgentStorage, accounts ports.AccountStorage,
+	users identitymanager.Port, agents ports.AgentStorage, accs accounts.Port,
 	servers ports.ServerStorage, tools ports.ToolStorage, toolClient toolclient.Port,
 	index embedding.Port, limiter ratelimiter.Port, adminMCPID ids.ServerID,
 	opts ...NewOption,
@@ -61,7 +62,7 @@ func New(
 	params := buildNewParams(opts...)
 
 	usecase := &Usecase{
-		users: users, agents: agents, accounts: accounts, servers: servers,
+		users: users, agents: agents, accounts: accs, servers: servers,
 		tools: tools, toolClient: toolClient, index: index, limiter: limiter,
 		adminMCPID: adminMCPID, trace: params.tracer.Tracer(pkgName),
 	}

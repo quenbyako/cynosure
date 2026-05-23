@@ -74,16 +74,20 @@ func initCaches(fsys fs.WFS, client *http.Client) (
 		lru.New(loadGemini, nil, nil, cacheCapacity, cacheTTL)
 }
 
-func (tc *TokenCounter) CountTokens(modelID string, msgs []Message) (int, error) {
+func (tc *TokenCounter) CountTokens(
+	ctx context.Context,
+	modelID string,
+	msgs []Message,
+) (int, error) {
 	if strings.HasPrefix(modelID, "openai/") {
 		return tc.countOpenAITokens(modelID, msgs), nil
 	}
 
 	if strings.HasPrefix(modelID, "google/") || strings.Contains(modelID, "gemini") {
-		return tc.countGeminiTokens(modelID, msgs)
+		return tc.countGeminiTokens(ctx, modelID, msgs)
 	}
 
-	return tc.countBPETokens(modelID, msgs)
+	return tc.countBPETokens(ctx, modelID, msgs)
 }
 
 func (tc *TokenCounter) countOpenAITokens(modelID string, msgs []Message) int {
@@ -103,8 +107,12 @@ func (tc *TokenCounter) countOpenAITokens(modelID string, msgs []Message) int {
 	return count
 }
 
-func (tc *TokenCounter) countGeminiTokens(modelID string, msgs []Message) (int, error) {
-	localTok, release, err := tc.geminiCache.Get(context.Background(), modelID)
+func (tc *TokenCounter) countGeminiTokens(
+	ctx context.Context,
+	modelID string,
+	msgs []Message,
+) (int, error) {
+	localTok, release, err := tc.geminiCache.Get(ctx, modelID)
 	if err != nil {
 		return 0, fmt.Errorf("resolve gemini local: %w", err)
 	}
@@ -154,8 +162,12 @@ func prepareGeminiContents(
 	return contents, systemInstruction
 }
 
-func (tc *TokenCounter) countBPETokens(modelID string, msgs []Message) (int, error) {
-	bpe, release, err := tc.bpeCache.Get(context.Background(), modelID)
+func (tc *TokenCounter) countBPETokens(
+	ctx context.Context,
+	modelID string,
+	msgs []Message,
+) (int, error) {
+	bpe, release, err := tc.bpeCache.Get(ctx, modelID)
 	if err != nil {
 		return 0, fmt.Errorf("resolve HF BPE: %w", err)
 	}

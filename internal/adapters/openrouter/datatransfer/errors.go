@@ -1,5 +1,7 @@
 package datatransfer
 
-import "errors"
+import (
+	"errors"
+)
 
 var ErrUnknownToolChoice = errors.New("unknown tool choice")

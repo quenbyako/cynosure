@@ -25,9 +25,9 @@ func TestOptions(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		Result  *Guardian
 		Name    string
 		Options []Option
-		Result  *Guardian
 	}{{
 		Name:    "default",
 		Options: nil,
@@ -226,9 +226,9 @@ func TestDefaultGuardian(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		Err     error
 		Addr    string
 		Network string
-		Err     error
 	}{
 		{Addr: addr80, Network: networkTCP4},
 		{Addr: addr443, Network: networkTCP4},
@@ -273,11 +273,11 @@ func TestCustomGuardian(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		Name     string
+		Err      error
 		Guardian *Guardian
+		Name     string
 		Addr     string
 		Network  string
-		Err      error
 	}{{
 		Name:     "custom port",
 		Guardian: New(WithPorts(8080)),

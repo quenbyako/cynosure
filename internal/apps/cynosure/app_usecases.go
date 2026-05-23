@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports"
+	accountsPort "github.com/quenbyako/cynosure/internal/domains/cynosure/ports/accounts"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/chatmodel"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/embedding"
 	"github.com/quenbyako/cynosure/internal/domains/cynosure/ports/identitymanager"
@@ -25,7 +26,7 @@ func newChatUsecase(
 	indexer constructor[embedding.PortWrapped],
 	toolStorage constructor[ports.ToolStorage],
 	server constructor[ports.ServerStorage],
-	account constructor[ports.AccountStorage],
+	account constructor[accountsPort.PortWrapped],
 	models constructor[ports.AgentStorage],
 	limiter constructor[ratelimiter.PortWrapped],
 ) (*chat.Usecase, error) {
@@ -46,13 +47,14 @@ func buildChat(
 	limiter constructor[ratelimiter.PortWrapped],
 	dps chatPorts,
 ) (*chat.Usecase, error) {
-	lim, m, idx, err := buildChatModelPorts(ctx, limiter, model, indexer)
+	mPorts, err := buildChatModelPorts(ctx, limiter, model, indexer)
 	if err != nil {
 		return nil, err
 	}
 
 	usecase, err := chat.New(
-		dps.thread, m, tool, idx, dps.tools, dps.server, dps.account, dps.agents, lim,
+		dps.thread, mPorts.chatModel, tool, mPorts.embedding,
+		dps.tools, dps.server, dps.account, dps.agents, mPorts.limiter,
 		chat.WithObservability(params.observability),
 		chat.WithChatLimit(params.chat.historyLimit),
 	)
@@ -63,25 +65,31 @@ func buildChat(
 	return usecase, nil
 }
 
+type chatModelPorts struct {
+	limiter   ratelimiter.PortWrapped
+	chatModel chatmodel.PortWrapped
+	embedding embedding.PortWrapped
+}
+
 func buildChatModelPorts(
 	ctx context.Context,
 	limiter constructor[ratelimiter.PortWrapped],
 	model constructor[chatmodel.PortWrapped],
 	indexer constructor[embedding.PortWrapped],
-) (ratelimiter.PortWrapped, chatmodel.PortWrapped, embedding.PortWrapped, error) {
+) (chatModelPorts, error) {
 	lim, err1 := limiter.Build(ctx)
-	m, err2 := model.Build(ctx)
+	chatModelPort, err2 := model.Build(ctx)
 
 	idx, err3 := indexer.Build(ctx)
 	if err := firstErr(err1, err2, err3); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to build model ports: %w", err)
+		return chatModelPorts{}, fmt.Errorf("failed to build model ports: %w", err)
 	}
 
-	return lim, m, idx, nil
+	return chatModelPorts{limiter: lim, chatModel: chatModelPort, embedding: idx}, nil
 }
 
 type chatPorts struct {
-	account ports.AccountStorage
+	account accountsPort.PortWrapped
 	server  ports.ServerStorage
 	agents  ports.AgentStorage
 	tools   ports.ToolStorage
@@ -90,7 +98,7 @@ type chatPorts struct {
 
 func buildChatPorts(
 	ctx context.Context,
-	account constructor[ports.AccountStorage],
+	account constructor[accountsPort.PortWrapped],
 	server constructor[ports.ServerStorage],
 	models constructor[ports.AgentStorage],
 	toolStorage constructor[ports.ToolStorage],
@@ -115,14 +123,15 @@ func newAccountsUsecase(
 	lifecycle *lifecycle,
 	servers constructor[ports.ServerStorage],
 	oauth oauthhandler.PortWrapped,
-	accountsStorage constructor[ports.AccountStorage],
+	accountsStorage constructor[accountsPort.PortWrapped],
 	tools constructor[ports.ToolStorage],
 	index constructor[embedding.PortWrapped],
 	toolClient toolclient.PortWrapped,
 	identities identitymanager.PortWrapped,
 	limiter constructor[ratelimiter.PortWrapped],
+	agents constructor[ports.AgentStorage],
 ) (*accounts.Usecase, error) {
-	dps, err := buildAccountsPorts(ctx, servers, accountsStorage, tools)
+	dps, err := buildAccountsPorts(ctx, servers, accountsStorage, tools, agents)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +157,7 @@ func buildAccounts(
 
 	usecase, err := accounts.New(
 		dps.server, oauth, dps.account, dps.tools, idx, toolClient,
-		identities, lim,
+		identities, lim, dps.agents,
 		accounts.WithOAuthRedirectURL(params.ory.callback),
 		accounts.WithTracerProvider(params.observability),
 	)
@@ -178,25 +187,28 @@ func buildAccountsModelPorts(
 
 type accountsPorts struct {
 	server  ports.ServerStorage
-	account ports.AccountStorage
+	account accountsPort.PortWrapped
 	tools   ports.ToolStorage
+	agents  ports.AgentStorage
 }
 
 func buildAccountsPorts(
 	ctx context.Context,
 	servers constructor[ports.ServerStorage],
-	accountsStorage constructor[ports.AccountStorage],
+	accountsStorage constructor[accountsPort.PortWrapped],
 	tools constructor[ports.ToolStorage],
+	agents constructor[ports.AgentStorage],
 ) (accountsPorts, error) {
 	srvs, err1 := servers.Build(ctx)
 	accs, err2 := accountsStorage.Build(ctx)
 	tStr, err3 := tools.Build(ctx)
+	ags, err4 := agents.Build(ctx)
 
-	if err := firstErr(err1, err2, err3); err != nil {
+	if err := firstErr(err1, err2, err3, err4); err != nil {
 		return accountsPorts{}, err
 	}
 
-	return accountsPorts{server: srvs, account: accs, tools: tStr}, nil
+	return accountsPorts{server: srvs, account: accs, tools: tStr, agents: ags}, nil
 }
 
 func newUsersUsecase(
@@ -204,7 +216,7 @@ func newUsersUsecase(
 	params *appParams,
 	identities identitymanager.PortWrapped,
 	agents constructor[ports.AgentStorage],
-	accStorage constructor[ports.AccountStorage],
+	accStorage constructor[accountsPort.PortWrapped],
 	servers constructor[ports.ServerStorage],
 	tools constructor[ports.ToolStorage],
 	toolClient toolclient.PortWrapped,
@@ -263,7 +275,7 @@ func buildUsersModelPorts(
 
 type usersPorts struct {
 	agents  ports.AgentStorage
-	account ports.AccountStorage
+	account accountsPort.PortWrapped
 	server  ports.ServerStorage
 	tools   ports.ToolStorage
 }
@@ -271,7 +283,7 @@ type usersPorts struct {
 func buildUsersPorts(
 	ctx context.Context,
 	agents constructor[ports.AgentStorage],
-	accStorage constructor[ports.AccountStorage],
+	accStorage constructor[accountsPort.PortWrapped],
 	servers constructor[ports.ServerStorage],
 	tools constructor[ports.ToolStorage],
 ) (usersPorts, error) {

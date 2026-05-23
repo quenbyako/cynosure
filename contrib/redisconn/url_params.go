@@ -311,7 +311,10 @@ const (
 	netErrInvalidPort = "invalid port in address"
 )
 
-func getHostPortWithDefaults(hostRaw, defaultHost string, defaultPort uint16) (host string, port uint16, err error) {
+func getHostPortWithDefaults(
+	hostRaw, defaultHost string,
+	defaultPort uint16,
+) (host string, port uint16, err error) {
 	// possible cases:
 	//  1 ✅ "example.com" — net.AddrError, should be just appended with default
 	//    port

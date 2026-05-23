@@ -143,8 +143,10 @@ func newHTTPClient(transport http.RoundTripper, apiKey SecretGetter) *http.Clien
 	}
 
 	return &http.Client{
-		Transport: newRetryTransport(transport, apiKey, retriable),
-		Timeout:   httpClientTimeout,
+		Transport:     newRetryTransport(transport, apiKey, retriable),
+		Timeout:       httpClientTimeout,
+		CheckRedirect: nil,
+		Jar:           nil,
 	}
 }
 
@@ -186,8 +188,11 @@ func newRateLimiter(p ratelimit.Policy) *rate.Limiter {
 
 // ping verifies connectivity and API key validity by fetching model list.
 func (o *Adapter) ping(ctx context.Context) error {
-	_, err := o.sdkClient.Models.List(ctx, nil, nil, nil)
-	return err
+	if _, err := o.sdkClient.Models.List(ctx, nil, nil, nil); err != nil {
+		return fmt.Errorf("openrouter list models: %w", err)
+	}
+
+	return nil
 }
 
 func (o *Adapter) validate() error {

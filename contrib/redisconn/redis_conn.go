@@ -29,7 +29,12 @@ func WithDNSMapping(mapping map[string]string) NewRedisUniversalConnectionOption
 	return func(params *newRedisClusterConnectionParams) { params.tempDNS = mapping }
 }
 
-func NewRedisUniversalConnection(ctx context.Context, addr *url.URL, log *slog.Logger, opts ...NewRedisUniversalConnectionOption) (conn redis.UniversalClient, prefix string, err error) {
+func NewRedisUniversalConnection(
+	ctx context.Context,
+	addr *url.URL,
+	log *slog.Logger,
+	opts ...NewRedisUniversalConnectionOption,
+) (conn redis.UniversalClient, prefix string, err error) {
 	params, err := parseRedisURL(addr)
 	if err != nil {
 		return nil, "", err
@@ -52,7 +57,12 @@ func NewRedisUniversalConnection(ctx context.Context, addr *url.URL, log *slog.L
 	return conn, params.KeyPrefix, nil
 }
 
-func newRedisClusterConnection(ctx context.Context, options *RedisConnParams, log *slog.Logger, opts ...NewRedisUniversalConnectionOption) (redis.UniversalClient, error) {
+func newRedisClusterConnection(
+	ctx context.Context,
+	options *RedisConnParams,
+	log *slog.Logger,
+	opts ...NewRedisUniversalConnectionOption,
+) (redis.UniversalClient, error) {
 	p := newRedisClusterConnectionParams{
 		tempDNS: nil,
 	}
@@ -94,7 +104,11 @@ func newRedisClusterConnection(ctx context.Context, options *RedisConnParams, lo
 			// we are not sure, does the node MUST pong, or not, so just warning.
 			//
 			// Moreover, we can't handle this error, here, LMAO, AROLF, KEKW 😂
-			log.Warn("new node added to connection, but can't ping", slog.String("addr", rdb.Options().Addr), slog.Any("err", err))
+			log.Warn(
+				"new node added to connection, but can't ping",
+				slog.String("addr", rdb.Options().Addr),
+				slog.Any("err", err),
+			)
 		} else {
 			log.Debug("new node added to connection", slog.String("addr", rdb.Options().Addr))
 		}
@@ -110,7 +124,12 @@ func newRedisClusterConnection(ctx context.Context, options *RedisConnParams, lo
 			slots += slotsSb104.String()
 
 			for _, node := range shard.Nodes {
-				log.Debug("foud node in a cluster, but can't check connection", slog.String("addr", node.Endpoint), slog.String("role", node.Role), slog.String("shard", slots))
+				log.Debug(
+					"foud node in a cluster, but can't check connection",
+					slog.String("addr", node.Endpoint),
+					slog.String("role", node.Role),
+					slog.String("shard", slots),
+				)
 			}
 		}
 	} else {
@@ -140,7 +159,11 @@ func NewRedisConnection(addr *url.URL, log *slog.Logger) (redis.UniversalClient,
 	return rdb, nil
 }
 
-func newRedisConnection(ctx context.Context, options *RedisConnParams, log *slog.Logger) (redis.UniversalClient, error) {
+func newRedisConnection(
+	ctx context.Context,
+	options *RedisConnParams,
+	log *slog.Logger,
+) (redis.UniversalClient, error) {
 	opts, err := options.setupOpts()
 	if err != nil {
 		return nil, err
@@ -153,7 +176,9 @@ func newRedisConnection(ctx context.Context, options *RedisConnParams, log *slog
 	}
 
 	if err := rdb.ClusterInfo(ctx).Err(); err == nil {
-		log.Warn("redis server is a cluster node, are you sure that it's a single node? recreating connection.")
+		log.Warn(
+			"redis server is a cluster node, are you sure that it's a single node? recreate conn",
+		)
 
 		// auto recreate cluster connection, it's too risky to just live with single connection.
 		rdb.Close()
@@ -202,7 +227,11 @@ func LinkValidatorUniversal(keyPrefixRequired bool) func(*url.URL) error {
 	}
 }
 
-func newRedisClusterConnOptions(u *url.URL, optionalSSLVerify bool, logger *slog.Logger) (*redis.ClusterOptions, error) {
+func newRedisClusterConnOptions(
+	u *url.URL,
+	optionalSSLVerify bool,
+	logger *slog.Logger,
+) (*redis.ClusterOptions, error) {
 	options, err := redis.ParseClusterURL(u.String())
 	if err != nil {
 		return nil, fmt.Errorf("invalid connection url: %w", err)
@@ -230,7 +259,11 @@ func newRedisClusterConnOptions(u *url.URL, optionalSSLVerify bool, logger *slog
 	return options, nil
 }
 
-func newRedisConnOptions(u *url.URL, optionalSSLVerify bool, logger *slog.Logger) (*redis.Options, error) {
+func newRedisConnOptions(
+	u *url.URL,
+	optionalSSLVerify bool,
+	logger *slog.Logger,
+) (*redis.Options, error) {
 	options, err := redis.ParseURL(u.String())
 	if err != nil {
 		return nil, fmt.Errorf("invalid connection url: %w", err)
@@ -258,29 +291,32 @@ func newRedisConnOptions(u *url.URL, optionalSSLVerify bool, logger *slog.Logger
 	return options, nil
 }
 
-func prepareURL(u *url.URL, log *slog.Logger) (modified *url.URL, optionalVerify bool, _ *slog.Logger) {
-	if u.Port() == "" {
-		u.Host = net.JoinHostPort(u.Hostname(), defaultPort)
+func prepareURL(
+	addr *url.URL,
+	log *slog.Logger,
+) (modified *url.URL, optionalVerify bool, _ *slog.Logger) {
+	if addr.Port() == "" {
+		addr.Host = net.JoinHostPort(addr.Hostname(), defaultPort)
 	}
 
 	// sslmode is our custom query parameter, so we need to remove it before
 	// checking from official lib
-	mode := strings.ToLower(u.Query().Get("sslmode"))
-	query := u.Query()
+	mode := strings.ToLower(addr.Query().Get("sslmode"))
+	query := addr.Query()
 	delete(query, "sslmode")
-	u.RawQuery = query.Encode()
+	addr.RawQuery = query.Encode()
 
 	switch mode {
 	case "disable":
-		return u, u.Scheme == "rediss", log
+		return addr, addr.Scheme == "rediss", log
 
 	case "required":
-		u.Scheme = "rediss"
+		addr.Scheme = "rediss"
 
-		return u, false, log
+		return addr, false, log
 
 	default:
-		return u, false, log
+		return addr, false, log
 	}
 }
 
@@ -298,7 +334,10 @@ func redisAfterConnectHook(ctx context.Context, conn *redis.Conn) error {
 }
 
 // default dialer from [redis.NewDialer]
-func redisNewDialer(dialTimeout time.Duration, tlsConfig *tls.Config) func(context.Context, string, string) (net.Conn, error) {
+func redisNewDialer(
+	dialTimeout time.Duration,
+	tlsConfig *tls.Config,
+) func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		netDialer := &net.Dialer{
 			Timeout:   dialTimeout,
@@ -330,10 +369,18 @@ func wrapLogs(log *slog.Logger, inner redis.DialHook) redis.DialHook {
 	}
 }
 
-func wrapDNSRemap(mappings map[string]string, log *slog.Logger, inner redis.DialHook) redis.DialHook {
+func wrapDNSRemap(
+	mappings map[string]string,
+	log *slog.Logger,
+	inner redis.DialHook,
+) redis.DialHook {
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		if newAddr, ok := mappings[addr]; ok {
-			log.Debug("found mapping for address", slog.String("old", addr), slog.String("new", newAddr))
+			log.Debug(
+				"found mapping for address",
+				slog.String("old", addr),
+				slog.String("new", newAddr),
+			)
 			addr = newAddr
 		}
 
@@ -419,6 +466,8 @@ func (c *clusterScanFixer) ProcessHook(next redis.ProcessHook) redis.ProcessHook
 	}
 }
 
-func (c *clusterScanFixer) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+func (c *clusterScanFixer) ProcessPipelineHook(
+	next redis.ProcessPipelineHook,
+) redis.ProcessPipelineHook {
 	return next
 }

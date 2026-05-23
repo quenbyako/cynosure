@@ -2,6 +2,9 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/quenbyako/cynosure/internal/domains/cynosure/primitives/ids"
 )
 
 const (
@@ -18,13 +21,29 @@ type (
 	}
 )
 
-func (c *Controller) UpdateAgent(ctx context.Context, in UpdateAgentInput) (struct{}, error) {
+func (c *Controller) UpdateAgent(
+	ctx context.Context,
+	input UpdateAgentInput,
+) (
+	struct{},
+	error,
+) {
 	userID, ok := FromContext(ctx)
 	if !ok {
 		return struct{}{}, ErrUnauthorized
 	}
 
-	_ = userID
+	agentID, err := ids.NewAgentIDFromString(userID, input.AgentID)
+	if err != nil {
+		return struct{}{}, fmt.Errorf("parsing agent ID: %w", err)
+	}
 
-	return struct{}{}, ErrUnimplemented
+	err = c.accounts.UpdateAgent(
+		ctx, userID, agentID, input.ModelName, input.SystemPrompt,
+	)
+	if err != nil {
+		return struct{}{}, fmt.Errorf("updating agent: %w", err)
+	}
+
+	return struct{}{}, nil
 }

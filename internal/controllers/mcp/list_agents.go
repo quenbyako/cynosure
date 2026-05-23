@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 )
 
 const (
@@ -11,11 +12,13 @@ const (
 
 type (
 	ListAgentsOutput struct {
-		Agents []struct {
-			AgentID   string `json:"agent_id"`
-			Name      string `json:"name"`
-			ModelName string `json:"model_name"`
-		} `json:"agents"`
+		Agents []AgentItem `json:"agents"`
+	}
+
+	AgentItem struct {
+		AgentID   string `json:"agent_id"`
+		Name      string `json:"name"`
+		ModelName string `json:"model_name"`
 	}
 )
 
@@ -25,7 +28,17 @@ func (c *Controller) ListAgents(ctx context.Context, _ struct{}) (ListAgentsOutp
 		return ListAgentsOutput{}, ErrUnauthorized
 	}
 
-	_ = userID
+	agents, err := c.accounts.ListAgents(ctx, userID)
+	if err != nil {
+		return ListAgentsOutput{}, fmt.Errorf("listing agents: %w", err)
+	}
 
-	return ListAgentsOutput{}, ErrUnimplemented
+	res := make([]AgentItem, len(agents))
+	for i, a := range agents {
+		res[i].AgentID = a.ID().ID().String()
+		// res[i].Name = a.Name()
+		res[i].ModelName = a.Model()
+	}
+
+	return ListAgentsOutput{Agents: res}, nil
 }

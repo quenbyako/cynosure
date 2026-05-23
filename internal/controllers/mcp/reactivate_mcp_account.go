@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 )
 
 const (
@@ -11,7 +12,7 @@ const (
 
 type (
 	ReactivateMcpAccountInput struct {
-		AccountID string `json:"account_id" jsonschema:"ID of the MCP account"`
+		Name string `json:"name" jsonschema:"Name of the account to reactivate (e.g. 'github')"`
 	}
 	ReactivateMcpAccountOutput struct {
 		AuthURL string `json:"auth_url,omitempty" jsonschema:"Optional auth link if token expired"`
@@ -20,7 +21,7 @@ type (
 
 func (c *Controller) ReactivateMcpAccount(
 	ctx context.Context,
-	in ReactivateMcpAccountInput,
+	input ReactivateMcpAccountInput,
 ) (
 	ReactivateMcpAccountOutput,
 	error,
@@ -30,7 +31,9 @@ func (c *Controller) ReactivateMcpAccount(
 		return ReactivateMcpAccountOutput{}, ErrUnauthorized
 	}
 
-	_ = userID
+	if err := c.accounts.ReactivateAccountByName(ctx, userID, input.Name); err != nil {
+		return ReactivateMcpAccountOutput{}, fmt.Errorf("reactivating account: %w", err)
+	}
 
-	return ReactivateMcpAccountOutput{}, ErrUnimplemented
+	return ReactivateMcpAccountOutput{}, nil
 }

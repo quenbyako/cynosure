@@ -57,7 +57,12 @@ func New(t *testing.T, fsys fs.FS, name string, opts ...recorder.Option) *record
 
 	matcher := cassette.NewDefaultMatcher(
 		cassette.WithIgnoreAuthorization(),
-		cassette.WithIgnoreHeaders("X-Goog-Api-Key", "Set-Cookie"),
+		cassette.WithIgnoreHeaders(
+			"Set-Cookie",
+			"User-Agent",
+			"X-Goog-Api-Client",
+			"X-Goog-Api-Key",
+		),
 	)
 
 	// Combine default mode and custom marshaler with user-provided options
