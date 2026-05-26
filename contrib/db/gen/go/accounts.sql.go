@@ -491,20 +491,29 @@ func (q *Queries) ReactivateAccountTools(ctx context.Context, accountID uuid.UUI
 }
 
 const searchToolsByEmbedding = `-- name: SearchToolsByEmbedding :many
-SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
-       1 - (t.embedding <=> $1::vector) AS similarity
-FROM agents.mcp_tools AS t
-JOIN agents.mcp_accounts AS a ON t.account_id = a.id
-WHERE t.deleted_at IS NULL
-  AND t.account_id = ANY($2::uuid[])
-ORDER BY t.embedding <=> $1::vector
-LIMIT $3
+WITH ranked_tools AS (
+    SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
+           1 - (t.embedding <=> $2::vector) AS similarity,
+           ROW_NUMBER() OVER (
+               PARTITION BY t.account_id
+               ORDER BY t.embedding <=> $2::vector ASC
+           ) AS rank_per_domain
+    FROM agents.mcp_tools AS t
+    JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+    WHERE t.deleted_at IS NULL
+      AND t.account_id = ANY($3::uuid[])
+)
+SELECT id, account_id, name, description, input, output, embedding, deleted_at, account_name, similarity
+FROM ranked_tools
+WHERE rank_per_domain <= 3
+ORDER BY similarity DESC
+LIMIT $1
 `
 
 type SearchToolsByEmbeddingParams struct {
+	LimitCount     int64
 	QueryEmbedding *pgvector.Vector
 	AccountIds     []uuid.UUID
-	LimitCount     int64
 }
 
 type SearchToolsByEmbeddingRow struct {
@@ -525,7 +534,7 @@ type SearchToolsByEmbeddingRow struct {
 //
 // Returns: Tools ordered by similarity (closest first).
 func (q *Queries) SearchToolsByEmbedding(ctx context.Context, arg SearchToolsByEmbeddingParams) ([]SearchToolsByEmbeddingRow, error) {
-	rows, err := q.db.Query(ctx, searchToolsByEmbedding, arg.QueryEmbedding, arg.AccountIds, arg.LimitCount)
+	rows, err := q.db.Query(ctx, searchToolsByEmbedding, arg.LimitCount, arg.QueryEmbedding, arg.AccountIds)
 	if err != nil {
 		return nil, err
 	}
