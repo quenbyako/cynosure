@@ -160,13 +160,23 @@ WHERE id = sqlc.arg('tool_id');
 --
 -- Returns: Tools ordered by similarity (closest first).
 -- name: SearchToolsByEmbedding :many
-SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
-       1 - (t.embedding <=> sqlc.arg('query_embedding')::vector) AS similarity
-FROM agents.mcp_tools AS t
-JOIN agents.mcp_accounts AS a ON t.account_id = a.id
-WHERE t.deleted_at IS NULL
-  AND t.account_id = ANY(sqlc.arg('account_ids')::uuid[])
-ORDER BY t.embedding <=> sqlc.arg('query_embedding')::vector
+-- name: SearchToolsByEmbedding :many
+WITH ranked_tools AS (
+    SELECT t.id, t.account_id, t.name, t.description, t.input, t.output, t.embedding, t.deleted_at, a.name AS account_name,
+           1 - (t.embedding <=> sqlc.arg('query_embedding')::vector) AS similarity,
+           ROW_NUMBER() OVER (
+               PARTITION BY t.account_id
+               ORDER BY t.embedding <=> sqlc.arg('query_embedding')::vector ASC
+           ) AS rank_per_domain
+    FROM agents.mcp_tools AS t
+    JOIN agents.mcp_accounts AS a ON t.account_id = a.id
+    WHERE t.deleted_at IS NULL
+      AND t.account_id = ANY(sqlc.arg('account_ids')::uuid[])
+)
+SELECT id, account_id, name, description, input, output, embedding, deleted_at, account_name, similarity
+FROM ranked_tools
+WHERE rank_per_domain <= 3
+ORDER BY similarity DESC
 LIMIT sqlc.arg('limit_count');
 
 -- name: GetTool :one
