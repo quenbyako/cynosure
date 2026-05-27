@@ -25,13 +25,34 @@ builds:
     goarch:
       - amd64
       - arm64
-    # goarm64:
-    #   - "v8.0"
     ignore:
       - goos: linux
         goarch: arm64
       - goos: darwin
         goarch: amd64
 
-upx:
-  - enabled: true
+dockers_v2:
+  - images:
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}"
+    tags:
+      - "v{{ .Version }}"
+      - "{{ if .IsNightly }}nightly{{ end }}"
+      - "{{ if not .IsNightly }}latest{{ end }}"
+    flags:
+      - "--build-arg=PRIMARY_APP_NAME=cynosure"
+      - "--build-arg=APP_VERSION={{.Version}}"
+      - "--build-arg=APP_COMMIT={{.Commit}}"
+      - "--build-arg=APP_DATE={{.Date}}"
+    dockerfile: Dockerfile
+
+    annotations:
+      "org.opencontainers.image.description": "Cynosure AI Runtime"
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.name": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+
+      # You can also use `.BaseImage` and `.BaseImageDigest`.
+      "org.opencontainers.image.base.name": "{{.BaseImage}}"
+      "org.opencontainers.image.base.digest": "{{.BaseImageDigest}}"
