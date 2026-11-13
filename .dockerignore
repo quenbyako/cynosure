@@ -36,6 +36,7 @@ cynosure
 
 # Go
 vendor/
+dist/
 
 # Environment files (never include in image)
 *.env

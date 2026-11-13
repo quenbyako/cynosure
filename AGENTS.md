@@ -1,5 +1,25 @@
 # Global Project Rules
 
+## OpenSpec Instructions
+
+As an AI assistant, follow these rules working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+## Natural Language Constraints
+
+Wherever you need to produce any natural text, e.g. comments, documentation, commit messages, **NEVER EVER** use any language except British English language. Exception: chat ansers and internal artifacts (outside of repository) are allowed, but writing anything to the code, configs, comments, etc. **MUST** be in British English language.
+
 ## Architectural Invariants
 
 - Every directory **SHOULD** contain an `AGENTS.md` file describing its purpose and specific rules.

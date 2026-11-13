@@ -521,8 +521,6 @@ github.com/quenbyako/core/contrib/runtime v0.0.0-20260420004157-c5a938b351eb h1:
 github.com/quenbyako/core/contrib/runtime v0.0.0-20260420004157-c5a938b351eb/go.mod h1:5qS4mdqnyx/DLc2LlTQ6H4SCo9XxqiuUrqFNtxsJ90U=
 github.com/quenbyako/core/contrib/secrets v0.0.0-20260420004157-c5a938b351eb h1:EY38fKsJSUr0zqlajd2cQ5i9K56reVmVmPDXwIkBERw=
 github.com/quenbyako/core/contrib/secrets v0.0.0-20260420004157-c5a938b351eb/go.mod h1:iX0mOdWXF5HQ1PJVRyy0Qz/3AjiBs7Pq+kxs77DC/vM=
-github.com/quenbyako/ext v0.0.0-20260519134725-bc8a745c88ce h1:4sPRjT+aZfkxzS5B7A0swL+AH5NiExsTT/5rX3MnQ/o=
-github.com/quenbyako/ext v0.0.0-20260519134725-bc8a745c88ce/go.mod h1:L3wYF128qqg62LS3Jvwgx+HpCp53Tf46beJdYSRWf9I=
 github.com/quenbyako/ext v0.0.0-20260523135029-e7e609a54c35 h1:X0BVuX1jEnsMEsatV3r0cXCqhD4hd6oq7Ew1V9caDW4=
 github.com/quenbyako/ext v0.0.0-20260523135029-e7e609a54c35/go.mod h1:L3wYF128qqg62LS3Jvwgx+HpCp53Tf46beJdYSRWf9I=
 github.com/redis/go-redis/v9 v9.19.0 h1:XPVaaPSnG6RhYf7p+rmSa9zZfeVAnWsH5h3lxthOm/k=
