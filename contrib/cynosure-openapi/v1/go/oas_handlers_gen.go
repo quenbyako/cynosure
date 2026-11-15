@@ -30,8 +30,8 @@ func recordError(string, error) {}
 
 // handleGetAgentCardRequest handles GetAgentCard operation.
 //
-// This endpoint provides the agent card information for A2A agents.
-// It is used to display the client information in the agent card format.
+// This endpoint provides the agent card information for A2A agents. It is used to display the client
+// information in the agent card format.
 //
 // GET /.well-known/agent-card.json
 func (s *Server) handleGetAgentCardRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -115,10 +115,9 @@ func (s *Server) handleGetAgentCardRequest(args [0]string, argsEscaped bool, w h
 
 // handleOAuthCallbackGetRequest handles GET /oauth/callback operation.
 //
-// This endpoint receives the authorization code and state from the OAuth2
-// provider after a user successfully authenticates. The application should
-// validate the state and then use the code to request an access token from
-// the provider's token endpoint.
+// This endpoint receives the authorization code and state from the OAuth2 provider after a user
+// successfully authenticates. The application should validate the state and then use the code to
+// request an access token from the provider's token endpoint.
 //
 // GET /oauth/callback
 func (s *Server) handleOAuthCallbackGetRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {

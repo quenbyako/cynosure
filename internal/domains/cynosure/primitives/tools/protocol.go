@@ -8,7 +8,6 @@ import (
 // Protocol defines the communication protocol used by a tool.
 //
 //go:generate go tool stringer -type=Protocol -linecomment -output=protocol_string.gen.go
-//nolint:recvcheck // String() is generated with value receiver by stringer
 type Protocol uint8
 
 const (

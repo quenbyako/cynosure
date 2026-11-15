@@ -12,8 +12,8 @@ func TestProtocolFallbackDecisionLogic(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
-		name           string
 		firstErr       error
+		name           string
 		shouldFallback bool
 	}{{
 		name: "Protocol error triggers fallback",

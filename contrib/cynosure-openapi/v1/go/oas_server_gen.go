@@ -10,17 +10,16 @@ import (
 type Handler interface {
 	// GetAgentCard implements GetAgentCard operation.
 	//
-	// This endpoint provides the agent card information for A2A agents.
-	// It is used to display the client information in the agent card format.
+	// This endpoint provides the agent card information for A2A agents. It is used to display the client
+	// information in the agent card format.
 	//
 	// GET /.well-known/agent-card.json
 	GetAgentCard(ctx context.Context, params GetAgentCardParams) (GetAgentCardRes, error)
 	// OAuthCallbackGet implements GET /oauth/callback operation.
 	//
-	// This endpoint receives the authorization code and state from the OAuth2
-	// provider after a user successfully authenticates. The application should
-	// validate the state and then use the code to request an access token from
-	// the provider's token endpoint.
+	// This endpoint receives the authorization code and state from the OAuth2 provider after a user
+	// successfully authenticates. The application should validate the state and then use the code to
+	// request an access token from the provider's token endpoint.
 	//
 	// GET /oauth/callback
 	OAuthCallbackGet(ctx context.Context, params OAuthCallbackGetParams) (OAuthCallbackGetRes, error)

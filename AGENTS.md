@@ -1,5 +1,9 @@
 # Global Project Rules
 
+## Natural Language Constraints
+
+Wherever you need to produce any natural text, e.g. comments, documentation, commit messages, **NEVER EVER** use any language except British English language. Exception: chat ansers and internal artifacts (outside of repository) are allowed, but writing anything to the code, configs, comments, etc. **MUST** be in British English language.
+
 ## Architectural Invariants
 
 - Every directory **SHOULD** contain an `AGENTS.md` file describing its purpose and specific rules.
@@ -103,7 +107,9 @@ List of all recorded test suites and env vars that control them:
 
 ### Cassette Expiration
 
-General policy Cassettes have a TTL of **30 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.
+General policy Cassettes have a TTL of **365 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.
+
+The `gemini`, `openrouter` and `ory` cassettes were recorded in May 2026 and have not been refreshed since, because re-recording needs paid API access. They will expire in May 2027.
 
 ## Automated Code Formatting and Linting
 

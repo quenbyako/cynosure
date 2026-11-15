@@ -171,9 +171,9 @@ func (h *testServerHandler) handleJSONRPCRequest(w http.ResponseWriter, r *http.
 
 func (h *testServerHandler) respondJSONRPC(w http.ResponseWriter, id int, result any) {
 	resp := struct {
+		Result  any    `json:"result"`
 		JSONRPC string `json:"jsonrpc"`
 		ID      int    `json:"id"`
-		Result  any    `json:"result"`
 	}{
 		JSONRPC: "2.0",
 		ID:      id,

@@ -17,8 +17,8 @@ func TestClassifyError_Infrastructure(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
-		name string
 		err  error
+		name string
 		want bool
 	}{{
 		name: "DNS lookup failure",
@@ -60,8 +60,8 @@ func TestClassifyError_Protocol(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
-		name string
 		err  error
+		name string
 		want bool
 	}{{
 		name: "HTTP 400 Bad Request",
@@ -104,8 +104,8 @@ func TestClassifyError_Auth(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
-		name string
 		err  error
+		name string
 		want bool
 	}{{
 		name: "HTTP 401 Unauthorized",

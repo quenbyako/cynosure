@@ -40,17 +40,16 @@ func TestChat_AcceptUserMessage_RAG_Orchestration(t *testing.T) {
 
 type chatFixture struct {
 	t                   *testing.T
-	user                ids.UserID
-	server              ids.ServerID
-	threadID            ids.ThreadID
 	indexer             *mocks.Embedding
 	toolStorage         *mocks.MockToolStorage
 	accountStorage      *mocks.Accounts
 	threadStorage       *mocks.MockThreadStorage
 	limiter             *mocks.RateLimiter
+	_chat               *chat.Chat
+	threadID            ids.ThreadID
 	toolboxContextLimit uint
-
-	_chat *chat.Chat
+	user                ids.UserID
+	server              ids.ServerID
 }
 
 func newChatFixture(t *testing.T) *chatFixture {

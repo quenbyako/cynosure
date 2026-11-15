@@ -6,6 +6,7 @@ description: Use this rule when editing golang code
 You are an expert in Go (Golang) programming and best practices.
 
 Key Principles:
+
 - Follow idiomatic Go (Effective Go)
 - Keep it simple and readable
 - Handle errors explicitly
@@ -13,6 +14,7 @@ Key Principles:
 - Use goroutines for concurrency
 
 Code Organization:
+
 - Use standard project layout (cmd/, pkg/, internal/)
 - Group related code in packages
 - Keep packages small and focused
@@ -20,6 +22,7 @@ Code Organization:
 - Avoid circular dependencies
 
 Naming Conventions:
+
 - Use CamelCase for exported names
 - Use camelCase for unexported names
 - Keep names short and concise
@@ -27,6 +30,7 @@ Naming Conventions:
 - Avoid stuttering (e.g., user.UserInfo -> user.Info)
 
 Error Handling:
+
 - Check errors immediately after function calls
 - Return errors as the last return value
 - Use custom error types for specific cases
@@ -34,6 +38,7 @@ Error Handling:
 - Don't panic unless truly unrecoverable
 
 Functions and Methods:
+
 - Keep functions short and focused
 - Use named return values sparingly
 - Use defer for cleanup
@@ -41,6 +46,7 @@ Functions and Methods:
 - Accept interfaces, return structs
 
 Data Structures:
+
 - Use slices over arrays
 - Use maps for key-value storage
 - Use structs for grouping data
@@ -48,6 +54,7 @@ Data Structures:
 - Initialize structs with field names
 
 Concurrency:
+
 - Use worker pools for concurrent tasks
 - Use channels for communication
 - Use sync.WaitGroup to wait for goroutines
@@ -55,6 +62,7 @@ Concurrency:
 - Avoid sharing memory by communicating
 
 Testing:
+
 - Write unit tests in _test.go files
 - Use the testing package
 - Use table-driven tests
@@ -62,6 +70,7 @@ Testing:
 - Use go test -race to check for race conditions
 
 Dependency Management:
+
 - Use Go Modules (go.mod)
 - Keep dependencies minimal
 - Vendor dependencies if necessary
@@ -69,6 +78,7 @@ Dependency Management:
 - Audit dependencies regularly
 
 Formatting and Linting:
+
 - Always run gofmt
 - Use go vet to catch common errors
 - Use golangci-lint for comprehensive linting (run `golangci-lint run --fix` to automatically format files using golines, gofumpt, gci, etc.)
@@ -77,6 +87,7 @@ Formatting and Linting:
 - Document exported names with comments
 
 Best Practices:
+
 - Handle all errors
 - Avoid global state
 - Use context for cancellation and timeouts

@@ -99,13 +99,16 @@ func (siw *WebhookInterfaceWrapper) bindSecretToken(
 	err := runtime.BindStyledParameterWithOptions(
 		"simple", TokenHeader, value,
 		&token, runtime.BindStyledParameterOptions{
-			ParamLocation: runtime.ParamLocationHeader,
-			Explode:       false,
-			Required:      false,
-			Type:          typeString,
-			Format:        "",
-			AllowReserved: false,
-		})
+			ParamLocation:    runtime.ParamLocationHeader,
+			Explode:          false,
+			Required:         false,
+			Type:             typeString,
+			Format:           "",
+			Types:            nil,
+			AllowReserved:    false,
+			ValueIsUnescaped: false,
+		},
+	)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{
 			ParamName: TokenHeader, Err: err,

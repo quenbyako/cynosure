@@ -36,6 +36,7 @@ func buildNewParams(opts ...NewOption) newParams {
 }
 
 func (p *newParams) buildServerOptions() *mcp.ServerOptions {
+	//nolint:exhaustruct // deprecated Has* fields are omitted on purpose
 	return &mcp.ServerOptions{
 		Instructions: "",
 		//nolint:forbidigo // there is a reason to use it
@@ -49,9 +50,6 @@ func (p *newParams) buildServerOptions() *mcp.ServerOptions {
 		SubscribeHandler:            nil,
 		UnsubscribeHandler:          nil,
 		Capabilities:                nil,
-		HasPrompts:                  false,
-		HasResources:                false,
-		HasTools:                    false,
 		SchemaCache:                 nil,
 		GetSessionID:                nil,
 	}
@@ -104,6 +102,7 @@ func buildMux(srv *mcp.Server) *http.ServeMux {
 
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(
 		func(r *http.Request) *mcp.Server { return srv },
+		//nolint:exhaustruct // deprecated CrossOriginProtection is omitted on purpose
 		&mcp.StreamableHTTPOptions{
 			JSONResponse:               true,
 			Stateless:                  false,
@@ -111,7 +110,6 @@ func buildMux(srv *mcp.Server) *http.ServeMux {
 			EventStore:                 nil,
 			SessionTimeout:             0,
 			DisableLocalhostProtection: false,
-			CrossOriginProtection:      nil,
 		},
 	))
 

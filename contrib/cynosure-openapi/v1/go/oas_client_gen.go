@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"context"
+	"io"
 	"net/url"
 	"strings"
 
@@ -22,8 +23,8 @@ func trimTrailingSlashes(u *url.URL) {
 type Invoker interface {
 	// GetAgentCard invokes GetAgentCard operation.
 	//
-	// This endpoint provides the agent card information for A2A agents.
-	// It is used to display the client information in the agent card format.
+	// This endpoint provides the agent card information for A2A agents. It is
+	// used to display the client information in the agent card format.
 	//
 	// GET /.well-known/agent-card.json
 	GetAgentCard(ctx context.Context, params GetAgentCardParams) (GetAgentCardRes, error)
@@ -79,8 +80,8 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 
 // GetAgentCard invokes GetAgentCard operation.
 //
-// This endpoint provides the agent card information for A2A agents.
-// It is used to display the client information in the agent card format.
+// This endpoint provides the agent card information for A2A agents. It is used
+// to display the client information in the agent card format.
 //
 // GET /.well-known/agent-card.json
 func (c *Client) GetAgentCard(ctx context.Context, params GetAgentCardParams) (GetAgentCardRes, error) {
@@ -121,7 +122,13 @@ func (c *Client) sendGetAgentCard(ctx context.Context, params GetAgentCardParams
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying connection
+		// can be reused by the Transport regardless of the response status
+		// code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	result, err := decodeGetAgentCardResponse(resp)
 	if err != nil {
@@ -135,8 +142,8 @@ func (c *Client) sendGetAgentCard(ctx context.Context, params GetAgentCardParams
 //
 // This endpoint receives the authorization code and state from the OAuth2
 // provider after a user successfully authenticates. The application should
-// validate the state and then use the code to request an access token from
-// the provider's token endpoint.
+// validate the state and then use the code to request an access token from the
+// provider's token endpoint.
 //
 // GET /oauth/callback
 func (c *Client) OAuthCallbackGet(ctx context.Context, params OAuthCallbackGetParams) (OAuthCallbackGetRes, error) {
@@ -195,7 +202,13 @@ func (c *Client) sendOAuthCallbackGet(ctx context.Context, params OAuthCallbackG
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying connection
+		// can be reused by the Transport regardless of the response status
+		// code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	result, err := decodeOAuthCallbackGetResponse(resp)
 	if err != nil {

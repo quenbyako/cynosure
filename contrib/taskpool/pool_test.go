@@ -155,7 +155,7 @@ func TestTaskPool_Lifecycle(t *testing.T) {
 	require.True(t, pool.Submit(context.Background(), 1))
 
 	cancel()
-	<-poolErr
+	require.NoError(t, <-poolErr)
 
 	// Submit after shutdown should fail
 	assert.False(t, pool.Submit(context.Background(), 1))

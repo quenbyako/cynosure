@@ -150,15 +150,23 @@ func newGeminiConfig(key SecretGetter, client http.RoundTripper) *genai.ClientCo
 			Jar:           nil,
 			Timeout:       time.Minute,
 		},
-		HTTPOptions: genai.HTTPOptions{
-			BaseURL:               "",
-			BaseURLResourceScope:  "",
-			APIVersion:            "",
-			Headers:               nil,
-			Timeout:               nil,
-			ExtraBody:             nil,
-			ExtrasRequestProvider: nil,
-		},
+		HTTPOptions: emptyHTTPOptions(),
+	}
+}
+
+// emptyHTTPOptions returns HTTP options with every field set explicitly to
+// its zero value, so the transport configuration stays the only source of
+// request behaviour.
+func emptyHTTPOptions() genai.HTTPOptions {
+	return genai.HTTPOptions{
+		BaseURL:               "",
+		BaseURLResourceScope:  "",
+		APIVersion:            "",
+		Headers:               nil,
+		Timeout:               nil,
+		RetryOptions:          nil,
+		ExtraBody:             nil,
+		ExtrasRequestProvider: nil,
 	}
 }
 
