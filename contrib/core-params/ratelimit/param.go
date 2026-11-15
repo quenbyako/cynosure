@@ -24,8 +24,6 @@ func NewPolicy(limit int, period time.Duration) Policy {
 
 // Policy defines a rate limit policy with a limit and burst.
 // It implements encoding.TextUnmarshaler to allow parsing from strings like "20/1h".
-//
-//nolint:recvcheck // it's necessary to use value receiver to prevent modifying envs
 type Policy struct {
 	period time.Duration
 	limit  int

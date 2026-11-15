@@ -80,6 +80,9 @@ func assistantReasoningPart(reasoning string) *genai.Part {
 	return &genai.Part{
 		Thought:             true,
 		Text:                reasoning,
+		AudioTranscription:  nil,
+		MediaProcessing:     "",
+		SpeechMetadata:      nil,
 		MediaResolution:     nil,
 		CodeExecutionResult: nil,
 		ExecutableCode:      nil,
@@ -98,6 +101,9 @@ func assistantReasoningPart(reasoning string) *genai.Part {
 func assistantContentPart(text string) *genai.Part {
 	return &genai.Part{
 		Text:                text,
+		AudioTranscription:  nil,
+		MediaProcessing:     "",
+		SpeechMetadata:      nil,
 		MediaResolution:     nil,
 		CodeExecutionResult: nil,
 		ExecutableCode:      nil,

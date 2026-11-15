@@ -246,6 +246,14 @@ linters:
         - .WithMessagef(
         - .WithStack(
         - status.Error(
+        # Domain error constructors already return the final typed error:
+        # callers match them with errors.As, so wrapping would only
+        # duplicate the message.
+        - .ErrPreflightFailed(
+        - .ErrRateLimitExceeded(
+        - .ErrRequiresAuth(
+        - .ErrDynamicClientRegistrationNotSupported(
+        - .ErrInvalidEnum(
     grouper:
       const-require-grouping: true
       import-require-grouping: true
@@ -294,7 +302,7 @@ linters:
     exhaustive:
       check:
         - switch
-        - map
+        - mapliteral
     ireturn:
       allow:
         - stdlib

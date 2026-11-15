@@ -69,8 +69,8 @@ type AgentExtension struct {
 	Description OptString `json:"description"`
 	// Optional, extension-specific configuration parameters.
 	Params OptAgentExtensionParams `json:"params"`
-	// If true, the client must understand and comply with the extension's requirements
-	// to interact with the agent.
+	// If true, the client must understand and comply with the extension's requirements to interact with
+	// the agent.
 	Required OptBool `json:"required"`
 	// The unique URI identifying the extension.
 	URI string `json:"uri"`
@@ -131,11 +131,11 @@ func (s *AgentExtensionParams) init() AgentExtensionParams {
 // Represents a distinct capability or function that an agent can perform.
 // Ref: #/components/schemas/AgentSkill
 type AgentSkill struct {
-	// A detailed description of the skill, intended to help clients or users
-	// understand its purpose and functionality.
+	// A detailed description of the skill, intended to help clients or users understand its purpose and
+	// functionality.
 	Description string `json:"description"`
-	// Example prompts or scenarios that this skill can handle. Provides a hint to
-	// the client on how to use the skill.
+	// Example prompts or scenarios that this skill can handle. Provides a hint to the client on how to use
+	// the skill.
 	Examples []string `json:"examples"`
 	// A unique identifier for the agent's skill.
 	ID string `json:"id"`
@@ -145,10 +145,9 @@ type AgentSkill struct {
 	Name string `json:"name"`
 	// The set of supported output MIME types for this skill, overriding the agent's defaults.
 	OutputModes []string `json:"outputModes"`
-	// Security schemes necessary for the agent to leverage this skill.
-	// As in the overall AgentCard.security, this list represents a logical OR of security
-	// requirement objects. Each object is a set of security schemes that must be used together
-	// (a logical AND).
+	// Security schemes necessary for the agent to leverage this skill. As in the overall
+	// AgentCard.security, this list represents a logical OR of security requirement objects. Each object
+	// is a set of security schemes that must be used together (a logical AND).
 	Security []AgentSkillSecurityItem `json:"security"`
 	// A set of keywords describing the skill's capabilities.
 	Tags []string `json:"tags"`
@@ -292,27 +291,28 @@ type GetAgentCardOK struct {
 	ProtocolVersion string `json:"protocolVersion"`
 	// A human-readable name for the agent.
 	Name string `json:"name"`
-	// A human-readable description of the agent, assisting users and other agents
-	// in understanding its purpose.
+	// A human-readable description of the agent, assisting users and other agents in understanding its
+	// purpose.
 	Description string `json:"description"`
-	// The preferred endpoint URL for interacting with the agent.
-	// This URL MUST support the transport specified by 'preferredTransport'.
+	// The preferred endpoint URL for interacting with the agent. This URL MUST support the transport
+	// specified by 'preferredTransport'.
 	URL string `json:"url"`
-	// The transport protocol for the preferred endpoint (the main 'url' field).
-	// If not specified, defaults to 'JSONRPC'.
-	// IMPORTANT: The transport specified here MUST be available at the main 'url'.
-	// This creates a binding between the main URL and its supported transport protocol.
-	// Clients should prefer this transport and URL combination when both are supported.
+	// The transport protocol for the preferred endpoint (the main 'url' field). If not specified, defaults
+	// to 'JSONRPC'.
+	//
+	// IMPORTANT: The transport specified here MUST be available at the main 'url'. This creates a binding
+	// between the main URL and its supported transport protocol. Clients should prefer this transport and
+	// URL combination when both are supported.
 	PreferredTransport OptGetAgentCardOKPreferredTransport `json:"preferredTransport"`
 	// The agent's own version number. The format is defined by the provider.
 	Version string `json:"version"`
 	// A declaration of optional capabilities supported by the agent.
 	Capabilities AgentCapabilities `json:"capabilities"`
-	// Default set of supported input MIME types for all skills, which can be
-	// overridden on a per-skill basis.
+	// Default set of supported input MIME types for all skills, which can be overridden on a per-skill
+	// basis.
 	DefaultInputModes []string `json:"defaultInputModes"`
-	// Default set of supported output MIME types for all skills, which can be
-	// overridden on a per-skill basis.
+	// Default set of supported output MIME types for all skills, which can be overridden on a per-skill
+	// basis.
 	DefaultOutputModes []string `json:"defaultOutputModes"`
 	// The set of skills, or distinct capabilities, that the agent can perform.
 	Skills []AgentSkill `json:"skills"`
@@ -420,11 +420,12 @@ func (s *GetAgentCardOK) SetSkills(val []AgentSkill) {
 
 func (*GetAgentCardOK) getAgentCardRes() {}
 
-// The transport protocol for the preferred endpoint (the main 'url' field).
-// If not specified, defaults to 'JSONRPC'.
-// IMPORTANT: The transport specified here MUST be available at the main 'url'.
-// This creates a binding between the main URL and its supported transport protocol.
-// Clients should prefer this transport and URL combination when both are supported.
+// The transport protocol for the preferred endpoint (the main 'url' field). If not specified, defaults
+// to 'JSONRPC'.
+//
+// IMPORTANT: The transport specified here MUST be available at the main 'url'. This creates a binding
+// between the main URL and its supported transport protocol. Clients should prefer this transport and
+// URL combination when both are supported.
 type GetAgentCardOKPreferredTransport string
 
 const (

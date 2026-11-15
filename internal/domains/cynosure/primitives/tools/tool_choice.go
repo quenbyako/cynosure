@@ -7,7 +7,6 @@ import (
 // ToolChoice controls how the model calls tools (if any).
 //
 //go:generate go tool stringer -type=ToolChoice -linecomment -output=tool_choice_string.gen.go
-//nolint:recvcheck // String() is generated with value receiver by stringer
 type ToolChoice uint8
 
 const (

@@ -13,9 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// CassetteTTL is the default time-to-live for a VCR cassette.
+// CassetteTTL is the default time-to-live for a VCR cassette. It is a year
+// because re-recording needs paid API access that is not always available.
 const (
-	CassetteTTL = 30 * 24 * time.Hour
+	CassetteTTL = 365 * 24 * time.Hour
 )
 
 type cassetteWrapper struct {

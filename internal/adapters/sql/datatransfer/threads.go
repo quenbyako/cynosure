@@ -163,7 +163,8 @@ func mapToolResult(row *db.GetThreadWithMessagesRow, mergeTag uint64) (messages.
 	if isError {
 		msg, err := messages.NewMessageToolError(
 			content, *row.ResultToolName, *row.ResultToolCallID,
-			messages.WithMessageToolErrorMergeTag(mergeTag))
+			messages.WithMessageToolErrorMergeTag(mergeTag),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("new tool error: %w", err)
 		}

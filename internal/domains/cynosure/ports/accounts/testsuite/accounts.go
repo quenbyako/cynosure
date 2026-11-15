@@ -644,7 +644,8 @@ func (s *godogState) thenSearchResultsDoNotContain(name string) error {
 		if res.ID() == id {
 			return fmt.Errorf(
 				"%w: search results unexpectedly contain account %s",
-				errVerificationFailed, name)
+				errVerificationFailed, name,
+			)
 		}
 	}
 

@@ -1,21 +1,5 @@
 # Global Project Rules
 
-## OpenSpec Instructions
-
-As an AI assistant, follow these rules working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
 ## Natural Language Constraints
 
 Wherever you need to produce any natural text, e.g. comments, documentation, commit messages, **NEVER EVER** use any language except British English language. Exception: chat ansers and internal artifacts (outside of repository) are allowed, but writing anything to the code, configs, comments, etc. **MUST** be in British English language.
@@ -123,7 +107,9 @@ List of all recorded test suites and env vars that control them:
 
 ### Cassette Expiration
 
-General policy Cassettes have a TTL of **30 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.
+General policy Cassettes have a TTL of **365 days**. If a cassette is expired, the test will fail with an error. Follow the "Recording" instructions above to refresh them.
+
+The `gemini`, `openrouter` and `ory` cassettes were recorded in May 2026 and have not been refreshed since, because re-recording needs paid API access. They will expire in May 2027.
 
 ## Automated Code Formatting and Linting
 

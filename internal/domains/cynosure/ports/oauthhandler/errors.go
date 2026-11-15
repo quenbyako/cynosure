@@ -32,7 +32,6 @@ type RequiresAuthError struct {
 	suggestedMetadataEndpoint *url.URL
 }
 
-//nolint:errcheck // interface check
 var _ error = (*RequiresAuthError)(nil)
 
 func ErrRequiresAuth(metadataEndpoint *url.URL) *RequiresAuthError {
@@ -56,7 +55,6 @@ type DynamicClientRegistrationNotSupportedError struct {
 	resourceDocumentationEndpoint *url.URL
 }
 
-//nolint:errcheck // interface check
 var _ error = (*DynamicClientRegistrationNotSupportedError)(nil)
 
 func ErrDynamicClientRegistrationNotSupported(
